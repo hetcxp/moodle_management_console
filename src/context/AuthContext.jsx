@@ -1,0 +1,109 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { AuthService } from '../services/auth.js';
+import { AdminerApi } from '../services/adminer-api.js';
+
+const AuthContext = createContext(null);
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(AuthService.getUser());
+  const [token, setToken] = useState(AuthService.getToken());
+  const [permissions, setPermissions] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchPermissions = async () => {
+    try {
+      const perms = await AdminerApi.getPermissions();
+      setPermissions(perms);
+    } catch (err) {
+      console.warn('Could not fetch permissions, setting default admin permissions:', err);
+      // Fallback if permissions service fails or user is admin
+      setPermissions({
+        is_siteadmin: 0,
+        can_config_site: 0,
+        can_view_courses: 0,
+        can_create_courses: 0,
+        can_update_courses: 0,
+        can_delete_courses: 0,
+        can_manage_categories: 0,
+        can_view_users: 0,
+        can_update_users: 0,
+        can_delete_users: 0,
+        can_view_cohorts: 0,
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (token && user) {
+      fetchPermissions().finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    const handleAuthError = (e) => {
+      console.warn('Moodle Auth Error:', e.detail);
+      logout();
+    };
+    window.addEventListener('moodle-auth-error', handleAuthError);
+    return () => window.removeEventListener('moodle-auth-error', handleAuthError);
+  }, []);
+
+  const login = async (username, password, remember = true) => {
+    setLoading(true);
+    try {
+      await AuthService.login(username, password, remember);
+      const curUser = AuthService.getUser();
+      const curToken = AuthService.getToken();
+      setUser(curUser);
+      setToken(curToken);
+      return true;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithToken = async (manualToken) => {
+    setLoading(true);
+    try {
+      const validUser = await AuthService.validateToken(manualToken);
+      setUser(validUser);
+      setToken(manualToken);
+      return true;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = () => {
+    AuthService.logout();
+    setUser(null);
+    setToken(null);
+    setPermissions(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      token,
+      permissions,
+      loading,
+      isAuthenticated: !!token && !!user,
+      login,
+      loginWithToken,
+      logout,
+      reloadPermissions: fetchPermissions
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
