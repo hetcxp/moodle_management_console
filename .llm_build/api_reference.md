@@ -12,15 +12,24 @@
 - **Returns:** `{ counts: { courses, users, cohorts, categories } }`
 
 ### 2. Courses
-- **Function:** `local_adminer_get_courses`
-- **Params:** `page, perpage, sort, dir, search, category, visibility`
-- **Function:** `local_adminer_course_action`
-- **Params:** `action (hide, show, delete, move, create), courseids, categoryid, fullname, shortname, summary, visible`
+  - **Function:** `local_adminer_get_courses`
+  - **Params:** `page, perpage, sort, dir, search, category, visibility, filters` (filters JSON supports `empty_only`)
+  - **Returns:** `{ courses: [...], totalcount: int, kpis: { total_courses, total_enrolled, avg_progress, empty_courses } }`
+  - **Function:** `local_adminer_course_action`
+  - **Params:** `action (hide, show, delete, move, create), courseids, categoryid, fullname, shortname, summary, visible, startdate, enddate`
 - **Function:** `local_adminer_get_course_detail`
 - **Params:** `courseid`
 - **Returns:** Enrolled users (with progress) and linked cohorts.
 - **Function:** `local_adminer_course_cohort_action`
-- **Params:** `action (add, remove), courseid, cohortids[]`
+- **Params:** `action (add, remove, suspend, activate, setgroup, message), courseid, cohortids[], groupid, newgroupname, timeend, message_text`
+- **Function:** `local_adminer_course_user_action`
+- **Params:** `action (add, remove, suspend, activate), courseid, userids[], timeend`
+- **Function:** `local_adminer_get_course_user_detail`
+  - **Params:** `courseid, userid`
+  - **Returns:** Detailed enrolments, access logs, and activities progress for the specific user in the course.
+  - **Function:** `local_adminer_upload_courses_csv`
+  - **Params:** `fileContent` (Base64 encoded CSV string with columns: `shortname`, `fullname`, `category`)
+  - **Returns:** `{ success: bool, message: string }`
 
 ### 3. Users
 - **Function:** `local_adminer_get_users`

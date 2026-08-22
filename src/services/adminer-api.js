@@ -25,7 +25,7 @@ export const AdminerApi = {
     });
   },
 
-  async courseAction({ action, courseids = [], categoryid = 0, fullname = '', shortname = '', summary = '', visible = 1 }) {
+  async courseAction({ action, courseids = [], categoryid = 0, fullname = '', shortname = '', summary = '', visible = 1, startdate = 0, enddate = 0 }) {
     return await MoodleApi.call('local_adminer_course_action', {
       action,
       courseids,
@@ -33,7 +33,9 @@ export const AdminerApi = {
       fullname,
       shortname,
       summary,
-      visible
+      visible,
+      startdate,
+      enddate
     });
   },
 
@@ -87,6 +89,10 @@ export const AdminerApi = {
     return await MoodleApi.call('local_adminer_upload_users_csv', { fileContent });
   },
 
+  async uploadCoursesCsv(fileContent) {
+    return await MoodleApi.call('local_adminer_upload_courses_csv', { fileContent });
+  },
+
   // 6. Cohorts
   async getCohorts({ page = 0, perpage = 50, search = '', filters = {} } = {}) {
     return await MoodleApi.call('local_adminer_get_cohorts', {
@@ -111,12 +117,26 @@ export const AdminerApi = {
     return await MoodleApi.call('local_adminer_get_course_detail', { courseid });
   },
 
-  async courseCohortAction(action, courseid, cohortids) {
-    return await MoodleApi.call('local_adminer_course_cohort_action', { action, courseid, cohortids });
+  async courseCohortAction(action, courseid, cohortids, options = {}) {
+    return await MoodleApi.call('local_adminer_course_cohort_action', { 
+      action, 
+      courseid, 
+      cohortids,
+      groupid: options.groupid || 0,
+      newgroupname: options.newgroupname || '',
+      timeend: options.timeend || 0,
+      message_text: options.message_text || ''
+    });
   },
 
-  async courseUserAction(action, courseid, userids) {
-    return await MoodleApi.call('local_adminer_course_user_action', { action, courseid, userids });
+  async courseUserAction(action, courseid, userids, timeend = 0, groupid = 0, newgroupname = '', message_text = '') {
+    return await MoodleApi.call('local_adminer_course_user_action', { 
+      action, courseid, userids, timeend, groupid, newgroupname, message_text 
+    });
+  },
+
+  async getCourseUserDetail(courseid, userid) {
+    return await MoodleApi.call('local_adminer_get_course_user_detail', { courseid, userid });
   },
 
   async getUserDetail(userid) {

@@ -16,3 +16,13 @@ export function formatDate(timestamp) {
     minute: '2-digit'
   }).format(date);
 }
+
+export function formatDateOnly(timestamp) {
+  if (!timestamp || timestamp === 0) return 'Nunca';
+  const date = new Date(timestamp * 1000);
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(date);
+}

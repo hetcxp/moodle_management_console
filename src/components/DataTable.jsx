@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, memo } from 'react';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Inbox, Loader2, Filter, X } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
 import { Input } from './ui/Input';
 import { cn } from '../lib/utils';
 
-export const DataTable = ({
+export const DataTable = memo(({
   columns = [], // [{ header, accessor, sortKey, cell, className, filterType, filterOptions }]
   data = [],
   loading = false,
@@ -123,15 +123,15 @@ export const DataTable = ({
     <div className={cn('relative space-y-4', className)}>
       {/* Floating Bulk Actions Bar */}
       {selectable && selectedIds.length > 0 && (
-        <div className="sticky top-20 z-20 flex flex-wrap items-center justify-between gap-3 p-3 px-4 bg-primary/95 text-primary-foreground backdrop-blur-md rounded-xl shadow-lg border border-primary/20 animate-fadeIn">
+        <div className="sticky top-20 z-20 flex flex-wrap items-center justify-between gap-3 p-3 px-4 bg-card/95 text-card-foreground backdrop-blur-md rounded-xl shadow-xl border border-border animate-fadeIn">
           <div className="flex items-center gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
               {selectedIds.length}
             </span>
             <span className="text-sm font-medium">elementos seleccionados</span>
             <button
               onClick={() => onSelectionChange?.([])}
-              className="text-xs text-white/80 hover:text-white underline ml-2"
+              className="text-xs text-muted-foreground hover:text-foreground underline ml-2"
             >
               Deseleccionar todos
             </button>
@@ -142,7 +142,7 @@ export const DataTable = ({
               <Button
                 key={idx}
                 size="sm"
-                variant={action.variant || 'secondary'}
+                variant={action.variant || 'default'}
                 onClick={() => action.onClick(selectedIds)}
                 className="gap-1.5 h-8 text-xs font-semibold"
               >
@@ -219,6 +219,7 @@ export const DataTable = ({
                         {isFilterable && (
                           <div className="relative" ref={openFilterKey === filterKey ? filterRef : null}>
                             <button
+                              aria-label={`Filtrar por ${col.header}`}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setOpenFilterKey(openFilterKey === filterKey ? null : filterKey);
@@ -238,11 +239,12 @@ export const DataTable = ({
                                   <span className="text-xs font-semibold text-foreground">Filtrar {col.header}</span>
                                   {hasActiveFilter && (
                                     <button 
+                                      aria-label="Limpiar filtro"
                                       onClick={() => handleApplyFilter(filterKey, '')}
                                       className="text-muted-foreground hover:text-destructive transition-colors"
                                       title="Limpiar filtro"
                                     >
-                                      <X className="h-3.5 w-3.5" />
+                                      <X className="h-3.5 w-3.5" aria-hidden="true" />
                                     </button>
                                   )}
                                 </div>
@@ -316,9 +318,12 @@ export const DataTable = ({
                       )}
                     >
                       {selectable && (
-                        <td className="w-12 px-4 py-3.5 text-center">
+                        <td 
+                          className="w-12 px-4 py-3.5 text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <Checkbox
-                            id={`select-row-${rowId}`}
+                            id={`select-${rowId}`}
                             checked={isSelected}
                             onChange={(e) => handleSelectRow(rowId, e.target.checked)}
                           />
@@ -381,4 +386,6 @@ export const DataTable = ({
       </div>
     </div>
   );
-};
+});
+
+DataTable.displayName = 'DataTable';

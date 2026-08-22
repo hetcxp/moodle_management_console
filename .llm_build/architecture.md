@@ -8,7 +8,7 @@ Moodle Adminer is a decoupled, headless administration panel for Moodle 5.x. It 
 ### 1. Frontend (React 18 + Vite)
 - **Framework:** React 18, utilizing functional components and hooks.
 - **Styling:** Tailwind CSS v3 with dynamic CSS variables (HSL) for themes (Light/Dark).
-- **Navigation Strategy (State-Based Routing):** It DOES NOT use React Router or external routing libraries. Instead, it relies on global state variables (`activeTab`, `detailEntity`, `detailId`) in `App.jsx` to mount and unmount views dynamically.
+- **Navigation Strategy (URL-Based Routing):** It uses `wouter` as an extremely lightweight routing library. Views are lazy-loaded via `React.lazy` and `Suspense` in `App.jsx` for optimal Code-Splitting.
 - **Key UI Patterns:**
   - `DataTable.jsx`: Reusable table with clickable rows (`onRowClick`) handling event propagation correctly (ignores clicks on buttons or checkboxes).
   - `SelectorModal.jsx`: Paginated, debounced-search modal to select and link entities (users, courses, cohorts).
@@ -26,4 +26,4 @@ Moodle Adminer is a decoupled, headless administration panel for Moodle 5.x. It 
 - **API-First:** Everything the UI does is an API call.
 - **Fast Feedback:** Use of toasts to immediately inform the user of action results.
 - **Context Preservation:** Avoid full page reloads; components reload their specific data via `loadData` when a mutation occurs.
-- **Minimal Dependencies:** Native React state for routing; no heavy external libraries if not strictly necessary.
+- **Minimal Dependencies:** Use lightweight libraries (`wouter` instead of `react-router`, native hooks instead of `react-query` if possible) to maintain the app size small.

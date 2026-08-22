@@ -4,10 +4,10 @@ import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { DataTable } from '../components/DataTable';
 import { SelectorModal } from '../components/ui/SelectorModal';
-import { ChevronLeft, GraduationCap, Users, Layers, Trash2, BookOpen, User } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Users, Layers, Trash2, BookOpen, User } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
 
-export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail }) => {
+export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
   
   const [data, setData] = useState(null);
@@ -152,9 +152,18 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail }) => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-6">
         <div>
-          <Button variant="ghost" size="sm" onClick={onBack} className="mb-2 -ml-2 text-muted-foreground">
-            <ChevronLeft className="h-4 w-4 mr-1" /> Volver
-          </Button>
+          {/* Breadcrumb */}
+          <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
+            <button 
+              onClick={onBack} 
+              className="flex items-center hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
+            </button>
+            <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+            <span className="text-foreground truncate max-w-[300px]">{data.name}</span>
+          </nav>
+          
           <div className="flex items-center gap-3">
             <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl">
               <Layers className="h-6 w-6" />

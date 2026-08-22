@@ -1,33 +1,43 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { Route, Switch, useLocation } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
 import { applyTenantTheme } from './config/tenant';
 import { Header } from './components/Header';
 import { AppSidebar } from './components/AppSidebar';
 import { LoginView } from './views/LoginView';
-import { DashboardView } from './views/DashboardView';
-import { CoursesView } from './views/CoursesView';
-import { CategoriesView } from './views/CategoriesView';
-import { UsersView } from './views/UsersView';
-import { CohortsView } from './views/CohortsView';
-import { CourseDetailView } from './views/CourseDetailView';
-import { UserDetailView } from './views/UserDetailView';
-import { CohortDetailView } from './views/CohortDetailView';
-import { CategoryDetailView } from './views/CategoryDetailView';
 import { Loader2 } from 'lucide-react';
+
+const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
+const CoursesView = lazy(() => import('./views/CoursesView').then(m => ({ default: m.CoursesView })));
+const CategoriesView = lazy(() => import('./views/CategoriesView').then(m => ({ default: m.CategoriesView })));
+const UsersView = lazy(() => import('./views/UsersView').then(m => ({ default: m.UsersView })));
+const CohortsView = lazy(() => import('./views/CohortsView').then(m => ({ default: m.CohortsView })));
+const CourseDetailView = lazy(() => import('./views/CourseDetailView').then(m => ({ default: m.CourseDetailView })));
+const CourseUserDetailView = lazy(() => import('./views/CourseUserDetailView').then(m => ({ default: m.CourseUserDetailView })));
+const UserDetailView = lazy(() => import('./views/UserDetailView').then(m => ({ default: m.UserDetailView })));
+const CohortDetailView = lazy(() => import('./views/CohortDetailView').then(m => ({ default: m.CohortDetailView })));
+const CategoryDetailView = lazy(() => import('./views/CategoryDetailView').then(m => ({ default: m.CategoryDetailView })));
 
 const AdminerApp = () => {
   const { isAuthenticated, loading } = useAuth();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [detailEntity, setDetailEntity] = useState(null);
-  const [detailId, setDetailId] = useState(null);
+  const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => {
     return localStorage.getItem('theme') === 'dark' ||
       (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
 
-  // Apply dark mode class
+  // Derived active tab from URL for Sidebar highlighting
+  const getActiveTab = () => {
+    if (location.startsWith('/courses')) return 'courses';
+    if (location.startsWith('/categories')) return 'categories';
+    if (location.startsWith('/users')) return 'users';
+    if (location.startsWith('/cohorts')) return 'cohorts';
+    return 'dashboard';
+  };
+  const activeTab = getActiveTab();
+
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add('dark');
@@ -38,7 +48,6 @@ const AdminerApp = () => {
     }
   }, [isDark]);
 
-  // Apply tenant branding
   useEffect(() => {
     applyTenantTheme();
   }, []);
@@ -60,41 +69,20 @@ const AdminerApp = () => {
     return <LoginView />;
   }
 
+  // Preserve existing navigate interface for views
   const navigateToDetail = (entity, id) => {
-    setDetailEntity(entity);
-    setDetailId(id);
+    if (entity === 'course_user') {
+      setLocation(`/courses/${id.courseId}/users/${id.userId}`);
+    } else {
+      // Maps to /courses/123, /users/123, etc.
+      // entity is singular ('course', 'user'), we append 's'
+      const prefix = entity === 'category' ? 'categories' : `${entity}s`;
+      setLocation(`/${prefix}/${id}`);
+    }
   };
 
   const navigateBack = () => {
-    setDetailEntity(null);
-    setDetailId(null);
-  };
-
-  const renderActiveView = () => {
-    if (detailEntity && detailId) {
-      switch (detailEntity) {
-        case 'course': return <CourseDetailView courseId={detailId} onBack={navigateBack} onNavigateToDetail={navigateToDetail} />;
-        case 'user': return <UserDetailView userId={detailId} onBack={navigateBack} onNavigateToDetail={navigateToDetail} />;
-        case 'cohort': return <CohortDetailView cohortId={detailId} onBack={navigateBack} onNavigateToDetail={navigateToDetail} />;
-        case 'category': return <CategoryDetailView categoryId={detailId} onBack={navigateBack} onNavigateToDetail={navigateToDetail} />;
-        default: break;
-      }
-    }
-
-    switch (activeTab) {
-      case 'dashboard':
-        return <DashboardView onNavigate={setActiveTab} onNavigateToDetail={navigateToDetail} />;
-      case 'courses':
-        return <CoursesView onNavigateToDetail={navigateToDetail} />;
-      case 'categories':
-        return <CategoriesView onNavigateToDetail={navigateToDetail} />;
-      case 'users':
-        return <UsersView onNavigateToDetail={navigateToDetail} />;
-      case 'cohorts':
-        return <CohortsView onNavigateToDetail={navigateToDetail} />;
-      default:
-        return <DashboardView onNavigate={setActiveTab} onNavigateToDetail={navigateToDetail} />;
-    }
+    setLocation(activeTab === 'dashboard' ? '/' : `/${activeTab}`);
   };
 
   return (
@@ -103,8 +91,7 @@ const AdminerApp = () => {
       <AppSidebar
         activeTab={activeTab}
         onTabChange={(tab) => {
-          setActiveTab(tab);
-          navigateBack(); // Limpiar detalle si cambia de tab
+          setLocation(tab === 'dashboard' ? '/' : `/${tab}`);
         }}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -119,7 +106,57 @@ const AdminerApp = () => {
         />
 
         <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
-          {renderActiveView()}
+          <Suspense fallback={
+            <div className="flex w-full h-40 items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          }>
+            <Switch>
+              <Route path="/">
+                <DashboardView onNavigate={(t) => setLocation(t === 'dashboard' ? '/' : `/${t}`)} onNavigateToDetail={navigateToDetail} />
+              </Route>
+
+              {/* Courses */}
+              <Route path="/courses">
+                <CoursesView onNavigateToDetail={navigateToDetail} />
+              </Route>
+              <Route path="/courses/:id">
+                {params => <CourseDetailView courseId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Cursos" />}
+              </Route>
+              <Route path="/courses/:courseId/users/:userId">
+                {params => <CourseUserDetailView courseId={params.courseId} userId={params.userId} onBack={() => setLocation(`/courses/${params.courseId}`)} parentLabel="Usuarios del Curso" />}
+              </Route>
+
+              {/* Categories */}
+              <Route path="/categories">
+                <CategoriesView onNavigateToDetail={navigateToDetail} />
+              </Route>
+              <Route path="/categories/:id">
+                {params => <CategoryDetailView categoryId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Categorías" />}
+              </Route>
+
+              {/* Users */}
+              <Route path="/users">
+                <UsersView onNavigateToDetail={navigateToDetail} />
+              </Route>
+              <Route path="/users/:id">
+                {params => <UserDetailView userId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Usuarios" />}
+              </Route>
+
+              {/* Cohorts */}
+              <Route path="/cohorts">
+                <CohortsView onNavigateToDetail={navigateToDetail} />
+              </Route>
+              <Route path="/cohorts/:id">
+                {params => <CohortDetailView cohortId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Cohortes" />}
+              </Route>
+
+              {/* Default */}
+              <Route>
+                <DashboardView onNavigate={(t) => setLocation(t === 'dashboard' ? '/' : `/${t}`)} onNavigateToDetail={navigateToDetail} />
+              </Route>
+            </Switch>
+          </Suspense>
         </main>
       </div>
     </div>

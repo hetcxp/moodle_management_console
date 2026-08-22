@@ -9,10 +9,11 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { exportToCsv } from '../components/CsvExporter';
-import { formatDate } from '../lib/utils';
+import { formatDate, formatDateOnly } from '../lib/utils';
 import { PermissionGate } from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, Trash2, FolderInput, Plus, ExternalLink, GraduationCap, Users, Layers } from 'lucide-react';
+import { API_CONFIG } from '../config/api';
+import { Eye, EyeOff, Trash2, FolderInput, Plus, ExternalLink, GraduationCap, Users, Layers, Upload, Activity, Calendar } from 'lucide-react';
 
 export const CoursesView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -34,7 +35,14 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   const [categoryFilter, setCategoryFilter] = useState('0');
   const [visibilityFilter, setVisibilityFilter] = useState('-1');
   const [filters, setFilters] = useState({});
+  const [emptyOnly, setEmptyOnly] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [kpis, setKpis] = useState(null);
+
+  // CSV Upload state
+  const [csvModalOpen, setCsvModalOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [csvLoading, setCsvLoading] = useState(false);
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState([]);
@@ -49,7 +57,9 @@ export const CoursesView = ({ onNavigateToDetail }) => {
     shortname: '',
     categoryid: '',
     summary: '',
-    visible: 1
+    visible: 1,
+    startdate: '',
+    enddate: ''
   });
   const [createLoading, setCreateLoading] = useState(false);
 
@@ -87,10 +97,13 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         search,
         category: parseInt(categoryFilter, 10),
         visibility: parseInt(visibilityFilter, 10),
-        filters
+        filters: { ...filters, empty_only: emptyOnly ? 1 : 0 }
       });
       setCourses(res.courses || []);
       setTotalCount(res.totalcount || 0);
+      if (res.kpis) {
+        setKpis(res.kpis);
+      }
     } catch (err) {
       addToast({
         type: 'error',
@@ -100,7 +113,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, sort, dir, search, categoryFilter, visibilityFilter, filters, addToast]);
+  }, [page, perPage, sort, dir, search, categoryFilter, visibilityFilter, filters, emptyOnly, addToast]);
 
   useEffect(() => {
     loadCategories();
@@ -206,7 +219,9 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         shortname: createForm.shortname,
         categoryid: parseInt(createForm.categoryid, 10),
         summary: createForm.summary,
-        visible: parseInt(createForm.visible, 10)
+        visible: parseInt(createForm.visible, 10),
+        startdate: createForm.startdate ? (new Date(createForm.startdate).getTime() / 1000) : 0,
+        enddate: createForm.enddate ? (new Date(createForm.enddate).getTime() / 1000) : 0
       });
       addToast({
         type: 'success',
@@ -219,13 +234,52 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         shortname: '',
         categoryid: categoriesList[0]?.id ? String(categoriesList[0].id) : '',
         summary: '',
-        visible: 1
+        visible: 1,
+        startdate: '',
+        enddate: ''
       });
       loadCourses();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al crear curso', description: err.message });
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const handleUploadCsv = async (e) => {
+    e.preventDefault();
+    if (!csvFile) return;
+    setCsvLoading(true);
+    
+    try {
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+        const text = ev.target.result;
+        // Convertir a base64 manejando caracteres UTF-8 correctamente
+        const bytes = new TextEncoder().encode(text);
+        const binString = String.fromCodePoint(...bytes);
+        const base64Content = btoa(binString);
+        
+        try {
+          const res = await AdminerApi.uploadCoursesCsv(base64Content);
+          if (res.success) {
+            addToast({ type: 'success', title: 'Importación Completada', description: res.message });
+            setCsvModalOpen(false);
+            setCsvFile(null);
+            loadCourses();
+          } else {
+            addToast({ type: 'error', title: 'Error en la importación', description: res.message });
+          }
+        } catch (apiErr) {
+          addToast({ type: 'error', title: 'Error', description: apiErr.message });
+        } finally {
+          setCsvLoading(false);
+        }
+      };
+      reader.readAsText(csvFile);
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error', description: err.message });
+      setCsvLoading(false);
     }
   };
 
@@ -265,7 +319,9 @@ export const CoursesView = ({ onNavigateToDetail }) => {
       { label: 'Completados', accessor: 'completedcount' },
       { label: 'Cohortes', accessor: 'cohortscount' },
       { label: 'Progreso (%)', accessor: 'progress_percent' },
-      { label: 'Fecha Creación', accessor: (row) => formatDate(row.timecreated) }
+      { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
+      { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
+      { label: 'Fin', accessor: (row) => row.enddate > 0 ? formatDateOnly(row.enddate) : 'No definida' }
     ];
     exportToCsv('cursos_moodle', exportData, columnsForExport);
   };
@@ -349,20 +405,22 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         </div>
       )
     },
-    {
-      header: 'Fecha',
-      sortKey: 'timecreated',
-      cell: (row) => (
-        <span className="text-xs text-muted-foreground">
-          {formatDate(row.timecreated)}
-        </span>
-      )
-    },
+
     {
       header: 'Acciones',
       className: 'text-right',
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
+          <a
+            href={`${API_CONFIG.baseUrl}/course/view.php?id=${row.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            title="Ver en Moodle"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </a>
+          
           <PermissionGate capability="can_update_courses">
             {row.visible === 1 ? (
               <Button
@@ -427,6 +485,56 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         </p>
       </div>
 
+      {/* KPIs section */}
+      {kpis && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl">
+                <Layers className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Cursos</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.total_courses}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                <Users className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Alumnos Enrolados</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.total_enrolled}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                <Activity className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Progreso Promedio</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.avg_progress}%</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                <FolderInput className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Cursos Vacíos</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.empty_courses}</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filter and search bar */}
       <FilterBar
         searchValue={search}
@@ -439,6 +547,11 @@ export const CoursesView = ({ onNavigateToDetail }) => {
           label: 'Crear Curso',
           onClick: () => setCreateModalOpen(true),
           icon: <Plus className="h-4 w-4" />
+        } : null}
+        secondaryAction={hasCreateCourse ? {
+          label: 'Importar CSV',
+          onClick: () => setCsvModalOpen(true),
+          icon: <Upload className="h-4 w-4" />
         } : null}
         filters={[
           {
@@ -458,6 +571,15 @@ export const CoursesView = ({ onNavigateToDetail }) => {
               { label: 'Cualquier Estado', value: '-1' },
               { label: 'Solo Visibles', value: '1' },
               { label: 'Solo Ocultos', value: '0' }
+            ]
+          },
+          {
+            id: 'empty_only',
+            value: emptyOnly ? '1' : '0',
+            onChange: (val) => { setEmptyOnly(val === '1'); setPage(0); },
+            options: [
+              { label: 'Todos los cursos', value: '0' },
+              { label: 'Solo cursos vacíos', value: '1' }
             ]
           }
         ]}
@@ -583,6 +705,26 @@ export const CoursesView = ({ onNavigateToDetail }) => {
             </Select>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Fecha de Inicio</label>
+              <Input
+                type="date"
+                value={createForm.startdate}
+                onChange={(e) => setCreateForm({ ...createForm, startdate: e.target.value })}
+              />
+            </div>
+            
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Fecha de Fin</label>
+              <Input
+                type="date"
+                value={createForm.enddate}
+                onChange={(e) => setCreateForm({ ...createForm, enddate: e.target.value })}
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">Resumen / Descripción</label>
             <textarea
@@ -649,6 +791,46 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-600 dark:text-rose-400">
           Atención: Estás a punto de borrar <strong>{coursesToDelete.length}</strong> curso(s).
         </div>
+      </Dialog>
+
+      {/* Modal: Importar CSV */}
+      <Dialog
+        open={csvModalOpen}
+        onClose={() => { setCsvModalOpen(false); setCsvFile(null); }}
+        title="Importar Cursos (CSV)"
+        description="Sube un archivo CSV con los campos: shortname, fullname, category"
+        footer={
+          <>
+            <Button variant="outline" onClick={() => { setCsvModalOpen(false); setCsvFile(null); }}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUploadCsv} disabled={!csvFile || csvLoading}>
+              {csvLoading ? 'Importando...' : 'Importar'}
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleUploadCsv} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-foreground">Archivo CSV</label>
+            <div className="flex items-center gap-4">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={(e) => setCsvFile(e.target.files[0])}
+                className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors"
+                required
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ejemplo de formato:
+              <br/>
+              <code>shortname,fullname,category</code>
+              <br/>
+              <code>C01,"Curso Básico",1</code>
+            </p>
+          </div>
+        </form>
       </Dialog>
     </div>
   );
