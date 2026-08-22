@@ -106,3 +106,4 @@ El plugin se encuentra en `plugin/local_adminer_api`.
 | `local_adminer_cohort_action` | POST | Acciones CRUD sobre cohortes. |
 | `local_adminer_get_cohort_detail` | GET | Detalles de cohorte (miembros, cursos sincronizados). |
 | `local_adminer_get_permissions` | GET | Verificación de capabilities del usuario autenticado. |
+| `local_adminer_get_autologin_url` | GET | Genera una URL temporal para auto-login y redirección en Moodle. |

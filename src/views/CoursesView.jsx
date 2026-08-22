@@ -123,6 +123,21 @@ export const CoursesView = ({ onNavigateToDetail }) => {
     loadCourses();
   }, [loadCourses]);
 
+  const handleViewInMoodle = async (courseId) => {
+    try {
+      const destination = `/course/view.php?id=${courseId}`;
+      const res = await AdminerApi.getAutologinUrl(destination);
+      if (res && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        window.open(`${API_CONFIG.baseUrl}${destination}`, '_blank');
+      }
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error', description: 'No se pudo generar la URL de acceso directo.' });
+      window.open(`${API_CONFIG.baseUrl}/course/view.php?id=${courseId}`, '_blank');
+    }
+  };
+
   // Bulk actions handlers
   const handleBulkHide = async (ids = selectedIds) => {
     try {
@@ -411,15 +426,13 @@ export const CoursesView = ({ onNavigateToDetail }) => {
       className: 'text-right',
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
-          <a
-            href={`${API_CONFIG.baseUrl}/course/view.php?id=${row.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+          <button
+            onClick={() => handleViewInMoodle(row.id)}
+            className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors cursor-pointer"
             title="Ver en Moodle"
           >
             <ExternalLink className="h-4 w-4" />
-          </a>
+          </button>
           
           <PermissionGate capability="can_update_courses">
             {row.visible === 1 ? (

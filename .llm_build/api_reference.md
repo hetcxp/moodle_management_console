@@ -65,3 +65,8 @@
 ## Conventions
 - `id` = 1 is generally protected (Site admin course or user). Actions on ID=1 should be blocked at the API level.
 - `deleted` field must always be checked (`deleted = 0`) to avoid pulling soft-deleted Moodle entities.
+
+### 6. System & Auth
+- **Function:** `local_adminer_get_autologin_url`
+- **Params:** `destination` (string, the URL path to redirect to)
+- **Returns:** `{ url: string }` (The auto-login generated URL)

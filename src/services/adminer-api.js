@@ -157,5 +157,9 @@ export const AdminerApi = {
 
   async getCategoryDetail(categoryid) {
     return await MoodleApi.call('local_adminer_get_category_detail', { categoryid });
+  },
+
+  async getAutologinUrl(destination) {
+    return await MoodleApi.call('local_adminer_get_autologin_url', { destination });
   }
 };

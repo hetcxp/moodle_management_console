@@ -187,6 +187,13 @@ $functions = [
         'capabilities'  => 'moodle/course:view',
         'ajax'          => true,
     ],
+    'local_adminer_get_autologin_url' => [
+        'classname'     => 'local_adminer_api\external\autologin',
+        'methodname'    => 'get_autologin_url',
+        'description'   => 'Get autologin url',
+        'type'          => 'read',
+        'ajax'          => true,
+    ],
 ];
 
 $services = [
@@ -215,6 +222,7 @@ $services = [
             'local_adminer_get_permissions',
             'local_adminer_get_course_user_detail',
             'local_adminer_upload_courses_csv',
+            'local_adminer_get_autologin_url',
             'core_webservice_get_site_info',
         ],
         'restrictedusers' => 0,
