@@ -7,7 +7,8 @@ Una aplicación SPA moderna, rápida y desacoplada para gestionar instancias de 
 ## 🚀 Tecnologías
 
 - **Frontend:** React 18 + Vite 6 + Tailwind CSS v3 + Lucide Icons.
-- **Componentes:** Arquitectura inspirada en Shadcn UI (estética premium, soporte de modo oscuro, micro-animaciones).
+- **Enrutamiento:** `wouter` implementado con Code-Splitting asíncrono (`React.lazy` y `<Suspense>`).
+- **Componentes:** Arquitectura inspirada en Shadcn UI (estética premium, soporte de modo oscuro, micro-animaciones) altamente accesible (A11y-ready) y optimizada (`React.memo`, `useCallback`).
 - **Backend Plugin:** `local_adminer_api` para Moodle 5.x con validación estricta de capabilities (`require_capability`).
 - **Autenticación:** Tokens de Web Service de Moodle (`wstoken`) con soporte para login por credenciales o token directo de administrador.
 
