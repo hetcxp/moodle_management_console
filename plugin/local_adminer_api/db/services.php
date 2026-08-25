@@ -76,6 +76,14 @@ $functions = [
         'capabilities'  => 'moodle/user:update',
         'ajax'          => true,
     ],
+    'local_adminer_get_cohorts_kpis' => [
+        'classname'     => 'local_adminer_api\external\cohorts',
+        'methodname'    => 'get_cohorts_kpis',
+        'description'   => 'Get global cohort KPIs (totals, members, synced courses)',
+        'type'          => 'read',
+        'capabilities'  => 'moodle/cohort:view',
+        'ajax'          => true,
+    ],
     'local_adminer_get_cohorts' => [
         'classname'     => 'local_adminer_api\external\cohorts',
         'methodname'    => 'get_cohorts',
@@ -218,6 +226,7 @@ $services = [
             'local_adminer_user_action',
             'local_adminer_add_user',
             'local_adminer_upload_users_csv',
+            'local_adminer_get_cohorts_kpis',
             'local_adminer_get_cohorts',
             'local_adminer_cohort_action',
             'local_adminer_get_course_detail',

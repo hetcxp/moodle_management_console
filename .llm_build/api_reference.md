@@ -112,9 +112,13 @@
 
 ### 4. Cohorts
 
+#### `local_adminer_get_cohorts_kpis`
+- **Returns:** `{ total_cohorts, total_members, empty_cohorts, synced_courses }`
+
 #### `local_adminer_get_cohorts`
-- **Params:** `page, perpage, search, filters`
-  - `filters`: JSON string
+- **Params:** `page, perpage, sort, dir, search, filters`
+  - `filters`: JSON string (e.g. `{"empty_only": "1"}`)
+  - `sort`: `name`, `idnumber`, `progress`
 
 #### `local_adminer_cohort_action`
 - **Params:** `action, cohortid, name, idnumber, description`
@@ -168,7 +172,7 @@
 
 ## Frontend Client: AdminerApi (adminer-api.js)
 
-All 26 methods follow the same pattern: call `MoodleApi.call(wsfunction, params)`.
+All 27 methods follow the same pattern: call `MoodleApi.call(wsfunction, params)`.
 
 | Method | WS Function |
 |---|---|
@@ -188,6 +192,7 @@ All 26 methods follow the same pattern: call `MoodleApi.call(wsfunction, params)
 | `getUserDetail(id)` | `local_adminer_get_user_detail` |
 | `userCohortAction(action, uid, hids)` | `local_adminer_user_cohort_action` |
 | `userCourseAction(action, uid, cids)` | `local_adminer_user_course_action` |
+| `getCohortsKpis()` | `local_adminer_get_cohorts_kpis` |
 | `getCohorts(opts)` | `local_adminer_get_cohorts` |
 | `cohortAction(opts)` | `local_adminer_cohort_action` |
 | `getCohortDetail(id)` | `local_adminer_get_cohort_detail` |

@@ -162,6 +162,33 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
       )
     },
     {
+      header: 'Método',
+      sortKey: 'enrolmethod',
+      filterType: 'select',
+      filterOptions: [
+        { label: 'Manual', value: 'manual' },
+        { label: 'Cohorte', value: 'cohort' },
+        { label: 'Auto', value: 'self' },
+        { label: 'Invitado', value: 'guest' }
+      ],
+      cell: (row) => {
+        const methodMap = {
+          manual: { label: 'Manual', icon: <User className="h-3 w-3 mr-1" />, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+          cohort: { label: 'Cohorte', icon: <Layers className="h-3 w-3 mr-1" />, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+          self: { label: 'Auto', icon: <UserCheck className="h-3 w-3 mr-1" />, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+          guest: { label: 'Invitado', icon: <UserX className="h-3 w-3 mr-1" />, color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' }
+        };
+        const m = methodMap[row.enrolmethod] || { label: row.enrolmethod || 'Otro', icon: null, color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' };
+        
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${m.color}`}>
+            {m.icon}
+            {m.label}
+          </span>
+        );
+      }
+    },
+    {
       header: 'Progreso',
       sortKey: 'progress',
       cell: (row) => (

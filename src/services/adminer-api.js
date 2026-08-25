@@ -98,10 +98,16 @@ export const AdminerApi = {
   },
 
   // 6. Cohorts
-  async getCohorts({ page = 0, perpage = 50, search = '', filters = {} } = {}) {
+  async getCohortsKpis() {
+    return await MoodleApi.call('local_adminer_get_cohorts_kpis');
+  },
+
+  async getCohorts({ page = 0, perpage = 50, sort = 'name', dir = 'ASC', search = '', filters = {} } = {}) {
     return await MoodleApi.call('local_adminer_get_cohorts', {
       page,
       perpage,
+      sort,
+      dir,
       search,
       filters: JSON.stringify(filters)
     });

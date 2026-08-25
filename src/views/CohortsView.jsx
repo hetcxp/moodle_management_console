@@ -4,10 +4,11 @@ import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { useToast } from '../components/ui/Toast';
 import { exportToCsv } from '../components/CsvExporter';
-import { Layers, Users, Edit, Trash2, Plus } from 'lucide-react';
+import { Layers, Users, Edit, Trash2, Plus, BookOpen, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
 import { useAuth } from '../context/AuthContext';
 import { PermissionGate } from '../components/PermissionGate';
 
@@ -21,9 +22,15 @@ export const CohortsView = ({ onNavigateToDetail }) => {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [perPage] = useState(50);
+  const [sort, setSort] = useState('name');
+  const [dir, setDir] = useState('ASC');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('-1');
   const [filters, setFilters] = useState({});
   const [loading, setLoading] = useState(false);
+  const [kpis, setKpis] = useState(null);
+  
+  const [selectedIds, setSelectedIds] = useState([]);
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,15 +39,24 @@ export const CohortsView = ({ onNavigateToDetail }) => {
   const [formLoading, setFormLoading] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [cohortToDelete, setCohortToDelete] = useState(null);
+  const [cohortsToDelete, setCohortsToDelete] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const loadCohorts = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await AdminerApi.getCohorts({ page, perpage: perPage, search, filters });
+      const activeFilters = { ...filters };
+      if (statusFilter !== '-1') {
+        activeFilters.empty_only = statusFilter === '1' ? true : false;
+      }
+
+      const [res, kpiRes] = await Promise.all([
+        AdminerApi.getCohorts({ page, perpage: perPage, sort, dir, search, filters: activeFilters }),
+        AdminerApi.getCohortsKpis()
+      ]);
       setCohorts(res.cohorts || []);
       setTotalCount(res.totalcount || 0);
+      setKpis(kpiRes);
     } catch (err) {
       addToast({
         type: 'error',
@@ -50,7 +66,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, search, filters, addToast]);
+  }, [page, perPage, sort, dir, search, filters, statusFilter, addToast]);
 
   useEffect(() => {
     loadCohorts();
@@ -103,13 +119,21 @@ export const CohortsView = ({ onNavigateToDetail }) => {
     }
   };
 
+  const handleOpenDelete = (ids) => {
+    setCohortsToDelete(ids);
+    setDeleteConfirmOpen(true);
+  };
+
   const handleDelete = async () => {
-    if (!cohortToDelete) return;
+    if (cohortsToDelete.length === 0) return;
     setDeleteLoading(true);
     try {
-      await AdminerApi.cohortAction({ action: 'delete', cohortid: cohortToDelete.id });
-      addToast({ type: 'success', title: 'Cohorte eliminada' });
+      for (const id of cohortsToDelete) {
+        await AdminerApi.cohortAction({ action: 'delete', cohortid: id });
+      }
+      addToast({ type: 'success', title: 'Cohorte(s) eliminada(s)' });
       setDeleteConfirmOpen(false);
+      setSelectedIds([]);
       loadCohorts();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
@@ -118,15 +142,38 @@ export const CohortsView = ({ onNavigateToDetail }) => {
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
+    let exportData = cohorts;
+    if (totalCount > cohorts.length) {
+      try {
+        setLoading(true);
+        const res = await AdminerApi.getCohorts({
+          page: 0,
+          perpage: 99999,
+          sort,
+          dir,
+          search
+        });
+        if (res?.cohorts) {
+          exportData = res.cohorts;
+        }
+      } catch (err) {
+        console.error("Export error", err);
+        addToast({ title: 'Error', description: 'No se pudieron obtener todos los registros.', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    }
+
     const cols = [
       { label: 'ID', accessor: 'id' },
       { label: 'Nombre de Cohorte', accessor: 'name' },
       { label: 'Número ID / Código', accessor: 'idnumber' },
       { label: 'Miembros Totales', accessor: 'memberscount' },
+      { label: 'Cursos Sincronizados', accessor: 'coursescount' },
       { label: 'Descripción', accessor: 'description' }
     ];
-    exportToCsv('cohortes_moodle', cohorts, cols);
+    exportToCsv('cohortes_moodle', exportData, cols);
   };
 
   const columns = [
@@ -152,10 +199,27 @@ export const CohortsView = ({ onNavigateToDetail }) => {
     },
     {
       header: 'Miembros Asignados',
+      sortKey: 'memberscount',
       cell: (row) => (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{row.memberscount} miembros</span>
+          {row.memberscount > 0 ? (
+            <>
+              <Users className="h-3.5 w-3.5 text-emerald-500" />
+              <span>{row.memberscount} miembros</span>
+            </>
+          ) : (
+            <Badge variant="warning" className="text-[10px]">Vacía</Badge>
+          )}
+        </div>
+      )
+    },
+    {
+      header: 'Cursos Sincronizados',
+      sortKey: 'coursescount',
+      cell: (row) => (
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          <BookOpen className="h-3.5 w-3.5 text-blue-500" />
+          <span>{row.coursescount}</span>
         </div>
       )
     },
@@ -165,6 +229,21 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         <span className="text-xs text-muted-foreground line-clamp-1 max-w-md">
           {row.description || 'Sin descripción'}
         </span>
+      )
+    },
+    {
+      header: 'Progreso Promedio',
+      sortKey: 'progress',
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[80px] max-w-[120px]">
+            <div
+              className={`h-full ${row.progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+              style={{ width: `${row.progress || 0}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-foreground w-8 text-right">{row.progress || 0}%</span>
+        </div>
       )
     },
     {
@@ -185,7 +264,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => { setCohortToDelete(row); setDeleteConfirmOpen(true); }}
+              onClick={() => handleOpenDelete([row.id])}
               title="Eliminar cohorte"
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
@@ -208,6 +287,55 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         </p>
       </div>
 
+      {kpis && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl">
+                <Layers className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Cohortes</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.total_cohorts}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                <Users className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Miembros</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.total_members}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500/10 rounded-xl">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Cohortes Vacías</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.empty_cohorts}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                <BookOpen className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Cursos Vinculados</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.synced_courses}</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <FilterBar
         searchValue={search}
         onSearchChange={(val) => { setSearch(val); setPage(0); }}
@@ -220,6 +348,18 @@ export const CohortsView = ({ onNavigateToDetail }) => {
           onClick: handleOpenCreate,
           icon: <Plus className="h-4 w-4" />
         } : null}
+        filters={[
+          {
+            id: 'empty_only',
+            value: statusFilter,
+            onChange: (val) => { setStatusFilter(val); setPage(0); },
+            options: [
+              { label: 'Todas las cohortes', value: '-1' },
+              { label: 'Solo vacías', value: '1' },
+              { label: 'Con miembros', value: '0' }
+            ]
+          }
+        ]}
       />
 
       <DataTable
@@ -230,12 +370,29 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         page={page}
         perPage={perPage}
         onPageChange={setPage}
+        sort={sort}
+        dir={dir}
+        onSortChange={(newSort, newDir) => {
+          setSort(newSort);
+          setDir(newDir);
+          setPage(0);
+        }}
         onFilterChange={(newFilters) => {
           setFilters(newFilters);
           setPage(0);
         }}
         onRowClick={(row) => onNavigateToDetail?.('cohort', row.id)}
-        selectable={false}
+        selectable={true}
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
+        bulkActions={[
+          ...(hasManageCohorts ? [{
+            label: 'Eliminar Seleccionadas',
+            icon: <Trash2 className="h-3.5 w-3.5" />,
+            onClick: handleOpenDelete,
+            variant: 'destructive'
+          }] : [])
+        ]}
       />
 
       {/* Modal: Crear / Editar */}
@@ -284,8 +441,8 @@ export const CohortsView = ({ onNavigateToDetail }) => {
       <Dialog
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
-        title="¿Eliminar cohorte?"
-        description={`¿Estás seguro de que deseas eliminar la cohorte "${cohortToDelete?.name}"?`}
+        title="¿Eliminar cohorte(s)?"
+        description={`¿Estás seguro de que deseas eliminar ${cohortsToDelete.length} cohorte(s)? Esta acción es irreversible.`}
         footer={
           <>
             <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>

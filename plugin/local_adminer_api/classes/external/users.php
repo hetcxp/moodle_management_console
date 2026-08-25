@@ -381,7 +381,7 @@ class users extends external_api {
         $user = $DB->get_record('user', ['id' => $params['userid']], '*', MUST_EXIST);
 
         $sql_courses = "
-            SELECT c.id, c.fullname, c.shortname
+            SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod
               FROM {course} c
               JOIN {enrol} e ON e.courseid = c.id
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
@@ -402,7 +402,8 @@ class users extends external_api {
                 'id' => (int)$c->id,
                 'fullname' => $c->fullname,
                 'shortname' => $c->shortname,
-                'progress' => $progress_val
+                'progress' => $progress_val,
+                'enrolmethod' => $c->enrolmethod
             ];
         }
 
@@ -471,6 +472,7 @@ class users extends external_api {
                     'fullname' => new external_value(PARAM_TEXT, 'Course fullname'),
                     'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
                     'progress' => new external_value(PARAM_INT, 'Progress percentage'),
+                    'enrolmethod' => new external_value(PARAM_TEXT, 'Enrolment method', VALUE_OPTIONAL),
                 ])
             ),
             'cohorts' => new external_multiple_structure(

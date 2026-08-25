@@ -54,7 +54,7 @@ moodle_adminer/
 │   │
 │   ├── services/
 │   │   ├── moodle-api.js            # MoodleApi.call(): fetch + flatten params + error handling
-│   │   ├── adminer-api.js           # AdminerApi: wrapper semántico sobre MoodleApi (26 métodos)
+│   │   ├── adminer-api.js           # AdminerApi: wrapper semántico sobre MoodleApi (27 métodos)
 │   │   └── auth.js                  # AuthService: login, logout, validateToken, token storage
 │   │
 │   ├── lib/

@@ -155,8 +155,9 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 ### Cohortes
 | Función | Descripción |
 |---|---|
-| `local_adminer_get_cohorts` | Listado paginado de cohortes |
-| `local_adminer_cohort_action` | CRUD: `create`, `edit`, `delete` |
+| `local_adminer_get_cohorts_kpis` | KPIs globales de cohortes (totales, vacías, etc) |
+| `local_adminer_get_cohorts` | Listado paginado con progreso promedio y filtros |
+| `local_adminer_cohort_action` | CRUD y acciones masivas: `create`, `edit`, `delete` |
 | `local_adminer_get_cohort_detail` | Miembros + cursos sincronizados |
 
 ### Categorías
@@ -193,5 +194,5 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 
 El directorio `.llm_build/` contiene documentación de contexto para modelos de lenguaje:
 - `architecture.md` — Stack, árbol de archivos, patrones de diseño establecidos y flujos completos
-- `api_reference.md` — Referencia completa de los 24 endpoints + client methods
+- `api_reference.md` — Referencia completa de los 25 endpoints + client methods
 - `moodle_environment.md` — Entorno local de Moodle y configuración de symlinks

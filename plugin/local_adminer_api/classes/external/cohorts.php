@@ -16,12 +16,14 @@ class cohorts extends external_api {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Cohorts per page', VALUE_DEFAULT, 50),
+            'sort'    => new external_value(PARAM_ALPHA, 'Sort field', VALUE_DEFAULT, 'name'),
+            'dir'     => new external_value(PARAM_ALPHA, 'Sort direction', VALUE_DEFAULT, 'ASC'),
             'search'  => new external_value(PARAM_RAW, 'Search query', VALUE_DEFAULT, ''),
             'filters' => new external_value(PARAM_RAW, 'JSON encoded filters string', VALUE_DEFAULT, '{}'),
         ]);
     }
 
-    public static function get_cohorts($page = 0, $perpage = 50, $search = '', $filters = '{}') {
+    public static function get_cohorts($page = 0, $perpage = 50, $sort = 'name', $dir = 'ASC', $search = '', $filters = '{}') {
         global $DB;
 
         $context = context_system::instance();
@@ -31,6 +33,8 @@ class cohorts extends external_api {
         $params = self::validate_parameters(self::get_cohorts_parameters(), [
             'page'    => $page,
             'perpage' => $perpage,
+            'sort'    => $sort,
+            'dir'     => $dir,
             'search'  => $search,
             'filters' => $filters,
         ]);
@@ -60,14 +64,32 @@ class cohorts extends external_api {
                     $filter_index++;
                 }
             }
+            if (isset($decoded_filters['empty_only']) && $decoded_filters['empty_only']) {
+                if ($decoded_filters['empty_only'] === '1' || $decoded_filters['empty_only'] === true) {
+                    $where .= " AND NOT EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.cohortid = c.id)";
+                } else if ($decoded_filters['empty_only'] === '0') {
+                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.cohortid = c.id)";
+                }
+            }
+        }
+
+        $sortfield = 'c.name';
+        $d = strtoupper($params['dir']) === 'DESC' ? 'DESC' : 'ASC';
+        switch (strtolower($params['sort'])) {
+            case 'idnumber': $sortfield = 'c.idnumber'; break;
+            case 'memberscount': $sortfield = 'memberscount'; break;
+            case 'coursescount': $sortfield = 'coursescount'; break;
+            case 'name':
+            default: $sortfield = 'c.name'; break;
         }
 
         $sql_select = "
             SELECT c.id, c.name, c.idnumber, c.description,
-                   (SELECT COUNT(cm.id) FROM {cohort_members} cm WHERE cm.cohortid = c.id) AS memberscount
+                   (SELECT COUNT(cm.id) FROM {cohort_members} cm WHERE cm.cohortid = c.id) AS memberscount,
+                   (SELECT COUNT(DISTINCT e.courseid) FROM {enrol} e WHERE e.enrol = 'cohort' AND e.customint1 = c.id) AS coursescount
               FROM {cohort} c
              WHERE $where
-          ORDER BY c.name ASC
+          ORDER BY $sortfield $d
         ";
 
         $sql_count = "SELECT COUNT(c.id) FROM {cohort} c WHERE $where";
@@ -84,6 +106,7 @@ class cohorts extends external_api {
                 'idnumber'     => (string)($r->idnumber ?? ''),
                 'description'  => (string)($r->description ?? ''),
                 'memberscount' => (int)$r->memberscount,
+                'coursescount' => (int)($r->coursescount ?? 0),
             ];
         }
 
@@ -107,6 +130,7 @@ class cohorts extends external_api {
                     'idnumber'     => new external_value(PARAM_RAW, 'ID number'),
                     'description'  => new external_value(PARAM_RAW, 'Description'),
                     'memberscount' => new external_value(PARAM_INT, 'Number of users in cohort'),
+                    'coursescount' => new external_value(PARAM_INT, 'Number of linked courses'),
                 ])
             ),
         ]);
@@ -230,7 +254,7 @@ class cohorts extends external_api {
 
         // Miembros de la cohorte
         $sql_members = "
-            SELECT u.id, u.firstname, u.lastname, u.email
+            SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended
               FROM {user} u
               JOIN {cohort_members} cm ON cm.userid = u.id
              WHERE cm.cohortid = :cohortid AND u.deleted = 0
@@ -242,13 +266,16 @@ class cohorts extends external_api {
             $members[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
-                'email' => (string)$u->email
+                'email' => (string)$u->email,
+                'lastaccess' => (int)$u->lastaccess,
+                'suspended' => (int)$u->suspended
             ];
         }
 
         // Cursos sincronizados
         $sql_courses = "
-            SELECT c.id, c.fullname, c.shortname, e.id as enrolid
+            SELECT c.id, c.fullname, c.shortname, e.id as enrolid,
+                   (SELECT COUNT(ue.id) FROM {user_enrolments} ue WHERE ue.enrolid = e.id) as enrolledcount
               FROM {course} c
               JOIN {enrol} e ON e.courseid = c.id
              WHERE e.customint1 = :cohortid AND e.enrol = 'cohort'
@@ -261,7 +288,8 @@ class cohorts extends external_api {
                 'id' => (int)$c->id,
                 'fullname' => (string)$c->fullname,
                 'shortname' => (string)$c->shortname,
-                'enrolid' => (int)$c->enrolid
+                'enrolid' => (int)$c->enrolid,
+                'enrolledcount' => (int)($c->enrolledcount ?? 0)
             ];
         }
 
@@ -269,6 +297,7 @@ class cohorts extends external_api {
             'id' => (int)$cohort->id,
             'name' => (string)$cohort->name,
             'idnumber' => (string)$cohort->idnumber,
+            'description' => (string)$cohort->description,
             'members' => $members,
             'courses' => $courses
         ];
@@ -279,11 +308,14 @@ class cohorts extends external_api {
             'id' => new external_value(PARAM_INT, 'Cohort ID'),
             'name' => new external_value(PARAM_TEXT, 'Cohort name'),
             'idnumber' => new external_value(PARAM_RAW, 'ID number'),
+            'description' => new external_value(PARAM_RAW, 'Description'),
             'members' => new external_multiple_structure(
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'User ID'),
                     'fullname' => new external_value(PARAM_TEXT, 'User fullname'),
                     'email' => new external_value(PARAM_TEXT, 'User email'),
+                    'lastaccess' => new external_value(PARAM_INT, 'User lastaccess time'),
+                    'suspended' => new external_value(PARAM_INT, 'Is user suspended'),
                 ])
             ),
             'courses' => new external_multiple_structure(
@@ -292,8 +324,60 @@ class cohorts extends external_api {
                     'fullname' => new external_value(PARAM_TEXT, 'Course fullname'),
                     'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
                     'enrolid' => new external_value(PARAM_INT, 'Enrol instance ID'),
+                    'enrolledcount' => new external_value(PARAM_INT, 'Enrolled users count'),
                 ])
             ),
+        ]);
+    }
+
+    public static function get_cohorts_kpis_parameters() {
+        return new external_function_parameters([]);
+    }
+
+    public static function get_cohorts_kpis() {
+        global $DB;
+        $context = context_system::instance();
+        self::validate_context($context);
+        require_capability('moodle/cohort:view', $context);
+
+        $sql_cohorts = "SELECT COUNT(id) FROM {cohort}";
+        $total_cohorts = (int)$DB->count_records_sql($sql_cohorts);
+
+        $sql_members = "SELECT COUNT(id) FROM {cohort_members}";
+        $total_members = (int)$DB->count_records_sql($sql_members);
+
+        $avg_members = $total_cohorts > 0 ? round($total_members / $total_cohorts, 1) : 0;
+
+        $sql_empty = "
+            SELECT COUNT(c.id) 
+              FROM {cohort} c 
+             WHERE NOT EXISTS (SELECT 1 FROM {cohort_members} cm WHERE cm.cohortid = c.id)
+        ";
+        $empty_cohorts = (int)$DB->count_records_sql($sql_empty);
+
+        $sql_synced = "
+            SELECT COUNT(DISTINCT customint1) 
+              FROM {enrol} 
+             WHERE enrol = 'cohort'
+        ";
+        $synced_courses = (int)$DB->count_records_sql($sql_synced);
+
+        return [
+            'total_cohorts' => $total_cohorts,
+            'total_members' => $total_members,
+            'avg_members' => $avg_members,
+            'empty_cohorts' => $empty_cohorts,
+            'synced_courses' => $synced_courses,
+        ];
+    }
+
+    public static function get_cohorts_kpis_returns() {
+        return new external_single_structure([
+            'total_cohorts'  => new external_value(PARAM_INT, 'Total cohorts'),
+            'total_members'  => new external_value(PARAM_INT, 'Total members across all cohorts'),
+            'avg_members'    => new external_value(PARAM_FLOAT, 'Average members per cohort'),
+            'empty_cohorts'  => new external_value(PARAM_INT, 'Cohorts without members'),
+            'synced_courses' => new external_value(PARAM_INT, 'Cohorts linked to courses'),
         ]);
     }
 }
