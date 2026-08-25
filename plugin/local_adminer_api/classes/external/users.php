@@ -13,6 +13,64 @@ defined('MOODLE_INTERNAL') || die();
 
 class users extends external_api {
 
+    public static function get_users_kpis_parameters() {
+        return new external_function_parameters([]);
+    }
+
+    public static function get_users_kpis() {
+        global $DB, $CFG;
+
+        $context = context_system::instance();
+        self::validate_context($context);
+        require_capability('moodle/user:viewalldetails', $context);
+
+        $guestid = $CFG->siteguest ?? 0;
+        $sqlparams = ['adminid' => 1, 'guestid' => $guestid];
+        
+        $recent_threshold = time() - (30 * 86400); // 30 days
+        $sqlparams['recent'] = $recent_threshold;
+
+        $sql_stats = "
+            SELECT 
+                COUNT(u.id) AS total_users,
+                SUM(CASE WHEN u.suspended = 0 THEN 1 ELSE 0 END) AS active_users,
+                SUM(CASE WHEN u.suspended = 1 THEN 1 ELSE 0 END) AS suspended_users,
+                SUM(CASE WHEN u.lastaccess > :recent THEN 1 ELSE 0 END) AS recent_active
+            FROM {user} u
+            WHERE u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
+        ";
+        $stats = $DB->get_record_sql($sql_stats, $sqlparams);
+
+        $sql_progress = "
+            SELECT ROUND(AVG(
+                CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
+            ), 1) AS avg_progress
+            FROM {user} u
+            LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = u.id
+            LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = u.id
+            WHERE u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
+        ";
+        $progress = $DB->get_field_sql($sql_progress, $sqlparams);
+
+        return [
+            'total_users'     => (int)($stats->total_users ?? 0),
+            'active_users'    => (int)($stats->active_users ?? 0),
+            'suspended_users' => (int)($stats->suspended_users ?? 0),
+            'recent_active'   => (int)($stats->recent_active ?? 0),
+            'avg_progress'    => (float)($progress ?? 0)
+        ];
+    }
+
+    public static function get_users_kpis_returns() {
+        return new external_single_structure([
+            'total_users'     => new external_value(PARAM_INT, 'Total valid users'),
+            'active_users'    => new external_value(PARAM_INT, 'Active users'),
+            'suspended_users' => new external_value(PARAM_INT, 'Suspended users'),
+            'recent_active'   => new external_value(PARAM_INT, 'Users active in last 30 days'),
+            'avg_progress'    => new external_value(PARAM_FLOAT, 'Average progress across enrolled courses'),
+        ]);
+    }
+
     public static function get_users_parameters() {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page number index', VALUE_DEFAULT, 0),
@@ -196,12 +254,13 @@ class users extends external_api {
 
     public static function user_action_parameters() {
         return new external_function_parameters([
-            'action'  => new external_value(PARAM_ALPHA, 'Action: suspend, activate, delete'),
+            'action'  => new external_value(PARAM_ALPHA, 'Action: suspend, activate, delete, message'),
             'userids' => new external_multiple_structure(new external_value(PARAM_INT, 'User ID'), 'List of user IDs to act upon'),
+            'message_text' => new external_value(PARAM_RAW, 'Message text', VALUE_DEFAULT, ''),
         ]);
     }
 
-    public static function user_action($action, $userids = []) {
+    public static function user_action($action, $userids = [], $message_text = '') {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/user/lib.php');
@@ -212,10 +271,12 @@ class users extends external_api {
         $params = self::validate_parameters(self::user_action_parameters(), [
             'action'  => $action,
             'userids' => $userids,
+            'message_text' => $message_text,
         ]);
 
         $act = $params['action'];
         $ids = $params['userids'];
+        $msg = $params['message_text'];
         $affected = 0;
 
         switch ($act) {
@@ -260,6 +321,27 @@ class users extends external_api {
                 }
                 break;
 
+            case 'message':
+                global $USER;
+                foreach ($ids as $uid) {
+                    $recipient = $DB->get_record('user', ['id' => $uid, 'deleted' => 0]);
+                    if ($recipient && !empty($msg)) {
+                        $message = new \core\message\message();
+                        $message->component         = 'moodle';
+                        $message->name              = 'instantmessage';
+                        $message->userfrom          = $USER;
+                        $message->userto            = $recipient;
+                        $message->subject           = 'Mensaje';
+                        $message->fullmessage       = $msg;
+                        $message->fullmessageformat = FORMAT_HTML;
+                        $message->fullmessagehtml   = $msg;
+                        $message->smallmessage      = strip_tags($msg);
+                        message_send($message);
+                        $affected++;
+                    }
+                }
+                break;
+
             default:
                 return ['success' => false, 'message' => 'Invalid action: ' . $act, 'affectedcount' => 0];
         }
@@ -286,7 +368,7 @@ class users extends external_api {
     }
 
     public static function get_user_detail($userid) {
-        global $DB;
+        global $DB, $CFG;
 
         $context = context_system::instance();
         self::validate_context($context);
@@ -298,26 +380,29 @@ class users extends external_api {
 
         $user = $DB->get_record('user', ['id' => $params['userid']], '*', MUST_EXIST);
 
-        // Cursos inscritos con progreso
         $sql_courses = "
-            SELECT c.id, c.fullname, c.shortname,
-                   COALESCE(ccmp.timecompleted, 0) as timecompleted
+            SELECT c.id, c.fullname, c.shortname
               FROM {course} c
               JOIN {enrol} e ON e.courseid = c.id
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
-         LEFT JOIN {course_completions} ccmp ON ccmp.course = c.id AND ccmp.userid = :userid
-             WHERE ue.userid = :userid2 AND ue.status = 0
-          GROUP BY c.id, c.fullname, c.shortname, ccmp.timecompleted
+             WHERE ue.userid = :userid AND ue.status = 0
+          GROUP BY c.id, c.fullname, c.shortname
         ";
-        $enrolled_courses = $DB->get_records_sql($sql_courses, ['userid' => $user->id, 'userid2' => $user->id]);
+        $enrolled_courses = $DB->get_records_sql($sql_courses, ['userid' => $user->id]);
+
+        require_once($CFG->libdir . '/completionlib.php');
 
         $courses = [];
         foreach ($enrolled_courses as $c) {
+            $course_obj = $DB->get_record('course', ['id' => $c->id]);
+            $pct = \core_completion\progress::get_course_progress_percentage($course_obj, $user->id);
+            $progress_val = $pct !== null ? (int)$pct : 0;
+
             $courses[] = [
                 'id' => (int)$c->id,
                 'fullname' => $c->fullname,
                 'shortname' => $c->shortname,
-                'progress' => $c->timecompleted > 0 ? 100 : 0
+                'progress' => $progress_val
             ];
         }
 
@@ -339,10 +424,28 @@ class users extends external_api {
             ];
         }
 
+        // Calculate progress summary
+        $enrolled_count = count($courses);
+        $completed_count = count(array_filter($courses, function($c) { return $c['progress'] == 100; }));
+        $progress = ($enrolled_count > 0) ? round(($completed_count / $enrolled_count) * 100) : 0;
+
+        global $CFG;
+        $siteadmins = explode(',', $CFG->siteadmins ?? '');
+        $is_admin = in_array($user->id, $siteadmins) ? 1 : 0;
+
         return [
             'id' => (int)$user->id,
+            'username' => (string)$user->username,
             'fullname' => fullname($user),
-            'email' => $user->email,
+            'email' => (string)$user->email,
+            'suspended' => (int)$user->suspended,
+            'is_active' => empty($user->suspended) ? 1 : 0,
+            'is_admin' => $is_admin,
+            'lastaccess' => (int)$user->lastaccess,
+            'enrolled_courses' => $enrolled_count,
+            'completed_courses' => $completed_count,
+            'cohorts_count' => count($cohorts),
+            'progress' => (int)$progress,
             'courses' => $courses,
             'cohorts' => $cohorts
         ];
@@ -351,8 +454,17 @@ class users extends external_api {
     public static function get_user_detail_returns() {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'User ID'),
+            'username' => new external_value(PARAM_RAW, 'Username'),
             'fullname' => new external_value(PARAM_TEXT, 'Fullname'),
             'email' => new external_value(PARAM_TEXT, 'Email'),
+            'suspended' => new external_value(PARAM_INT, 'Suspended status'),
+            'is_active' => new external_value(PARAM_INT, 'Active status'),
+            'is_admin' => new external_value(PARAM_INT, 'Is site admin'),
+            'lastaccess' => new external_value(PARAM_INT, 'Last access timestamp'),
+            'enrolled_courses' => new external_value(PARAM_INT, 'Enrolled courses count'),
+            'completed_courses' => new external_value(PARAM_INT, 'Completed courses count'),
+            'cohorts_count' => new external_value(PARAM_INT, 'Cohorts count'),
+            'progress' => new external_value(PARAM_INT, 'Average progress'),
             'courses' => new external_multiple_structure(
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'Course ID'),

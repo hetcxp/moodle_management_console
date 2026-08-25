@@ -10,7 +10,8 @@ import { exportToCsv } from '../components/CsvExporter';
 import { formatDate } from '../lib/utils';
 import { PermissionGate } from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
-import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload } from 'lucide-react';
+import { API_CONFIG } from '../config/api';
+import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload, ExternalLink, Activity, Users } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 
 export const UsersView = ({ onNavigateToDetail }) => {
@@ -27,12 +28,15 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const [sort, setSort] = useState('lastaccess');
   const [dir, setDir] = useState('DESC');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('-1');
   const [filters, setFilters] = useState({});
   const [loading, setLoading] = useState(false);
+  const [kpis, setKpis] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [uploadCsvOpen, setUploadCsvOpen] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
   const [userForm, setUserForm] = useState({ firstname: '', lastname: '', email: '', username: '', password: '' });
   const [userErrors, setUserErrors] = useState({});
 
@@ -44,16 +48,26 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const loadUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await AdminerApi.getUsers({
-        page,
-        perpage: perPage,
-        sort,
-        dir,
-        search,
-        filters
-      });
+      const activeFilters = { ...filters };
+      if (statusFilter !== '-1') {
+        activeFilters.suspended = statusFilter;
+      }
+      
+      const [res, kpiRes] = await Promise.all([
+        AdminerApi.getUsers({
+          page,
+          perpage: perPage,
+          sort,
+          dir,
+          search,
+          filters: activeFilters
+        }),
+        AdminerApi.getUsersKpis()
+      ]);
+      
       setUsers(res.users || []);
       setTotalCount(res.totalcount || 0);
+      setKpis(kpiRes);
     } catch (err) {
       addToast({
         type: 'error',
@@ -63,7 +77,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
     } finally {
       setLoading(false);
     }
-  }, [page, perPage, sort, dir, search, filters, addToast]);
+  }, [page, perPage, sort, dir, search, filters, statusFilter, addToast]);
 
   useEffect(() => {
     loadUsers();
@@ -251,6 +265,20 @@ export const UsersView = ({ onNavigateToDetail }) => {
       className: 'text-right',
       cell: (row) => (
         <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost" size="icon" title="Ver en Moodle"
+            onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                    const res = await AdminerApi.getAutologinUrl(`/user/profile.php?id=${row.id}`);
+                    window.open(res?.url || `${API_CONFIG.baseUrl}/user/profile.php?id=${row.id}`, '_blank');
+                } catch { window.open(`${API_CONFIG.baseUrl}/user/profile.php?id=${row.id}`, '_blank'); }
+            }}
+            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+
           <PermissionGate capability="can_update_users">
             {row.is_active === 1 ? (
               <Button
@@ -295,7 +323,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Directorio de Usuarios
@@ -304,17 +332,56 @@ export const UsersView = ({ onNavigateToDetail }) => {
             Supervisa el estado de las cuentas, cohortes y avance en los cursos.
           </p>
         </div>
-        <div className="flex gap-2">
-          <PermissionGate capability="can_update_users">
-            <Button onClick={() => setAddUserOpen(true)} className="gap-2">
-              <UserPlus className="h-4 w-4" /> Añadir Usuario
-            </Button>
-            <Button variant="outline" onClick={() => setUploadCsvOpen(true)} className="gap-2">
-              <Upload className="h-4 w-4" /> Cargar CSV
-            </Button>
-          </PermissionGate>
-        </div>
       </div>
+
+      {kpis && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-primary/10 rounded-xl">
+                <Users className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Total Usuarios</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.total_users}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+                <UserCheck className="h-5 w-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Activos</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.active_users}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-rose-500/10 rounded-xl">
+                <UserX className="h-5 w-5 text-rose-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Suspendidos</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.suspended_users}</h3>
+              </div>
+            </div>
+          </div>
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-blue-500/10 rounded-xl">
+                <Activity className="h-5 w-5 text-blue-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Progreso Promedio</p>
+                <h3 className="text-2xl font-bold text-foreground">{kpis.avg_progress}%</h3>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <FilterBar
         searchValue={search}
@@ -323,6 +390,28 @@ export const UsersView = ({ onNavigateToDetail }) => {
         onRefresh={loadUsers}
         loading={loading}
         onExportCsv={handleExport}
+        primaryAction={hasUpdateUsers ? {
+          label: 'Añadir Usuario',
+          onClick: () => setAddUserOpen(true),
+          icon: <UserPlus className="h-4 w-4" />
+        } : null}
+        secondaryAction={hasUpdateUsers ? {
+          label: 'Cargar CSV',
+          onClick: () => setUploadCsvOpen(true),
+          icon: <Upload className="h-4 w-4" />
+        } : null}
+        filters={[
+          {
+            id: 'suspended',
+            value: statusFilter,
+            onChange: (val) => { setStatusFilter(val); setPage(0); },
+            options: [
+              { label: 'Todos los estados', value: '-1' },
+              { label: 'Solo Activos', value: '0' },
+              { label: 'Solo Suspendidos', value: '1' }
+            ]
+          }
+        ]}
       />
 
       <DataTable
@@ -399,7 +488,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         footer={
           <>
             <Button variant="outline" onClick={() => { setAddUserOpen(false); setUserErrors({}); setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' }); }}>Cancelar</Button>
-            <Button onClick={() => {
+            <Button onClick={async () => {
               const newErrors = {};
               if (!userForm.firstname || userForm.firstname.trim().length < 2) newErrors.firstname = 'El nombre debe tener al menos 2 caracteres.';
               if (!userForm.lastname || userForm.lastname.trim().length < 2) newErrors.lastname = 'El apellido debe tener al menos 2 caracteres.';
@@ -409,9 +498,22 @@ export const UsersView = ({ onNavigateToDetail }) => {
               
               setUserErrors(newErrors);
               if (Object.keys(newErrors).length === 0) {
-                addToast({ title: 'Usuario Creado', type: 'success' });
-                setAddUserOpen(false);
-                setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
+                setLoading(true);
+                try {
+                  const result = await AdminerApi.addUser(userForm);
+                  if (result.success) {
+                    addToast({ title: 'Usuario Creado', description: `ID: ${result.userid}`, type: 'success' });
+                    setAddUserOpen(false);
+                    setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
+                    loadUsers();
+                  } else {
+                    addToast({ title: 'Error', description: result.message, type: 'error' });
+                  }
+                } catch (err) {
+                  addToast({ title: 'Error', description: err.message, type: 'error' });
+                } finally {
+                  setLoading(false);
+                }
               }
             }}>Guardar Usuario</Button>
           </>
@@ -478,25 +580,53 @@ export const UsersView = ({ onNavigateToDetail }) => {
       {/* Modal: Cargar CSV */}
       <Dialog
         open={uploadCsvOpen}
-        onClose={() => setUploadCsvOpen(false)}
+        onClose={() => { setUploadCsvOpen(false); setCsvFile(null); }}
         title="Cargar Usuarios desde CSV"
         description="Sube un archivo CSV con la lista de usuarios. El archivo debe contener cabeceras como username, firstname, lastname, email."
         footer={
           <>
-            <Button variant="outline" onClick={() => setUploadCsvOpen(false)}>Cancelar</Button>
-            <Button onClick={() => {
-              addToast({ title: 'Archivo subido', description: 'Los usuarios están siendo procesados.', type: 'success' });
-              setUploadCsvOpen(false);
+            <Button variant="outline" onClick={() => { setUploadCsvOpen(false); setCsvFile(null); }}>Cancelar</Button>
+            <Button 
+              disabled={!csvFile || loading}
+              onClick={() => {
+                if (!csvFile) return;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                  try {
+                    setLoading(true);
+                    const base64Content = btoa(e.target.result);
+                    const res = await AdminerApi.uploadUsersCsv(base64Content);
+                    if (res.success) {
+                      addToast({ title: 'Archivo subido', description: res.message, type: 'success' });
+                      setUploadCsvOpen(false);
+                      setCsvFile(null);
+                      loadUsers();
+                    } else {
+                      addToast({ title: 'Error', description: res.message, type: 'error' });
+                    }
+                  } catch (err) {
+                    addToast({ title: 'Error al procesar archivo', description: err.message, type: 'error' });
+                  } finally {
+                    setLoading(false);
+                  }
+                };
+                reader.readAsText(csvFile);
             }}>Cargar Archivo</Button>
           </>
         }
       >
         <div className="pt-4">
-          <div className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-muted/20">
+          <div className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-muted/20 relative overflow-hidden">
             <Upload className="h-10 w-10 text-muted-foreground/60" />
-            <div className="text-sm font-medium">Arrastra tu archivo CSV aquí</div>
-            <div className="text-xs text-muted-foreground">o</div>
-            <Button variant="secondary" size="sm">Seleccionar Archivo</Button>
+            <div className="text-sm font-medium">{csvFile ? csvFile.name : 'Arrastra tu archivo CSV aquí'}</div>
+            {!csvFile && <div className="text-xs text-muted-foreground">o</div>}
+            <input 
+              type="file" 
+              accept=".csv"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              onChange={(e) => setCsvFile(e.target.files[0])}
+            />
+            {!csvFile && <Button variant="secondary" size="sm" className="pointer-events-none">Seleccionar Archivo</Button>}
           </div>
         </div>
       </Dialog>

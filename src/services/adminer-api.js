@@ -62,7 +62,6 @@ export const AdminerApi = {
     });
   },
 
-  // 5. Users
   async getUsers({ page = 0, perpage = 20, sort = 'lastaccess', dir = 'DESC', search = '', filters = {} } = {}) {
     return await MoodleApi.call('local_adminer_get_users', {
       page,
@@ -74,10 +73,15 @@ export const AdminerApi = {
     });
   },
 
-  async userAction({ action, userids = [] }) {
+  async getUsersKpis() {
+    return await MoodleApi.call('local_adminer_get_users_kpis');
+  },
+
+  async userAction({ action, userids = [], message_text = '' }) {
     return await MoodleApi.call('local_adminer_user_action', {
       action,
-      userids
+      userids,
+      message_text
     });
   },
 

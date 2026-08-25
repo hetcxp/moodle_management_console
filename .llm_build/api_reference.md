@@ -84,14 +84,15 @@
 - **Params:** `page, perpage, sort, dir, search, filters`
   - `filters`: JSON string
   - `sort` default: `lastaccess`
+- **Returns:** `{ users: [...], totalcount: int, kpis: { total_users, active_users, suspended_users, recent_active, avg_progress } }`
 
 #### `local_adminer_user_action`
-- **Params:** `action, userids[]`
-- **Actions:** `suspend`, `activate`, `delete`
+- **Params:** `action, userids[], message_text`
+- **Actions:** `suspend`, `activate`, `delete`, `message`
 
 #### `local_adminer_get_user_detail`
 - **Params:** `userid`
-- **Returns:** Enrolled courses (with progress) and cohort memberships
+- **Returns:** Info de usuario (`suspended`, `is_active`, `is_admin`, `progress`), cursos (con progreso %) y cohortes
 
 #### `local_adminer_user_cohort_action`
 - **Params:** `action, userid, cohortids[]`

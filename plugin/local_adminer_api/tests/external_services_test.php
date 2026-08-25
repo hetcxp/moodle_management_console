@@ -93,4 +93,52 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(1, $perm['is_siteadmin']);
         $this->assertEquals(1, $perm['can_config_site']);
     }
+
+    public function test_get_users_kpis() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $this->getDataGenerator()->create_user(['suspended' => 0]);
+        $this->getDataGenerator()->create_user(['suspended' => 1]);
+
+        $res = \local_adminer_api\external\users::get_users_kpis();
+        $this->assertIsArray($res);
+        $this->assertArrayHasKey('total_users', $res);
+        $this->assertArrayHasKey('active_users', $res);
+        $this->assertArrayHasKey('suspended_users', $res);
+        $this->assertArrayHasKey('avg_progress', $res);
+        $this->assertGreaterThanOrEqual(2, $res['total_users']);
+        $this->assertGreaterThanOrEqual(1, $res['suspended_users']);
+    }
+
+    public function test_get_user_detail_enriched() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user(['firstname' => 'Detail', 'lastname' => 'Test']);
+
+        $res = \local_adminer_api\external\users::get_user_detail($user->id);
+        $this->assertArrayHasKey('username', $res);
+        $this->assertArrayHasKey('suspended', $res);
+        $this->assertArrayHasKey('is_active', $res);
+        $this->assertArrayHasKey('lastaccess', $res);
+        $this->assertArrayHasKey('progress', $res);
+        $this->assertEquals(1, $res['is_active']);
+    }
+
+    public function test_user_action_message() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user();
+        
+        // Redirect messages to sink for testing
+        $sink = $this->redirectMessages();
+
+        $res = \local_adminer_api\external\users::user_action('message', [$user->id], 'Test message');
+        $this->assertTrue($res['success']);
+        $this->assertEquals(1, $res['affectedcount']);
+
+        $messages = $sink->get_messages();
+        $this->assertCount(1, $messages);
+        $this->assertEquals('Test message', $messages[0]->fullmessage);
+        $sink->close();
+    }
 }

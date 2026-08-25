@@ -144,11 +144,11 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 ### Usuarios
 | Función | Descripción |
 |---|---|
-| `local_adminer_get_users` | Listado paginado con filtros dinámicos |
-| `local_adminer_user_action` | Acciones: `suspend`, `activate`, `delete` |
+| `local_adminer_get_users` | Listado paginado con filtros dinámicos y KPIs |
+| `local_adminer_user_action` | Acciones: `suspend`, `activate`, `delete`, `message` |
 | `local_adminer_add_user` | Crear un nuevo usuario |
 | `local_adminer_upload_users_csv` | Creación masiva de usuarios vía CSV en Base64 |
-| `local_adminer_get_user_detail` | Cursos (con progreso) y cohortes del usuario |
+| `local_adminer_get_user_detail` | Cursos (con progreso), cohortes, status y estadísticas |
 | `local_adminer_user_cohort_action` | Agregar/quitar usuario de cohortes |
 | `local_adminer_user_course_action` | Matricular/desmatricular usuario de cursos |
 

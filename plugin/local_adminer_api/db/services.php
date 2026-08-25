@@ -4,6 +4,14 @@
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
+    'local_adminer_get_users_kpis' => [
+        'classname'     => 'local_adminer_api\external\users',
+        'methodname'    => 'get_users_kpis',
+        'description'   => 'Get global user KPIs (totals, active, suspended, avg progress)',
+        'type'          => 'read',
+        'capabilities'  => 'moodle/user:viewalldetails',
+        'ajax'          => true,
+    ],
     'local_adminer_get_dashboard' => [
         'classname'     => 'local_adminer_api\external\dashboard',
         'methodname'    => 'get_dashboard',
@@ -205,6 +213,7 @@ $services = [
             'local_adminer_get_categories',
             'local_adminer_get_categories_flat',
             'local_adminer_category_action',
+            'local_adminer_get_users_kpis',
             'local_adminer_get_users',
             'local_adminer_user_action',
             'local_adminer_add_user',
