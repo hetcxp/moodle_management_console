@@ -1,0 +1,6 @@
+import{c as t,R as i,j as e,n as o}from"./index-aPDJ8G2O.js";/**
+ * @license lucide-react v1.33.0 - ISC
+ *
+ * This source code is licensed under the ISC license.
+ * See the LICENSE file in the root directory of this source tree.
+ */const c=[["path",{d:"M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0",key:"1nclc0"}],["circle",{cx:"12",cy:"12",r:"3",key:"1v7zrd"}]],u=t("eye",c),l=i.forwardRef(({className:s,children:r,...a},n)=>e.jsxs("div",{className:"relative",children:[e.jsx("select",{className:o("flex h-10 w-full appearance-none rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 transition-all duration-200 pr-8",s),ref:n,...a,children:r}),e.jsx("div",{className:"pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground",children:e.jsx("svg",{className:"h-4 w-4 fill-current",viewBox:"0 0 20 20",children:e.jsx("path",{d:"M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"})})})]}));l.displayName="Select";export{u as E,l as S};

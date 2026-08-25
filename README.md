@@ -13,7 +13,8 @@ Una aplicación SPA moderna, rápida y desacoplada para gestionar instancias de 
 | Routing | wouter (code-splitting) | 3.10.0 |
 | Estilos | Tailwind CSS | 3.4.15 |
 | Iconos | Lucide React | 1.16.0 |
-| Backend Plugin | `local_adminer_api` | 1.0.1 |
+| Testing | Vitest + Testing Library | 4.1.11 / 16.3.2 |
+| Backend Plugin | `local_adminer_api` | 1.0.1 (build 2026082502) |
 | Moodle requerido | — | 4.5+ |
 
 ---
@@ -25,26 +26,27 @@ moodle_adminer/
 ├── plugin/
 │   └── local_adminer_api/      # Plugin Moodle 5.x (Web Services)
 │       ├── classes/external/   # 7 controladores REST (Dashboard, Cursos, Usuarios, Cohortes, Categorías, Permisos, Autologin)
-│       ├── db/services.php     # Definición del servicio adminer_service
+│       ├── db/services.php     # Definición del servicio adminer_service (25 WS functions)
 │       ├── lang/               # Strings i18n
 │       ├── tests/              # Pruebas PHPUnit
-│       └── version.php         # v1.0.1 (build 2026082101)
+│       └── version.php         # v1.0.1 (build 2026082502)
 ├── src/
-│   ├── App.jsx                 # Shell: AuthProvider > ToastProvider > Router
+│   ├── App.jsx                 # Shell: AuthProvider > ToastProvider > Router (wouter)
 │   ├── components/             # DataTable, FilterBar, Header, Sidebar, PermissionGate, CsvExporter
 │   │   └── ui/                 # Badge, Button, Card, Checkbox, Dialog, Input, Select, SelectorModal, Toast
 │   ├── config/                 # Multi-tenant (tenant.js) + API builder (api.js)
 │   ├── context/                # AuthContext (user, token, permissions, login/logout)
 │   ├── lib/                    # useApi hook (TTL cache) + utils (cn, formatDate)
-│   ├── services/               # MoodleApi (HTTP) + AdminerApi (semántico) + AuthService
-│   └── views/                  # 11 vistas lazy-loaded
+│   ├── services/               # MoodleApi (HTTP) + AdminerApi (28 métodos) + AuthService
+│   └── views/                  # 12 vistas lazy-loaded
 │       ├── DashboardView.jsx
 │       ├── CoursesView.jsx / CourseDetailView.jsx / CourseUserDetailView.jsx
-│       ├── courses/                # Modales (CourseCreateModal, CourseMoveModal, etc.)
+│       ├── courses/                # Modales (CourseCreateModal, CourseMoveModal, CourseCsvModal)
 │       ├── CategoriesView.jsx / CategoryDetailView.jsx
 │       ├── UsersView.jsx / UserDetailView.jsx
 │       ├── CohortsView.jsx / CohortDetailView.jsx
-│       └── LoginView.jsx
+│       ├── LoginView.jsx
+│       └── NotFoundView.jsx        # Página 404
 ├── dist/                       # Bundle de producción
 ├── .env / .env.example         # Variables de entorno
 ├── vite.config.js              # Dev proxy /moodle → Moodle local
@@ -126,7 +128,7 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 ### Dashboard & Sistema
 | Función | Descripción |
 |---|---|
-| `local_adminer_get_dashboard` | Contadores globales (cursos, usuarios, cohortes, categorías) |
+| `local_adminer_get_dashboard` | Contadores globales: cursos (total/activos/ocultos), usuarios (total/activos/suspendidos), cohortes, categorías |
 | `local_adminer_get_permissions` | Mapa de capabilities del usuario autenticado |
 | `local_adminer_get_autologin_url` | Genera URL temporal para auto-login y redirección en Moodle |
 
@@ -144,11 +146,12 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 ### Usuarios
 | Función | Descripción |
 |---|---|
-| `local_adminer_get_users` | Listado paginado con filtros dinámicos y KPIs |
+| `local_adminer_get_users_kpis` | KPIs dedicados: total, activos, suspendidos, actividad reciente (30d), progreso promedio |
+| `local_adminer_get_users` | Listado paginado con filtros dinámicos (9 columnas de sort) |
 | `local_adminer_user_action` | Acciones: `suspend`, `activate`, `delete`, `message` |
 | `local_adminer_add_user` | Crear un nuevo usuario |
 | `local_adminer_upload_users_csv` | Creación masiva de usuarios vía CSV en Base64 |
-| `local_adminer_get_user_detail` | Cursos (con progreso), cohortes, status y estadísticas |
+| `local_adminer_get_user_detail` | Cursos (con progreso y método de inscripción), cohortes, status y estadísticas |
 | `local_adminer_user_cohort_action` | Agregar/quitar usuario de cohortes |
 | `local_adminer_user_course_action` | Matricular/desmatricular usuario de cursos |
 
@@ -187,6 +190,7 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 - **Filters como JSON:** El objeto `filters` se serializa con `JSON.stringify()` antes de enviarse al backend (`PARAM_RAW`).
 - **Permissions:** `is_siteadmin === 1` siempre otorga acceso total, independientemente de otras capabilities.
 - **ID=1 protegido:** El curso site (ID=1) y el admin principal (ID=1) están bloqueados en el backend.
+- **Guest excluido:** Todas las queries de usuarios excluyen automáticamente el usuario invitado.
 
 ---
 
@@ -194,5 +198,5 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 
 El directorio `.llm_build/` contiene documentación de contexto para modelos de lenguaje:
 - `architecture.md` — Stack, árbol de archivos, patrones de diseño establecidos y flujos completos
-- `api_reference.md` — Referencia completa de los 25 endpoints + client methods
+- `api_reference.md` — Referencia completa de los 26 endpoints + 28 client methods
 - `moodle_environment.md` — Entorno local de Moodle y configuración de symlinks

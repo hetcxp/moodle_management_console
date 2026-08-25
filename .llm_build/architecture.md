@@ -1,5 +1,5 @@
 # Moodle Adminer — Architecture Intelligence
-*Last updated: 2026-08-24 | Plugin v1.0.1 (2026082101)*
+*Last updated: 2026-08-24 | Plugin v1.0.1 (2026082502)*
 
 ## Overview
 Moodle Adminer es un panel de administración **headless y desacoplado** para Moodle 5.x. Separa completamente la capa de presentación (React SPA) del backend Moodle mediante Web Services REST. El frontend se sirve de forma independiente y se comunica con Moodle únicamente a través del endpoint `/webservice/rest/server.php`.
@@ -16,7 +16,8 @@ Moodle Adminer es un panel de administración **headless y desacoplado** para Mo
 | Styling | Tailwind CSS | 3.4.15 |
 | Icons | lucide-react | 1.16.0 |
 | CSS Utilities | clsx + tailwind-merge | 2.1.1 / 2.5.4 |
-| Backend Plugin | local_adminer_api | 1.0.1 |
+| Testing | Vitest + @testing-library/react | 4.1.11 / 16.3.2 |
+| Backend Plugin | local_adminer_api | 1.0.1 (build 2026082502) |
 | Moodle Minimum | Moodle | 4.5+ (requires 2024100700) |
 
 ---
@@ -27,21 +28,21 @@ Moodle Adminer es un panel de administración **headless y desacoplado** para Mo
 moodle_adminer/
 ├── plugin/local_adminer_api/        # Moodle Plugin (PHP)
 │   ├── autologin.php                # Endpoint standalone de auto-login
-│   ├── version.php                  # v1.0.1, build 2026082101
+│   ├── version.php                  # v1.0.1, build 2026082502
 │   ├── classes/external/            # 7 controladores REST
 │   │   ├── autologin.php
-│   │   ├── categories.php
-│   │   ├── cohorts.php
-│   │   ├── courses.php              # LARGEST: 52KB, lógica compleja
-│   │   ├── dashboard.php
-│   │   ├── permissions.php
-│   │   └── users.php
-│   ├── db/                          # services.php, access.php
+│   │   ├── categories.php           # 16KB
+│   │   ├── cohorts.php              # 16KB
+│   │   ├── courses.php              # 53KB, lógica más compleja
+│   │   ├── dashboard.php            # 3KB, contadores globales
+│   │   ├── permissions.php          # 3KB
+│   │   └── users.php                # 31KB, incluye KPIs dedicado
+│   ├── db/                          # services.php (25 WS functions), access.php
 │   ├── lang/                        # Strings i18n
 │   └── tests/                       # PHPUnit tests
 │
 ├── src/
-│   ├── App.jsx                      # Shell: AuthProvider > ToastProvider > AdminerApp
+│   ├── App.jsx                      # Shell: AuthProvider > ToastProvider > AdminerApp (wouter Router)
 │   ├── main.jsx                     # React DOM root
 │   ├── index.css                    # Tailwind base + HSL CSS vars para theming
 │   │
@@ -54,7 +55,7 @@ moodle_adminer/
 │   │
 │   ├── services/
 │   │   ├── moodle-api.js            # MoodleApi.call(): fetch + flatten params + error handling
-│   │   ├── adminer-api.js           # AdminerApi: wrapper semántico sobre MoodleApi (27 métodos)
+│   │   ├── adminer-api.js           # AdminerApi: wrapper semántico sobre MoodleApi (28 métodos)
 │   │   └── auth.js                  # AuthService: login, logout, validateToken, token storage
 │   │
 │   ├── lib/
@@ -66,7 +67,7 @@ moodle_adminer/
 │   ├── components/
 │   │   ├── AppSidebar.jsx           # Navegación lateral con overlay móvil
 │   │   ├── Header.jsx               # Header con toggle dark/light + avatar usuario
-│   │   ├── DataTable.jsx            # Tabla reutilizable (392 líneas): sort, pagination, select, bulk, filter
+│   │   ├── DataTable.jsx            # Tabla reutilizable (17KB): sort, pagination, select, bulk, filter
 │   │   ├── FilterBar.jsx            # Filtros dinámicos con custom select dropdowns
 │   │   ├── PermissionGate.jsx       # HOC de renderizado condicional por capabilities
 │   │   ├── CsvExporter.js           # Función exportToCsv() standalone
@@ -81,23 +82,24 @@ moodle_adminer/
 │   │       ├── SelectorModal.jsx    # Modal paginado con búsqueda debounced para vincular entidades
 │   │       └── Toast.jsx            # ToastProvider + useToast() hook
 │   │
-│   └── views/                       # 11 vistas lazy-loaded
+│   └── views/                       # 12 vistas lazy-loaded
 │       ├── LoginView.jsx            # Login con credenciales o token manual
-│       ├── DashboardView.jsx        # KPI counters + accesos rápidos + auto-reload (60s)
-│       ├── CoursesView.jsx          # CRUD completo de cursos
+│       ├── DashboardView.jsx        # 7.5KB: KPI counters + accesos rápidos + auto-reload (60s)
+│       ├── CoursesView.jsx          # 22KB: CRUD completo de cursos
 │       ├── courses/                 # Sub-componentes modales de cursos
 │       │   ├── CourseCreateModal.jsx
 │       │   ├── CourseMoveModal.jsx
 │       │   └── CourseCsvModal.jsx
 │       ├── CourseDetailView.jsx     # 49KB: usuarios inscritos + cohortes vinculadas
-│       ├── CourseUserDetailView.jsx # Detalle individual usuario-en-curso
-│       ├── CategoriesView.jsx       # CRUD categorías con árbol jerárquico
-│       ├── CategoryDetailView.jsx   # Subcategorías + cursos directos
-│       ├── UsersView.jsx            # Gestión usuarios + filtros + CSV
-│       ├── UserDetailView.jsx       # Cursos del usuario + cohortes
-│       ├── CohortsView.jsx          # CRUD cohortes
-│       └── CohortDetailView.jsx     # Miembros + cursos sincronizados
-│
+│       ├── CourseUserDetailView.jsx # 16KB: detalle individual usuario-en-curso
+│       ├── CategoriesView.jsx       # 17KB: CRUD categorías con árbol jerárquico
+│       ├── CategoryDetailView.jsx   # 33KB: subcategorías + cursos directos + acciones masivas
+│       ├── UsersView.jsx            # 25KB: gestión usuarios + filtros + CSV + KPIs independientes
+│       ├── UserDetailView.jsx       # 19KB: cursos (con método inscripción) + cohortes + acciones
+│       ├── CohortsView.jsx          # 16KB: CRUD cohortes + KPIs
+│       ├── CohortDetailView.jsx     # 22KB: miembros + cursos sincronizados + modal detalle curso
+│       └── NotFoundView.jsx         # 1KB: página 404
+
 ├── .env / .env.example              # VITE_MOODLE_URL, VITE_SERVICE_NAME, VITE_TENANT
 ├── vite.config.js                   # Dev proxy /moodle → Moodle server (port 3001)
 ├── tailwind.config.js               # Config Tailwind con HSL custom tokens
@@ -205,13 +207,26 @@ filters: JSON.stringify({ empty_only: true, status: 'active' })
 // Backend Moodle → PARAM_RAW + json_decode()
 ```
 
-### 5. Navigation Pattern (via App.jsx callbacks)
+### 5. Navigation Pattern (via App.jsx wouter Router)
 ```jsx
 // Desde una vista a un detalle
 onNavigateToDetail('course', courseId)        // → /courses/123
 onNavigateToDetail('user', userId)            // → /users/123
 onNavigateToDetail('course_user', { courseId, userId }) // → /courses/1/users/2
 onNavigateToDetail('category', categoryId)    // → /categories/123 (plural en URL)
+onNavigateToDetail('cohort', cohortId)        // → /cohorts/123
+
+// Routing: Switch con Route de wouter, catch-all → NotFoundView
+```
+
+### 6. Detail View Pattern (Breadcrumb + Stats + Tabs)
+```jsx
+// Todas las vistas de detalle siguen este layout:
+// 1. Breadcrumb: parentLabel > entityName
+// 2. Header con icono + título + badges de estado + acciones
+// 3. Grid de KPI cards (4 columnas)
+// 4. Tabs (e.g. courses | cohorts, members | courses)
+// 5. DataTable dentro de cada tab + SelectorModal + bulk actions
 ```
 
 ---
@@ -239,5 +254,7 @@ php /Users/hectorteran/Dev/moodle-dev/admin/cli/purge_caches.php
 3. **Filters como JSON:** El frontend siempre serializa el objeto `filters` con `JSON.stringify()` antes de enviarlo. El backend lo recibe como `PARAM_RAW` y hace `json_decode()`.
 4. **Upgrade obligatorio:** Al agregar nuevos endpoints a `db/services.php`, incrementar `$plugin->version` en `version.php` y ejecutar upgrade + purge_caches.
 5. **Capabilities Moodle:** Cada endpoint PHP valida capabilities con `require_capability()` en `context_system::instance()`.
-6. **Vistas grandes:** `CourseDetailView.jsx` (49KB) y `CoursesView.jsx` (30KB) son archivos grandes. Al editarlos, usar siempre `multi_replace_file_content` para cambios no contiguos.
+6. **Vistas grandes:** `CourseDetailView.jsx` (49KB), `CategoryDetailView.jsx` (33KB), `UsersView.jsx` (25KB), `CohortDetailView.jsx` (22KB) son archivos grandes. Al editarlos, usar siempre `multi_replace_file_content` para cambios no contiguos.
 7. **lucide-react v1.16.0:** Versión muy reciente. Si se agregan nuevos iconos, verificar disponibilidad en esta versión exacta.
+8. **Guest user excluido:** Todas las queries de usuarios excluyen `$CFG->siteguest` además de ID=1.
+9. **KPIs separados:** UsersView y CohortsView cargan KPIs desde endpoints dedicados (`get_users_kpis`, `get_cohorts_kpis`) independientes del listado paginado.

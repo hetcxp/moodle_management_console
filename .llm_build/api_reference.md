@@ -1,5 +1,5 @@
 # API Reference: local_adminer_api
-*Plugin v1.0.1 (2026082101) | Moodle 4.5+*
+*Plugin v1.0.1 (2026082502) | Moodle 4.5+*
 
 ## Base Setup
 - **Endpoint URL:** `/webservice/rest/server.php`
@@ -18,7 +18,20 @@
 ### 1. Dashboard & Permissions
 
 #### `local_adminer_get_dashboard`
-- **Returns:** `{ counts: { courses, users, cohorts, categories } }`
+- **Returns:** Flat structure with counters:
+  ```json
+  {
+    "courses_total": 42,
+    "courses_active": 38,
+    "courses_inactive": 4,
+    "users_total": 150,
+    "users_active": 140,
+    "users_inactive": 10,
+    "cohorts_total": 8,
+    "cohorts_users_total": 320,
+    "categories_total": 12
+  }
+  ```
 
 #### `local_adminer_get_permissions`
 - **Returns:** Map of user capabilities:
@@ -80,11 +93,26 @@
 
 ### 3. Users
 
+#### `local_adminer_get_users_kpis`
+- **Returns:** Dedicated KPIs endpoint (separate from paginated list):
+  ```json
+  {
+    "total_users": 150,
+    "active_users": 140,
+    "suspended_users": 10,
+    "recent_active": 95,
+    "avg_progress": 42.5
+  }
+  ```
+- `recent_active`: Users with activity in last 30 days
+
 #### `local_adminer_get_users`
 - **Params:** `page, perpage, sort, dir, search, filters`
   - `filters`: JSON string
-  - `sort` default: `lastaccess`
-- **Returns:** `{ users: [...], totalcount: int, kpis: { total_users, active_users, suspended_users, recent_active, avg_progress } }`
+  - `sort` options: `id`, `firstname`, `lastname`, `email`, `suspended`, `lastaccess`, `cohorts`, `courses`, `progress`
+  - `dir`: `ASC` | `DESC`
+- **Returns:** `{ users: [...], totalcount: int, page: int, perpage: int }`
+  - Each user: `{ id, username, firstname, lastname, fullname, email, suspended, is_active, is_admin, lastaccess, cohorts_count, enrolled_courses, completed_courses, progress }`
 
 #### `local_adminer_user_action`
 - **Params:** `action, userids[], message_text`
@@ -92,7 +120,7 @@
 
 #### `local_adminer_get_user_detail`
 - **Params:** `userid`
-- **Returns:** Info de usuario (`suspended`, `is_active`, `is_admin`, `progress`), cursos (con progreso %) y cohortes
+- **Returns:** User info + courses (with `progress`, `enrolmethod`) + cohorts (`id`, `name`, `idnumber`)
 
 #### `local_adminer_user_cohort_action`
 - **Params:** `action, userid, cohortids[]`
@@ -103,7 +131,8 @@
 - **Actions:** `add`, `remove`
 
 #### `local_adminer_add_user`
-- **Params:** `userData` → `{ username, password, firstname, lastname, email }`
+- **Params:** `username, password, firstname, lastname, email`
+- **Returns:** `{ success: bool, userid?: int, message: string }`
 
 #### `local_adminer_upload_users_csv`
 - **Params:** `fileContent` (Base64 encoded CSV string)
@@ -163,6 +192,7 @@
 
 - `id = 1` is protected (Site admin course or user). API blocks actions on ID=1.
 - `deleted` field must always be checked (`deleted = 0`) to avoid soft-deleted Moodle entities.
+- Guest user (`$CFG->siteguest`) is excluded from all user queries alongside ID=1.
 - **filters must be JSON-stringified** on the frontend before sending (`JSON.stringify(filtersObj)`). Backend receives as `PARAM_RAW` and calls `json_decode()`.
 - Arrays are flattened to Moodle's REST format: `courseids[0]=1&courseids[1]=2` by `MoodleApi.appendParam()`.
 - Error response shape: `{ exception: "...", errorcode: "...", message: "..." }`. The `MoodleApi.call()` detects this and throws.
@@ -172,7 +202,7 @@
 
 ## Frontend Client: AdminerApi (adminer-api.js)
 
-All 27 methods follow the same pattern: call `MoodleApi.call(wsfunction, params)`.
+All 28 methods follow the same pattern: call `MoodleApi.call(wsfunction, params)`.
 
 | Method | WS Function |
 |---|---|
@@ -185,6 +215,7 @@ All 27 methods follow the same pattern: call `MoodleApi.call(wsfunction, params)
 | `courseUserAction(action, cid, uids, ...)` | `local_adminer_course_user_action` |
 | `getCourseUserDetail(cid, uid)` | `local_adminer_get_course_user_detail` |
 | `uploadCoursesCsv(fileContent)` | `local_adminer_upload_courses_csv` |
+| `getUsersKpis()` | `local_adminer_get_users_kpis` |
 | `getUsers(opts)` | `local_adminer_get_users` |
 | `userAction(opts)` | `local_adminer_user_action` |
 | `addUser(userData)` | `local_adminer_add_user` |
