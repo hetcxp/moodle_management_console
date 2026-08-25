@@ -1,5 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { Route, Switch, useLocation } from 'wouter';
+import { Route, Switch, useLocation, Router } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
 import { applyTenantTheme } from './config/tenant';
@@ -166,10 +166,12 @@ const AdminerApp = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <AdminerApp />
-      </ToastProvider>
-    </AuthProvider>
+    <Router base={import.meta.env.BASE_URL}>
+      <AuthProvider>
+        <ToastProvider>
+          <AdminerApp />
+        </ToastProvider>
+      </AuthProvider>
+    </Router>
   );
 }

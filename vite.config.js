@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_PROXY_TARGET || (mode === 'lts' ? 'https://lts.academyfactory.online' : 'http://localhost:8000');
 
   return {
+    base: mode === 'production' ? '/adminer/' : '/',
     plugins: [react()],
     test: {
       globals: true,

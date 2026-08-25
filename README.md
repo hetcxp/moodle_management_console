@@ -108,6 +108,23 @@ VITE_TENANT=default               # Tenant key para multi-tenancy
 VITE_PROXY_TARGET=http://localhost:8000  # Target del proxy Vite
 ```
 
+### 4. Despliegue a Producción (Recomendado: Misma URL)
+
+Para evitar problemas de CORS, la mejor práctica es alojar el panel en una subcarpeta del mismo dominio de tu Moodle (ej: `https://lts.academyfactory.online/adminer/`).
+
+1. **Variables de entorno:** Configura el archivo `.env.production` apuntando a tu servidor:
+   ```bash
+   VITE_MOODLE_URL=https://lts.academyfactory.online
+   VITE_SERVICE_NAME=adminer_service
+   VITE_TENANT=default
+   ```
+2. **Generar Build:**
+   ```bash
+   npm run build
+   ```
+   *Nota:* El archivo `vite.config.js` y `App.jsx` ya están configurados dinámicamente para usar la ruta base `/adminer/` en producción, sin afectar a tu entorno de desarrollo (`localhost`).
+3. **Subida:** Sube **todo el contenido** de la carpeta generada `dist/` a la carpeta `/adminer/` de tu servidor web de producción.
+
 ---
 
 ## 🔐 Autenticación
