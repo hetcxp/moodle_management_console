@@ -6,7 +6,7 @@ import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 import { AdminerApi } from '../../services/adminer-api';
 
-export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList }) => {
+export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, defaultCategoryId }) => {
   const { addToast } = useToast();
   const [createLoading, setCreateLoading] = useState(false);
   
@@ -27,7 +27,7 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList }) 
       setForm({
         fullname: '',
         shortname: '',
-        categoryid: categoriesList[0]?.id ? String(categoriesList[0].id) : '',
+        categoryid: defaultCategoryId ? String(defaultCategoryId) : (categoriesList[0]?.id ? String(categoriesList[0].id) : ''),
         summary: '',
         visible: 1,
         startdate: '',

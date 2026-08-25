@@ -9,6 +9,18 @@ export const AuthService = {
     const userStr = sessionStorage.getItem('adminer_user') || localStorage.getItem('adminer_user');
     return userStr ? JSON.parse(userStr) : null;
   },
+
+  _buildUserFromSiteInfo(infoData) {
+    return {
+      userid: infoData.userid,
+      username: infoData.username,
+      fullname: infoData.fullname,
+      userpictureurl: infoData.userpictureurl,
+      sitename: infoData.sitename,
+      firstname: infoData.firstname,
+      lastname: infoData.lastname
+    };
+  },
   
   isAuthenticated() {
     const token = this.getToken();
@@ -66,15 +78,7 @@ export const AuthService = {
 
     // Save session
     storage.setItem('adminer_token', token);
-    storage.setItem('adminer_user', JSON.stringify({
-      userid: infoData.userid,
-      username: infoData.username,
-      fullname: infoData.fullname,
-      userpictureurl: infoData.userpictureurl,
-      sitename: infoData.sitename,
-      firstname: infoData.firstname,
-      lastname: infoData.lastname
-    }));
+    storage.setItem('adminer_user', JSON.stringify(this._buildUserFromSiteInfo(infoData)));
     
     return true;
   },
@@ -92,15 +96,7 @@ export const AuthService = {
 
     localStorage.setItem('adminer_token', token);
     localStorage.setItem('adminer_token_date', Date.now().toString());
-    const user = {
-      userid: infoData.userid,
-      username: infoData.username,
-      fullname: infoData.fullname,
-      userpictureurl: infoData.userpictureurl,
-      sitename: infoData.sitename,
-      firstname: infoData.firstname,
-      lastname: infoData.lastname
-    };
+    const user = this._buildUserFromSiteInfo(infoData);
     localStorage.setItem('adminer_user', JSON.stringify(user));
     return user;
   },

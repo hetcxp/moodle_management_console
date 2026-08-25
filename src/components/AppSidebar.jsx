@@ -55,7 +55,7 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >
-        {/* Brand Brand Header */}
+        {/* Brand Header */}
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-blue-400 text-white shadow-md">
             <Sparkles className="h-5 w-5" />

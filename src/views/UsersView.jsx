@@ -13,6 +13,8 @@ import { useAuth } from '../context/AuthContext';
 import { API_CONFIG } from '../config/api';
 import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload, ExternalLink, Activity, Users } from 'lucide-react';
 import { Input } from '../components/ui/Input';
+import { KpiGrid } from '../components/KpiGrid';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const UsersView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -138,26 +140,30 @@ export const UsersView = ({ onNavigateToDetail }) => {
   };
 
   const handleExport = async () => {
-    let exportData = users;
-    if (totalCount > users.length) {
-      try {
-        setLoading(true);
+    let exportData = [];
+    try {
+      setLoading(true);
+      const limit = 500;
+      const pages = Math.ceil(totalCount / limit) || 1;
+      
+      for (let i = 0; i < pages; i++) {
         const res = await AdminerApi.getUsers({
-          page: 0,
-          perpage: 99999,
+          page: i,
+          perpage: limit,
           sort,
           dir,
           search
         });
         if (res?.users) {
-          exportData = res.users;
+          exportData = [...exportData, ...res.users];
         }
-      } catch (err) {
-        console.error("Export error", err);
-        addToast({ title: 'Error', description: 'No se pudieron obtener todos los registros para exportar. Se exportará la página actual.', type: 'error' });
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error("Export error", err);
+      addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
+      return;
+    } finally {
+      setLoading(false);
     }
 
     const cols = [
@@ -335,52 +341,15 @@ export const UsersView = ({ onNavigateToDetail }) => {
       </div>
 
       {kpis && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-xl">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Usuarios</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.total_users}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-500/10 rounded-xl">
-                <UserCheck className="h-5 w-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Activos</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.active_users}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-rose-500/10 rounded-xl">
-                <UserX className="h-5 w-5 text-rose-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Suspendidos</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.suspended_users}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 rounded-xl">
-                <Activity className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Progreso Promedio</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.avg_progress}%</h3>
-              </div>
-            </div>
-          </div>
-        </div>
+        <KpiGrid 
+          loading={loading}
+          items={[
+            { title: 'Total Usuarios', value: kpis.total_users, icon: Users, badgeColor: 'bg-primary/10 text-primary' },
+            { title: 'Activos', value: kpis.active_users, icon: UserCheck, badgeColor: 'bg-emerald-500/10 text-emerald-500' },
+            { title: 'Suspendidos', value: kpis.suspended_users, icon: UserX, badgeColor: 'bg-rose-500/10 text-rose-500' },
+            { title: 'Progreso Promedio', value: `${kpis.avg_progress}%`, icon: Activity, badgeColor: 'bg-blue-500/10 text-blue-500' }
+          ]} 
+        />
       )}
 
       <FilterBar
@@ -462,21 +431,14 @@ export const UsersView = ({ onNavigateToDetail }) => {
       />
 
       {/* Modal: Confirmar Borrado */}
-      <Dialog
+      <ConfirmDialog
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleExecuteDelete}
         title="¿Eliminar usuarios seleccionados?"
         description="Esta acción eliminará las cuentas de usuario de Moodle. Los administradores del sitio no serán afectados."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleExecuteDelete} disabled={deleteLoading}>
-              {deleteLoading ? 'Eliminando...' : `Sí, eliminar ${usersToDelete.length} usuario(s)`}
-            </Button>
-          </>
-        }
+        loading={deleteLoading}
+        confirmText={`Sí, eliminar ${usersToDelete.length} usuario(s)`}
       />
 
       {/* Modal: Añadir Usuario */}

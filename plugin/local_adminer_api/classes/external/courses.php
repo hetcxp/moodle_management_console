@@ -96,6 +96,10 @@ class courses extends external_api {
                         JOIN {user_enrolments} filter_ue ON filter_e.id = filter_ue.enrolid 
                         WHERE filter_e.courseid = c.id AND filter_ue.status = 0
                     )";
+                } else if ($key === 'exclude_category' && $value) {
+                    $where .= " AND c.category != :filterval$filter_index";
+                    $sqlparams["filterval$filter_index"] = (int)$value;
+                    $filter_index++;
                 } else if (array_key_exists($key, $sortablecolumns) && $value !== '') {
                     $fieldname = $sortablecolumns[$key];
                     if ($key === 'visible') {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AdminerApi } from '../services/adminer-api';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
+import { KpiGrid } from '../components/KpiGrid';
 import { Button } from '../components/ui/Button';
 import { useToast } from '../components/ui/Toast';
 import { BookOpen, Users, Layers, FolderTree, ArrowUpRight, CheckCircle, EyeOff, UserCheck, UserX, RotateCw, Activity, AlertTriangle, GraduationCap, Clock } from 'lucide-react';
@@ -51,8 +52,12 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
   useEffect(() => {
     fetchStats();
     // Auto-refresh every 60 seconds
-    const intervalId = setInterval(fetchStats, 60000);
-    return () => clearInterval(intervalId);
+    const fetchInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchStats(true);
+      }
+    }, 60000);
+    return () => clearInterval(fetchInterval);
   }, []);
 
   const getHealthStatus = (percentage) => {
@@ -71,7 +76,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
   const statCards = [
     {
       title: 'Cursos',
-      total: stats?.courses_total ?? 0,
+      value: stats?.courses_total ?? 0,
       icon: BookOpen,
       color: 'from-blue-500 to-indigo-600',
       badgeColor: 'text-blue-600 bg-blue-50 dark:bg-blue-950/40',
@@ -84,7 +89,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
     },
     {
       title: 'Usuarios',
-      total: stats?.users_total ?? 0,
+      value: stats?.users_total ?? 0,
       icon: Users,
       color: 'from-violet-500 to-purple-600',
       badgeColor: 'text-violet-600 bg-violet-50 dark:bg-violet-950/40',
@@ -97,7 +102,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
     },
     {
       title: 'Cohortes',
-      total: stats?.cohorts_total ?? 0,
+      value: stats?.cohorts_total ?? 0,
       icon: Layers,
       color: 'from-emerald-500 to-teal-600',
       badgeColor: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40',
@@ -110,7 +115,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
     },
     {
       title: 'Categorías',
-      total: stats?.categories_total ?? 0,
+      value: stats?.categories_total ?? 0,
       icon: FolderTree,
       color: 'from-amber-500 to-orange-600',
       badgeColor: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40',
@@ -148,59 +153,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((card, idx) => {
-          const Icon = card.icon;
-          return (
-            <Card key={idx} className="relative overflow-hidden group hover:border-primary/50 transition-colors">
-              <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${card.color}`} />
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {card.title}
-                </span>
-                <div className={`p-2.5 rounded-xl ${card.badgeColor}`}>
-                  <Icon className="h-5 w-5" />
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                <div className="text-3xl font-extrabold tracking-tight text-foreground">
-                  {loading ? '—' : card.total.toLocaleString()}
-                </div>
-
-                {/* Mini Sparkline Proportion */}
-                {!loading && (
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-                    <div className={`h-full bg-gradient-to-r ${card.color}`} style={{ width: `${card.progress}%` }} />
-                  </div>
-                )}
-
-                <div className="pt-2 border-t border-border/60 space-y-1.5 text-xs">
-                  {card.details.map((d, dIdx) => (
-                    <div key={dIdx} className="flex items-center justify-between">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        <d.icon className="h-3.5 w-3.5 opacity-70" />
-                        {d.label}
-                      </span>
-                      <span className={`font-semibold ${d.textClass}`}>
-                        {loading ? '—' : typeof d.value === 'number' ? d.value.toLocaleString() : d.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  onClick={() => onNavigate(card.tab)}
-                  className="flex items-center justify-between w-full pt-1 text-xs font-semibold text-primary hover:underline group/link"
-                >
-                  <span>Ver listado detallado</span>
-                  <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
-                </button>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <KpiGrid items={statCards} loading={loading} onNavigate={onNavigate} />
 
       {/* Middle Panels: Health & Progress */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -219,7 +172,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
                   <RotateCw className="h-6 w-6 animate-spin text-muted-foreground" />
                 ) : (
                   <>
-                    <svg className="absolute inset-0 h-full w-full -rotate-90 transform">
+                    <svg className="absolute inset-0 h-full w-full -rotate-90 transform" viewBox="0 0 72 72">
                       <circle cx="36" cy="36" r="34" stroke="currentColor" strokeWidth="4" fill="none" className="text-muted" />
                       <circle cx="36" cy="36" r="34" stroke="currentColor" strokeWidth="4" fill="none" strokeDasharray="213" strokeDashoffset={213 - (213 * activeRate) / 100} className={health.text} />
                     </svg>

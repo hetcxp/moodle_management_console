@@ -305,12 +305,10 @@ class categories extends external_api {
         $courses = [];
         $sql = "
             SELECT c.id, c.fullname, c.shortname, c.visible,
-                   COUNT(DISTINCT ue.userid) AS enrolledcount,
-                   COUNT(DISTINCT cc.userid) AS completedcount
+                   COUNT(DISTINCT ue.userid) AS enrolledcount
               FROM {course} c
          LEFT JOIN {enrol} e ON e.courseid = c.id
          LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-         LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted IS NOT NULL
              WHERE c.category = :categoryid
           GROUP BY c.id, c.fullname, c.shortname, c.visible
           ORDER BY c.fullname ASC
@@ -318,13 +316,30 @@ class categories extends external_api {
         $records = $DB->get_records_sql($sql, ['categoryid' => $cat->id]);
 
         foreach ($records as $c) {
+            $completedcount = 0;
+            if ($c->enrolledcount > 0) {
+                $course_obj = $DB->get_record('course', ['id' => $c->id]);
+                $sql_users = "SELECT DISTINCT ue.userid 
+                                FROM {enrol} e 
+                                JOIN {user_enrolments} ue ON ue.enrolid = e.id 
+                               WHERE e.courseid = :courseid AND ue.status = 0";
+                $users = $DB->get_fieldset_sql($sql_users, ['courseid' => $c->id]);
+                
+                foreach ($users as $uid) {
+                    $progress = \core_completion\progress::get_course_progress_percentage($course_obj, $uid);
+                    if ($progress !== null && (int)round($progress) === 100) {
+                        $completedcount++;
+                    }
+                }
+            }
+
             $courses[] = [
                 'id' => (int)$c->id,
                 'fullname' => (string)$c->fullname,
                 'shortname' => (string)$c->shortname,
                 'visible' => (int)$c->visible,
                 'enrolledcount' => (int)$c->enrolledcount,
-                'completedcount' => (int)$c->completedcount,
+                'completedcount' => $completedcount,
             ];
         }
 

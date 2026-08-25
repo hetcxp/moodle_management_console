@@ -1,5 +1,5 @@
 # Moodle Adminer — Architecture Intelligence
-*Last updated: 2026-08-24 | Plugin v1.0.1 (2026082502)*
+*Last updated: 2026-08-25 | Plugin v1.0.1 (2026082502)*
 
 ## Overview
 Moodle Adminer es un panel de administración **headless y desacoplado** para Moodle 5.x. Separa completamente la capa de presentación (React SPA) del backend Moodle mediante Web Services REST. El frontend se sirve de forma independiente y se comunica con Moodle únicamente a través del endpoint `/webservice/rest/server.php`.
@@ -71,6 +71,8 @@ moodle_adminer/
 │   │   ├── FilterBar.jsx            # Filtros dinámicos con custom select dropdowns
 │   │   ├── PermissionGate.jsx       # HOC de renderizado condicional por capabilities
 │   │   ├── CsvExporter.js           # Función exportToCsv() standalone
+│   │   ├── KpiGrid.jsx              # Componente reutilizable para renderizado de métricas y tarjetas
+│   │   ├── ConfirmDialog.jsx        # Componente unificado para diálogos destructivos (reemplaza repeticiones inline)
 │   │   └── ui/
 │   │       ├── Badge.jsx
 │   │       ├── Button.jsx
@@ -83,21 +85,22 @@ moodle_adminer/
 │   │       └── Toast.jsx            # ToastProvider + useToast() hook
 │   │
 │   └── views/                       # 12 vistas lazy-loaded
-│       ├── LoginView.jsx            # Login con credenciales o token manual
-│       ├── DashboardView.jsx        # 7.5KB: KPI counters + accesos rápidos + auto-reload (60s)
-│       ├── CoursesView.jsx          # 22KB: CRUD completo de cursos
-│       ├── courses/                 # Sub-componentes modales de cursos
+│       ├── DashboardView.jsx        # Vista principal con métricas globales
+│       ├── LoginView.jsx            # Formulario de autenticación
+│       ├── CoursesView.jsx          # Listado paginado de cursos + bulk actions
+│       ├── CourseDetailView.jsx     # Orquestador y Header del Curso
+│       ├── courses/                 # Componentes dedicados para vistas de cursos
+│       │   ├── CourseUsersTab.jsx   # Tabla y acciones de usuarios inscritos
+│       │   ├── CourseCohortsTab.jsx # Tabla y acciones de cohortes vinculadas
 │       │   ├── CourseCreateModal.jsx
 │       │   ├── CourseMoveModal.jsx
 │       │   └── CourseCsvModal.jsx
-│       ├── CourseDetailView.jsx     # 49KB: usuarios inscritos + cohortes vinculadas
-│       ├── CourseUserDetailView.jsx # 16KB: detalle individual usuario-en-curso
+│       ├── UsersView.jsx            # Listado paginado de usuarios + bulk actions
+│       ├── UserDetailView.jsx       # 19KB: cursos (con método inscripción) + cohortes + acciones
+│       ├── CohortsView.jsx          # Listado paginado de cohortes + bulk actions
+│       ├── CohortDetailView.jsx     # 22KB: miembros + cursos sincronizados + modal detalle curso
 │       ├── CategoriesView.jsx       # 17KB: CRUD categorías con árbol jerárquico
 │       ├── CategoryDetailView.jsx   # 33KB: subcategorías + cursos directos + acciones masivas
-│       ├── UsersView.jsx            # 25KB: gestión usuarios + filtros + CSV + KPIs independientes
-│       ├── UserDetailView.jsx       # 19KB: cursos (con método inscripción) + cohortes + acciones
-│       ├── CohortsView.jsx          # 16KB: CRUD cohortes + KPIs
-│       ├── CohortDetailView.jsx     # 22KB: miembros + cursos sincronizados + modal detalle curso
 │       └── NotFoundView.jsx         # 1KB: página 404
 
 ├── .env / .env.example              # VITE_MOODLE_URL, VITE_SERVICE_NAME, VITE_TENANT
@@ -224,10 +227,14 @@ onNavigateToDetail('cohort', cohortId)        // → /cohorts/123
 // Todas las vistas de detalle siguen este layout:
 // 1. Breadcrumb: parentLabel > entityName
 // 2. Header con icono + título + badges de estado + acciones
-// 3. Grid de KPI cards (4 columnas)
+// 3. Grid de KPI cards (4 columnas, usando KpiGrid)
 // 4. Tabs (e.g. courses | cohorts, members | courses)
 // 5. DataTable dentro de cada tab + SelectorModal + bulk actions
 ```
+
+### 7. Exportación y Polling Patterns
+- **Exportación de CSV Progresiva:** Para evitar errores de memoria o timeouts en Moodle al exportar miles de registros, se usan iteraciones de 500 registros (`page` iterativo) en lugar de un `perpage` gigante.
+- **Polling Inteligente:** Funciones de background polling (ej. `fetchStats` en el Dashboard cada 60s) validan `document.visibilityState === 'visible'` para evitar peticiones inútiles si la pestaña está inactiva.
 
 ---
 
@@ -254,7 +261,12 @@ php /Users/hectorteran/Dev/moodle-dev/admin/cli/purge_caches.php
 3. **Filters como JSON:** El frontend siempre serializa el objeto `filters` con `JSON.stringify()` antes de enviarlo. El backend lo recibe como `PARAM_RAW` y hace `json_decode()`.
 4. **Upgrade obligatorio:** Al agregar nuevos endpoints a `db/services.php`, incrementar `$plugin->version` en `version.php` y ejecutar upgrade + purge_caches.
 5. **Capabilities Moodle:** Cada endpoint PHP valida capabilities con `require_capability()` en `context_system::instance()`.
-6. **Vistas grandes:** `CourseDetailView.jsx` (49KB), `CategoryDetailView.jsx` (33KB), `UsersView.jsx` (25KB), `CohortDetailView.jsx` (22KB) son archivos grandes. Al editarlos, usar siempre `multi_replace_file_content` para cambios no contiguos.
+6. **Vistas grandes:** Al editar archivos masivos (como views), extraer lógicas a subcomponentes en carpetas dedicadas (ej. `views/courses/`) siempre que sea posible. Usar `multi_replace_file_content` para ediciones seguras.
 7. **lucide-react v1.16.0:** Versión muy reciente. Si se agregan nuevos iconos, verificar disponibilidad en esta versión exacta.
 8. **Guest user excluido:** Todas las queries de usuarios excluyen `$CFG->siteguest` además de ID=1.
-9. **KPIs separados:** UsersView y CohortsView cargan KPIs desde endpoints dedicados (`get_users_kpis`, `get_cohorts_kpis`) independientes del listado paginado.
+9. **KPIs separados:** UsersView y CohortsView cargan KPIs desde endpoints dedicados independientes del listado paginado.
+
+---
+
+## Known Technical Debt
+*(La deuda principal referente al monolito de `CourseDetailView.jsx` ha sido resuelta exitosamente mediante la extracción a `CourseUsersTab.jsx` y `CourseCohortsTab.jsx`)*

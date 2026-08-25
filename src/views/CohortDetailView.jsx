@@ -24,6 +24,9 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
   const [courseDetailModalOpen, setCourseDetailModalOpen] = useState(false);
   const [selectedCourseDetail, setSelectedCourseDetail] = useState(null);
 
+  const [userDetailModalOpen, setUserDetailModalOpen] = useState(false);
+  const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+
   // Modals state
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [formData, setFormData] = useState({ name: '', idnumber: '', description: '' });
@@ -184,6 +187,21 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="h-3.5 w-3.5 opacity-70" />
           {row.lastaccess > 0 ? formatDate(row.lastaccess) : 'Nunca'}
+        </div>
+      )
+    },
+    {
+      header: 'Progreso',
+      sortKey: 'progress',
+      cell: (row) => (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[80px] max-w-[120px]">
+            <div
+              className={`h-full ${row.progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+              style={{ width: `${row.progress || 0}%` }}
+            />
+          </div>
+          <span className="text-xs font-semibold text-foreground w-8 text-right">{row.progress || 0}%</span>
         </div>
       )
     },
@@ -384,7 +402,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
             data={data.members}
             loading={loading}
             totalCount={data.members.length}
-            onRowClick={(row) => onNavigateToDetail('user', row.id)}
+            onRowClick={(row) => { setSelectedUserDetail(row); setUserDetailModalOpen(true); }}
             selectable={true}
             selectedIds={selectedUserIds}
             onSelectionChange={setSelectedUserIds}
@@ -544,6 +562,65 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
           ) : (
             <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border/70 rounded-md">
               No hay usuarios en esta cohorte.
+            </div>
+          )}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={userDetailModalOpen}
+        onClose={() => setUserDetailModalOpen(false)}
+        title={selectedUserDetail ? `Cursos de: ${selectedUserDetail.fullname}` : 'Detalle de Cursos'}
+        description="Progreso del usuario en los cursos sincronizados por esta cohorte."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setUserDetailModalOpen(false)}>Cerrar</Button>
+            <Button onClick={() => onNavigateToDetail('user', selectedUserDetail?.id)}>
+              Ir al Detalle del Usuario
+            </Button>
+          </>
+        }
+      >
+        <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1">
+          {data.courses && data.courses.length > 0 ? (
+            <div className="rounded-md border border-border/70 overflow-hidden">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-muted text-muted-foreground text-xs uppercase">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Curso</th>
+                    <th className="px-4 py-3 font-semibold text-right">Progreso</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/70">
+                  {data.courses.map(c => {
+                    const courseProgressObj = selectedUserDetail?.course_progresses?.find(cp => cp.courseid === c.id);
+                    const progress = courseProgressObj ? courseProgressObj.progress : 0;
+                    return (
+                      <tr key={c.id} className="hover:bg-muted/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-foreground">{c.fullname}</div>
+                          <div className="text-xs text-muted-foreground">{c.shortname}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden w-24 max-w-[100px]">
+                              <div
+                                className={`h-full ${progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
+                                style={{ width: `${progress}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-muted-foreground w-8 text-right">{progress}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border/70 rounded-md">
+              No hay cursos sincronizados en esta cohorte.
             </div>
           )}
         </div>

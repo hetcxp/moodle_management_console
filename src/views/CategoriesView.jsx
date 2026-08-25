@@ -258,34 +258,61 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Header with KPIs */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-border/70 pb-6">
-        <div>
-           <div className="flex items-center gap-3">
-             <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 text-white rounded-xl shadow-sm">
-               <FolderTree className="h-7 w-7" />
-             </div>
-             <div>
-               <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Categorías de Cursos</h1>
-               <p className="text-sm text-muted-foreground mt-1">Estructura organizativa y ramas de contenidos de Moodle.</p>
-             </div>
-           </div>
+      {/* Title section */}
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Categorías de Cursos
+        </h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Estructura organizativa y ramas de contenidos de Moodle.
+        </p>
+      </div>
+
+      {/* KPIs section */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/10 rounded-xl">
+              <FolderTree className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Total Categorías</p>
+              <h3 className="text-2xl font-bold text-foreground">{totalCategories}</h3>
+            </div>
+          </div>
         </div>
-        
-        <div className="flex gap-4">
-           <div className="bg-card border border-border/80 rounded-xl p-4 flex flex-col items-center min-w-[120px] shadow-sm">
-             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Categorías</span>
-             <span className="text-2xl font-black text-foreground">{totalCategories}</span>
-             <div className="flex gap-2 text-[10px] mt-1 font-medium">
-                <span className="text-emerald-600 flex items-center gap-0.5"><Eye className="h-3 w-3"/> {visibleCategories}</span>
-                <span className="text-amber-600 flex items-center gap-0.5"><EyeOff className="h-3 w-3"/> {hiddenCategories}</span>
-             </div>
-           </div>
-           <div className="bg-card border border-border/80 rounded-xl p-4 flex flex-col items-center min-w-[120px] shadow-sm">
-             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Cursos Totales</span>
-             <span className="text-2xl font-black text-foreground">{totalCourses}</span>
-             <span className="text-[10px] mt-1 text-muted-foreground font-medium">Asignados</span>
-           </div>
+        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-500/10 rounded-xl">
+              <Eye className="h-5 w-5 text-emerald-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Visibles</p>
+              <h3 className="text-2xl font-bold text-foreground">{visibleCategories}</h3>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-500/10 rounded-xl">
+              <EyeOff className="h-5 w-5 text-amber-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Ocultas</p>
+              <h3 className="text-2xl font-bold text-foreground">{hiddenCategories}</h3>
+            </div>
+          </div>
+        </div>
+        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-500/10 rounded-xl">
+              <BookOpen className="h-5 w-5 text-blue-500" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Cursos Asignados</p>
+              <h3 className="text-2xl font-bold text-foreground">{totalCourses}</h3>
+            </div>
+          </div>
         </div>
       </div>
 

@@ -58,6 +58,7 @@
 #### `local_adminer_get_courses`
 - **Params:** `page, perpage, sort, dir, search, category, visibility, filters`
   - `filters`: JSON string (e.g. `{"empty_only": true}`)
+  - **Export Note:** For large CSV exports, frontend iterates over multiple `page` requests (e.g. chunks of 500) rather than using `perpage=99999`, to prevent OOM errors on the PHP backend.
   - `sort` options: `timecreated`, `fullname`, `shortname`, `startdate`
   - `dir`: `ASC` | `DESC`
   - `visibility`: `-1` (all), `0` (hidden), `1` (visible)

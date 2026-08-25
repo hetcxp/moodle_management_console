@@ -17,3 +17,6 @@ Cuando se añaden nuevos endpoints, es obligatorio incrementar el valor de `$plu
 
 ## Filosofía de Filtrado
 El frontend manda filtros complejos como un objeto literal, sin embargo, Moodle maneja las estructuras anidadas de forma estricta. Para mayor resiliencia y simplicidad, el objeto `filters` se codifica a JSON (`JSON.stringify`) antes de enviarlo desde `adminer-api.js` hacia Moodle. Del lado de Moodle, se recibe como `PARAM_RAW` y se hace un `json_decode()`.
+
+## Capabilities y Permisos Restrictivos
+Existen capacidades en el cliente (como `can_update_courses`, `can_view_cohorts`) que provienen directamente del mapeo en el archivo PHP `permissions.php`. Se debe tener precaución de no usar nombres inexistentes (ej. evitar `can_manage_cohorts` si Moodle/Plugin solo expone `can_view_cohorts` y otros específicos). El sistema implementa "fail-safe" total, es decir, si falla el chequeo de permisos por un error de red, todos los capabilities regresan como `0` (acceso denegado) en vez de conceder privilegios administrativos, resguardando la seguridad del Tenant.

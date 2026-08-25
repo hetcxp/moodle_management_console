@@ -252,6 +252,16 @@ class cohorts extends external_api {
 
         $cohort = $DB->get_record('cohort', ['id' => $params['cohortid']], '*', MUST_EXIST);
 
+        // Cursos sincronizados
+        $sql_courses = "
+            SELECT c.*, e.id as enrolid,
+                   (SELECT COUNT(ue.id) FROM {user_enrolments} ue WHERE ue.enrolid = e.id) as enrolledcount
+              FROM {course} c
+              JOIN {enrol} e ON e.courseid = c.id
+             WHERE e.customint1 = :cohortid AND e.enrol = 'cohort'
+        ";
+        $courses_records = $DB->get_records_sql($sql_courses, ['cohortid' => $cohort->id]);
+
         // Miembros de la cohorte
         $sql_members = "
             SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended
@@ -260,27 +270,37 @@ class cohorts extends external_api {
              WHERE cm.cohortid = :cohortid AND u.deleted = 0
         ";
         $members_records = $DB->get_records_sql($sql_members, ['cohortid' => $cohort->id]);
-        
+
         $members = [];
+        $course_count = count($courses_records);
+
         foreach ($members_records as $u) {
+            $user_course_progress = [];
+            $total_progress = 0;
+            
+            foreach ($courses_records as $c) {
+                $pct = \core_completion\progress::get_course_progress_percentage($c, $u->id);
+                $prog_val = $pct !== null ? (int)round($pct) : 0;
+                $total_progress += $prog_val;
+                
+                $user_course_progress[] = [
+                    'courseid' => (int)$c->id,
+                    'progress' => $prog_val
+                ];
+            }
+            
+            $progress = $course_count > 0 ? (int)round($total_progress / $course_count) : 0;
+            
             $members[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
                 'email' => (string)$u->email,
                 'lastaccess' => (int)$u->lastaccess,
-                'suspended' => (int)$u->suspended
+                'suspended' => (int)$u->suspended,
+                'progress' => $progress,
+                'course_progresses' => $user_course_progress
             ];
         }
-
-        // Cursos sincronizados
-        $sql_courses = "
-            SELECT c.id, c.fullname, c.shortname, e.id as enrolid,
-                   (SELECT COUNT(ue.id) FROM {user_enrolments} ue WHERE ue.enrolid = e.id) as enrolledcount
-              FROM {course} c
-              JOIN {enrol} e ON e.courseid = c.id
-             WHERE e.customint1 = :cohortid AND e.enrol = 'cohort'
-        ";
-        $courses_records = $DB->get_records_sql($sql_courses, ['cohortid' => $cohort->id]);
 
         $courses = [];
         foreach ($courses_records as $c) {
@@ -292,6 +312,8 @@ class cohorts extends external_api {
                 'enrolledcount' => (int)($c->enrolledcount ?? 0)
             ];
         }
+
+
 
         return [
             'id' => (int)$cohort->id,
@@ -316,6 +338,15 @@ class cohorts extends external_api {
                     'email' => new external_value(PARAM_TEXT, 'User email'),
                     'lastaccess' => new external_value(PARAM_INT, 'User lastaccess time'),
                     'suspended' => new external_value(PARAM_INT, 'Is user suspended'),
+                    'progress' => new external_value(PARAM_INT, 'Progress percentage', VALUE_OPTIONAL),
+                    'course_progresses' => new external_multiple_structure(
+                        new external_single_structure([
+                            'courseid' => new external_value(PARAM_INT, 'Course ID'),
+                            'progress' => new external_value(PARAM_INT, 'Progress percentage')
+                        ]),
+                        'List of course progress percentages for this user',
+                        VALUE_OPTIONAL
+                    ),
                 ])
             ),
             'courses' => new external_multiple_structure(

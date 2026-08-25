@@ -13,7 +13,8 @@ export const SelectorModal = ({
   title,
   entityType, // 'users', 'courses', 'cohorts'
   onSelect, // (selectedIds) => void
-  multiple = true
+  multiple = true,
+  extraFilters = {}
 }) => {
   const { addToast } = useToast();
   const [data, setData] = useState([]);
@@ -33,7 +34,7 @@ export const SelectorModal = ({
         setData(res.users || []);
         setTotalCount(res.totalcount || 0);
       } else if (entityType === 'courses') {
-        const res = await AdminerApi.getCourses({ page, perpage: perPage, search });
+        const res = await AdminerApi.getCourses({ page, perpage: perPage, search, filters: extraFilters });
         setData(res.courses || []);
         setTotalCount(res.totalcount || 0);
       } else if (entityType === 'cohorts') {

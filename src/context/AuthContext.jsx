@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
       setPermissionsError(true);
       // Fallback if permissions service fails
       setPermissions({
-        is_siteadmin: 1,
+        is_siteadmin: 0,
         can_config_site: 0,
         can_view_courses: 0,
         can_create_courses: 0,

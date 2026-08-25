@@ -32,7 +32,7 @@ moodle_adminer/
 │       └── version.php         # v1.0.1 (build 2026082502)
 ├── src/
 │   ├── App.jsx                 # Shell: AuthProvider > ToastProvider > Router (wouter)
-│   ├── components/             # DataTable, FilterBar, Header, Sidebar, PermissionGate, CsvExporter
+│   ├── components/             # DataTable, FilterBar, Header, Sidebar, PermissionGate, CsvExporter, KpiGrid, ConfirmDialog
 │   │   └── ui/                 # Badge, Button, Card, Checkbox, Dialog, Input, Select, SelectorModal, Toast
 │   ├── config/                 # Multi-tenant (tenant.js) + API builder (api.js)
 │   ├── context/                # AuthContext (user, token, permissions, login/logout)
@@ -41,7 +41,7 @@ moodle_adminer/
 │   └── views/                  # 12 vistas lazy-loaded
 │       ├── DashboardView.jsx
 │       ├── CoursesView.jsx / CourseDetailView.jsx / CourseUserDetailView.jsx
-│       ├── courses/                # Modales (CourseCreateModal, CourseMoveModal, CourseCsvModal)
+│       ├── courses/                # Subcomponentes (CourseUsersTab, CourseCohortsTab) y modales (CourseCreateModal, etc.)
 │       ├── CategoriesView.jsx / CategoryDetailView.jsx
 │       ├── UsersView.jsx / UserDetailView.jsx
 │       ├── CohortsView.jsx / CohortDetailView.jsx
@@ -194,6 +194,8 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 
 - **`DataTable`:** Tabla reutilizable con sorting del servidor, paginación, selección múltiple, bulk actions y filtros por columna.
 - **`SelectorModal`:** Modal con búsqueda debounced y paginación para vincular entidades (usuarios ↔ cursos ↔ cohortes).
+- **`KpiGrid`:** Componente estándar para la visualización de tarjetas de métricas en dashboards y vistas de detalle.
+- **`ConfirmDialog`:** Componente unificado para diálogos de advertencia y acciones destructivas.
 - **`PermissionGate`:** Renderizado condicional basado en capabilities de `AuthContext`.
 - **`FilterBar`:** Barra de filtros dinámica con dropdowns customizados.
 - **`useApi`:** Custom hook con caché TTL en memoria (2 min por defecto) para llamadas de solo lectura.
@@ -208,6 +210,8 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 - **Permissions:** `is_siteadmin === 1` siempre otorga acceso total, independientemente de otras capabilities.
 - **ID=1 protegido:** El curso site (ID=1) y el admin principal (ID=1) están bloqueados en el backend.
 - **Guest excluido:** Todas las queries de usuarios excluyen automáticamente el usuario invitado.
+- **Exportación Progresiva:** Para CSVs grandes, se realizan requests paginados progresivos de 500 registros para evitar colapsar la memoria de PHP.
+- **Polling Inteligente:** Funciones de actualización en background validan `document.visibilityState === 'visible'` para no consumir recursos innecesarios.
 
 ---
 

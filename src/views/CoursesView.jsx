@@ -14,6 +14,8 @@ import { PermissionGate } from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
 import { API_CONFIG } from '../config/api';
 import { Eye, EyeOff, Trash2, FolderInput, Plus, ExternalLink, GraduationCap, Users, Layers, Upload, Activity, Calendar } from 'lucide-react';
+import { KpiGrid } from '../components/KpiGrid';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CourseCreateModal } from './courses/CourseCreateModal';
 import { CourseMoveModal } from './courses/CourseMoveModal';
 import { CourseCsvModal } from './courses/CourseCsvModal';
@@ -186,28 +188,32 @@ export const CoursesView = ({ onNavigateToDetail }) => {
 
   // Export CSV
   const handleExport = async () => {
-    let exportData = courses;
-    if (totalCount > courses.length) {
-      try {
-        setLoading(true);
+    let exportData = [];
+    try {
+      setLoading(true);
+      const limit = 500;
+      const pages = Math.ceil(totalCount / limit) || 1;
+      
+      for (let i = 0; i < pages; i++) {
         const res = await AdminerApi.getCourses({
-          page: 0,
-          perpage: 99999,
+          page: i,
+          perpage: limit,
           sort,
           dir,
           search,
-          category,
-          visibility
+          category: parseInt(categoryFilter, 10) || 0,
+          visibility: parseInt(visibilityFilter, 10) || -1
         });
         if (res?.courses) {
-          exportData = res.courses;
+          exportData = [...exportData, ...res.courses];
         }
-      } catch (err) {
-        console.error("Export error", err);
-        addToast({ title: 'Error', description: 'No se pudieron obtener todos los registros para exportar. Se exportará la página actual.', type: 'error' });
-      } finally {
-        setLoading(false);
       }
+    } catch (err) {
+      console.error("Export error", err);
+      addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
+      return;
+    } finally {
+      setLoading(false);
     }
 
     const columnsForExport = [
@@ -392,52 +398,15 @@ export const CoursesView = ({ onNavigateToDetail }) => {
 
       {/* KPIs section */}
       {kpis && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-xl">
-                <Layers className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Cursos</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.total_courses}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-500/10 rounded-xl">
-                <Users className="h-5 w-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Alumnos Enrolados</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.total_enrolled}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 rounded-xl">
-                <Activity className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Progreso Promedio</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.avg_progress}%</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 rounded-xl">
-                <FolderInput className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Cursos Vacíos</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.empty_courses}</h3>
-              </div>
-            </div>
-          </div>
-        </div>
+        <KpiGrid 
+          loading={loading}
+          items={[
+            { title: 'Total Cursos', value: kpis.total_courses, icon: Layers, badgeColor: 'bg-primary/10 text-primary' },
+            { title: 'Alumnos Enrolados', value: kpis.total_enrolled, icon: Users, badgeColor: 'bg-emerald-500/10 text-emerald-500' },
+            { title: 'Progreso Promedio', value: `${kpis.avg_progress}%`, icon: Activity, badgeColor: 'bg-blue-500/10 text-blue-500' },
+            { title: 'Cursos Vacíos', value: kpis.empty_courses, icon: FolderInput, badgeColor: 'bg-amber-500/10 text-amber-500' }
+          ]} 
+        />
       )}
 
       {/* Filter and search bar */}
@@ -578,26 +547,15 @@ export const CoursesView = ({ onNavigateToDetail }) => {
       />
 
       {/* Modal: Confirmar Borrado */}
-      <Dialog
+      <ConfirmDialog
         open={deleteConfirmOpen}
         onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleExecuteDelete}
         title="¿Eliminar cursos seleccionados?"
-        description="Esta acción es irreversible y borrará el curso junto con sus inscripciones y calificaciones asociadas en Moodle."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleExecuteDelete} disabled={deleteLoading}>
-              {deleteLoading ? 'Eliminando...' : `Sí, eliminar ${coursesToDelete.length} curso(s)`}
-            </Button>
-          </>
-        }
-      >
-        <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-600 dark:text-rose-400">
-          Atención: Estás a punto de borrar <strong>{coursesToDelete.length}</strong> curso(s).
-        </div>
-      </Dialog>
+        description="Esta acción eliminará completamente los cursos de Moodle. Esta acción no se puede deshacer."
+        loading={deleteLoading}
+        confirmText={`Sí, eliminar ${coursesToDelete.length} curso(s)`}
+      />
     </div>
   );
 };

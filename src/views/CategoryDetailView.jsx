@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
+import { CourseCreateModal } from './courses/CourseCreateModal';
+import { SelectorModal } from '../components/ui/SelectorModal';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
@@ -19,6 +21,7 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
   
   const hasManageCategory = permissions?.is_siteadmin === 1 || permissions?.can_manage_categories === 1;
   const hasUpdateCourse = permissions?.is_siteadmin === 1 || permissions?.can_update_courses === 1;
+  const hasCreateCourse = permissions?.is_siteadmin === 1 || permissions?.can_create_courses === 1;
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -61,6 +64,24 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
   const [moveLoading, setMoveLoading] = useState(false);
   const [flatCategories, setFlatCategories] = useState([]);
 
+  // Create / Bring courses
+  const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false);
+  const [bringCourseModalOpen, setBringCourseModalOpen] = useState(false);
+
+  const handleBringCourses = async (selectedIds) => {
+    try {
+      await AdminerApi.courseAction({
+        action: 'move',
+        courseids: selectedIds,
+        categoryid: parseInt(categoryId, 10)
+      });
+      addToast({ type: 'success', title: 'Cursos vinculados exitosamente' });
+      loadData();
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error', description: err.message });
+    }
+  };
+
   const loadFlatCategories = async () => {
     try {
       const res = await AdminerApi.getCategoriesFlat();
@@ -88,6 +109,7 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
   useEffect(() => {
     loadData();
     loadFlatCategories();
+    setActiveTab('courses');
   }, [loadData]);
 
   const handleOpenCreateSubcategory = () => {
@@ -526,6 +548,16 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
                 ]
               }
             ]}
+            primaryAction={hasCreateCourse ? {
+              label: 'Crear Curso',
+              onClick: () => setCreateCourseModalOpen(true),
+              icon: <Plus className="h-4 w-4" />
+            } : null}
+            secondaryAction={hasUpdateCourse ? {
+              label: 'Traer Curso',
+              onClick: () => setBringCourseModalOpen(true),
+              icon: <FolderInput className="h-4 w-4" />
+            } : null}
           />
           {selectedCourseIds.length > 0 && hasUpdateCourse && (() => {
             const selectedCourses = data.courses.filter(c => selectedCourseIds.includes(c.id));
@@ -723,6 +755,27 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
           </Select>
         </div>
       </Dialog>
+
+      <CourseCreateModal 
+        open={createCourseModalOpen} 
+        onClose={() => setCreateCourseModalOpen(false)} 
+        onSuccess={() => {
+          setCreateCourseModalOpen(false);
+          loadData();
+        }}
+        categoriesList={flatCategories} 
+        defaultCategoryId={categoryId}
+      />
+
+      <SelectorModal
+        open={bringCourseModalOpen}
+        onClose={() => setBringCourseModalOpen(false)}
+        title="Traer Cursos a esta Categoría"
+        entityType="courses"
+        multiple={true}
+        onSelect={handleBringCourses}
+        extraFilters={{ exclude_category: parseInt(categoryId, 10) }}
+      />
 
       <Dialog
         open={courseModalOpen}
