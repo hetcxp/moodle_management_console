@@ -18,6 +18,7 @@ const CourseUserDetailView = lazy(() => import('./views/CourseUserDetailView').t
 const UserDetailView = lazy(() => import('./views/UserDetailView').then(m => ({ default: m.UserDetailView })));
 const CohortDetailView = lazy(() => import('./views/CohortDetailView').then(m => ({ default: m.CohortDetailView })));
 const CategoryDetailView = lazy(() => import('./views/CategoryDetailView').then(m => ({ default: m.CategoryDetailView })));
+const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
 const AdminerApp = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -153,7 +154,7 @@ const AdminerApp = () => {
 
               {/* Default */}
               <Route>
-                <DashboardView onNavigate={(t) => setLocation(t === 'dashboard' ? '/' : `/${t}`)} onNavigateToDetail={navigateToDetail} />
+                <NotFoundView onNavigateHome={() => setLocation('/')} />
               </Route>
             </Switch>
           </Suspense>

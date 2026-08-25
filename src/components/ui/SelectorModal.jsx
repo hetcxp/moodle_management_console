@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog } from './Dialog';
 import { Input } from './Input';
 import { Button } from './Button';
-import { Loader2, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, Search, ChevronLeft, ChevronRight, Inbox } from 'lucide-react';
 import { AdminerApi } from '../../services/adminer-api';
 import { Checkbox } from './Checkbox';
 import { useToast } from './Toast';
@@ -152,8 +152,14 @@ export const SelectorModal = ({
           
           <div className="flex-1 overflow-y-auto">
             {data.length === 0 && !loading ? (
-              <div className="p-8 text-center text-muted-foreground text-sm">
-                No se encontraron resultados
+              <div className="flex flex-col items-center justify-center p-12 text-center h-full">
+                <div className="h-12 w-12 rounded-full bg-muted/50 flex items-center justify-center mb-4">
+                  <Inbox className="h-6 w-6 text-muted-foreground/50" />
+                </div>
+                <h3 className="text-sm font-semibold text-foreground mb-1">Sin resultados</h3>
+                <p className="text-xs text-muted-foreground max-w-[200px]">
+                  No se encontraron coincidencias para tu búsqueda.
+                </p>
               </div>
             ) : (
               <ul className="divide-y divide-border/50">

@@ -48,6 +48,11 @@ export const MoodleApi = {
         throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
       }
 
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(`Moodle respondió con error HTTP ${response.status} (${response.statusText}). Posible mantenimiento o configuración incorrecta.`);
+      }
+
       const data = await response.json();
       
       if (data && data.exception) {

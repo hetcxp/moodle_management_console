@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 const globalCache = new Map();
+const MAX_CACHE_SIZE = 50;
 
 /**
  * Custom hook to manage API requests with basic TTL in-memory caching.
@@ -18,7 +19,7 @@ export function useApi(apiFunction, args = null, options = { key: null, ttl: 120
   const argsKey = JSON.stringify(args, (k, v) => v === undefined ? null : v);
   const cacheKey = options.key || (apiFunction.name ? `${apiFunction.name}_${argsKey}` : null);
 
-  const fetch = useCallback(async (force = false) => {
+  const fetchData = useCallback(async (force = false) => {
     if (!isMounted.current) return;
     
     if (!force && cacheKey && globalCache.has(cacheKey)) {
@@ -37,6 +38,10 @@ export function useApi(apiFunction, args = null, options = { key: null, ttl: 120
       if (isMounted.current) {
         setData(res);
         if (cacheKey) {
+          if (globalCache.size >= MAX_CACHE_SIZE) {
+            const firstKey = globalCache.keys().next().value;
+            globalCache.delete(firstKey);
+          }
           globalCache.set(cacheKey, { data: res, timestamp: Date.now() });
         }
       }
@@ -51,11 +56,11 @@ export function useApi(apiFunction, args = null, options = { key: null, ttl: 120
 
   useEffect(() => {
     isMounted.current = true;
-    fetch();
+    fetchData();
     return () => { isMounted.current = false; };
-  }, [fetch]);
+  }, [fetchData]);
 
-  return { data, setData, loading, error, refetch: () => fetch(true) };
+  return { data, setData, loading, error, refetch: () => fetchData(true) };
 }
 
 export function clearApiCache(keyPrefix = '') {

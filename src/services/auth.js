@@ -29,12 +29,17 @@ export const AuthService = {
 
   async login(username, password, remember = true) {
     const tokenUrl = new URL(API_CONFIG.baseUrl + API_CONFIG.endpoints.login, window.location.origin);
-    tokenUrl.searchParams.append('username', username);
-    tokenUrl.searchParams.append('password', password);
-    tokenUrl.searchParams.append('service', API_CONFIG.serviceName);
+    const bodyParams = new URLSearchParams();
+    bodyParams.append('username', username);
+    bodyParams.append('password', password);
+    bodyParams.append('service', API_CONFIG.serviceName);
 
     const res = await fetch(tokenUrl.toString(), {
-      method: 'POST'
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: bodyParams
     });
     
     if (!res.ok) throw new Error('Error de conexión durante el login.');

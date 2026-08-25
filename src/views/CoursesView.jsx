@@ -14,6 +14,9 @@ import { PermissionGate } from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
 import { API_CONFIG } from '../config/api';
 import { Eye, EyeOff, Trash2, FolderInput, Plus, ExternalLink, GraduationCap, Users, Layers, Upload, Activity, Calendar } from 'lucide-react';
+import { CourseCreateModal } from './courses/CourseCreateModal';
+import { CourseMoveModal } from './courses/CourseMoveModal';
+import { CourseCsvModal } from './courses/CourseCsvModal';
 
 export const CoursesView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -41,8 +44,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
 
   // CSV Upload state
   const [csvModalOpen, setCsvModalOpen] = useState(false);
-  const [csvFile, setCsvFile] = useState(null);
-  const [csvLoading, setCsvLoading] = useState(false);
 
   // Selection state
   const [selectedIds, setSelectedIds] = useState([]);
@@ -52,21 +53,9 @@ export const CoursesView = ({ onNavigateToDetail }) => {
 
   // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [createForm, setCreateForm] = useState({
-    fullname: '',
-    shortname: '',
-    categoryid: '',
-    summary: '',
-    visible: 1,
-    startdate: '',
-    enddate: ''
-  });
-  const [createLoading, setCreateLoading] = useState(false);
-
+  
   const [moveModalOpen, setMoveModalOpen] = useState(false);
-  const [targetCategory, setTargetCategory] = useState('');
   const [coursesToMove, setCoursesToMove] = useState([]);
-  const [moveLoading, setMoveLoading] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [coursesToDelete, setCoursesToDelete] = useState([]);
@@ -77,9 +66,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
     try {
       const res = await AdminerApi.getCategoriesFlat();
       setCategoriesList(res.categories || []);
-      if (res.categories?.length > 0 && !createForm.categoryid) {
-        setCreateForm((prev) => ({ ...prev, categoryid: String(res.categories[0].id) }));
-      }
     } catch (err) {
       console.error('Error fetching categories list:', err);
     }
@@ -171,32 +157,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
 
   const handleOpenMoveModal = (ids = selectedIds) => {
     setCoursesToMove(ids);
-    setTargetCategory(categoriesList[0]?.id ? String(categoriesList[0].id) : '');
     setMoveModalOpen(true);
-  };
-
-  const handleExecuteMove = async () => {
-    if (!targetCategory) return;
-    setMoveLoading(true);
-    try {
-      await AdminerApi.courseAction({
-        action: 'move',
-        courseids: coursesToMove,
-        categoryid: parseInt(targetCategory, 10)
-      });
-      addToast({
-        type: 'success',
-        title: 'Cursos movidos',
-        description: `Se movieron ${coursesToMove.length} curso(s) correctamente.`
-      });
-      setMoveModalOpen(false);
-      setSelectedIds([]);
-      loadCourses();
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error al mover cursos', description: err.message });
-    } finally {
-      setMoveLoading(false);
-    }
   };
 
   const handleOpenDeleteModal = (ids = selectedIds) => {
@@ -220,81 +181,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
       addToast({ type: 'error', title: 'Error al eliminar cursos', description: err.message });
     } finally {
       setDeleteLoading(false);
-    }
-  };
-
-  // Create course handler
-  const handleCreateCourse = async (e) => {
-    e.preventDefault();
-    setCreateLoading(true);
-    try {
-      await AdminerApi.courseAction({
-        action: 'create',
-        fullname: createForm.fullname,
-        shortname: createForm.shortname,
-        categoryid: parseInt(createForm.categoryid, 10),
-        summary: createForm.summary,
-        visible: parseInt(createForm.visible, 10),
-        startdate: createForm.startdate ? (new Date(createForm.startdate).getTime() / 1000) : 0,
-        enddate: createForm.enddate ? (new Date(createForm.enddate).getTime() / 1000) : 0
-      });
-      addToast({
-        type: 'success',
-        title: 'Curso creado',
-        description: `El curso "${createForm.fullname}" fue creado con éxito.`
-      });
-      setCreateModalOpen(false);
-      setCreateForm({
-        fullname: '',
-        shortname: '',
-        categoryid: categoriesList[0]?.id ? String(categoriesList[0].id) : '',
-        summary: '',
-        visible: 1,
-        startdate: '',
-        enddate: ''
-      });
-      loadCourses();
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error al crear curso', description: err.message });
-    } finally {
-      setCreateLoading(false);
-    }
-  };
-
-  const handleUploadCsv = async (e) => {
-    e.preventDefault();
-    if (!csvFile) return;
-    setCsvLoading(true);
-    
-    try {
-      const reader = new FileReader();
-      reader.onload = async (ev) => {
-        const text = ev.target.result;
-        // Convertir a base64 manejando caracteres UTF-8 correctamente
-        const bytes = new TextEncoder().encode(text);
-        const binString = String.fromCodePoint(...bytes);
-        const base64Content = btoa(binString);
-        
-        try {
-          const res = await AdminerApi.uploadCoursesCsv(base64Content);
-          if (res.success) {
-            addToast({ type: 'success', title: 'Importación Completada', description: res.message });
-            setCsvModalOpen(false);
-            setCsvFile(null);
-            loadCourses();
-          } else {
-            addToast({ type: 'error', title: 'Error en la importación', description: res.message });
-          }
-        } catch (apiErr) {
-          addToast({ type: 'error', title: 'Error', description: apiErr.message });
-        } finally {
-          setCsvLoading(false);
-        }
-      };
-      reader.readAsText(csvFile);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error', description: err.message });
-      setCsvLoading(false);
     }
   };
 
@@ -389,9 +275,15 @@ export const CoursesView = ({ onNavigateToDetail }) => {
       header: 'Inscritos',
       sortKey: 'enrolledcount',
       cell: (row) => (
-        <div className="flex items-center gap-1.5 text-xs text-foreground font-semibold">
-          <Users className="h-3.5 w-3.5 text-muted-foreground" />
-          <span>{row.enrolledcount}</span>
+        <div className="flex flex-col gap-1 text-xs">
+          <div className="flex items-center gap-1.5 text-foreground font-semibold">
+            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>{row.enrolledcount}</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-muted-foreground">
+            <Layers className="h-3 w-3" />
+            <span>{row.cohortscount || 0}</span>
+          </div>
         </div>
       )
     },
@@ -623,13 +515,15 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}
         bulkActions={[
-          ...(hasUpdateCourse ? [
+          ...(hasUpdateCourse && selectedIds.length > 0 && selectedIds.every(id => courses.find(c => c.id === id)?.visible === 0) ? [
             {
               label: 'Hacer Visibles',
               icon: <Eye className="h-3.5 w-3.5" />,
               onClick: handleBulkShow,
               variant: 'success'
-            },
+            }
+          ] : []),
+          ...(hasUpdateCourse && selectedIds.length > 0 && selectedIds.every(id => courses.find(c => c.id === id)?.visible === 1) ? [
             {
               label: 'Ocultar',
               icon: <EyeOff className="h-3.5 w-3.5" />,
@@ -652,137 +546,36 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         ]}
       />
 
-      {/* Modal: Crear Curso */}
-      <Dialog
-        open={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        title="Crear Nuevo Curso"
-        description="Ingresa los datos para registrar un curso en Moodle."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateCourse} disabled={createLoading}>
-              {createLoading ? 'Creando...' : 'Crear Curso'}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={handleCreateCourse} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Nombre Completo del Curso *</label>
-            <Input
-              placeholder="Ej: Introducción a Python 3"
-              value={createForm.fullname}
-              onChange={(e) => setCreateForm({ ...createForm, fullname: e.target.value })}
-              required
-            />
-          </div>
+      <CourseCreateModal 
+        open={createModalOpen} 
+        onClose={() => setCreateModalOpen(false)} 
+        onSuccess={() => {
+          setCreateModalOpen(false);
+          loadCourses();
+        }}
+        categoriesList={categoriesList} 
+      />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Nombre Corto / Código *</label>
-              <Input
-                placeholder="Ej: PY3-101"
-                value={createForm.shortname}
-                onChange={(e) => setCreateForm({ ...createForm, shortname: e.target.value })}
-                required
-              />
-            </div>
+      <CourseMoveModal 
+        open={moveModalOpen} 
+        onClose={() => setMoveModalOpen(false)} 
+        onSuccess={() => {
+          setMoveModalOpen(false);
+          setSelectedIds([]);
+          loadCourses();
+        }}
+        categoriesList={categoriesList}
+        coursesToMove={coursesToMove}
+      />
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Categoría *</label>
-              <Select
-                value={createForm.categoryid}
-                onChange={(e) => setCreateForm({ ...createForm, categoryid: e.target.value })}
-                required
-              >
-                {categoriesList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Visibilidad Inicial</label>
-            <Select
-              value={createForm.visible}
-              onChange={(e) => setCreateForm({ ...createForm, visible: parseInt(e.target.value, 10) })}
-            >
-              <option value={1}>Visible para estudiantes</option>
-              <option value={0}>Oculto (Borrador)</option>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Fecha de Inicio</label>
-              <Input
-                type="date"
-                value={createForm.startdate}
-                onChange={(e) => setCreateForm({ ...createForm, startdate: e.target.value })}
-              />
-            </div>
-            
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Fecha de Fin</label>
-              <Input
-                type="date"
-                value={createForm.enddate}
-                onChange={(e) => setCreateForm({ ...createForm, enddate: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Resumen / Descripción</label>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              placeholder="Descripción breve del contenido del curso..."
-              value={createForm.summary}
-              onChange={(e) => setCreateForm({ ...createForm, summary: e.target.value })}
-            />
-          </div>
-        </form>
-      </Dialog>
-
-      {/* Modal: Mover Cursos */}
-      <Dialog
-        open={moveModalOpen}
-        onClose={() => setMoveModalOpen(false)}
-        title="Mover Cursos de Categoría"
-        description={`Selecciona la categoría de destino para ${coursesToMove.length} curso(s).`}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setMoveModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleExecuteMove} disabled={moveLoading}>
-              {moveLoading ? 'Moviendo...' : 'Mover Cursos'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Categoría Destino</label>
-            <Select
-              value={targetCategory}
-              onChange={(e) => setTargetCategory(e.target.value)}
-            >
-              {categoriesList.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </Select>
-          </div>
-        </div>
-      </Dialog>
+      <CourseCsvModal 
+        open={csvModalOpen} 
+        onClose={() => setCsvModalOpen(false)} 
+        onSuccess={() => {
+          setCsvModalOpen(false);
+          loadCourses();
+        }}
+      />
 
       {/* Modal: Confirmar Borrado */}
       <Dialog
@@ -804,46 +597,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-600 dark:text-rose-400">
           Atención: Estás a punto de borrar <strong>{coursesToDelete.length}</strong> curso(s).
         </div>
-      </Dialog>
-
-      {/* Modal: Importar CSV */}
-      <Dialog
-        open={csvModalOpen}
-        onClose={() => { setCsvModalOpen(false); setCsvFile(null); }}
-        title="Importar Cursos (CSV)"
-        description="Sube un archivo CSV con los campos: shortname, fullname, category"
-        footer={
-          <>
-            <Button variant="outline" onClick={() => { setCsvModalOpen(false); setCsvFile(null); }}>
-              Cancelar
-            </Button>
-            <Button onClick={handleUploadCsv} disabled={!csvFile || csvLoading}>
-              {csvLoading ? 'Importando...' : 'Importar'}
-            </Button>
-          </>
-        }
-      >
-        <form onSubmit={handleUploadCsv} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-foreground">Archivo CSV</label>
-            <div className="flex items-center gap-4">
-              <input
-                type="file"
-                accept=".csv"
-                onChange={(e) => setCsvFile(e.target.files[0])}
-                className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-colors"
-                required
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Ejemplo de formato:
-              <br/>
-              <code>shortname,fullname,category</code>
-              <br/>
-              <code>C01,"Curso Básico",1</code>
-            </p>
-          </div>
-        </form>
       </Dialog>
     </div>
   );

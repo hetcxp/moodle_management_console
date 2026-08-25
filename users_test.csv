@@ -1,0 +1,11 @@
+username,password,firstname,lastname,email
+user1,Password.123,Juan,Perez,user1@example.com
+user2,Password.123,Maria,Gomez,user2@example.com
+user3,Password.123,Carlos,Lopez,user3@example.com
+user4,Password.123,Ana,Martinez,user4@example.com
+user5,Password.123,Luis,Garcia,user5@example.com
+user6,Password.123,Laura,Rodriguez,user6@example.com
+user7,Password.123,Jose,Fernandez,user7@example.com
+user8,Password.123,Carmen,Ruiz,user8@example.com
+user9,Password.123,Pedro,Sanchez,user9@example.com
+user10,Password.123,Sofia,Diaz,user10@example.com

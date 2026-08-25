@@ -28,6 +28,13 @@ export const DashboardView = ({ onNavigate }) => {
 
   useEffect(() => {
     fetchStats();
+    
+    // Auto-refresh every 60 seconds
+    const intervalId = setInterval(() => {
+      fetchStats();
+    }, 60000);
+    
+    return () => clearInterval(intervalId);
   }, []);
 
   const statCards = [

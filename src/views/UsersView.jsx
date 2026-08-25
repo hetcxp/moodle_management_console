@@ -33,6 +33,8 @@ export const UsersView = ({ onNavigateToDetail }) => {
   
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [uploadCsvOpen, setUploadCsvOpen] = useState(false);
+  const [userForm, setUserForm] = useState({ firstname: '', lastname: '', email: '', username: '', password: '' });
+  const [userErrors, setUserErrors] = useState({});
 
   // Confirm delete modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -391,15 +393,26 @@ export const UsersView = ({ onNavigateToDetail }) => {
       {/* Modal: Añadir Usuario */}
       <Dialog
         open={addUserOpen}
-        onClose={() => setAddUserOpen(false)}
+        onClose={() => { setAddUserOpen(false); setUserErrors({}); setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' }); }}
         title="Añadir Nuevo Usuario"
         description="Completa los datos para crear un nuevo usuario en la plataforma."
         footer={
           <>
-            <Button variant="outline" onClick={() => setAddUserOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setAddUserOpen(false); setUserErrors({}); setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' }); }}>Cancelar</Button>
             <Button onClick={() => {
-              addToast({ title: 'Usuario Creado', type: 'success' });
-              setAddUserOpen(false);
+              const newErrors = {};
+              if (!userForm.firstname || userForm.firstname.trim().length < 2) newErrors.firstname = 'El nombre debe tener al menos 2 caracteres.';
+              if (!userForm.lastname || userForm.lastname.trim().length < 2) newErrors.lastname = 'El apellido debe tener al menos 2 caracteres.';
+              if (!userForm.email || !/^\S+@\S+\.\S+$/.test(userForm.email)) newErrors.email = 'Debe ser un email válido.';
+              if (!userForm.username || userForm.username.trim().length < 3) newErrors.username = 'El usuario debe tener al menos 3 caracteres.';
+              if (!userForm.password || userForm.password.length < 6) newErrors.password = 'La contraseña debe tener al menos 6 caracteres.';
+              
+              setUserErrors(newErrors);
+              if (Object.keys(newErrors).length === 0) {
+                addToast({ title: 'Usuario Creado', type: 'success' });
+                setAddUserOpen(false);
+                setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
+              }
             }}>Guardar Usuario</Button>
           </>
         }
@@ -407,25 +420,57 @@ export const UsersView = ({ onNavigateToDetail }) => {
         <div className="space-y-4 pt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-semibold">Nombre</label>
-              <Input placeholder="Ej. Juan" />
+              <label className="text-xs font-semibold">Nombre *</label>
+              <Input 
+                placeholder="Ej. Juan" 
+                value={userForm.firstname} 
+                onChange={(e) => setUserForm({...userForm, firstname: e.target.value})}
+                className={userErrors.firstname ? 'border-red-500' : ''}
+              />
+              {userErrors.firstname && <p className="text-xs text-red-500">{userErrors.firstname}</p>}
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold">Apellidos</label>
-              <Input placeholder="Ej. Pérez" />
+              <label className="text-xs font-semibold">Apellidos *</label>
+              <Input 
+                placeholder="Ej. Pérez" 
+                value={userForm.lastname} 
+                onChange={(e) => setUserForm({...userForm, lastname: e.target.value})}
+                className={userErrors.lastname ? 'border-red-500' : ''}
+              />
+              {userErrors.lastname && <p className="text-xs text-red-500">{userErrors.lastname}</p>}
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-semibold">Email</label>
-            <Input type="email" placeholder="juan.perez@ejemplo.com" />
+            <label className="text-xs font-semibold">Email *</label>
+            <Input 
+              type="email" 
+              placeholder="juan.perez@ejemplo.com" 
+              value={userForm.email} 
+              onChange={(e) => setUserForm({...userForm, email: e.target.value})}
+              className={userErrors.email ? 'border-red-500' : ''}
+            />
+            {userErrors.email && <p className="text-xs text-red-500">{userErrors.email}</p>}
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-semibold">Nombre de usuario</label>
-            <Input placeholder="juanperez" />
+            <label className="text-xs font-semibold">Nombre de usuario *</label>
+            <Input 
+              placeholder="juanperez" 
+              value={userForm.username} 
+              onChange={(e) => setUserForm({...userForm, username: e.target.value})}
+              className={userErrors.username ? 'border-red-500' : ''}
+            />
+            {userErrors.username && <p className="text-xs text-red-500">{userErrors.username}</p>}
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-semibold">Contraseña</label>
-            <Input type="password" placeholder="Contraseña segura" />
+            <label className="text-xs font-semibold">Contraseña *</label>
+            <Input 
+              type="password" 
+              placeholder="Contraseña segura" 
+              value={userForm.password} 
+              onChange={(e) => setUserForm({...userForm, password: e.target.value})}
+              className={userErrors.password ? 'border-red-500' : ''}
+            />
+            {userErrors.password && <p className="text-xs text-red-500">{userErrors.password}</p>}
           </div>
         </div>
       </Dialog>

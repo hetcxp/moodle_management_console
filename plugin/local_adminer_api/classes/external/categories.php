@@ -99,15 +99,22 @@ class categories extends external_api {
         self::validate_context($context);
         require_capability('moodle/category:viewhiddencategories', $context);
 
-        $records = $DB->get_records('course_categories', null, 'sortorder ASC, name ASC', 'id, name, parent, depth, path');
+        $records = $DB->get_records('course_categories', null, 'sortorder ASC, name ASC', 'id, name, parent, depth, path, visible, coursecount');
         $list = [];
         foreach ($records as $r) {
+            $parentname = '';
+            if ($r->parent > 0 && isset($records[$r->parent])) {
+                $parentname = $records[$r->parent]->name;
+            }
             $list[] = [
-                'id'     => (int)$r->id,
-                'name'   => (string)$r->name,
-                'parent' => (int)$r->parent,
-                'depth'  => (int)$r->depth,
-                'path'   => (string)$r->path,
+                'id'          => (int)$r->id,
+                'name'        => (string)$r->name,
+                'parent'      => (int)$r->parent,
+                'parentname'  => (string)$parentname,
+                'depth'       => (int)$r->depth,
+                'path'        => (string)$r->path,
+                'visible'     => (int)$r->visible,
+                'coursecount' => (int)$r->coursecount,
             ];
         }
 
@@ -118,11 +125,14 @@ class categories extends external_api {
         return new external_single_structure([
             'categories' => new external_multiple_structure(
                 new external_single_structure([
-                    'id'     => new external_value(PARAM_INT, 'Category ID'),
-                    'name'   => new external_value(PARAM_TEXT, 'Category name'),
-                    'parent' => new external_value(PARAM_INT, 'Parent ID'),
-                    'depth'  => new external_value(PARAM_INT, 'Category depth level'),
-                    'path'   => new external_value(PARAM_TEXT, 'Category tree path'),
+                    'id'          => new external_value(PARAM_INT, 'Category ID'),
+                    'name'        => new external_value(PARAM_TEXT, 'Category name'),
+                    'parent'      => new external_value(PARAM_INT, 'Parent ID'),
+                    'parentname'  => new external_value(PARAM_TEXT, 'Parent category name', VALUE_OPTIONAL),
+                    'depth'       => new external_value(PARAM_INT, 'Category depth level'),
+                    'path'        => new external_value(PARAM_TEXT, 'Category tree path'),
+                    'visible'     => new external_value(PARAM_INT, 'Visibility status'),
+                    'coursecount' => new external_value(PARAM_INT, 'Number of courses'),
                 ])
             ),
         ]);
@@ -199,7 +209,10 @@ class categories extends external_api {
                 foreach ($ids as $cid) {
                     $cat = core_course_category::get($cid, IGNORE_MISSING);
                     if ($cat) {
-                        $cat->hide();
+                        $updatedata = new stdClass();
+                        $updatedata->id = $cid;
+                        $updatedata->visible = 0;
+                        $cat->update($updatedata);
                         $affected++;
                     }
                 }
@@ -209,7 +222,10 @@ class categories extends external_api {
                 foreach ($ids as $cid) {
                     $cat = core_course_category::get($cid, IGNORE_MISSING);
                     if ($cat) {
-                        $cat->show();
+                        $updatedata = new stdClass();
+                        $updatedata->id = $cid;
+                        $updatedata->visible = 1;
+                        $cat->update($updatedata);
                         $affected++;
                     }
                 }
@@ -282,16 +298,33 @@ class categories extends external_api {
                 'id' => (int)$child->id,
                 'name' => (string)$child->name,
                 'coursecount' => (int)$child->coursecount,
+                'visible' => (int)$child->visible,
             ];
         }
 
         $courses = [];
-        $catcourses = $cat->get_courses();
-        foreach ($catcourses as $c) {
+        $sql = "
+            SELECT c.id, c.fullname, c.shortname, c.visible,
+                   COUNT(DISTINCT ue.userid) AS enrolledcount,
+                   COUNT(DISTINCT cc.userid) AS completedcount
+              FROM {course} c
+         LEFT JOIN {enrol} e ON e.courseid = c.id
+         LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
+         LEFT JOIN {course_completions} cc ON cc.course = c.id AND cc.userid = ue.userid AND cc.timecompleted IS NOT NULL
+             WHERE c.category = :categoryid
+          GROUP BY c.id, c.fullname, c.shortname, c.visible
+          ORDER BY c.fullname ASC
+        ";
+        $records = $DB->get_records_sql($sql, ['categoryid' => $cat->id]);
+
+        foreach ($records as $c) {
             $courses[] = [
                 'id' => (int)$c->id,
                 'fullname' => (string)$c->fullname,
                 'shortname' => (string)$c->shortname,
+                'visible' => (int)$c->visible,
+                'enrolledcount' => (int)$c->enrolledcount,
+                'completedcount' => (int)$c->completedcount,
             ];
         }
 
@@ -314,6 +347,7 @@ class categories extends external_api {
                     'id' => new external_value(PARAM_INT, 'Category ID'),
                     'name' => new external_value(PARAM_TEXT, 'Category name'),
                     'coursecount' => new external_value(PARAM_INT, 'Course count'),
+                    'visible' => new external_value(PARAM_INT, 'Visibility status'),
                 ])
             ),
             'courses' => new external_multiple_structure(
@@ -321,6 +355,9 @@ class categories extends external_api {
                     'id' => new external_value(PARAM_INT, 'Course ID'),
                     'fullname' => new external_value(PARAM_TEXT, 'Course fullname'),
                     'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
+                    'visible' => new external_value(PARAM_INT, 'Visibility status'),
+                    'enrolledcount' => new external_value(PARAM_INT, 'Enrolled users count'),
+                    'completedcount' => new external_value(PARAM_INT, 'Completed users count'),
                 ])
             ),
         ]);

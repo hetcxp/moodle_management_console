@@ -487,11 +487,13 @@ class courses extends external_api {
 
         $users = [];
         foreach ($enrolled_users as $u) {
+            $progress = \core_completion\progress::get_course_progress_percentage($course, $u->id);
+            $progress_val = $progress !== null ? (int)round($progress) : 0;
             $users[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
                 'email' => $u->email,
-                'progress' => $u->timecompleted > 0 ? 100 : 0, // Simplificado
+                'progress' => $progress_val,
                 'status' => (int)$u->enrolstatus,
                 'timestart' => (int)$u->timestart > 0 ? (int)$u->timestart : (int)$u->timecreated,
                 'timeend' => (int)$u->timeend,

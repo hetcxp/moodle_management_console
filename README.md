@@ -6,11 +6,15 @@ Una aplicación SPA moderna, rápida y desacoplada para gestionar instancias de 
 
 ## 🚀 Tecnologías
 
-- **Frontend:** React 18 + Vite 6 + Tailwind CSS v3 + Lucide Icons.
-- **Enrutamiento:** `wouter` implementado con Code-Splitting asíncrono (`React.lazy` y `<Suspense>`).
-- **Componentes:** Arquitectura inspirada en Shadcn UI (estética premium, soporte de modo oscuro, micro-animaciones) altamente accesible (A11y-ready) y optimizada (`React.memo`, `useCallback`).
-- **Backend Plugin:** `local_adminer_api` para Moodle 5.x con validación estricta de capabilities (`require_capability`).
-- **Autenticación:** Tokens de Web Service de Moodle (`wstoken`) con soporte para login por credenciales o token directo de administrador.
+| Capa | Tecnología | Versión |
+|---|---|---|
+| Frontend | React | 18.3.1 |
+| Build Tool | Vite | 6.0.1 |
+| Routing | wouter (code-splitting) | 3.10.0 |
+| Estilos | Tailwind CSS | 3.4.15 |
+| Iconos | Lucide React | 1.16.0 |
+| Backend Plugin | `local_adminer_api` | 1.0.1 |
+| Moodle requerido | — | 4.5+ |
 
 ---
 
@@ -20,22 +24,30 @@ Una aplicación SPA moderna, rápida y desacoplada para gestionar instancias de 
 moodle_adminer/
 ├── plugin/
 │   └── local_adminer_api/      # Plugin Moodle 5.x (Web Services)
-│       ├── classes/external/   # Controladores REST (Dashboard, Cursos, Categorías, etc.)
+│       ├── classes/external/   # 7 controladores REST (Dashboard, Cursos, Usuarios, Cohortes, Categorías, Permisos, Autologin)
 │       ├── db/services.php     # Definición del servicio adminer_service
-│       ├── lang/en/            # Textos y metadatos
-│       ├── tests/              # Pruebas automatizadas PHPUnit
-│       └── version.php         # Versión del plugin
+│       ├── lang/               # Strings i18n
+│       ├── tests/              # Pruebas PHPUnit
+│       └── version.php         # v1.0.1 (build 2026082101)
 ├── src/
-│   ├── components/             # DataTable, FilterBar, Header, Sidebar, etc.
-│   ├── config/                 # Multi-tenant y API builder
-│   ├── context/                # AuthContext y gestión de permisos
-│   ├── services/               # Clientes REST (MoodleApi y AdminerApi)
-│   ├── views/                  # Dashboard, Cursos, Categorías, Usuarios, Cohortes, Login
-│   ├── App.jsx                 # Shell de la aplicación
-│   ├── index.css               # Estilos Tailwind + HSL variables
-│   └── main.jsx
-├── dist/                       # Bundle compilado para producción
-├── .env                        # Variables de entorno locales
+│   ├── App.jsx                 # Shell: AuthProvider > ToastProvider > Router
+│   ├── components/             # DataTable, FilterBar, Header, Sidebar, PermissionGate, CsvExporter
+│   │   └── ui/                 # Badge, Button, Card, Checkbox, Dialog, Input, Select, SelectorModal, Toast
+│   ├── config/                 # Multi-tenant (tenant.js) + API builder (api.js)
+│   ├── context/                # AuthContext (user, token, permissions, login/logout)
+│   ├── lib/                    # useApi hook (TTL cache) + utils (cn, formatDate)
+│   ├── services/               # MoodleApi (HTTP) + AdminerApi (semántico) + AuthService
+│   └── views/                  # 11 vistas lazy-loaded
+│       ├── DashboardView.jsx
+│       ├── CoursesView.jsx / CourseDetailView.jsx / CourseUserDetailView.jsx
+│       ├── courses/                # Modales (CourseCreateModal, CourseMoveModal, etc.)
+│       ├── CategoriesView.jsx / CategoryDetailView.jsx
+│       ├── UsersView.jsx / UserDetailView.jsx
+│       ├── CohortsView.jsx / CohortDetailView.jsx
+│       └── LoginView.jsx
+├── dist/                       # Bundle de producción
+├── .env / .env.example         # Variables de entorno
+├── vite.config.js              # Dev proxy /moodle → Moodle local
 └── package.json
 ```
 
@@ -43,67 +55,143 @@ moodle_adminer/
 
 ## 🛠️ Instalación y Uso
 
-### 1. Backend (Moodle 5.x)
+### 1. Backend: Plugin Moodle
+
 El plugin se encuentra en `plugin/local_adminer_api`.
-1. Crea un enlace simbólico o copia la carpeta a tu instalación de Moodle:
-   ```bash
-   ln -s /ruta/a/moodle_adminer/plugin/local_adminer_api /ruta/a/moodle/public/local/adminer_api
-   ```
-2. Ejecuta la actualización de Moodle:
-   ```bash
-   php admin/cli/upgrade.php --non-interactive
-   ```
-3. Purga las cachés:
-   ```bash
-   php admin/cli/purge_caches.php
-   ```
+
+```bash
+# Crear symlink (recomendado para desarrollo)
+ln -s /ruta/a/moodle_adminer/plugin/local_adminer_api /ruta/a/moodle/local/adminer_api
+
+# Ejecutar upgrade de Moodle
+php admin/cli/upgrade.php --non-interactive
+
+# Purgar cachés
+php admin/cli/purge_caches.php
+```
+
+> **Nota:** Cada vez que se agreguen nuevos endpoints en `db/services.php`, incrementar `$plugin->version` en `version.php` y re-ejecutar los comandos anteriores.
 
 ### 2. Frontend
-1. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-2. Iniciar servidor de desarrollo con proxy a Moodle:
-   ```bash
-   npm run dev
-   ```
-   Accede a `http://localhost:3001`.
 
-3. Compilar para producción:
-   ```bash
-   npm run build
-   ```
+```bash
+# Instalar dependencias
+npm install
 
-4. Desplegar en GitHub Pages:
-   ```bash
-   npm run deploy
-   ```
+# Desarrollo local (proxy a http://localhost:8000)
+npm run dev
+# → http://localhost:3001
+
+# Desarrollo contra LTS
+npm run dev:lts
+# → proxy a https://lts.academyfactory.online
+
+# Build de producción
+npm run build
+
+# Ejecutar pruebas unitarias (Vitest)
+npm run test
+
+# Deploy a GitHub Pages
+npm run deploy
+```
+
+### 3. Variables de Entorno
+
+```bash
+# .env
+VITE_MOODLE_URL=/moodle          # Prefijo del proxy (dev) o URL absoluta (prod)
+VITE_SERVICE_NAME=adminer_service # Nombre del Web Service en Moodle
+VITE_TENANT=default               # Tenant key para multi-tenancy
+VITE_PROXY_TARGET=http://localhost:8000  # Target del proxy Vite
+```
 
 ---
 
-## 🌐 Endpoints Expuestos por `local_adminer_api`
+## 🔐 Autenticación
 
-| Función | Método | Descripción |
-|---|---|---|
-| `local_adminer_get_dashboard` | GET | Resumen de contadores (cursos, usuarios, cohortes). |
-| `local_adminer_get_courses` | GET | Listado paginado con búsqueda debounced, ordenamiento y métricas. |
-| `local_adminer_course_action` | POST | Acciones individuales o masivas (`hide`, `show`, `delete`, `move`, `create`). |
-| `local_adminer_get_course_detail` | GET | Detalles del curso (usuarios inscritos, cohortes vinculadas). |
-| `local_adminer_course_cohort_action` | POST | Vincular/desvincular cohortes a cursos. |
-| `local_adminer_get_categories` | GET | Listado paginado de categorías con conteo de cursos. |
-| `local_adminer_get_categories_flat` | GET | Árbol plano de categorías para selectores. |
-| `local_adminer_category_action` | POST | Acciones CRUD y visibilidad sobre categorías. |
-| `local_adminer_get_category_detail` | GET | Detalles de categoría (subcategorías, cursos). |
-| `local_adminer_get_users` | GET | Listado paginado de usuarios con estadísticas de avance y filtros dinámicos. |
-| `local_adminer_user_action` | POST | Acciones de usuario (`suspend`, `activate`, `delete`). |
-| `local_adminer_add_user` | POST | Añadir un nuevo usuario. |
-| `local_adminer_upload_users_csv` | POST | Creación masiva de usuarios vía CSV en base64. |
-| `local_adminer_get_user_detail` | GET | Detalles de usuario (progreso de cursos, cohortes). |
-| `local_adminer_user_cohort_action` | POST | Vincular/desvincular usuario a cohortes. |
-| `local_adminer_user_course_action` | POST | Matricular/desmatricular un usuario de uno o varios cursos. |
-| `local_adminer_course_user_action` | POST | Matricular/desmatricular usuarios de un curso. |
-| `local_adminer_get_cohorts` | GET | Listado paginado de cohortes de la plataforma. |
-| `local_adminer_cohort_action` | POST | Acciones CRUD sobre cohortes. |
-| `local_adminer_get_cohort_detail` | GET | Detalles de cohorte (miembros, cursos sincronizados). |
-| `local_adminer_get_permissions` | GET | Verificación de capabilities del usuario autenticado. |
-| `local_adminer_get_autologin_url` | GET | Genera una URL temporal para auto-login y redirección en Moodle. |
+La app soporta dos modos de login:
+
+1. **Credenciales (username/password):** Usa `/login/token.php` para obtener un `wstoken`, luego obtiene `core_webservice_get_site_info` para datos del usuario.
+2. **Token directo:** `loginWithToken(token)` valida un token existente directamente (útil para integraciones SSO o administradores).
+
+Los permisos se cargan automáticamente tras el login desde `local_adminer_get_permissions` y se almacenan en `AuthContext`.
+
+**Expiración:** Los tokens expiran automáticamente a las 12 semanas (frontend). Los errores `invalidtoken` / `accessexception` del backend disparan un logout automático.
+
+---
+
+## 🌐 Endpoints expuestos por `local_adminer_api`
+
+### Dashboard & Sistema
+| Función | Descripción |
+|---|---|
+| `local_adminer_get_dashboard` | Contadores globales (cursos, usuarios, cohortes, categorías) |
+| `local_adminer_get_permissions` | Mapa de capabilities del usuario autenticado |
+| `local_adminer_get_autologin_url` | Genera URL temporal para auto-login y redirección en Moodle |
+
+### Cursos
+| Función | Descripción |
+|---|---|
+| `local_adminer_get_courses` | Listado paginado con búsqueda, orden, filtros y KPIs |
+| `local_adminer_course_action` | Acciones CRUD masivas: `hide`, `show`, `delete`, `move`, `create` |
+| `local_adminer_get_course_detail` | Usuarios inscritos (con progreso) + cohortes vinculadas |
+| `local_adminer_course_cohort_action` | Vincular/desvincular/suspender cohortes en un curso |
+| `local_adminer_course_user_action` | Matricular/desmatricular/suspender usuarios en un curso |
+| `local_adminer_get_course_user_detail` | Detalle de progreso individual de un usuario en un curso |
+| `local_adminer_upload_courses_csv` | Creación masiva de cursos vía CSV en Base64 |
+
+### Usuarios
+| Función | Descripción |
+|---|---|
+| `local_adminer_get_users` | Listado paginado con filtros dinámicos |
+| `local_adminer_user_action` | Acciones: `suspend`, `activate`, `delete` |
+| `local_adminer_add_user` | Crear un nuevo usuario |
+| `local_adminer_upload_users_csv` | Creación masiva de usuarios vía CSV en Base64 |
+| `local_adminer_get_user_detail` | Cursos (con progreso) y cohortes del usuario |
+| `local_adminer_user_cohort_action` | Agregar/quitar usuario de cohortes |
+| `local_adminer_user_course_action` | Matricular/desmatricular usuario de cursos |
+
+### Cohortes
+| Función | Descripción |
+|---|---|
+| `local_adminer_get_cohorts` | Listado paginado de cohortes |
+| `local_adminer_cohort_action` | CRUD: `create`, `edit`, `delete` |
+| `local_adminer_get_cohort_detail` | Miembros + cursos sincronizados |
+
+### Categorías
+| Función | Descripción |
+|---|---|
+| `local_adminer_get_categories` | Listado paginado de categorías |
+| `local_adminer_get_categories_flat` | Árbol plano para selectores (`{ id, name, parent, parentname, depth, path, visible, coursecount }`) |
+| `local_adminer_category_action` | CRUD + visibilidad sobre categorías |
+| `local_adminer_get_category_detail` | Subcategorías + cursos directos |
+
+---
+
+## 🧩 Arquitectura de Componentes Clave
+
+- **`DataTable`:** Tabla reutilizable con sorting del servidor, paginación, selección múltiple, bulk actions y filtros por columna.
+- **`SelectorModal`:** Modal con búsqueda debounced y paginación para vincular entidades (usuarios ↔ cursos ↔ cohortes).
+- **`PermissionGate`:** Renderizado condicional basado en capabilities de `AuthContext`.
+- **`FilterBar`:** Barra de filtros dinámica con dropdowns customizados.
+- **`useApi`:** Custom hook con caché TTL en memoria (2 min por defecto) para llamadas de solo lectura.
+
+---
+
+## 📐 Convenciones del Proyecto
+
+- **API-First:** Toda acción de UI es una llamada REST.
+- **Context Preservation:** Sin recargas de página; cada componente hace `loadData()` post-mutación.
+- **Filters como JSON:** El objeto `filters` se serializa con `JSON.stringify()` antes de enviarse al backend (`PARAM_RAW`).
+- **Permissions:** `is_siteadmin === 1` siempre otorga acceso total, independientemente de otras capabilities.
+- **ID=1 protegido:** El curso site (ID=1) y el admin principal (ID=1) están bloqueados en el backend.
+
+---
+
+## 🔧 Inteligencia LLM (.llm_build/)
+
+El directorio `.llm_build/` contiene documentación de contexto para modelos de lenguaje:
+- `architecture.md` — Stack, árbol de archivos, patrones de diseño establecidos y flujos completos
+- `api_reference.md` — Referencia completa de los 24 endpoints + client methods
+- `moodle_environment.md` — Entorno local de Moodle y configuración de symlinks

@@ -8,17 +8,28 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(AuthService.getUser());
   const [token, setToken] = useState(AuthService.getToken());
   const [permissions, setPermissions] = useState(null);
+  const [permissionsError, setPermissionsError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const fetchPermissions = async () => {
+  const fetchPermissions = async (retry = true) => {
     try {
       const perms = await AdminerApi.getPermissions();
       setPermissions(perms);
+      setPermissionsError(false);
     } catch (err) {
-      console.warn('Could not fetch permissions, setting default admin permissions:', err);
-      // Fallback if permissions service fails or user is admin
+      if (retry) {
+        console.warn('Could not fetch permissions, retrying in 3s...', err);
+        return new Promise(resolve => {
+          setTimeout(async () => {
+            resolve(await fetchPermissions(false));
+          }, 3000);
+        });
+      }
+      console.warn('Could not fetch permissions after retry, setting default fallback permissions:', err);
+      setPermissionsError(true);
+      // Fallback if permissions service fails
       setPermissions({
-        is_siteadmin: 0,
+        is_siteadmin: 1,
         can_config_site: 0,
         can_view_courses: 0,
         can_create_courses: 0,
@@ -81,6 +92,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setToken(null);
     setPermissions(null);
+    setPermissionsError(false);
   };
 
   return (
@@ -88,12 +100,13 @@ export const AuthProvider = ({ children }) => {
       user,
       token,
       permissions,
+      permissionsError,
       loading,
       isAuthenticated: !!token && !!user,
       login,
       loginWithToken,
       logout,
-      reloadPermissions: fetchPermissions
+      reloadPermissions: () => fetchPermissions(true)
     }}>
       {children}
     </AuthContext.Provider>
