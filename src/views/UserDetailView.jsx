@@ -2,15 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { AdminerApi } from '../services/adminer-api';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
-import { DataTable } from '../components/DataTable';
 import { Dialog } from '../components/ui/Dialog';
-import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
-import { ChevronLeft, ChevronRight, GraduationCap, Users, Layers, Trash2, BookOpen, User, ExternalLink, MessageSquare, Clock, UserCheck, UserX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
 import { formatDate } from '../lib/utils';
 import { API_CONFIG } from '../config/api';
+import { UserCoursesTab } from './users/UserCoursesTab';
+import { UserCohortsTab } from './users/UserCohortsTab';
 
 export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
@@ -22,9 +22,6 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   const [selectorType, setSelectorType] = useState('courses');
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
-  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
-  const [selectedCohortIds, setSelectedCohortIds] = useState([]);
-  const [selectedCohortModal, setSelectedCohortModal] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -87,7 +84,6 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     try {
       await AdminerApi.userCourseAction('remove', userId, ids);
       addToast({ type: 'success', title: `${ids.length} curso(s) desmatriculados` });
-      setSelectedCourseIds([]);
       loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
@@ -98,7 +94,6 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     try {
       await AdminerApi.userCohortAction('remove', userId, ids);
       addToast({ type: 'success', title: `${ids.length} cohorte(s) desvinculadas` });
-      setSelectedCohortIds([]);
       loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
@@ -144,146 +139,6 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   }
 
   if (!data) return null;
-
-  const coursesCols = [
-    {
-      header: 'Curso',
-      sortKey: 'fullname',
-      filterType: 'text',
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold">
-            <BookOpen className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-foreground">{row.fullname}</div>
-            <div className="text-xs text-muted-foreground font-mono">{row.shortname}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'Método',
-      sortKey: 'enrolmethod',
-      filterType: 'select',
-      filterOptions: [
-        { label: 'Manual', value: 'manual' },
-        { label: 'Cohorte', value: 'cohort' },
-        { label: 'Auto', value: 'self' },
-        { label: 'Invitado', value: 'guest' }
-      ],
-      cell: (row) => {
-        const methodMap = {
-          manual: { label: 'Manual', icon: <User className="h-3 w-3 mr-1" />, color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-          cohort: { label: 'Cohorte', icon: <Layers className="h-3 w-3 mr-1" />, color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-          self: { label: 'Auto', icon: <UserCheck className="h-3 w-3 mr-1" />, color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
-          guest: { label: 'Invitado', icon: <UserX className="h-3 w-3 mr-1" />, color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' }
-        };
-        const m = methodMap[row.enrolmethod] || { label: row.enrolmethod || 'Otro', icon: null, color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400' };
-        
-        return (
-          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${m.color}`}>
-            {m.icon}
-            {m.label}
-          </span>
-        );
-      }
-    },
-    {
-      header: 'Progreso',
-      sortKey: 'progress',
-      cell: (row) => (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[100px] max-w-[200px]">
-            <div
-              className={`h-full ${row.progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
-              style={{ width: `${row.progress}%` }}
-            />
-          </div>
-          <span className="text-xs font-semibold">{row.progress}%</span>
-        </div>
-      )
-    },
-    {
-      header: 'Acciones',
-      className: 'text-right',
-      cell: (row) => (
-        <PermissionGate capability="can_update_courses">
-          <Button variant="ghost" size="sm"
-            onClick={(e) => { e.stopPropagation(); handleUnenrollCourse(row.id); }}
-            className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-          >
-            <Trash2 className="h-4 w-4 mr-1" /> Desmatricular
-          </Button>
-        </PermissionGate>
-      )
-    }
-  ];
-
-  const cohortsCols = [
-    {
-      header: 'Cohorte',
-      sortKey: 'name',
-      filterType: 'text',
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 font-bold">
-            <Layers className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-foreground">{row.name}</div>
-            <div className="text-xs font-mono text-muted-foreground">{row.idnumber || 'Sin código'}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'Progreso de Cursos',
-      cell: (row) => {
-        const cohortCourses = data.courses.filter(c => {
-          if (c.enrolmethod !== 'cohort') return false;
-          if (c.cohortid) return String(c.cohortid) === String(row.id);
-          if (c.cohortids) return String(c.cohortids).split(',').includes(String(row.id));
-          return true; // Fallback
-        });
-        
-        const totalProgress = cohortCourses.length > 0 
-          ? Math.round(cohortCourses.reduce((acc, c) => acc + (c.progress || 0), 0) / cohortCourses.length) 
-          : 0;
-
-        return (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between text-[11px] mb-1 max-w-[120px]">
-              <span className="text-muted-foreground">{cohortCourses.length} curso(s)</span>
-              <span className="font-semibold">{totalProgress}%</span>
-            </div>
-            <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden max-w-[120px]">
-              <div
-                className={`h-full transition-all duration-300 ${totalProgress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
-                style={{ width: `${totalProgress}%` }}
-              />
-            </div>
-          </div>
-        );
-      }
-    },
-    {
-      header: 'Acciones',
-      className: 'text-right',
-      cell: (row) => (
-        <PermissionGate capability="can_view_cohorts">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => { e.stopPropagation(); handleUnlinkCohort(row.id); }}
-            className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30"
-          >
-            <Trash2 className="h-4 w-4 mr-1" /> Remover
-          </Button>
-        </PermissionGate>
-      )
-    }
-  ];
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -401,59 +256,26 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
       {/* Tab Content */}
       {activeTab === 'courses' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <PermissionGate capability="can_manage_courses">
-              <Button onClick={() => { setSelectorType('courses'); setSelectorOpen(true); }}>
-                <BookOpen className="h-4 w-4 mr-2" /> Matricular en Curso(s)
-              </Button>
-            </PermissionGate>
-          </div>
-          <DataTable
-            columns={coursesCols}
-            data={data.courses}
-            loading={loading}
-            totalCount={data.courses.length}
-            selectable={true}
-            selectedIds={selectedCourseIds}
-            onSelectionChange={setSelectedCourseIds}
-            onRowClick={(row) => onNavigateToDetail('course_user', { courseId: row.id, userId: userId })}
-            bulkActions={[{
-              label: 'Desmatricular Seleccionados',
-              icon: <Trash2 className="h-3.5 w-3.5" />,
-              onClick: handleBulkUnenrollCourses,
-              variant: 'destructive'
-            }]}
-          />
-        </div>
+        <UserCoursesTab
+          courses={data.courses}
+          loading={loading}
+          userId={userId}
+          onOpenSelector={() => { setSelectorType('courses'); setSelectorOpen(true); }}
+          handleUnenrollCourse={handleUnenrollCourse}
+          handleBulkUnenrollCourses={handleBulkUnenrollCourses}
+          onNavigateToDetail={onNavigateToDetail}
+        />
       )}
 
       {activeTab === 'cohorts' && (
-        <div className="space-y-4">
-          <div className="flex justify-end">
-            <PermissionGate capability="can_manage_cohorts">
-              <Button onClick={() => { setSelectorType('cohorts'); setSelectorOpen(true); }}>
-                <Layers className="h-4 w-4 mr-2" /> Vincular a Cohorte
-              </Button>
-            </PermissionGate>
-          </div>
-          <DataTable
-            columns={cohortsCols}
-            data={data.cohorts}
-            loading={loading}
-            totalCount={data.cohorts.length}
-            selectable={true}
-            selectedIds={selectedCohortIds}
-            onSelectionChange={setSelectedCohortIds}
-            onRowClick={(row) => setSelectedCohortModal(row)}
-            bulkActions={[{
-              label: 'Remover Seleccionadas',
-              icon: <Trash2 className="h-3.5 w-3.5" />,
-              onClick: handleBulkUnlinkCohorts,
-              variant: 'destructive'
-            }]}
-          />
-        </div>
+        <UserCohortsTab
+          cohorts={data.cohorts}
+          courses={data.courses}
+          loading={loading}
+          onOpenSelector={() => { setSelectorType('cohorts'); setSelectorOpen(true); }}
+          handleUnlinkCohort={handleUnlinkCohort}
+          handleBulkUnlinkCohorts={handleBulkUnlinkCohorts}
+        />
       )}
 
       {/* Modals */}
@@ -490,70 +312,6 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
         </div>
       </Dialog>
 
-      {/* Modal de Progreso de Cohorte */}
-      <Dialog
-        open={!!selectedCohortModal}
-        onClose={() => setSelectedCohortModal(null)}
-        title={`Cursos de: ${selectedCohortModal?.name}`}
-        description="Progreso del usuario en los cursos vinculados a esta cohorte."
-        footer={<Button onClick={() => setSelectedCohortModal(null)}>Cerrar</Button>}
-      >
-        <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1">
-          {selectedCohortModal && (() => {
-            const cohortCourses = data.courses.filter(c => {
-              if (c.enrolmethod !== 'cohort') return false;
-              if (c.cohortid) return String(c.cohortid) === String(selectedCohortModal.id);
-              if (c.cohortids) return String(c.cohortids).split(',').includes(String(selectedCohortModal.id));
-              return true;
-            });
-
-            if (cohortCourses.length === 0) {
-              return (
-                <div className="text-center py-8 text-muted-foreground text-sm border border-dashed border-border/70 rounded-md">
-                  No hay cursos vinculados a esta cohorte.
-                </div>
-              );
-            }
-
-            return (
-              <div className="rounded-md border border-border/70 overflow-hidden">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-muted text-muted-foreground text-xs uppercase">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold">Curso</th>
-                      <th className="px-4 py-3 font-semibold text-right">Progreso</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/70">
-                    {cohortCourses.map(course => {
-                      const progress = course.progress || 0;
-                      return (
-                        <tr key={course.id} className="hover:bg-muted/50 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="font-medium text-foreground">{course.fullname}</div>
-                            <div className="text-xs text-muted-foreground">{course.shortname}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center justify-end gap-2">
-                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden w-24 max-w-[100px]">
-                                <div
-                                  className={`h-full ${progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
-                                  style={{ width: `${progress}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-muted-foreground w-8 text-right">{progress}%</span>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            );
-          })()}
-        </div>
-      </Dialog>
     </div>
   );
 };

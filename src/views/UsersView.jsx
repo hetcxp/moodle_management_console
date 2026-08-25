@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useUsers, useUsersKpis, useUserAction, useAddUser } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -23,8 +24,6 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const hasUpdateUsers = permissions?.is_siteadmin === 1 || permissions?.can_update_users === 1;
   const hasDeleteUsers = permissions?.is_siteadmin === 1 || permissions?.can_delete_users === 1;
 
-  const [users, setUsers] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [perPage] = useState(20);
   const [sort, setSort] = useState('lastaccess');
@@ -32,8 +31,29 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('-1');
   const [filters, setFilters] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [kpis, setKpis] = useState(null);
+
+  const activeFilters = { ...filters };
+  if (statusFilter !== '-1') {
+    activeFilters.suspended = statusFilter;
+  }
+
+  const { data: usersData, isLoading, isFetching, refetch } = useUsers({
+    page,
+    perpage: perPage,
+    sort,
+    dir,
+    search,
+    filters: activeFilters
+  });
+
+  const { data: kpis } = useUsersKpis();
+
+  const users = usersData?.users || [];
+  const totalCount = usersData?.totalcount || 0;
+  const loading = isLoading || isFetching;
+
+  const { mutateAsync: performUserAction } = useUserAction();
+  const { mutateAsync: performAddUser } = useAddUser();
   const [selectedIds, setSelectedIds] = useState([]);
   
   const [addUserOpen, setAddUserOpen] = useState(false);
@@ -47,54 +67,17 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const [usersToDelete, setUsersToDelete] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const loadUsers = useCallback(async () => {
-    setLoading(true);
-    try {
-      const activeFilters = { ...filters };
-      if (statusFilter !== '-1') {
-        activeFilters.suspended = statusFilter;
-      }
-      
-      const [res, kpiRes] = await Promise.all([
-        AdminerApi.getUsers({
-          page,
-          perpage: perPage,
-          sort,
-          dir,
-          search,
-          filters: activeFilters
-        }),
-        AdminerApi.getUsersKpis()
-      ]);
-      
-      setUsers(res.users || []);
-      setTotalCount(res.totalcount || 0);
-      setKpis(kpiRes);
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: 'Error al cargar usuarios',
-        description: err.message
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, perPage, sort, dir, search, filters, statusFilter, addToast]);
-
-  useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+  // Removed local loadUsers and useEffect
 
   const handleBulkSuspend = async (ids = selectedIds) => {
     try {
-      await AdminerApi.userAction({ action: 'suspend', userids: ids });
+      await performUserAction({ action: 'suspend', userids: ids });
       addToast({
         type: 'success',
         title: 'Usuarios suspendidos',
         description: `Se suspendió el acceso a ${ids.length} usuario(s).`
       });
       setSelectedIds([]);
-      loadUsers();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -102,14 +85,13 @@ export const UsersView = ({ onNavigateToDetail }) => {
 
   const handleBulkActivate = async (ids = selectedIds) => {
     try {
-      await AdminerApi.userAction({ action: 'activate', userids: ids });
+      await performUserAction({ action: 'activate', userids: ids });
       addToast({
         type: 'success',
         title: 'Usuarios activados',
         description: `Se reactivaron ${ids.length} usuario(s).`
       });
       setSelectedIds([]);
-      loadUsers();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -123,7 +105,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const handleExecuteDelete = async () => {
     setDeleteLoading(true);
     try {
-      await AdminerApi.userAction({ action: 'delete', userids: usersToDelete });
+      await performUserAction({ action: 'delete', userids: usersToDelete });
       addToast({
         type: 'success',
         title: 'Usuarios eliminados',
@@ -131,7 +113,6 @@ export const UsersView = ({ onNavigateToDetail }) => {
       });
       setDeleteConfirmOpen(false);
       setSelectedIds([]);
-      loadUsers();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -356,7 +337,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         searchValue={search}
         onSearchChange={(val) => { setSearch(val); setPage(0); }}
         searchPlaceholder="Buscar por nombre, email o usuario..."
-        onRefresh={loadUsers}
+        onRefresh={() => refetch()}
         loading={loading}
         onExportCsv={handleExport}
         primaryAction={hasUpdateUsers ? {
@@ -428,6 +409,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
             variant: 'destructive'
           }] : [])
         ]}
+        virtualize={true}
       />
 
       {/* Modal: Confirmar Borrado */}
@@ -462,12 +444,11 @@ export const UsersView = ({ onNavigateToDetail }) => {
               if (Object.keys(newErrors).length === 0) {
                 setLoading(true);
                 try {
-                  const result = await AdminerApi.addUser(userForm);
+                  const result = await performAddUser(userForm);
                   if (result.success) {
                     addToast({ title: 'Usuario Creado', description: `ID: ${result.userid}`, type: 'success' });
                     setAddUserOpen(false);
                     setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
-                    loadUsers();
                   } else {
                     addToast({ title: 'Error', description: result.message, type: 'error' });
                   }
@@ -562,7 +543,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
                       addToast({ title: 'Archivo subido', description: res.message, type: 'success' });
                       setUploadCsvOpen(false);
                       setCsvFile(null);
-                      loadUsers();
+                      refetch();
                     } else {
                       addToast({ title: 'Error', description: res.message, type: 'error' });
                     }

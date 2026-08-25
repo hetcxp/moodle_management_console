@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useCourseDetail, useCourseCohortAction, useCourseUserAction, useCourseAction } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
@@ -14,8 +15,11 @@ import { CourseCohortsTab } from './courses/CourseCohortsTab';
 export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
   
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading } = useCourseDetail(courseId);
+  const { mutateAsync: performCourseCohortAction } = useCourseCohortAction();
+  const { mutateAsync: performCourseUserAction } = useCourseUserAction();
+  const { mutateAsync: performCourseAction } = useCourseAction();
+
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'cohorts'
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorType, setSelectorType] = useState('cohorts'); // 'cohorts' | 'users'
@@ -33,33 +37,20 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
   const [courseDatesForm, setCourseDatesForm] = useState({ startdate: '', enddate: '' });
   const [courseDatesLoading, setCourseDatesLoading] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getCourseDetail(courseId);
-      setData(res);
-      setCourseDatesForm({
-        startdate: res.startdate > 0 ? new Date(res.startdate * 1000).toISOString().split('T')[0] : '',
-        enddate: res.enddate > 0 ? new Date(res.enddate * 1000).toISOString().split('T')[0] : ''
-      });
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error cargando curso', description: err.message });
-      onBack();
-    } finally {
-      setLoading(false);
-    }
-  }, [courseId, addToast, onBack]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (data && !courseDatesModalOpen) {
+      setCourseDatesForm({
+        startdate: data.startdate > 0 ? new Date(data.startdate * 1000).toISOString().split('T')[0] : '',
+        enddate: data.enddate > 0 ? new Date(data.enddate * 1000).toISOString().split('T')[0] : ''
+      });
+    }
+  }, [data, courseDatesModalOpen]);
 
   const handleCohortAction = async (action, cohortIds, options = {}) => {
     try {
-      await AdminerApi.courseCohortAction(action, courseId, cohortIds, options);
+      await performCourseCohortAction({ action, courseid: courseId, cohortids: cohortIds, options });
       const actionTitles = { add: 'vinculada(s)', remove: 'desvinculada(s)', suspend: 'suspendida(s)', activate: 'activada(s)', set_group: 'asignada(s) a grupo', set_expiration: 'actualizada(s)', message: 'notificada(s)' };
       addToast({ type: 'success', title: `Cohorte(s) ${actionTitles[action]} exitosamente` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al procesar acción', description: err.message });
     }
@@ -78,10 +69,9 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
   const handleUserAction = async (action, userIds, options = {}) => {
     try {
       const { timeend = 0, groupid = 0, newgroupname = '', message_text = '' } = options;
-      await AdminerApi.courseUserAction(action, courseId, userIds, timeend, groupid, newgroupname, message_text);
+      await performCourseUserAction({ action, courseid: courseId, userids: userIds, timeend, groupid, newgroupname, message_text });
       const actionTitles = { add: 'matriculado(s)', remove: 'desmatriculado(s)', suspend: 'suspendido(s)', activate: 'activado(s)', set_expiration: 'actualizado(s)', setgroup: 'asignado(s) a grupo', message: 'notificado(s)' };
       addToast({ type: 'success', title: `Usuario(s) ${actionTitles[action] || 'procesado(s)'} exitosamente` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al procesar acción', description: err.message });
     }
@@ -91,7 +81,7 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
     e.preventDefault();
     setCourseDatesLoading(true);
     try {
-      await AdminerApi.courseAction({
+      await performCourseAction({
         action: 'update_dates',
         courseids: [courseId],
         startdate: courseDatesForm.startdate ? (new Date(courseDatesForm.startdate).getTime() / 1000) : 0,
@@ -99,7 +89,6 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
       });
       addToast({ type: 'success', title: 'Fechas actualizadas exitosamente' });
       setCourseDatesModalOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al actualizar fechas', description: err.message });
     } finally {

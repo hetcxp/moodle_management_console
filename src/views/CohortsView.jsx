@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useCohorts, useCohortsKpis, useCohortAction } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -18,8 +19,6 @@ export const CohortsView = ({ onNavigateToDetail }) => {
   
   const hasManageCohorts = permissions?.is_siteadmin === 1 || permissions?.can_manage_cohorts === 1;
 
-  const [cohorts, setCohorts] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [perPage] = useState(50);
   const [sort, setSort] = useState('name');
@@ -27,8 +26,23 @@ export const CohortsView = ({ onNavigateToDetail }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('-1');
   const [filters, setFilters] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [kpis, setKpis] = useState(null);
+
+  const activeFilters = { ...filters };
+  if (statusFilter !== '-1') {
+    activeFilters.empty_only = statusFilter === '1' ? true : false;
+  }
+
+  const { data: cohortsData, isLoading, isFetching, refetch } = useCohorts({
+    page, perpage: perPage, sort, dir, search, filters: activeFilters
+  });
+
+  const { data: kpis } = useCohortsKpis();
+
+  const cohorts = cohortsData?.cohorts || [];
+  const totalCount = cohortsData?.totalcount || 0;
+  const loading = isLoading || isFetching;
+
+  const { mutateAsync: performCohortAction } = useCohortAction();
   
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -42,35 +56,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
   const [cohortsToDelete, setCohortsToDelete] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const loadCohorts = useCallback(async () => {
-    setLoading(true);
-    try {
-      const activeFilters = { ...filters };
-      if (statusFilter !== '-1') {
-        activeFilters.empty_only = statusFilter === '1' ? true : false;
-      }
-
-      const [res, kpiRes] = await Promise.all([
-        AdminerApi.getCohorts({ page, perpage: perPage, sort, dir, search, filters: activeFilters }),
-        AdminerApi.getCohortsKpis()
-      ]);
-      setCohorts(res.cohorts || []);
-      setTotalCount(res.totalcount || 0);
-      setKpis(kpiRes);
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: 'Error al cargar cohortes',
-        description: err.message
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, perPage, sort, dir, search, filters, statusFilter, addToast]);
-
-  useEffect(() => {
-    loadCohorts();
-  }, [loadCohorts]);
+  // Removed local loadCohorts and useEffect
 
   const handleOpenCreate = () => {
     setEditingCohort(null);
@@ -93,7 +79,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
     setFormLoading(true);
     try {
       if (editingCohort) {
-        await AdminerApi.cohortAction({
+        await performCohortAction({
           action: 'edit',
           cohortid: editingCohort.id,
           name: formData.name,
@@ -102,7 +88,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         });
         addToast({ type: 'success', title: 'Cohorte actualizada' });
       } else {
-        await AdminerApi.cohortAction({
+        await performCohortAction({
           action: 'create',
           name: formData.name,
           idnumber: formData.idnumber,
@@ -111,7 +97,6 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         addToast({ type: 'success', title: 'Cohorte creada' });
       }
       setModalOpen(false);
-      loadCohorts();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -129,12 +114,11 @@ export const CohortsView = ({ onNavigateToDetail }) => {
     setDeleteLoading(true);
     try {
       for (const id of cohortsToDelete) {
-        await AdminerApi.cohortAction({ action: 'delete', cohortid: id });
+        await performCohortAction({ action: 'delete', cohortid: id });
       }
       addToast({ type: 'success', title: 'Cohorte(s) eliminada(s)' });
       setDeleteConfirmOpen(false);
       setSelectedIds([]);
-      loadCohorts();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
     } finally {
@@ -340,7 +324,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         searchValue={search}
         onSearchChange={(val) => { setSearch(val); setPage(0); }}
         searchPlaceholder="Buscar por nombre de cohorte o ID..."
-        onRefresh={loadCohorts}
+        onRefresh={() => refetch()}
         loading={loading}
         onExportCsv={handleExport}
         primaryAction={hasManageCohorts ? {

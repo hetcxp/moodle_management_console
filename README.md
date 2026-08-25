@@ -14,6 +14,7 @@ Una aplicación SPA moderna, rápida y desacoplada para gestionar instancias de 
 | Estilos | Tailwind CSS | 3.4.15 |
 | Iconos | Lucide React | 1.16.0 |
 | Testing | Vitest + Testing Library | 4.1.11 / 16.3.2 |
+| Data Fetching| @tanstack/react-query | 5.x |
 | Backend Plugin | `local_adminer_api` | 1.0.1 (build 2026082502) |
 | Moodle requerido | — | 4.5+ |
 
@@ -36,7 +37,8 @@ moodle_adminer/
 │   │   └── ui/                 # Badge, Button, Card, Checkbox, Dialog, Input, Select, SelectorModal, Toast
 │   ├── config/                 # Multi-tenant (tenant.js) + API builder (api.js)
 │   ├── context/                # AuthContext (user, token, permissions, login/logout)
-│   ├── lib/                    # useApi hook (TTL cache) + utils (cn, formatDate)
+│   ├── hooks/                  # Centralized useAdminerQueries hooks
+│   ├── lib/                    # utils (cn, formatDate) + queryClient
 │   ├── services/               # MoodleApi (HTTP) + AdminerApi (28 métodos) + AuthService
 │   └── views/                  # 12 vistas lazy-loaded
 │       ├── DashboardView.jsx
@@ -198,7 +200,7 @@ Los permisos se cargan automáticamente tras el login desde `local_adminer_get_p
 - **`ConfirmDialog`:** Componente unificado para diálogos de advertencia y acciones destructivas.
 - **`PermissionGate`:** Renderizado condicional basado en capabilities de `AuthContext`.
 - **`FilterBar`:** Barra de filtros dinámica con dropdowns customizados.
-- **`useApi`:** Custom hook con caché TTL en memoria (2 min por defecto) para llamadas de solo lectura.
+- **`useAdminerQueries`:** Data fetching, caching global y auto-refetch con React Query.
 
 ---
 

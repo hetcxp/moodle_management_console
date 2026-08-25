@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
+import { useCourses, useCategoriesFlat, useCourseAction } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -30,8 +31,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   const hasDeleteCourse = permissions?.is_siteadmin === 1 || permissions?.can_delete_courses === 1;
 
   // Table state
-  const [courses, setCourses] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [perPage] = useState(20);
   const [sort, setSort] = useState('timecreated');
@@ -41,8 +40,29 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   const [visibilityFilter, setVisibilityFilter] = useState('-1');
   const [filters, setFilters] = useState({});
   const [emptyOnly, setEmptyOnly] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [kpis, setKpis] = useState(null);
+
+  // Queries
+  const { data: categoriesData } = useCategoriesFlat();
+  const categoriesList = categoriesData?.categories || [];
+
+  const { data: coursesData, isLoading, isFetching, refetch } = useCourses({
+    page,
+    perpage: perPage,
+    sort,
+    dir,
+    search,
+    category: parseInt(categoryFilter, 10) || 0,
+    visibility: parseInt(visibilityFilter, 10) || -1,
+    filters: { ...filters, empty_only: emptyOnly ? 1 : 0 }
+  });
+
+  const courses = coursesData?.courses || [];
+  const totalCount = coursesData?.totalcount || 0;
+  const kpis = coursesData?.kpis || null;
+  const loading = isLoading || isFetching;
+
+  // Mutations
+  const { mutateAsync: performCourseAction } = useCourseAction();
 
   // CSV Upload state
   const [csvModalOpen, setCsvModalOpen] = useState(false);
@@ -50,66 +70,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   // Selection state
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // Categories flat list for dropdowns
-  const [categoriesList, setCategoriesList] = useState([]);
-
-  // Modals state
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  
-  const [moveModalOpen, setMoveModalOpen] = useState(false);
-  const [coursesToMove, setCoursesToMove] = useState([]);
-
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [coursesToDelete, setCoursesToDelete] = useState([]);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  // Fetch flat categories once
-  const loadCategories = async () => {
-    try {
-      const res = await AdminerApi.getCategoriesFlat();
-      setCategoriesList(res.categories || []);
-    } catch (err) {
-      console.error('Error fetching categories list:', err);
-    }
-  };
-
-  // Fetch courses with current parameters
-  const loadCourses = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getCourses({
-        page,
-        perpage: perPage,
-        sort,
-        dir,
-        search,
-        category: parseInt(categoryFilter, 10),
-        visibility: parseInt(visibilityFilter, 10),
-        filters: { ...filters, empty_only: emptyOnly ? 1 : 0 }
-      });
-      setCourses(res.courses || []);
-      setTotalCount(res.totalcount || 0);
-      if (res.kpis) {
-        setKpis(res.kpis);
-      }
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: 'Error al cargar cursos',
-        description: err.message
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, perPage, sort, dir, search, categoryFilter, visibilityFilter, filters, emptyOnly, addToast]);
-
-  useEffect(() => {
-    loadCategories();
-  }, []);
-
-  useEffect(() => {
-    loadCourses();
-  }, [loadCourses]);
+  // Empty block, useEffects and local fetches removed
 
   const handleViewInMoodle = async (courseId) => {
     try {
@@ -129,14 +90,13 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   // Bulk actions handlers
   const handleBulkHide = async (ids = selectedIds) => {
     try {
-      await AdminerApi.courseAction({ action: 'hide', courseids: ids });
+      await performCourseAction({ action: 'hide', courseids: ids });
       addToast({
         type: 'success',
         title: 'Cursos ocultados',
         description: `Se han ocultado ${ids.length} curso(s).`
       });
       setSelectedIds([]);
-      loadCourses();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -144,18 +104,27 @@ export const CoursesView = ({ onNavigateToDetail }) => {
 
   const handleBulkShow = async (ids = selectedIds) => {
     try {
-      await AdminerApi.courseAction({ action: 'show', courseids: ids });
+      await performCourseAction({ action: 'show', courseids: ids });
       addToast({
         type: 'success',
         title: 'Cursos visibles',
         description: `Se han hecho visibles ${ids.length} curso(s).`
       });
       setSelectedIds([]);
-      loadCourses();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
   };
+
+  // Modals state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  
+  const [moveModalOpen, setMoveModalOpen] = useState(false);
+  const [coursesToMove, setCoursesToMove] = useState([]);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [coursesToDelete, setCoursesToDelete] = useState([]);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleOpenMoveModal = (ids = selectedIds) => {
     setCoursesToMove(ids);
@@ -170,7 +139,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   const handleExecuteDelete = async () => {
     setDeleteLoading(true);
     try {
-      await AdminerApi.courseAction({ action: 'delete', courseids: coursesToDelete });
+      await performCourseAction({ action: 'delete', courseids: coursesToDelete });
       addToast({
         type: 'success',
         title: 'Cursos eliminados',
@@ -178,7 +147,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
       });
       setDeleteConfirmOpen(false);
       setSelectedIds([]);
-      loadCourses();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar cursos', description: err.message });
     } finally {
@@ -414,7 +382,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         searchValue={search}
         onSearchChange={(val) => { setSearch(val); setPage(0); }}
         searchPlaceholder="Buscar por nombre o código de curso..."
-        onRefresh={loadCourses}
+        onRefresh={() => refetch()}
         loading={loading}
         onExportCsv={handleExport}
         primaryAction={hasCreateCourse ? {
@@ -513,6 +481,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
             variant: 'destructive'
           }] : [])
         ]}
+        virtualize={true}
       />
 
       <CourseCreateModal 
@@ -520,7 +489,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         onClose={() => setCreateModalOpen(false)} 
         onSuccess={() => {
           setCreateModalOpen(false);
-          loadCourses();
         }}
         categoriesList={categoriesList} 
       />
@@ -531,7 +499,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         onSuccess={() => {
           setMoveModalOpen(false);
           setSelectedIds([]);
-          loadCourses();
         }}
         categoriesList={categoriesList}
         coursesToMove={coursesToMove}
@@ -542,7 +509,6 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         onClose={() => setCsvModalOpen(false)} 
         onSuccess={() => {
           setCsvModalOpen(false);
-          loadCourses();
         }}
       />
 

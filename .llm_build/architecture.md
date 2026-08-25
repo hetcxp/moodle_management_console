@@ -17,6 +17,8 @@ Moodle Adminer es un panel de administración **headless y desacoplado** para Mo
 | Icons | lucide-react | 1.16.0 |
 | CSS Utilities | clsx + tailwind-merge | 2.1.1 / 2.5.4 |
 | Testing | Vitest + @testing-library/react | 4.1.11 / 16.3.2 |
+| Data Fetching | @tanstack/react-query | 5.x |
+| Virtualization | @tanstack/react-virtual | 3.x |
 | Backend Plugin | local_adminer_api | 1.0.1 (build 2026082502) |
 | Moodle Minimum | Moodle | 4.5+ (requires 2024100700) |
 
@@ -59,8 +61,8 @@ moodle_adminer/
 │   │   └── auth.js                  # AuthService: login, logout, validateToken, token storage
 │   │
 │   ├── lib/
-│   │   ├── useApi.js                # Custom hook con caché FIFO in-memory (límite 50)
 │   │   ├── utils.js                 # cn(), formatDate(), formatDateOnly()
+│   │   ├── queryClient.js           # Configuración global de React Query
 │   │   └── __tests__/               # Pruebas unitarias (Vitest)
 │   │       └── utils.test.js
 │   │
@@ -146,14 +148,12 @@ Vista (e.g. CoursesView)
 
 ---
 
-## Sistema de Caché (useApi hook)
+## Sistema de Caché (React Query)
 
-- **Tipo:** In-memory Map (globalCache), sin persistencia entre recargas
-- **Política de Evicción:** FIFO estricto (límite: 50 entradas máximas)
-- **TTL default:** 120,000 ms (2 minutos)
-- **Invalidación:** clearApiCache(keyPrefix) — usada post-mutación en vistas
-- **Clave:** `${functionName}_${JSON.stringify(args)}`
-- **Nota:** Las vistas principales (CoursesView, UsersView, etc.) NO usan el hook `useApi`, manejan state y loading manualmente con `useState` + `useEffect` + `useCallback` para mayor control sobre refetch y bulk operations.
+- **Tipo:** Caché global gestionado por `@tanstack/react-query`
+- **Invalidación:** A través del `queryClient.invalidateQueries` post-mutación en los hooks.
+- **Hooks Centralizados:** `src/hooks/useAdminerQueries.js` contiene todos los hooks `useQuery` y `useMutation`.
+- **Nota:** Las vistas ya no manejan loading y error state de forma manual mediante useEffect, todo se gestiona a través de los hooks expuestos.
 
 ---
 
@@ -177,30 +177,18 @@ const hasCreate = permissions?.is_siteadmin === 1 || permissions?.can_create_X =
 </PermissionGate>
 ```
 
-### 2. Data Loading Pattern (en vistas principales)
+### 2. Data Loading Pattern (React Query)
 ```jsx
-const loadData = useCallback(async () => {
-  setLoading(true);
-  try {
-    const res = await AdminerApi.getX({ page, perpage, sort, dir, search, filters });
-    setData(res.items || []);
-    setTotalCount(res.totalcount || 0);
-  } catch (err) {
-    addToast({ type: 'error', message: err.message });
-  } finally {
-    setLoading(false);
-  }
-}, [page, perpage, sort, dir, search, filters]);
-
-useEffect(() => { loadData(); }, [loadData]);
+const { data, isLoading } = useCourses({ page, perpage, sort, dir, search, filters });
 ```
 
 ### 3. Mutation + Reload Pattern
 ```jsx
-await AdminerApi.entityAction({ action: 'delete', entityids: selectedIds });
+const { mutateAsync: performAction } = useCourseAction();
+await performAction({ action: 'delete', entityids: selectedIds });
 addToast({ type: 'success', message: 'Eliminado correctamente' });
 setSelectedIds([]);
-loadData(); // Recargar solo el componente, sin full page reload
+// No es necesario llamar loadData() ya que React Query invalida y refetchea automáticamente.
 ```
 
 ### 4. Filter Serialization Pattern
@@ -235,6 +223,9 @@ onNavigateToDetail('cohort', cohortId)        // → /cohorts/123
 ### 7. Exportación y Polling Patterns
 - **Exportación de CSV Progresiva:** Para evitar errores de memoria o timeouts en Moodle al exportar miles de registros, se usan iteraciones de 500 registros (`page` iterativo) en lugar de un `perpage` gigante.
 - **Polling Inteligente:** Funciones de background polling (ej. `fetchStats` en el Dashboard cada 60s) validan `document.visibilityState === 'visible'` para evitar peticiones inútiles si la pestaña está inactiva.
+
+### 8. Virtualización
+- Se aplica `@tanstack/react-virtual` en las vistas con alto volumen de registros como `UsersView` y `CoursesView` (vía propiedad `virtualize` en el `DataTable`) para mejorar el rendimiento de renderizado en DOM limitando los nodos a los visibles en pantalla.
 
 ---
 

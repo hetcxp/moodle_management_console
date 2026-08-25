@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AdminerApi } from '../services/adminer-api';
+import React from 'react';
+import { useDashboard, useUsersKpis, useCohortsKpis, useUsers, useCourses } from '../hooks/useAdminerQueries';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { KpiGrid } from '../components/KpiGrid';
 import { Button } from '../components/ui/Button';
@@ -8,57 +8,25 @@ import { BookOpen, Users, Layers, FolderTree, ArrowUpRight, CheckCircle, EyeOff,
 import { formatDate } from '../lib/utils';
 
 export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
-  const [stats, setStats] = useState(null);
-  const [usersKpis, setUsersKpis] = useState(null);
-  const [cohortsKpis, setCohortsKpis] = useState(null);
-  const [recentUsers, setRecentUsers] = useState([]);
-  const [recentCourses, setRecentCourses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const { addToast } = useToast();
+  const { data: stats, isLoading: statsLoading, isFetching: statsFetching, refetch: refetchStats } = useDashboard();
+  const { data: usersKpis, isLoading: usersLoading, refetch: refetchUsers } = useUsersKpis();
+  const { data: cohortsKpis, isLoading: cohortsLoading, refetch: refetchCohorts } = useCohortsKpis();
+  const { data: recentUsersData, isLoading: recentUsersLoading, refetch: refetchRecentUsers } = useUsers({ page: 0, perpage: 5, sort: 'lastaccess', dir: 'DESC' });
+  const { data: recentCoursesData, isLoading: recentCoursesLoading, refetch: refetchRecentCourses } = useCourses({ page: 0, perpage: 5, sort: 'timecreated', dir: 'DESC' });
 
-  const fetchStats = async () => {
-    setLoading(true);
-    try {
-      const [
-        dashboardData,
-        usersKpisData,
-        cohortsKpisData,
-        recentUsersData,
-        recentCoursesData
-      ] = await Promise.all([
-        AdminerApi.getDashboard(),
-        AdminerApi.getUsersKpis(),
-        AdminerApi.getCohortsKpis(),
-        AdminerApi.getUsers({ page: 0, perpage: 5, sort: 'lastaccess', dir: 'DESC' }),
-        AdminerApi.getCourses({ page: 0, perpage: 5, sort: 'timecreated', dir: 'DESC' })
-      ]);
-      
-      setStats(dashboardData);
-      setUsersKpis(usersKpisData);
-      setCohortsKpis(cohortsKpisData);
-      setRecentUsers(recentUsersData.users || []);
-      setRecentCourses(recentCoursesData.courses || []);
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: 'Error al cargar métricas',
-        description: err.message
-      });
-    } finally {
-      setLoading(false);
-    }
+  const recentUsers = recentUsersData?.users || [];
+  const recentCourses = recentCoursesData?.courses || [];
+  
+  const loading = statsLoading || usersLoading || cohortsLoading || recentUsersLoading || recentCoursesLoading;
+  const isFetching = statsFetching;
+
+  const handleRefresh = () => {
+    refetchStats();
+    refetchUsers();
+    refetchCohorts();
+    refetchRecentUsers();
+    refetchRecentCourses();
   };
-
-  useEffect(() => {
-    fetchStats();
-    // Auto-refresh every 60 seconds
-    const fetchInterval = setInterval(() => {
-      if (document.visibilityState === 'visible') {
-        fetchStats(true);
-      }
-    }, 60000);
-    return () => clearInterval(fetchInterval);
-  }, []);
 
   const getHealthStatus = (percentage) => {
     if (percentage >= 70) return { color: 'bg-emerald-500', text: 'text-emerald-500', label: 'Óptima' };
@@ -143,11 +111,11 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
 
         <Button
           variant="outline"
-          onClick={fetchStats}
-          disabled={loading}
+          onClick={handleRefresh}
+          disabled={loading || isFetching}
           className="gap-2 self-start sm:self-auto bg-card"
         >
-          <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin text-primary' : ''}`} />
+          <RotateCw className={`h-4 w-4 ${isFetching ? 'animate-spin text-primary' : ''}`} />
           <span>Actualizar</span>
         </Button>
       </div>

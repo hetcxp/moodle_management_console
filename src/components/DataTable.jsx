@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, memo } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronUp, ChevronDown, ChevronsUpDown, ChevronLeft, ChevronRight, Inbox, Loader2, Filter, X } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
@@ -24,11 +25,13 @@ export const DataTable = memo(({
   keyField = 'id',
   emptyMessage = 'No se encontraron registros',
   className = '',
-  onRowClick
+  onRowClick,
+  virtualize = false
 }) => {
   const [openFilterKey, setOpenFilterKey] = useState(null);
   const [localFilters, setLocalFilters] = useState({});
   const filterRef = useRef(null);
+  const tableContainerRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -119,6 +122,14 @@ export const DataTable = memo(({
   const totalPages = Math.ceil(displayTotalCount / perPage) || 1;
   const currentDataLength = onFilterChange ? data.length : processedData.length;
 
+  // Virtualizer setup
+  const rowVirtualizer = useVirtualizer({
+    count: processedData.length,
+    getScrollElement: () => tableContainerRef.current,
+    estimateSize: () => 53, // Approx height of tr
+    overscan: 5,
+  });
+
   return (
     <div className={cn('relative space-y-4', className)}>
       {/* Floating Bulk Actions Bar */}
@@ -156,7 +167,10 @@ export const DataTable = memo(({
 
       {/* Main Table Container */}
       <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm">
-        <div className="overflow-x-auto min-h-[300px] relative">
+        <div 
+          ref={tableContainerRef}
+          className={cn("overflow-x-auto relative", virtualize ? "max-h-[600px] overflow-y-auto" : "min-h-[300px]")}
+        >
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60 backdrop-blur-xs">
               <div className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-xl border border-border">
@@ -167,8 +181,8 @@ export const DataTable = memo(({
           )}
 
           <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-border/70 bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+            <thead className={cn(virtualize && "sticky top-0 z-20 bg-card shadow-[0_1px_0_0_hsl(var(--border))]")}>
+              <tr className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                 {selectable && (
                   <th className="w-12 px-4 py-3.5 text-center">
                     <Checkbox
@@ -299,14 +313,25 @@ export const DataTable = memo(({
                   </td>
                 </tr>
               ) : (
-                processedData.map((row, rowIdx) => {
-                  const rowId = row[keyField];
-                  const isSelected = selectedIds.includes(rowId);
+                <>
+                  {virtualize && rowVirtualizer.getVirtualItems().length > 0 && (
+                    <tr>
+                      <td style={{ height: `${rowVirtualizer.getVirtualItems()[0].start}px` }} colSpan={columns.length + (selectable ? 1 : 0)} className="p-0 border-0" />
+                    </tr>
+                  )}
+                  
+                  {(virtualize ? rowVirtualizer.getVirtualItems() : processedData).map((item, index) => {
+                    const rowIdx = virtualize ? item.index : index;
+                    const row = processedData[rowIdx];
+                    const rowId = row[keyField];
+                    const isSelected = selectedIds.includes(rowId);
 
-                  return (
-                    <tr
-                      key={rowId || rowIdx}
-                      onClick={(e) => {
+                    return (
+                      <tr
+                        key={rowId || rowIdx}
+                        data-index={virtualize ? item.index : undefined}
+                        ref={virtualize ? rowVirtualizer.measureElement : null}
+                        onClick={(e) => {
                         if (onRowClick && !e.target.closest('td:first-child > button, td:first-child > input, td:last-child > button')) {
                           onRowClick(row);
                         }
@@ -341,9 +366,16 @@ export const DataTable = memo(({
                       ))}
                     </tr>
                   );
-                })
-              )}
-            </tbody>
+                })}
+                
+                {virtualize && rowVirtualizer.getVirtualItems().length > 0 && (
+                  <tr>
+                    <td style={{ height: `${rowVirtualizer.getTotalSize() - rowVirtualizer.getVirtualItems()[rowVirtualizer.getVirtualItems().length - 1].end}px` }} colSpan={columns.length + (selectable ? 1 : 0)} className="p-0 border-0" />
+                  </tr>
+                )}
+              </>
+            )}
+          </tbody>
           </table>
         </div>
 
