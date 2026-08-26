@@ -15,6 +15,15 @@ export const TENANTS = {
 };
 
 export function getTenantConfig() {
+  if (typeof window !== 'undefined' && window.ADMINER_CONFIG) {
+    return {
+      ...TENANTS['default'],
+      moodleUrl: window.ADMINER_CONFIG.moodleUrl,
+      serviceName: window.ADMINER_CONFIG.serviceName,
+      embedded: window.ADMINER_CONFIG.embedded || false,
+    };
+  }
+
   const params = new URLSearchParams(window.location.search);
   const tenantKey = params.get('tenant') || import.meta.env.VITE_TENANT || 'default';
   return TENANTS[tenantKey] || TENANTS['default'];

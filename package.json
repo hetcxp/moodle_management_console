@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:lts": "vite --mode lts",
     "build": "vite build",
+    "build:moodle": "vite build --mode moodle",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",

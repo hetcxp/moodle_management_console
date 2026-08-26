@@ -263,7 +263,7 @@ class courses extends external_api {
 
     public static function course_action_parameters() {
         return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHA, 'Action: create, hide, show, delete, move, update_dates'),
+            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: create, hide, show, delete, move, update_dates'),
             'courseids'   => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs', VALUE_DEFAULT, []),
             'categoryid'  => new external_value(PARAM_INT, 'Target category ID for move or create', VALUE_DEFAULT, 0),
             'fullname'    => new external_value(PARAM_TEXT, 'Course fullname for create', VALUE_DEFAULT, ''),

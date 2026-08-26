@@ -2,6 +2,9 @@ import { API_CONFIG } from '../config/api.js';
 
 export const AuthService = {
   getToken() {
+    if (typeof window !== 'undefined' && window.ADMINER_CONFIG?.token) {
+      return window.ADMINER_CONFIG.token;
+    }
     return sessionStorage.getItem('adminer_token') || localStorage.getItem('adminer_token');
   },
   
@@ -23,6 +26,9 @@ export const AuthService = {
   },
   
   isAuthenticated() {
+    if (typeof window !== 'undefined' && window.ADMINER_CONFIG?.token) {
+      return true;
+    }
     const token = this.getToken();
     const user = this.getUser();
     if (!token || !user) return false;
@@ -113,5 +119,9 @@ export const AuthService = {
     localStorage.removeItem('adminer_token');
     localStorage.removeItem('adminer_user');
     localStorage.removeItem('adminer_token_date');
+  },
+
+  isEmbedded() {
+    return typeof window !== 'undefined' && !!window.ADMINER_CONFIG?.embedded;
   }
 };

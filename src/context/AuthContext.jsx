@@ -45,7 +45,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
-    if (token && user) {
+    if (AuthService.isEmbedded() && typeof window !== 'undefined' && window.ADMINER_CONFIG?.token) {
+      loginWithToken(window.ADMINER_CONFIG.token).then(() => {
+        fetchPermissions().finally(() => setLoading(false));
+      });
+    } else if (token && user) {
       fetchPermissions().finally(() => setLoading(false));
     } else {
       setLoading(false);

@@ -90,6 +90,20 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     }
   };
 
+  const handleUserCourseAction = async (action, courseIds, extraParams = {}) => {
+    try {
+      await AdminerApi.userCourseAction(action, userId, courseIds, extraParams);
+      let title = '';
+      if (action === 'suspend') title = 'Matriculación suspendida exitosamente';
+      else if (action === 'activate') title = 'Matriculación activada exitosamente';
+      else if (action === 'update_dates') title = 'Fechas actualizadas exitosamente';
+      addToast({ type: 'success', title });
+      loadData();
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error', description: err.message });
+    }
+  };
+
   const handleBulkUnlinkCohorts = async (ids) => {
     try {
       await AdminerApi.userCohortAction('remove', userId, ids);
@@ -263,6 +277,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           onOpenSelector={() => { setSelectorType('courses'); setSelectorOpen(true); }}
           handleUnenrollCourse={handleUnenrollCourse}
           handleBulkUnenrollCourses={handleBulkUnenrollCourses}
+          handleUserCourseAction={handleUserCourseAction}
           onNavigateToDetail={onNavigateToDetail}
         />
       )}

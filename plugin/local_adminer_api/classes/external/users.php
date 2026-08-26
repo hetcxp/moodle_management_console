@@ -381,14 +381,32 @@ class users extends external_api {
         $user = $DB->get_record('user', ['id' => $params['userid']], '*', MUST_EXIST);
 
         $sql_courses = "
-            SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod
+            SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod, MIN(ue.status) as enrolstatus
               FROM {course} c
               JOIN {enrol} e ON e.courseid = c.id
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
-             WHERE ue.userid = :userid AND ue.status = 0
+             WHERE ue.userid = :userid
           GROUP BY c.id, c.fullname, c.shortname
         ";
         $enrolled_courses = $DB->get_records_sql($sql_courses, ['userid' => $user->id]);
+
+        $sql_all_enrolments = "
+            SELECT ue.id, e.courseid, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
+              FROM {user_enrolments} ue
+              JOIN {enrol} e ON e.id = ue.enrolid
+             WHERE ue.userid = :userid
+        ";
+        $all_enrolments = $DB->get_records_sql($sql_all_enrolments, ['userid' => $user->id]);
+        
+        $course_enrolments_map = [];
+        foreach ($all_enrolments as $ue) {
+            $course_enrolments_map[$ue->courseid][] = [
+                'method' => (string)$ue->method,
+                'status' => (int)$ue->status,
+                'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
+                'timeend' => (int)$ue->timeend
+            ];
+        }
 
         require_once($CFG->libdir . '/completionlib.php');
 
@@ -403,7 +421,9 @@ class users extends external_api {
                 'fullname' => $c->fullname,
                 'shortname' => $c->shortname,
                 'progress' => $progress_val,
-                'enrolmethod' => $c->enrolmethod
+                'enrolmethod' => $c->enrolmethod,
+                'enrolstatus' => (int)$c->enrolstatus,
+                'enrolments' => $course_enrolments_map[$c->id] ?? [],
             ];
         }
 
@@ -473,6 +493,16 @@ class users extends external_api {
                     'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
                     'progress' => new external_value(PARAM_INT, 'Progress percentage'),
                     'enrolmethod' => new external_value(PARAM_TEXT, 'Enrolment method', VALUE_OPTIONAL),
+                    'enrolstatus' => new external_value(PARAM_INT, 'Enrolment status', VALUE_OPTIONAL),
+                    'enrolments' => new external_multiple_structure(
+                        new external_single_structure([
+                            'method' => new external_value(PARAM_ALPHANUMEXT, 'Enrol method'),
+                            'status' => new external_value(PARAM_INT, 'Enrol status'),
+                            'timestart' => new external_value(PARAM_INT, 'Enrol timestart'),
+                            'timeend' => new external_value(PARAM_INT, 'Enrol timeend'),
+                        ]),
+                        'Detailed enrolments', VALUE_OPTIONAL
+                    ),
                 ])
             ),
             'cohorts' => new external_multiple_structure(
@@ -648,20 +678,23 @@ class users extends external_api {
 
     public static function user_course_action_parameters() {
         return new external_function_parameters([
-            'action'    => new external_value(PARAM_ALPHA, 'add or remove'),
+            'action'    => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, update_dates'),
             'userid'    => new external_value(PARAM_INT, 'User ID'),
             'courseids' => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID')),
+            'timestart' => new external_value(PARAM_INT, 'Enrolment start time', VALUE_DEFAULT, 0),
+            'timeend'   => new external_value(PARAM_INT, 'Enrolment end time', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function user_course_action($action, $userid, $courseids) {
+    public static function user_course_action($action, $userid, $courseids, $timestart = 0, $timeend = 0) {
         global $DB;
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('enrol/manual:enrol', $context);
         
         $params = self::validate_parameters(self::user_course_action_parameters(), [
-            'action' => $action, 'userid' => $userid, 'courseids' => $courseids
+            'action' => $action, 'userid' => $userid, 'courseids' => $courseids,
+            'timestart' => $timestart, 'timeend' => $timeend
         ]);
         
         $enrol = enrol_get_plugin('manual');
@@ -687,6 +720,15 @@ class users extends external_api {
                     $affected++;
                 } else if ($params['action'] === 'remove') {
                     $enrol->unenrol_user($manualinstance, $params['userid']);
+                    $affected++;
+                } else if ($params['action'] === 'suspend') {
+                    $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_SUSPENDED);
+                    $affected++;
+                } else if ($params['action'] === 'activate') {
+                    $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_ACTIVE);
+                    $affected++;
+                } else if ($params['action'] === 'update_dates') {
+                    $enrol->update_user_enrol($manualinstance, $params['userid'], NULL, $params['timestart'], $params['timeend']);
                     $affected++;
                 }
             }

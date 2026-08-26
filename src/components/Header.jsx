@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTenantConfig } from '../config/tenant';
+import { AuthService } from '../services/auth';
 import { LogOut, User, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { Button } from './ui/Button';
 
@@ -61,15 +62,17 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
               {user.fullname ? user.fullname.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
             </div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={logout}
-              title="Cerrar sesión"
-              className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
-            >
-              <LogOut className="h-4 w-4" />
-            </Button>
+            {!AuthService.isEmbedded() && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                title="Cerrar sesión"
+                className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         )}
       </div>

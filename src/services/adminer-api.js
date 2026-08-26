@@ -157,8 +157,13 @@ export const AdminerApi = {
     return await MoodleApi.call('local_adminer_user_cohort_action', { action, userid, cohortids });
   },
 
-  async userCourseAction(action, userid, courseids) {
-    return await MoodleApi.call('local_adminer_user_course_action', { action, userid, courseids });
+  async userCourseAction(action, userid, courseids, extraParams = {}) {
+    return MoodleApi.call('local_adminer_user_course_action', {
+      action,
+      userid,
+      courseids,
+      ...extraParams
+    });
   },
 
   async getCohortDetail(cohortid) {

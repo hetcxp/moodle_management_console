@@ -170,8 +170,11 @@ const AdminerApp = () => {
 };
 
 export default function App() {
+  const isEmbedded = typeof window !== 'undefined' && !!window.ADMINER_CONFIG?.embedded;
+  const base = isEmbedded ? '/local/adminer_ui/index.php' : import.meta.env.BASE_URL;
+
   return (
-    <Router base={import.meta.env.BASE_URL}>
+    <Router base={base}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <ToastProvider>
