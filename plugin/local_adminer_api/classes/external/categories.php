@@ -333,7 +333,7 @@ class categories extends external_api {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'Category ID'),
             'name' => new external_value(PARAM_TEXT, 'Category name'),
-            'description' => new external_value(PARAM_TEXT, 'Category description'),
+            'description' => new external_value(PARAM_RAW, 'Category description'),
             'subcategories' => new external_multiple_structure(
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'Category ID'),

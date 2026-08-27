@@ -560,10 +560,14 @@ class courses extends external_api {
             }
         }
 
+        $category = $DB->get_record('course_categories', ['id' => $course->category]);
+        $categoryname = $category ? (string)$category->name : '';
+
         return [
             'id' => (int)$course->id,
             'fullname' => $course->fullname,
             'shortname' => $course->shortname,
+            'categoryname' => $categoryname,
             'timecreated' => (int)$course->timecreated,
             'startdate' => (int)$course->startdate,
             'enddate' => (int)$course->enddate,
@@ -578,6 +582,7 @@ class courses extends external_api {
             'id' => new external_value(PARAM_INT, 'Course ID'),
             'fullname' => new external_value(PARAM_TEXT, 'Course fullname'),
             'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
+            'categoryname' => new external_value(PARAM_TEXT, 'Category name', VALUE_DEFAULT, ''),
             'timecreated' => new external_value(PARAM_INT, 'Time created', VALUE_DEFAULT, 0),
             'startdate' => new external_value(PARAM_INT, 'Start date', VALUE_DEFAULT, 0),
             'enddate' => new external_value(PARAM_INT, 'End date', VALUE_DEFAULT, 0),
