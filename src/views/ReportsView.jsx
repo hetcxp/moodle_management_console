@@ -22,25 +22,25 @@ export function ReportsView() {
   const reports = React.useMemo(() => [
     {
       id: 'courses',
-      title: I18N.es.dashboard.reports.courses.title,
-      description: I18N.es.dashboard.reports.courses.description,
+      title: I18N.reports.dashboard.reports.courses.title,
+      description: I18N.reports.dashboard.reports.courses.description,
       icon: BookOpen,
       fetchData: () => AdminerApi.getCourses({ perpage: 5000 }),
       columns: [
-        { label: I18N.es.dashboard.reports.courses.columns.fullname, accessor: 'fullname' },
-        { label: I18N.es.dashboard.reports.courses.columns.shortname, accessor: 'shortname' },
-        { label: I18N.es.dashboard.reports.courses.columns.category, accessor: 'categoryname' },
-        { label: I18N.es.dashboard.reports.courses.columns.status, accessor: (row) => row.visible === 1 ? 'Activo' : 'Oculto' },
-        { label: I18N.es.dashboard.reports.courses.columns.enrolled, accessor: 'enrolledcount' },
-        { label: I18N.es.dashboard.reports.courses.columns.progress, accessor: 'progress_percent' }
+        { label: I18N.reports.dashboard.reports.courses.columns.fullname, accessor: 'fullname' },
+        { label: I18N.reports.dashboard.reports.courses.columns.shortname, accessor: 'shortname' },
+        { label: I18N.reports.dashboard.reports.courses.columns.category, accessor: 'categoryname' },
+        { label: I18N.reports.dashboard.reports.courses.columns.status, accessor: (row) => row.visible === 1 ? 'Activo' : 'Oculto' },
+        { label: I18N.reports.dashboard.reports.courses.columns.enrolled, accessor: 'enrolledcount' },
+        { label: I18N.reports.dashboard.reports.courses.columns.progress, accessor: 'progress_percent' }
       ],
-      detailLabel: I18N.es.dashboard.buttons.detailCourse,
+      detailLabel: I18N.reports.dashboard.buttons.detailCourse,
       onOpenDetail: () => setCourseModalOpen(true)
     },
     {
       id: 'categories',
-      title: I18N.es.dashboard.reports.categories.title,
-      description: I18N.es.dashboard.reports.categories.description,
+      title: I18N.reports.dashboard.reports.categories.title,
+      description: I18N.reports.dashboard.reports.categories.description,
       icon: FolderTree,
       fetchData: async () => {
         const catsRes = await AdminerApi.getCategories({ perpage: 5000 });
@@ -67,54 +67,54 @@ export function ReportsView() {
         });
       },
       columns: [
-        { label: I18N.es.dashboard.reports.categories.columns.id, accessor: 'id' },
-        { label: I18N.es.dashboard.reports.categories.columns.name, accessor: 'name' },
-        { label: I18N.es.dashboard.reports.categories.columns.description, accessor: 'description' },
-        { label: I18N.es.dashboard.reports.categories.columns.courseCount, accessor: 'coursecount' },
-        { label: I18N.es.dashboard.reports.categories.columns.depth, accessor: 'depth' },
-        { label: I18N.es.dashboard.reports.categories.columns.visible, accessor: (row) => row.visible === 1 ? I18N.es.dashboard.reports.categories.strings.yes : I18N.es.dashboard.reports.categories.strings.no },
-        { label: I18N.es.dashboard.reports.categories.columns.progress, accessor: 'avg_progress' }
+        { label: I18N.reports.dashboard.reports.categories.columns.id, accessor: 'id' },
+        { label: I18N.reports.dashboard.reports.categories.columns.name, accessor: 'name' },
+        { label: I18N.reports.dashboard.reports.categories.columns.description, accessor: 'description' },
+        { label: I18N.reports.dashboard.reports.categories.columns.courseCount, accessor: 'coursecount' },
+        { label: I18N.reports.dashboard.reports.categories.columns.depth, accessor: 'depth' },
+        { label: I18N.reports.dashboard.reports.categories.columns.visible, accessor: (row) => row.visible === 1 ? I18N.reports.dashboard.reports.categories.strings.yes : I18N.reports.dashboard.reports.categories.strings.no },
+        { label: I18N.reports.dashboard.reports.categories.columns.progress, accessor: 'avg_progress' }
       ],
-      detailLabel: I18N.es.dashboard.buttons.detailCategory,
+      detailLabel: I18N.reports.dashboard.buttons.detailCategory,
       onOpenDetail: () => setCategoryModalOpen(true)
     },
     {
       id: 'users',
-      title: I18N.es.dashboard.reports.users.title,
-      description: I18N.es.dashboard.reports.users.description,
+      title: I18N.reports.dashboard.reports.users.title,
+      description: I18N.reports.dashboard.reports.users.description,
       icon: Users,
       fetchData: () => AdminerApi.getUsers({ perpage: 5000 }),
       columns: [
-        { label: I18N.es.dashboard.reports.users.columns.id, accessor: 'id' },
-        { label: I18N.es.dashboard.reports.users.columns.fullname, accessor: 'fullname' },
-        { label: I18N.es.dashboard.reports.users.columns.email, accessor: 'email' },
-        { label: I18N.es.dashboard.reports.users.columns.city, accessor: 'city' },
-        { label: I18N.es.dashboard.reports.users.columns.country, accessor: 'country' },
-        { label: I18N.es.dashboard.reports.users.columns.lastAccess, accessor: (row) => row.lastaccess ? new Date(row.lastaccess * 1000).toLocaleString() : I18N.es.dashboard.reports.users.strings.never },
-        { label: I18N.es.dashboard.reports.users.columns.suspended, accessor: (row) => row.suspended === 1 ? I18N.es.dashboard.reports.users.strings.yes : I18N.es.dashboard.reports.users.strings.no },
-        { label: I18N.es.dashboard.reports.users.columns.enrolledCourses, accessor: 'enrolled_courses' },
-        { label: I18N.es.dashboard.reports.users.columns.completedCourses, accessor: 'completed_courses' },
-        { label: I18N.es.dashboard.reports.users.columns.progress, accessor: 'progress' }
+        { label: I18N.reports.dashboard.reports.users.columns.id, accessor: 'id' },
+        { label: I18N.reports.dashboard.reports.users.columns.fullname, accessor: 'fullname' },
+        { label: I18N.reports.dashboard.reports.users.columns.email, accessor: 'email' },
+        { label: I18N.reports.dashboard.reports.users.columns.city, accessor: 'city' },
+        { label: I18N.reports.dashboard.reports.users.columns.country, accessor: 'country' },
+        { label: I18N.reports.dashboard.reports.users.columns.lastAccess, accessor: (row) => row.lastaccess ? new Date(row.lastaccess * 1000).toLocaleString() : I18N.reports.dashboard.reports.users.strings.never },
+        { label: I18N.reports.dashboard.reports.users.columns.suspended, accessor: (row) => row.suspended === 1 ? I18N.reports.dashboard.reports.users.strings.yes : I18N.reports.dashboard.reports.users.strings.no },
+        { label: I18N.reports.dashboard.reports.users.columns.enrolledCourses, accessor: 'enrolled_courses' },
+        { label: I18N.reports.dashboard.reports.users.columns.completedCourses, accessor: 'completed_courses' },
+        { label: I18N.reports.dashboard.reports.users.columns.progress, accessor: 'progress' }
       ],
-      detailLabel: I18N.es.dashboard.buttons.detailUser,
+      detailLabel: I18N.reports.dashboard.buttons.detailUser,
       onOpenDetail: () => setUserModalOpen(true)
     },
     {
       id: 'cohorts',
-      title: I18N.es.dashboard.reports.cohorts.title,
-      description: I18N.es.dashboard.reports.cohorts.description,
+      title: I18N.reports.dashboard.reports.cohorts.title,
+      description: I18N.reports.dashboard.reports.cohorts.description,
       icon: Layers,
       fetchData: () => AdminerApi.getCohorts({ perpage: 5000 }),
       columns: [
-        { label: I18N.es.dashboard.reports.cohorts.columns.id, accessor: 'id' },
-        { label: I18N.es.dashboard.reports.cohorts.columns.name, accessor: 'name' },
-        { label: I18N.es.dashboard.reports.cohorts.columns.idNumber, accessor: 'idnumber' },
-        { label: I18N.es.dashboard.reports.cohorts.columns.description, accessor: 'description' },
-        { label: I18N.es.dashboard.reports.cohorts.columns.membersCount, accessor: 'memberscount' },
-        { label: I18N.es.dashboard.reports.cohorts.columns.coursesCount, accessor: 'coursescount' },
-        { label: I18N.es.dashboard.reports.cohorts.columns.progress, accessor: 'progress' }
+        { label: I18N.reports.dashboard.reports.cohorts.columns.id, accessor: 'id' },
+        { label: I18N.reports.dashboard.reports.cohorts.columns.name, accessor: 'name' },
+        { label: I18N.reports.dashboard.reports.cohorts.columns.idNumber, accessor: 'idnumber' },
+        { label: I18N.reports.dashboard.reports.cohorts.columns.description, accessor: 'description' },
+        { label: I18N.reports.dashboard.reports.cohorts.columns.membersCount, accessor: 'memberscount' },
+        { label: I18N.reports.dashboard.reports.cohorts.columns.coursesCount, accessor: 'coursescount' },
+        { label: I18N.reports.dashboard.reports.cohorts.columns.progress, accessor: 'progress' }
       ],
-      detailLabel: I18N.es.dashboard.buttons.detailCohort,
+      detailLabel: I18N.reports.dashboard.buttons.detailCohort,
       onOpenDetail: () => setCohortModalOpen(true)
     }
   ], []);
@@ -143,15 +143,15 @@ export function ReportsView() {
       }
 
       if (data.length === 0) {
-        addToast({ title: I18N.es.dashboard.messages.noData, type: 'warning' });
+        addToast({ title: I18N.reports.dashboard.messages.noData, type: 'warning' });
         return;
       }
 
       exportToCsv(`reporte_${report.id}`, data, report.columns);
-      addToast({ title: I18N.es.dashboard.messages.success, type: 'success' });
+      addToast({ title: I18N.reports.dashboard.messages.success, type: 'success' });
     } catch (error) {
       console.error(`Error descargando reporte ${report.id}:`, error);
-      addToast({ title: I18N.es.dashboard.messages.error, type: 'error' });
+      addToast({ title: I18N.reports.dashboard.messages.error, type: 'error' });
     } finally {
       setDownloading(null);
     }
@@ -161,9 +161,9 @@ export function ReportsView() {
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{I18N.es.dashboard.title}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{I18N.reports.dashboard.title}</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            {I18N.es.dashboard.subtitle}
+            {I18N.reports.dashboard.subtitle}
           </p>
         </div>
       </div>
@@ -192,7 +192,7 @@ export function ReportsView() {
                     className="flex flex-1 items-center justify-center gap-2 rounded-md bg-secondary text-secondary-foreground py-2 text-sm font-medium hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isDownloading && downloading === report.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
-                    {I18N.es.dashboard.buttons.summary}
+                    {I18N.reports.dashboard.buttons.summary}
                   </button>
                   {report.onOpenDetail && (
                     <button
