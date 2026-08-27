@@ -4,12 +4,14 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Dialog } from '../../components/ui/Dialog';
 import { PermissionGate } from '../../components/PermissionGate';
-import { Users, Clock, Trash2, User } from 'lucide-react';
+import { Users, Clock, Trash2, User, Download } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
+import { exportToCsv } from '../../components/CsvExporter';
 
 export const CohortMembersTab = ({
   members,
   courses,
+  cohortName = '',
   loading,
   setSelectorType,
   handleUnlinkUser,
@@ -20,9 +22,70 @@ export const CohortMembersTab = ({
   const [userDetailModalOpen, setUserDetailModalOpen] = useState(false);
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
 
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportOption, setExportOption] = useState('summary');
+
   const handleBulkUnlink = async (ids) => {
     await handleBulkUnlinkUsers(ids);
     setSelectedUserIds([]);
+  };
+
+  const handleExport = () => {
+    if (exportOption === 'summary') {
+      const cols = [
+        { label: 'ID Usuario', accessor: 'id' },
+        { label: 'Nombre Completo', accessor: 'fullname' },
+        { label: 'Email', accessor: 'email' },
+        { label: 'Estado', accessor: 'status' },
+        { label: 'Progreso General', accessor: 'progress' },
+      ];
+      const exportData = members.map(m => ({
+        ...m,
+        status: m.suspended === 0 ? 'Activo' : 'Suspendido',
+        progress: `${m.progress || 0}%`
+      }));
+      exportToCsv(`cohorte_${cohortName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_resumen`, exportData, cols);
+    } else {
+      const cols = [
+        { label: 'ID Usuario', accessor: 'id' },
+        { label: 'Nombre Completo', accessor: 'fullname' },
+        { label: 'Email', accessor: 'email' },
+        { label: 'Estado', accessor: 'status' },
+        { label: 'ID Curso', accessor: 'course_id' },
+        { label: 'Nombre Curso', accessor: 'course_name' },
+        { label: 'Progreso Curso', accessor: 'course_progress' },
+      ];
+
+      const exportData = [];
+      members.forEach(m => {
+        if (!courses || courses.length === 0) {
+          exportData.push({
+            id: m.id,
+            fullname: m.fullname,
+            email: m.email,
+            status: m.suspended === 0 ? 'Activo' : 'Suspendido',
+            course_id: '',
+            course_name: 'Sin cursos sincronizados',
+            course_progress: ''
+          });
+        } else {
+          courses.forEach(c => {
+            const cp = m.course_progresses?.find(p => p.courseid === c.id);
+            exportData.push({
+              id: m.id,
+              fullname: m.fullname,
+              email: m.email,
+              status: m.suspended === 0 ? 'Activo' : 'Suspendido',
+              course_id: c.id,
+              course_name: c.fullname,
+              course_progress: cp ? `${cp.progress}%` : '0%'
+            });
+          });
+        }
+      });
+      exportToCsv(`cohorte_${cohortName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_detalle`, exportData, cols);
+    }
+    setExportModalOpen(false);
   };
 
   const membersCols = [
@@ -92,7 +155,10 @@ export const CohortMembersTab = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setExportModalOpen(true)}>
+          <Download className="h-4 w-4 mr-2" /> Exportar CSV
+        </Button>
         <PermissionGate capability="can_manage_cohorts">
           <Button onClick={() => setSelectorType('users')}>
             <User className="h-4 w-4 mr-2" /> Añadir Usuario(s)
@@ -172,6 +238,35 @@ export const CohortMembersTab = ({
               No hay cursos sincronizados en esta cohorte.
             </div>
           )}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleExport}>
+              Exportar CSV
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+            >
+              <option value="summary">Resumen (Lista de usuarios y progreso general)</option>
+              <option value="detail">Detalle (Usuarios y progreso en cada curso de la cohorte)</option>
+            </select>
+          </div>
         </div>
       </Dialog>
     </div>

@@ -145,6 +145,10 @@ class users extends external_api {
                         $sqlparams["filterval$filter_index"] = '%' . $value . '%';
                     }
                     $filter_index++;
+                } else if ($key === 'cohortid' && $value !== '' && $value !== '0') {
+                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.userid = u.id AND cm_f.cohortid = :filterval$filter_index)";
+                    $sqlparams["filterval$filter_index"] = (int)$value;
+                    $filter_index++;
                 }
             }
         }

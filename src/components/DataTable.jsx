@@ -5,6 +5,8 @@ import { Button } from './ui/Button';
 import { Checkbox } from './ui/Checkbox';
 import { Input } from './ui/Input';
 import { cn } from '../lib/utils';
+import { DataTableToolbar } from './datatable/DataTableToolbar';
+import { DataTablePagination } from './datatable/DataTablePagination';
 
 export const DataTable = memo(({
   columns = [], // [{ header, accessor, sortKey, cell, className, filterType, filterOptions }]
@@ -133,36 +135,12 @@ export const DataTable = memo(({
   return (
     <div className={cn('relative space-y-4', className)}>
       {/* Floating Bulk Actions Bar */}
-      {selectable && selectedIds.length > 0 && (
-        <div className="sticky top-20 z-20 flex flex-wrap items-center justify-between gap-3 p-3 px-4 bg-card/95 text-card-foreground backdrop-blur-md rounded-xl shadow-xl border border-border animate-fadeIn">
-          <div className="flex items-center gap-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-              {selectedIds.length}
-            </span>
-            <span className="text-sm font-medium">elementos seleccionados</span>
-            <button
-              onClick={() => onSelectionChange?.([])}
-              className="text-xs text-muted-foreground hover:text-foreground underline ml-2"
-            >
-              Deseleccionar todos
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {bulkActions.map((action, idx) => (
-              <Button
-                key={idx}
-                size="sm"
-                variant={action.variant || 'default'}
-                onClick={() => action.onClick(selectedIds)}
-                className="gap-1.5 h-8 text-xs font-semibold"
-              >
-                {action.icon}
-                <span>{action.label}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
+      {selectable && (
+        <DataTableToolbar 
+          selectedIds={selectedIds} 
+          onSelectionChange={onSelectionChange} 
+          bulkActions={bulkActions} 
+        />
       )}
 
       {/* Main Table Container */}
@@ -380,41 +358,15 @@ export const DataTable = memo(({
         </div>
 
         {/* Pagination Footer */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border/70 bg-muted/20 text-xs text-muted-foreground">
-          <div>
-            Mostrando <span className="font-semibold text-foreground">{currentDataLength > 0 ? page * perPage + 1 : 0}</span> a{' '}
-            <span className="font-semibold text-foreground">{Math.min((page + 1) * perPage, displayTotalCount)}</span> de{' '}
-            <span className="font-semibold text-foreground">{displayTotalCount}</span> resultados
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 0 || loading}
-              onClick={() => onPageChange?.(page - 1)}
-              className="h-8 px-2 gap-1 text-xs"
-            >
-              <ChevronLeft className="h-4 w-4" />
-              <span>Anterior</span>
-            </Button>
-
-            <div className="px-3 py-1 font-medium text-foreground">
-              Página {page + 1} de {totalPages}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages - 1 || loading}
-              onClick={() => onPageChange?.(page + 1)}
-              className="h-8 px-2 gap-1 text-xs"
-            >
-              <span>Siguiente</span>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        <DataTablePagination 
+          page={page}
+          perPage={perPage}
+          currentDataLength={currentDataLength}
+          displayTotalCount={displayTotalCount}
+          totalPages={totalPages}
+          loading={loading}
+          onPageChange={onPageChange}
+        />
       </div>
     </div>
   );

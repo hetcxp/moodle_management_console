@@ -21,6 +21,7 @@ const CourseUserDetailView = lazy(() => import('./views/CourseUserDetailView').t
 const UserDetailView = lazy(() => import('./views/UserDetailView').then(m => ({ default: m.UserDetailView })));
 const CohortDetailView = lazy(() => import('./views/CohortDetailView').then(m => ({ default: m.CohortDetailView })));
 const CategoryDetailView = lazy(() => import('./views/CategoryDetailView').then(m => ({ default: m.CategoryDetailView })));
+const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
 const AdminerApp = () => {
@@ -38,6 +39,7 @@ const AdminerApp = () => {
     if (location.startsWith('/categories')) return 'categories';
     if (location.startsWith('/users')) return 'users';
     if (location.startsWith('/cohorts')) return 'cohorts';
+    if (location.startsWith('/reports')) return 'reports';
     return 'dashboard';
   };
   const activeTab = getActiveTab();
@@ -154,6 +156,11 @@ const AdminerApp = () => {
                 </Route>
                 <Route path="/cohorts/:id">
                   {params => <CohortDetailView cohortId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Cohortes" />}
+                </Route>
+
+                {/* Reports */}
+                <Route path="/reports">
+                  <ReportsView />
                 </Route>
 
                 {/* Default */}

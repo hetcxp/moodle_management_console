@@ -56,7 +56,9 @@ export const CohortsView = ({ onNavigateToDetail }) => {
   const [cohortsToDelete, setCohortsToDelete] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  // Removed local loadCohorts and useEffect
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportOption, setExportOption] = useState('visible');
+  const [exportLoading, setExportLoading] = useState(false);
 
   const handleOpenCreate = () => {
     setEditingCohort(null);
@@ -128,9 +130,10 @@ export const CohortsView = ({ onNavigateToDetail }) => {
 
   const handleExport = async () => {
     let exportData = cohorts;
-    if (totalCount > cohorts.length) {
-      try {
-        setLoading(true);
+    setExportLoading(true);
+
+    try {
+      if (totalCount > cohorts.length) {
         const res = await AdminerApi.getCohorts({
           page: 0,
           perpage: 99999,
@@ -141,23 +144,74 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         if (res?.cohorts) {
           exportData = res.cohorts;
         }
-      } catch (err) {
-        console.error("Export error", err);
-        addToast({ title: 'Error', description: 'No se pudieron obtener todos los registros.', type: 'error' });
-      } finally {
-        setLoading(false);
       }
-    }
 
-    const cols = [
-      { label: 'ID', accessor: 'id' },
-      { label: 'Nombre de Cohorte', accessor: 'name' },
-      { label: 'Número ID / Código', accessor: 'idnumber' },
-      { label: 'Miembros Totales', accessor: 'memberscount' },
-      { label: 'Cursos Sincronizados', accessor: 'coursescount' },
-      { label: 'Descripción', accessor: 'description' }
-    ];
-    exportToCsv('cohortes_moodle', exportData, cols);
+      if (exportOption === 'visible') {
+        const cols = [
+          { label: 'ID', accessor: 'id' },
+          { label: 'Nombre de Cohorte', accessor: 'name' },
+          { label: 'Número ID / Código', accessor: 'idnumber' },
+          { label: 'Miembros Totales', accessor: 'memberscount' },
+          { label: 'Cursos Sincronizados', accessor: 'coursescount' },
+          { label: 'Descripción', accessor: 'description' }
+        ];
+        exportToCsv('cohortes_moodle', exportData, cols);
+      } else {
+        // Detailed export with members
+        let detailedData = [];
+        
+        for (const cohort of exportData) {
+          const detailRes = await AdminerApi.getCohortDetail(cohort.id);
+          const members = detailRes?.members || [];
+          
+          if (members.length === 0) {
+            detailedData.push({
+              cohort_id: cohort.id,
+              cohort_name: cohort.name,
+              cohort_idnumber: cohort.idnumber,
+              user_id: '',
+              user_fullname: '',
+              user_email: '',
+              user_status: '',
+              message: 'Sin miembros'
+            });
+          } else {
+            for (const member of members) {
+              detailedData.push({
+                cohort_id: cohort.id,
+                cohort_name: cohort.name,
+                cohort_idnumber: cohort.idnumber,
+                user_id: member.id,
+                user_fullname: member.fullname,
+                user_email: member.email,
+                user_status: member.suspended === 0 ? 'Activo' : 'Suspendido',
+                message: ''
+              });
+            }
+          }
+        }
+
+        const detailCols = [
+          { label: 'ID Cohorte', accessor: 'cohort_id' },
+          { label: 'Nombre Cohorte', accessor: 'cohort_name' },
+          { label: 'Código Cohorte', accessor: 'cohort_idnumber' },
+          { label: 'ID Usuario', accessor: 'user_id' },
+          { label: 'Nombre Completo', accessor: 'user_fullname' },
+          { label: 'Email', accessor: 'user_email' },
+          { label: 'Estado', accessor: 'user_status' },
+          { label: 'Notas', accessor: 'message' }
+        ];
+        
+        exportToCsv('cohortes_usuarios_moodle', detailedData, detailCols);
+      }
+
+      setExportModalOpen(false);
+    } catch (err) {
+      console.error("Export error", err);
+      addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const columns = [
@@ -325,8 +379,8 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         onSearchChange={(val) => { setSearch(val); setPage(0); }}
         searchPlaceholder="Buscar por nombre de cohorte o ID..."
         onRefresh={() => refetch()}
-        loading={loading}
-        onExportCsv={handleExport}
+        loading={loading || exportLoading}
+        onExportCsv={() => setExportModalOpen(true)}
         primaryAction={hasManageCohorts ? {
           label: 'Nueva Cohorte',
           onClick: handleOpenCreate,
@@ -436,6 +490,38 @@ export const CohortsView = ({ onNavigateToDetail }) => {
           </>
         }
       />
+
+      {/* Modal: Opciones de Exportación */}
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleExport} disabled={exportLoading}>
+              {exportLoading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+            >
+              <option value="visible">Exportar Resumen (solo información de las cohortes)</option>
+              <option value="with_members">Exportar con Detalles (cohortes con usuarios y detalles)</option>
+            </select>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

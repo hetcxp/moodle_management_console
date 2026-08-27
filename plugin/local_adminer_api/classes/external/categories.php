@@ -9,6 +9,7 @@ use core_external\external_value;
 use context_system;
 use core_course_category;
 use stdClass;
+use local_adminer_api\repository\category_repository;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -33,18 +34,8 @@ class categories extends external_api {
             'perpage' => $perpage,
         ]);
 
-        $totalcount = (int)$DB->count_records('course_categories');
-
-        $sql = "
-            SELECT cc.id, cc.name, cc.idnumber, cc.description, cc.parent, cc.visible, cc.coursecount,
-                   COALESCE(p.name, '') AS parentname
-              FROM {course_categories} cc
-         LEFT JOIN {course_categories} p ON cc.parent = p.id
-          ORDER BY cc.sortorder ASC, cc.name ASC
-        ";
-
-        $limitfrom = $params['page'] * $params['perpage'];
-        $records = $DB->get_records_sql($sql, [], $limitfrom, $params['perpage']);
+        $totalcount = category_repository::count_all();
+        $records = category_repository::get_paginated($params['page'], $params['perpage']);
 
         $categories = [];
         foreach ($records as $r) {
@@ -99,7 +90,7 @@ class categories extends external_api {
         self::validate_context($context);
         require_capability('moodle/category:viewhiddencategories', $context);
 
-        $records = $DB->get_records('course_categories', null, 'sortorder ASC, name ASC', 'id, name, parent, depth, path, visible, coursecount');
+        $records = category_repository::get_flat_categories();
         $list = [];
         foreach ($records as $r) {
             $parentname = '';
@@ -303,27 +294,13 @@ class categories extends external_api {
         }
 
         $courses = [];
-        $sql = "
-            SELECT c.id, c.fullname, c.shortname, c.visible,
-                   COUNT(DISTINCT ue.userid) AS enrolledcount
-              FROM {course} c
-         LEFT JOIN {enrol} e ON e.courseid = c.id
-         LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-             WHERE c.category = :categoryid
-          GROUP BY c.id, c.fullname, c.shortname, c.visible
-          ORDER BY c.fullname ASC
-        ";
-        $records = $DB->get_records_sql($sql, ['categoryid' => $cat->id]);
+        $records = category_repository::get_courses_by_category($cat->id);
 
         foreach ($records as $c) {
             $completedcount = 0;
             if ($c->enrolledcount > 0) {
                 $course_obj = $DB->get_record('course', ['id' => $c->id]);
-                $sql_users = "SELECT DISTINCT ue.userid 
-                                FROM {enrol} e 
-                                JOIN {user_enrolments} ue ON ue.enrolid = e.id 
-                               WHERE e.courseid = :courseid AND ue.status = 0";
-                $users = $DB->get_fieldset_sql($sql_users, ['courseid' => $c->id]);
+                $users = category_repository::get_course_users($c->id);
                 
                 foreach ($users as $uid) {
                     $progress = \core_completion\progress::get_course_progress_percentage($course_obj, $uid);

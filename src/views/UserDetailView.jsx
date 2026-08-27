@@ -274,6 +274,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           courses={data.courses}
           loading={loading}
           userId={userId}
+          userFullname={data.fullname}
           onOpenSelector={() => { setSelectorType('courses'); setSelectorOpen(true); }}
           handleUnenrollCourse={handleUnenrollCourse}
           handleBulkUnenrollCourses={handleBulkUnenrollCourses}

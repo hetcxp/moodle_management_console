@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { BookOpen, User, Layers, UserCheck, UserX, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle } from 'lucide-react';
+import { BookOpen, User, Layers, UserCheck, UserX, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, Download } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
 import { PermissionGate } from '../../components/PermissionGate';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { formatDate } from '../../lib/utils';
+import { useToast } from '../../components/ui/Toast';
+import { AdminerApi } from '../../services/adminer-api';
+import { exportToCsv } from '../../components/CsvExporter';
 
 export const UserCoursesTab = ({ 
   courses, 
@@ -15,8 +18,10 @@ export const UserCoursesTab = ({
   handleUnenrollCourse, 
   handleBulkUnenrollCourses, 
   handleUserCourseAction,
-  onNavigateToDetail 
+  onNavigateToDetail,
+  userFullname
 }) => {
+  const { addToast } = useToast();
   const [selectedCourseIds, setSelectedCourseIds] = useState([]);
   const [datesModalOpen, setDatesModalOpen] = useState(false);
   const [datesCourseIds, setDatesCourseIds] = useState([]);
@@ -24,6 +29,10 @@ export const UserCoursesTab = ({
   const [datesStartDate, setDatesStartDate] = useState('');
   const [datesEndEnabled, setDatesEndEnabled] = useState(false);
   const [datesEndDate, setDatesEndDate] = useState('');
+  
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportOption, setExportOption] = useState('visible');
+  const [isExporting, setIsExporting] = useState(false);
 
   const getEnrolmentIcon = (method, index) => {
     switch (method) {
@@ -46,6 +55,86 @@ export const UserCoursesTab = ({
   const handleBulkSubmit = (ids) => {
     handleBulkUnenrollCourses(ids);
     setSelectedCourseIds([]);
+  };
+
+  const exportVisibleCSV = () => {
+    if (!courses || courses.length === 0) return;
+    const cols = [
+      { label: 'ID', accessor: 'id' },
+      { label: 'Nombre Corto', accessor: 'shortname' },
+      { label: 'Nombre del Curso', accessor: 'fullname' },
+      { label: 'Progreso', accessor: row => `${row.progress}%` },
+      { label: 'Estado', accessor: row => row.enrolstatus === 0 ? 'Activo' : 'Suspendido' },
+      { label: 'Matriculación', accessor: row => row.enrolments?.[0]?.method || 'desconocido' }
+    ];
+    exportToCsv(`usuario_${userId}_cursos_resumen`, courses, cols);
+  };
+
+  const exportDetailedProgressCSV = async () => {
+    if (!courses || courses.length === 0) return;
+    setIsExporting(true);
+    
+    try {
+      addToast({ type: 'info', title: 'Generando reporte detallado, esto puede tardar unos momentos...' });
+      const detailedCourses = [];
+      const activityColumns = new Set();
+      
+      for (const c of courses) {
+        const detail = await AdminerApi.getCourseUserDetail(c.id, userId);
+        const activities = detail.activities || [];
+        const courseRow = {
+          id: c.id,
+          shortname: c.shortname,
+          fullname: c.fullname,
+          progress: c.progress,
+          enrolstatus: c.enrolstatus,
+          activitiesObj: {}
+        };
+        
+        activities.forEach(act => {
+          activityColumns.add(act.name);
+          let statusStr = 'Pendiente';
+          if (act.completionstatus === 1 || act.completionstatus === 2) {
+            statusStr = 'Completado';
+          }
+          courseRow.activitiesObj[act.name] = `${statusStr} ${act.grade ? '(' + act.grade + ')' : ''}`.trim();
+        });
+        
+        detailedCourses.push(courseRow);
+      }
+      
+      const activityHeaders = Array.from(activityColumns);
+      
+      const cols = [
+        { label: 'ID Curso', accessor: 'id' },
+        { label: 'Nombre Corto', accessor: 'shortname' },
+        { label: 'Nombre del Curso', accessor: 'fullname' },
+        { label: 'Progreso General', accessor: row => `${row.progress}%` },
+        { label: 'Estado', accessor: row => row.enrolstatus === 0 ? 'Activo' : 'Suspendido' },
+        ...activityHeaders.map(col => ({
+          label: col,
+          accessor: row => row.activitiesObj[col] || '-'
+        }))
+      ];
+      
+      exportToCsv(`usuario_${userId}_cursos_progreso_detallado`, detailedCourses, cols);
+      
+      addToast({ type: 'success', title: 'Reporte detallado generado exitosamente' });
+    } catch (error) {
+      addToast({ type: 'error', title: 'Error al generar reporte', description: error.message });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (exportOption === 'visible') {
+      exportVisibleCSV();
+      setExportModalOpen(false);
+    } else {
+      await exportDetailedProgressCSV();
+      setExportModalOpen(false);
+    }
   };
 
   const coursesCols = [
@@ -211,7 +300,10 @@ export const UserCoursesTab = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setExportModalOpen(true)}>
+          <Download className="h-4 w-4 mr-2" /> Exportar CSV
+        </Button>
         <PermissionGate capability="can_manage_courses">
           <Button onClick={onOpenSelector}>
             <BookOpen className="h-4 w-4 mr-2" /> Matricular en Curso(s)
@@ -282,6 +374,35 @@ export const UserCoursesTab = ({
               />
             </div>
           )}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleExport} disabled={isExporting}>
+              {isExporting ? 'Generando...' : 'Exportar CSV'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <select
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="visible">Exportar Resumen (solo información visible)</option>
+              <option value="detailed">Exportar con Detalles (incluye progreso de actividades en cada curso)</option>
+            </select>
+          </div>
         </div>
       </Dialog>
     </div>

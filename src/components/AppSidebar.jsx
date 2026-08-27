@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Shield, Sparkles } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Shield, Sparkles, DownloadCloud } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 
@@ -27,7 +27,7 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
     },
     {
       id: 'users',
-      label: 'Usuarios y Progreso',
+      label: 'Usuarios',
       icon: Users,
       capability: 'can_view_users',
     },
@@ -36,6 +36,12 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
       label: 'Cohortes',
       icon: Layers,
       capability: 'can_view_cohorts',
+    },
+    {
+      id: 'reports',
+      label: 'Reportes',
+      icon: DownloadCloud,
+      capability: 'can_view_courses', // Usamos can_view_courses como base
     },
   ];
 

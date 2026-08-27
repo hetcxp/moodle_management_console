@@ -67,6 +67,11 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   // CSV Upload state
   const [csvModalOpen, setCsvModalOpen] = useState(false);
 
+  // Export state
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportOption, setExportOption] = useState('visible');
+  const [exportLoading, setExportLoading] = useState(false);
+
   // Selection state
   const [selectedIds, setSelectedIds] = useState([]);
 
@@ -158,7 +163,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   const handleExport = async () => {
     let exportData = [];
     try {
-      setLoading(true);
+      setExportLoading(true);
       const limit = 500;
       const pages = Math.ceil(totalCount / limit) || 1;
       
@@ -176,29 +181,89 @@ export const CoursesView = ({ onNavigateToDetail }) => {
           exportData = [...exportData, ...res.courses];
         }
       }
+
+      if (exportOption === 'visible') {
+        const columnsForExport = [
+          { label: 'ID', accessor: 'id' },
+          { label: 'Nombre Completo', accessor: 'fullname' },
+          { label: 'Nombre Corto', accessor: 'shortname' },
+          { label: 'Categoría', accessor: 'categoryname' },
+          { label: 'Estado', accessor: (row) => (row.visible === 1 ? 'Visible' : 'Oculto') },
+          { label: 'Inscritos', accessor: 'enrolledcount' },
+          { label: 'Completados', accessor: 'completedcount' },
+          { label: 'Cohortes', accessor: 'cohortscount' },
+          { label: 'Progreso (%)', accessor: 'progress_percent' },
+          { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
+          { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
+          { label: 'Fin', accessor: (row) => row.enddate > 0 ? formatDateOnly(row.enddate) : 'No definida' }
+        ];
+        exportToCsv('cursos_moodle', exportData, columnsForExport);
+      } else {
+        let detailedData = [];
+        for (const course of exportData) {
+          try {
+            const detail = await AdminerApi.getCourseDetail(course.id);
+            if (detail.users && detail.users.length > 0) {
+              for (const user of detail.users) {
+                detailedData.push({
+                  course_id: course.id,
+                  course_fullname: course.fullname,
+                  course_shortname: course.shortname,
+                  course_category: course.categoryname,
+                  course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
+                  course_progress: course.progress_percent,
+                  user_id: user.id,
+                  user_fullname: user.fullname,
+                  user_email: user.email,
+                  user_progress: user.progress || 0,
+                  user_status: user.status === 0 ? 'Activo' : 'Suspendido',
+                  user_roles: user.roles || 'student'
+                });
+              }
+            } else {
+              detailedData.push({
+                course_id: course.id,
+                course_fullname: course.fullname,
+                course_shortname: course.shortname,
+                course_category: course.categoryname,
+                course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
+                course_progress: course.progress_percent,
+                user_id: '',
+                user_fullname: '',
+                user_email: '',
+                user_progress: '',
+                user_status: '',
+                user_roles: ''
+              });
+            }
+          } catch (e) {
+            console.error('Error fetching detail for course', course.id, e);
+          }
+        }
+        
+        const columns = [
+          { label: 'ID Curso', accessor: 'course_id' },
+          { label: 'Curso', accessor: 'course_fullname' },
+          { label: 'Nombre Corto', accessor: 'course_shortname' },
+          { label: 'Categoría', accessor: 'course_category' },
+          { label: 'Estado Curso', accessor: 'course_visible' },
+          { label: 'Progreso Prom. Curso (%)', accessor: 'course_progress' },
+          { label: 'ID Usuario', accessor: 'user_id' },
+          { label: 'Nombre Usuario', accessor: 'user_fullname' },
+          { label: 'Email', accessor: 'user_email' },
+          { label: 'Rol', accessor: 'user_roles' },
+          { label: 'Estado Usuario', accessor: 'user_status' },
+          { label: 'Progreso Usuario (%)', accessor: 'user_progress' }
+        ];
+        exportToCsv('cursos_usuarios_moodle', detailedData, columns);
+      }
+      setExportModalOpen(false);
     } catch (err) {
       console.error("Export error", err);
       addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
-      return;
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
-
-    const columnsForExport = [
-      { label: 'ID', accessor: 'id' },
-      { label: 'Nombre Completo', accessor: 'fullname' },
-      { label: 'Nombre Corto', accessor: 'shortname' },
-      { label: 'Categoría', accessor: 'categoryname' },
-      { label: 'Estado', accessor: (row) => (row.visible === 1 ? 'Visible' : 'Oculto') },
-      { label: 'Inscritos', accessor: 'enrolledcount' },
-      { label: 'Completados', accessor: 'completedcount' },
-      { label: 'Cohortes', accessor: 'cohortscount' },
-      { label: 'Progreso (%)', accessor: 'progress_percent' },
-      { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
-      { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
-      { label: 'Fin', accessor: (row) => row.enddate > 0 ? formatDateOnly(row.enddate) : 'No definida' }
-    ];
-    exportToCsv('cursos_moodle', exportData, columnsForExport);
   };
 
   // Table Columns configuration
@@ -384,7 +449,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         searchPlaceholder="Buscar por nombre o código de curso..."
         onRefresh={() => refetch()}
         loading={loading}
-        onExportCsv={handleExport}
+        onExportCsv={() => setExportModalOpen(true)}
         primaryAction={hasCreateCourse ? {
           label: 'Crear Curso',
           onClick: () => setCreateModalOpen(true),
@@ -522,6 +587,37 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         loading={deleteLoading}
         confirmText={`Sí, eliminar ${coursesToDelete.length} curso(s)`}
       />
+
+      {/* Modal: Opciones de Exportación */}
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleExport} disabled={exportLoading}>
+              {exportLoading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <Select
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+            >
+              <option value="visible">Exportar Resumen (solo información visible)</option>
+              <option value="with_users">Exportar con Detalles (cursos con detalle de usuarios)</option>
+            </Select>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

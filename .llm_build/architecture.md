@@ -97,6 +97,11 @@ moodle_adminer/
 │       │   ├── CourseCreateModal.jsx
 │       │   ├── CourseMoveModal.jsx
 │       │   └── CourseCsvModal.jsx
+│       ├── reports/                 # Modales de reportes refactorizados (BaseReportModal)
+│       │   ├── CourseReportModal.jsx
+│       │   ├── UserReportModal.jsx
+│       │   ├── CohortReportModal.jsx
+│       │   └── CategoryReportModal.jsx
 │       ├── UsersView.jsx            # Listado paginado de usuarios + bulk actions
 │       ├── UserDetailView.jsx       # 19KB: cursos (con método inscripción) + cohortes + acciones
 │       ├── CohortsView.jsx          # Listado paginado de cohortes + bulk actions
@@ -260,4 +265,4 @@ php /Users/hectorteran/Dev/moodle-dev/admin/cli/purge_caches.php
 ---
 
 ## Known Technical Debt
-*(La deuda principal referente al monolito de `CourseDetailView.jsx` ha sido resuelta exitosamente mediante la extracción a `CourseUsersTab.jsx` y `CourseCohortsTab.jsx`)*
+*(Resuelta al 100% en la Auditoría de Agosto 2026. El monolito de `CourseDetailView.jsx` se dividió, `DataTable.jsx` se modularizó extrayendo `Toolbar` y `Pagination`, y `ReportsView.jsx` y todos los modales de reportes migraron a componentes HOC con `i18n.js` centralizado)*

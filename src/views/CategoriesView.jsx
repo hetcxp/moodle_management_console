@@ -11,6 +11,7 @@ import { useToast } from '../components/ui/Toast';
 import { PermissionGate } from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Trash2, Edit, Plus, FolderTree, BookOpen } from 'lucide-react';
+import { exportToCsv } from '../components/CsvExporter';
 
 export const CategoriesView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -42,6 +43,10 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportOption, setExportOption] = useState('visible');
+  const [exportLoading, setExportLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -161,6 +166,74 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
     const matchesVis = visibilityFilter === '-1' || String(c.visible) === visibilityFilter;
     return matchesSearch && matchesVis;
   });
+
+  const handleExport = async () => {
+    setExportLoading(true);
+    try {
+      if (exportOption === 'visible') {
+        const columns = [
+          { label: 'ID', accessor: 'id' },
+          { label: 'Categoría', accessor: 'name' },
+          { label: 'Subcategoría de', accessor: 'parentname' },
+          { label: 'Cursos', accessor: 'coursecount' },
+          { label: 'Estado', accessor: (row) => row.visible === 1 ? 'Visible' : 'Oculto' },
+          { label: 'Progreso (%)', accessor: (row) => row.progress || 0 }
+        ];
+        exportToCsv('categorias_moodle', filteredCategories, columns);
+      } else {
+        let exportData = [];
+        for (const cat of filteredCategories) {
+          try {
+            const detail = await AdminerApi.getCategoryDetail(cat.id);
+            if (detail.courses && detail.courses.length > 0) {
+              for (const course of detail.courses) {
+                exportData.push({
+                  cat_id: cat.id,
+                  cat_name: cat.name,
+                  cat_parentname: cat.parentname,
+                  cat_visible: cat.visible === 1 ? 'Visible' : 'Oculto',
+                  cat_progress: cat.progress || 0,
+                  course_id: course.id,
+                  course_name: course.fullname || course.name,
+                  course_progress: course.progress || 0
+                });
+              }
+            } else {
+              exportData.push({
+                cat_id: cat.id,
+                cat_name: cat.name,
+                cat_parentname: cat.parentname,
+                cat_visible: cat.visible === 1 ? 'Visible' : 'Oculto',
+                cat_progress: cat.progress || 0,
+                course_id: '',
+                course_name: '',
+                course_progress: ''
+              });
+            }
+          } catch (e) {
+            console.error('Error fetching detail for category', cat.id, e);
+          }
+        }
+        
+        const columns = [
+          { label: 'ID Categoría', accessor: 'cat_id' },
+          { label: 'Categoría', accessor: 'cat_name' },
+          { label: 'Subcategoría de', accessor: 'cat_parentname' },
+          { label: 'Estado Categoría', accessor: 'cat_visible' },
+          { label: 'Progreso Categoría (%)', accessor: 'cat_progress' },
+          { label: 'ID Curso', accessor: 'course_id' },
+          { label: 'Curso', accessor: 'course_name' },
+          { label: 'Progreso Curso (%)', accessor: 'course_progress' }
+        ];
+        exportToCsv('categorias_cursos_moodle', exportData, columns);
+      }
+      setExportModalOpen(false);
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error en la exportación', description: err.message });
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   filteredCategories.sort((a, b) => {
     let valA = a[sort];
@@ -339,6 +412,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
           onClick: handleOpenCreate,
           icon: <Plus className="h-4 w-4" />
         } : null}
+        onExportCsv={() => setExportModalOpen(true)}
       />
 
       {selectedIds.length > 0 && hasManageCategory && (() => {
@@ -461,6 +535,37 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
           </>
         }
       />
+
+      {/* Modal: Opciones de Exportación */}
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleExport} disabled={exportLoading}>
+              {exportLoading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <Select
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+            >
+              <option value="visible">Exportar Resumen (solo categorías y progreso visible)</option>
+              <option value="with_courses">Exportar con Detalles (categorías con cursos y progreso)</option>
+            </Select>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

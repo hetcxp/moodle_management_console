@@ -47,6 +47,7 @@ moodle_adminer/
 │       ├── CategoriesView.jsx / CategoryDetailView.jsx
 │       ├── UsersView.jsx / UserDetailView.jsx
 │       ├── CohortsView.jsx / CohortDetailView.jsx
+│       ├── ReportsView.jsx
 │       ├── LoginView.jsx
 │       └── NotFoundView.jsx        # Página 404
 ├── dist/                       # Bundle de producción
@@ -54,6 +55,15 @@ moodle_adminer/
 ├── vite.config.js              # Dev proxy /moodle → Moodle local
 └── package.json
 ```
+
+### Refactorización y Deuda Técnica (Agosto 2026)
+Se ha completado una auditoría intensiva del código y se erradicó la deuda técnica conocida:
+1. **Frontend Modularization:** Los modales de reportes se aislaron usando un HOC (`BaseReportModal.jsx`), eliminando cientos de líneas duplicadas.
+2. **DataTable Modularization:** El componente core de grilla (`DataTable.jsx`) se refactorizó extrayendo la lógica a `DataTableToolbar` y `DataTablePagination`, facilitando su mantenibilidad.
+3. **i18n Centralizado:** Todos los textos, columnas y etiquetas quemadas (`hardcoded`) en las vistas de reportes y sus orquestadores (como `ReportsView.jsx`) han sido migradas al diccionario `src/config/i18n.js`.
+4. **Simplificación de Vistas:** `CourseUsersTab.jsx` delegó toda su carga lógica de modales (Mensajes, Expiración, CSV y Grupos) al hook transaccional `useCourseUserActions.js`.
+5. **Capa de Datos PHP (Repository Pattern):** Se extrajeron las consultas de `$DB` directas de los controladores (e.g., `categories.php`, `courses.php`) a repositorios dedicados en `classes/repository`.
+6. **Testing:** Se integraron pruebas en Vitest y PHPUnit garantizando la solidez de las nuevas implementaciones.
 
 ---
 

@@ -4,8 +4,9 @@ import { Button } from '../../components/ui/Button';
 import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
-import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers } from 'lucide-react';
+import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers, FileText } from 'lucide-react';
 import { PermissionGate } from '../../components/PermissionGate';
+import { useCourseUserActions } from '../../hooks/useCourseUserActions';
 
 export const CourseUsersTab = ({ 
   courseId, 
@@ -17,25 +18,54 @@ export const CourseUsersTab = ({
   onOpenSelector 
 }) => {
   const { addToast } = useToast();
-  
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [sortUserKey, setSortUserKey] = useState('fullname');
   const [sortUserDir, setSortUserDir] = useState('ASC');
 
-  // User Expiration
-  const [expirationModalOpen, setExpirationModalOpen] = useState(false);
-  const [expirationUserIds, setExpirationUserIds] = useState([]);
-  const [expirationDate, setExpirationDate] = useState('');
-  const [expirationEnabled, setExpirationEnabled] = useState(false);
+  // Compute sorting once to pass to hook and local grid
+  const sortedUsers = useMemo(() => {
+    if (!users) return [];
+    return [...users].sort((a, b) => {
+      let aVal = a[sortUserKey] ?? '';
+      let bVal = b[sortUserKey] ?? '';
 
-  // User Messaging
-  const [userMessageModalOpen, setUserMessageModalOpen] = useState(false);
-  const [userMessageText, setUserMessageText] = useState('');
-  
-  // User Group
-  const [userGroupModalOpen, setUserGroupModalOpen] = useState(false);
-  const [userGroupSelection, setUserGroupSelection] = useState('0');
-  const [userNewGroupName, setUserNewGroupName] = useState('');
+      if (aVal === bVal) return 0;
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortUserDir === 'ASC' ? aVal - bVal : bVal - aVal;
+      }
+      return sortUserDir === 'ASC' ? String(aVal).localeCompare(String(bVal)) : String(bVal).localeCompare(String(aVal));
+    });
+  }, [users, sortUserKey, sortUserDir]);
+
+  const {
+    exportState,
+    expirationState,
+    messageState,
+    groupState
+  } = useCourseUserActions({
+    courseId,
+    courseShortname,
+    handleUserAction,
+    sortedUsers,
+    setSelectedUsers
+  });
+
+  const {
+    isExportingDetails, exportModalOpen, setExportModalOpen, exportOption, setExportOption, handleExport
+  } = exportState;
+
+  const {
+    expirationModalOpen, setExpirationModalOpen, setExpirationUserIds,
+    expirationDate, setExpirationDate, expirationEnabled, setExpirationEnabled, handleSetExpirationSubmit
+  } = expirationState;
+
+  const {
+    userMessageModalOpen, setUserMessageModalOpen, userMessageText, setUserMessageText, handleUserMessageSubmit
+  } = messageState;
+
+  const {
+    userGroupModalOpen, setUserGroupModalOpen, userGroupSelection, setUserGroupSelection, userNewGroupName, setUserNewGroupName, handleUserGroupSubmit
+  } = groupState;
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '-';
@@ -51,72 +81,6 @@ export const CourseUsersTab = ({
       default: return <HelpCircle key={index} className="h-4 w-4 text-slate-400" title={method || 'Desconocido'} />;
     }
   };
-
-  const handleSetExpirationSubmit = async () => {
-    const timeend = expirationEnabled && expirationDate ? Math.floor(new Date(expirationDate).getTime() / 1000) : 0;
-    await handleUserAction('set_expiration', expirationUserIds, { timeend });
-    setSelectedUsers([]);
-    setExpirationModalOpen(false);
-  };
-
-  const handleUserMessageSubmit = async () => {
-    if (!userMessageText.trim()) return;
-    await handleUserAction('message', selectedUsers, { message_text: userMessageText });
-    setSelectedUsers([]);
-    setUserMessageModalOpen(false);
-    setUserMessageText('');
-  };
-
-  const handleUserGroupSubmit = async () => {
-    await handleUserAction('setgroup', selectedUsers, {
-      groupid: userGroupSelection === 'new' ? 0 : parseInt(userGroupSelection),
-      newgroupname: userGroupSelection === 'new' ? userNewGroupName : ''
-    });
-    setSelectedUsers([]);
-    setUserGroupModalOpen(false);
-  };
-
-  const exportUsersCSV = () => {
-    if (!sortedUsers.length) return;
-    const headers = ['ID', 'Nombre', 'Email', 'Progreso', 'Estado', 'Roles'];
-    const rows = sortedUsers.map(u => [
-      u.id, 
-      `"${u.fullname}"`, 
-      u.email, 
-      `${u.progress}%`, 
-      u.status === 0 ? 'Activo' : 'Suspendido',
-      `"${u.roles || ''}"`
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows.map(e => e.join(','))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `curso_${courseShortname}_usuarios.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const sortedUsers = useMemo(() => {
-    if (!users) return [];
-    return [...users].sort((a, b) => {
-      let aVal = a[sortUserKey];
-      let bVal = b[sortUserKey];
-      
-      if (aVal == null) aVal = '';
-      if (bVal == null) bVal = '';
-
-      if (aVal === bVal) return 0;
-
-      if (typeof aVal === 'number' && typeof bVal === 'number') {
-        return sortUserDir === 'ASC' ? aVal - bVal : bVal - aVal;
-      }
-
-      const aStr = String(aVal);
-      const bStr = String(bVal);
-      return sortUserDir === 'ASC' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
-    });
-  }, [users, sortUserKey, sortUserDir]);
 
   const usersCols = [
     {
@@ -334,7 +298,7 @@ export const CourseUsersTab = ({
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={exportUsersCSV}>
+        <Button variant="outline" onClick={() => setExportModalOpen(true)}>
           <Download className="h-4 w-4 mr-2" /> Exportar CSV
         </Button>
         <PermissionGate capability="can_manage_courses">
@@ -403,7 +367,7 @@ export const CourseUsersTab = ({
         footer={
           <>
             <Button variant="ghost" onClick={() => setUserMessageModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUserMessageSubmit}>Enviar Mensaje</Button>
+            <Button onClick={() => handleUserMessageSubmit(selectedUsers)}>Enviar Mensaje</Button>
           </>
         }
       >
@@ -425,7 +389,7 @@ export const CourseUsersTab = ({
         footer={
           <>
             <Button variant="ghost" onClick={() => setUserGroupModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUserGroupSubmit}>Asignar</Button>
+            <Button onClick={() => handleUserGroupSubmit(selectedUsers)}>Asignar</Button>
           </>
         }
       >
@@ -454,6 +418,35 @@ export const CourseUsersTab = ({
               />
             </div>
           )}
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleExport} disabled={isExportingDetails}>
+              {isExportingDetails ? 'Generando...' : 'Exportar CSV'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <select
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+              className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <option value="visible">Exportar Resumen (solo información visible)</option>
+              <option value="detailed">Exportar con Detalles (incluye progreso por actividad)</option>
+            </select>
+          </div>
         </div>
       </Dialog>
     </div>

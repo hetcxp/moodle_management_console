@@ -100,6 +100,24 @@ class cohorts extends external_api {
 
         $cohorts = [];
         foreach ($records as $r) {
+            $progress = 0;
+            if ($r->memberscount > 0 && $r->coursescount > 0) {
+                $sql_prog = "
+                    SELECT ROUND(AVG(
+                        CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
+                    )) AS avg_progress
+                    FROM {cohort_members} cm
+                    JOIN {user} u ON u.id = cm.userid
+                    LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = cm.userid
+                    LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = cm.userid
+                    WHERE cm.cohortid = :cohortid AND u.deleted = 0
+                ";
+                $prog_val = $DB->get_field_sql($sql_prog, ['cohortid' => $r->id]);
+                if ($prog_val) {
+                    $progress = (int)$prog_val;
+                }
+            }
+
             $cohorts[] = [
                 'id'           => (int)$r->id,
                 'name'         => (string)$r->name,
@@ -107,6 +125,7 @@ class cohorts extends external_api {
                 'description'  => (string)($r->description ?? ''),
                 'memberscount' => (int)$r->memberscount,
                 'coursescount' => (int)($r->coursescount ?? 0),
+                'progress'     => $progress,
             ];
         }
 
@@ -131,6 +150,7 @@ class cohorts extends external_api {
                     'description'  => new external_value(PARAM_RAW, 'Description'),
                     'memberscount' => new external_value(PARAM_INT, 'Number of users in cohort'),
                     'coursescount' => new external_value(PARAM_INT, 'Number of linked courses'),
+                    'progress'     => new external_value(PARAM_INT, 'Average progress percentage', VALUE_OPTIONAL),
                 ])
             ),
         ]);

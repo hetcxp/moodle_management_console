@@ -16,6 +16,7 @@ import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus
 import { Input } from '../components/ui/Input';
 import { KpiGrid } from '../components/KpiGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { Select } from '../components/ui/Select';
 
 export const UsersView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -50,8 +51,6 @@ export const UsersView = ({ onNavigateToDetail }) => {
 
   const users = usersData?.users || [];
   const totalCount = usersData?.totalcount || 0;
-  const loading = isLoading || isFetching;
-
   const { mutateAsync: performUserAction } = useUserAction();
   const { mutateAsync: performAddUser } = useAddUser();
   const [selectedIds, setSelectedIds] = useState([]);
@@ -66,6 +65,13 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [usersToDelete, setUsersToDelete] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [isActionLoading, setIsActionLoading] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportOption, setExportOption] = useState('visible');
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const loading = isLoading || isFetching || isActionLoading || exportLoading;
 
   // Removed local loadUsers and useEffect
 
@@ -123,7 +129,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const handleExport = async () => {
     let exportData = [];
     try {
-      setLoading(true);
+      setExportLoading(true);
       const limit = 500;
       const pages = Math.ceil(totalCount / limit) || 1;
       
@@ -133,33 +139,88 @@ export const UsersView = ({ onNavigateToDetail }) => {
           perpage: limit,
           sort,
           dir,
-          search
+          search,
+          filters: activeFilters
         });
         if (res?.users) {
           exportData = [...exportData, ...res.users];
         }
       }
+
+      if (exportOption === 'visible') {
+        const cols = [
+          { label: 'ID', accessor: 'id' },
+          { label: 'Usuario', accessor: 'username' },
+          { label: 'Nombre Completo', accessor: 'fullname' },
+          { label: 'Email', accessor: 'email' },
+          { label: 'Estado', accessor: (r) => (r.is_active === 1 ? 'Activo' : 'Suspendido') },
+          { label: 'Último Acceso', accessor: (r) => formatDate(r.lastaccess) },
+          { label: 'Cohortes', accessor: 'cohorts_count' },
+          { label: 'Cursos Inscritos', accessor: 'enrolled_courses' },
+          { label: 'Cursos Completados', accessor: 'completed_courses' },
+          { label: 'Progreso (%)', accessor: 'progress' }
+        ];
+        exportToCsv('usuarios_moodle', exportData, cols);
+      } else {
+        let detailedData = [];
+        for (const user of exportData) {
+          try {
+            const detail = await AdminerApi.getUserDetail(user.id);
+            if (detail.courses && detail.courses.length > 0) {
+              for (const course of detail.courses) {
+                detailedData.push({
+                  user_id: user.id,
+                  user_fullname: user.fullname,
+                  user_email: user.email,
+                  user_status: user.is_active === 1 ? 'Activo' : 'Suspendido',
+                  user_progress: user.progress || 0,
+                  course_id: course.id,
+                  course_fullname: course.fullname,
+                  course_shortname: course.shortname,
+                  course_progress: course.progress || 0,
+                  course_enrollment_status: course.enrolstatus === 0 ? 'Activa' : 'Suspendida'
+                });
+              }
+            } else {
+              detailedData.push({
+                user_id: user.id,
+                user_fullname: user.fullname,
+                user_email: user.email,
+                user_status: user.is_active === 1 ? 'Activo' : 'Suspendido',
+                user_progress: user.progress || 0,
+                course_id: '',
+                course_fullname: '',
+                course_shortname: '',
+                course_progress: '',
+                course_enrollment_status: ''
+              });
+            }
+          } catch (e) {
+            console.error('Error fetching detail for user', user.id, e);
+          }
+        }
+        
+        const cols = [
+          { label: 'ID Usuario', accessor: 'user_id' },
+          { label: 'Nombre Usuario', accessor: 'user_fullname' },
+          { label: 'Email', accessor: 'user_email' },
+          { label: 'Estado Usuario', accessor: 'user_status' },
+          { label: 'Progreso Prom. Usuario (%)', accessor: 'user_progress' },
+          { label: 'ID Curso', accessor: 'course_id' },
+          { label: 'Curso', accessor: 'course_fullname' },
+          { label: 'Nombre Corto', accessor: 'course_shortname' },
+          { label: 'Estado Matriculación', accessor: 'course_enrollment_status' },
+          { label: 'Progreso Curso (%)', accessor: 'course_progress' }
+        ];
+        exportToCsv('usuarios_cursos_moodle', detailedData, cols);
+      }
+      setExportModalOpen(false);
     } catch (err) {
       console.error("Export error", err);
       addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
-      return;
     } finally {
-      setLoading(false);
+      setExportLoading(false);
     }
-
-    const cols = [
-      { label: 'ID', accessor: 'id' },
-      { label: 'Usuario', accessor: 'username' },
-      { label: 'Nombre Completo', accessor: 'fullname' },
-      { label: 'Email', accessor: 'email' },
-      { label: 'Estado', accessor: (r) => (r.is_active === 1 ? 'Activo' : 'Suspendido') },
-      { label: 'Último Acceso', accessor: (r) => formatDate(r.lastaccess) },
-      { label: 'Cohortes', accessor: 'cohorts_count' },
-      { label: 'Cursos Inscritos', accessor: 'enrolled_courses' },
-      { label: 'Cursos Completados', accessor: 'completed_courses' },
-      { label: 'Progreso (%)', accessor: 'progress' }
-    ];
-    exportToCsv('usuarios_moodle', exportData, cols);
   };
 
   const columns = [
@@ -339,7 +400,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         searchPlaceholder="Buscar por nombre, email o usuario..."
         onRefresh={() => refetch()}
         loading={loading}
-        onExportCsv={handleExport}
+        onExportCsv={() => setExportModalOpen(true)}
         primaryAction={hasUpdateUsers ? {
           label: 'Añadir Usuario',
           onClick: () => setAddUserOpen(true),
@@ -442,7 +503,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
               
               setUserErrors(newErrors);
               if (Object.keys(newErrors).length === 0) {
-                setLoading(true);
+                setIsActionLoading(true);
                 try {
                   const result = await performAddUser(userForm);
                   if (result.success) {
@@ -455,7 +516,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
                 } catch (err) {
                   addToast({ title: 'Error', description: err.message, type: 'error' });
                 } finally {
-                  setLoading(false);
+                  setIsActionLoading(false);
                 }
               }
             }}>Guardar Usuario</Button>
@@ -536,7 +597,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
                 const reader = new FileReader();
                 reader.onload = async (e) => {
                   try {
-                    setLoading(true);
+                    setIsActionLoading(true);
                     const base64Content = btoa(e.target.result);
                     const res = await AdminerApi.uploadUsersCsv(base64Content);
                     if (res.success) {
@@ -550,7 +611,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
                   } catch (err) {
                     addToast({ title: 'Error al procesar archivo', description: err.message, type: 'error' });
                   } finally {
-                    setLoading(false);
+                    setIsActionLoading(false);
                   }
                 };
                 reader.readAsText(csvFile);
@@ -574,6 +635,36 @@ export const UsersView = ({ onNavigateToDetail }) => {
         </div>
       </Dialog>
 
+      {/* Modal: Opciones de Exportación */}
+      <Dialog
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        title="Opciones de Exportación"
+        description="Selecciona el formato de exportación."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setExportModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleExport} disabled={exportLoading}>
+              {exportLoading ? 'Exportando...' : 'Exportar CSV'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
+            <Select
+              value={exportOption}
+              onChange={(e) => setExportOption(e.target.value)}
+            >
+              <option value="visible">Exportar Resumen (solo información de los usuarios)</option>
+              <option value="with_courses">Exportar con Detalles (usuarios con detalle de cursos)</option>
+            </Select>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 };

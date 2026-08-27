@@ -256,6 +256,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
         <CohortMembersTab
           members={data.members}
           courses={data.courses}
+          cohortName={data.name}
           loading={loading}
           setSelectorType={setSelectorType}
           handleUnlinkUser={handleUnlinkUser}

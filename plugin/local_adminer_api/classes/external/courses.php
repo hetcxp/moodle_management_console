@@ -7,7 +7,9 @@ use core_external\external_single_structure;
 use core_external\external_multiple_structure;
 use core_external\external_value;
 use context_system;
+use context_course;
 use stdClass;
+use local_adminer_api\repository\course_repository;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -147,8 +149,9 @@ class courses extends external_api {
         ";
 
         $sql_count = "SELECT COUNT(c.id) FROM {course} c WHERE $where";
-        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
+        $totalcount = course_repository::count_courses($sql_count, $sqlparams);
 
+        // Fetch paginated data
         // Calcular KPIs (ignorar paginación)
         $sql_kpis = "
             SELECT COUNT(c.id) AS total_courses,
@@ -174,7 +177,8 @@ class courses extends external_api {
              WHERE $where
         ";
         
-        $kpi_record = $DB->get_record_sql($sql_kpis, $sqlparams);
+        $kpi_record = course_repository::get_course_kpis($sql_kpis, $sqlparams);
+        $global_enrolled = (int)($kpi_record->total_enrolled ?? 0);
         $kpis = [
             'total_courses' => (int)($kpi_record->total_courses ?? 0),
             'total_enrolled' => (int)($kpi_record->total_enrolled ?? 0),
@@ -193,7 +197,7 @@ class courses extends external_api {
 
         $sql = $sql_select . " " . $orderby;
         $limitfrom = $params['page'] * $params['perpage'];
-        $records = $DB->get_records_sql($sql, $sqlparams, $limitfrom, $params['perpage']);
+        $records = course_repository::get_paginated_courses($sql, $sqlparams, $limitfrom, $params['perpage']);
 
         $courses = [];
         foreach ($records as $r) {

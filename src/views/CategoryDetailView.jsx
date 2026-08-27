@@ -199,7 +199,7 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
           className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'courses' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('courses')}
         >
-          Cursos en esta Categoría ({filteredCourses.length})
+          Cursos en esta Categoría ({totalCourses})
         </button>
         <button
           className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'subcategories' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
