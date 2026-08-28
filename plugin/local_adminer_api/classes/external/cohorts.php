@@ -193,7 +193,7 @@ class cohorts extends external_api {
                 $data = new \stdClass();
                 $data->name = $params['name'];
                 $data->idnumber = $params['idnumber'];
-                $data->description = $params['description'];
+                $data->description = clean_text($params['description'], FORMAT_HTML);
                 $data->descriptionformat = FORMAT_HTML;
                 $data->contextid = $context->id;
                 
@@ -212,7 +212,7 @@ class cohorts extends external_api {
                 $data->id = $params['cohortid'];
                 $data->name = $params['name'];
                 $data->idnumber = $params['idnumber'];
-                $data->description = $params['description'];
+                $data->description = clean_text($params['description'], FORMAT_HTML);
                 $data->descriptionformat = FORMAT_HTML;
                 $data->contextid = $context->id;
                 

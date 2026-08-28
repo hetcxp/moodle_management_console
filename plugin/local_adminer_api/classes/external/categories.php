@@ -143,7 +143,6 @@ class categories extends external_api {
     public static function category_action($action, $categoryids = [], $categoryid = 0, $name = '', $parent = 0, $description = '') {
         $context = context_system::instance();
         self::validate_context($context);
-        require_capability('moodle/category:manage', $context);
 
         $params = self::validate_parameters(self::category_action_parameters(), [
             'action'      => $action,
@@ -163,13 +162,16 @@ class categories extends external_api {
 
         switch ($act) {
             case 'create':
+                $parentcontext = ($params['parent'] > 0) ? \context_coursecat::instance($params['parent']) : \context_system::instance();
+                require_capability('moodle/category:manage', $parentcontext);
+                
                 if (empty($params['name'])) {
                     return ['success' => false, 'message' => 'Category name is required', 'affectedcount' => 0];
                 }
                 $data = new stdClass();
                 $data->name = $params['name'];
                 $data->parent = $params['parent'];
-                $data->description = $params['description'];
+                $data->description = clean_text($params['description'], FORMAT_HTML);
                 $data->descriptionformat = FORMAT_HTML;
                 $cat = core_course_category::create($data);
                 return [
@@ -182,12 +184,20 @@ class categories extends external_api {
                 if (empty($params['categoryid']) || empty($params['name'])) {
                     return ['success' => false, 'message' => 'categoryid and name are required', 'affectedcount' => 0];
                 }
+                require_capability('moodle/category:manage', \context_coursecat::instance($params['categoryid']));
+                if ($params['parent'] != 0) {
+                    $cat = core_course_category::get($params['categoryid']);
+                    if ($cat->parent != $params['parent']) {
+                        require_capability('moodle/category:manage', \context_coursecat::instance($params['parent']));
+                    }
+                }
+                
                 $cat = core_course_category::get($params['categoryid']);
                 $data = new stdClass();
                 $data->id = $params['categoryid'];
                 $data->name = $params['name'];
                 $data->parent = $params['parent'];
-                $data->description = $params['description'];
+                $data->description = clean_text($params['description'], FORMAT_HTML);
                 $data->descriptionformat = FORMAT_HTML;
                 $cat->update($data);
                 return [
@@ -198,6 +208,7 @@ class categories extends external_api {
 
             case 'hide':
                 foreach ($ids as $cid) {
+                    require_capability('moodle/category:manage', \context_coursecat::instance($cid));
                     $cat = core_course_category::get($cid, IGNORE_MISSING);
                     if ($cat) {
                         $updatedata = new stdClass();
@@ -211,6 +222,7 @@ class categories extends external_api {
 
             case 'show':
                 foreach ($ids as $cid) {
+                    require_capability('moodle/category:manage', \context_coursecat::instance($cid));
                     $cat = core_course_category::get($cid, IGNORE_MISSING);
                     if ($cat) {
                         $updatedata = new stdClass();
@@ -225,6 +237,7 @@ class categories extends external_api {
             case 'delete':
                 $undeleted = [];
                 foreach ($ids as $cid) {
+                    require_capability('moodle/category:manage', \context_coursecat::instance($cid));
                     $cat = core_course_category::get($cid, IGNORE_MISSING);
                     if ($cat) {
                         if ($cat->coursecount == 0) {

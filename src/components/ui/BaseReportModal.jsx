@@ -2,6 +2,7 @@ import React from 'react';
 import { ReportSelectorModal } from './ReportSelectorModal';
 import { useToast } from './Toast';
 import { exportToCsv } from '../CsvExporter';
+import { runWithConcurrency } from '../../lib/concurrency';
 
 /**
  * BaseReportModal - Componente genérico para modales de reportes
@@ -57,14 +58,13 @@ export const BaseReportModal = ({
     try {
       const csvRows = [];
       
-      for (let i = 0; i < selectedIds.length; i += chunkSize) {
-        const chunkIds = selectedIds.slice(i, i + chunkSize);
-        const details = await Promise.all(chunkIds.map(cid => fetchDetail(cid)));
-        
-        details.forEach(detail => {
+      const details = await runWithConcurrency(selectedIds, chunkSize, cid => fetchDetail(cid));
+      
+      details.forEach(detail => {
+        if (detail) {
           processDetail(detail, csvRows);
-        });
-      }
+        }
+      });
 
       if (csvRows.length === 0) {
         addToast({ title: 'No se encontraron datos para exportar.', type: 'warning' });

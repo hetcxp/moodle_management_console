@@ -335,11 +335,12 @@ class users extends external_api {
                         $message->name              = 'instantmessage';
                         $message->userfrom          = $USER;
                         $message->userto            = $recipient;
+                        $clean_msg = clean_text($msg, FORMAT_HTML);
                         $message->subject           = 'Mensaje';
-                        $message->fullmessage       = $msg;
+                        $message->fullmessage       = $clean_msg;
                         $message->fullmessageformat = FORMAT_HTML;
-                        $message->fullmessagehtml   = $msg;
-                        $message->smallmessage      = strip_tags($msg);
+                        $message->fullmessagehtml   = $clean_msg;
+                        $message->smallmessage      = strip_tags($clean_msg);
                         message_send($message);
                         $affected++;
                     }
@@ -637,40 +638,65 @@ class users extends external_api {
         
         $params = self::validate_parameters(self::upload_users_csv_parameters(), ['fileContent' => $fileContent]);
         
-        $csv = base64_decode($params['fileContent']);
-        if (!$csv) {
-            return ['success' => false, 'message' => 'Invalid file encoding'];
+        $csv = base64_decode($params['fileContent'], true);
+        if ($csv === false) {
+            return ['success' => false, 'message' => 'Invalid base64 encoding'];
         }
         
         $lines = explode("\n", trim($csv));
-        $headers = str_getcsv(array_shift($lines));
-        $created = 0;
+        if (count($lines) < 2) {
+            return ['success' => false, 'message' => 'Empty CSV or missing header'];
+        }
         
-        foreach ($lines as $line) {
-            if (empty(trim($line))) continue;
-            $row = str_getcsv($line);
-            $data = array_combine($headers, $row);
-            
-            if (isset($data['username']) && isset($data['email'])) {
-                $user = new \stdClass();
-                $user->username = $data['username'];
-                $user->password = isset($data['password']) ? $data['password'] : 'ChangeMe123!';
-                $user->firstname = isset($data['firstname']) ? $data['firstname'] : 'User';
-                $user->lastname = isset($data['lastname']) ? $data['lastname'] : 'New';
-                $user->email = $data['email'];
-                $user->confirmed = 1;
-                $user->mnethostid = $CFG->mnet_localhost_id;
-                $user->auth = 'manual';
-                try {
-                    user_create_user($user, true, false);
-                    $created++;
-                } catch (\Exception $e) {
-                    // Ignore errors for individual rows in this simple implementation
-                }
+        $headers = str_getcsv(array_shift($lines));
+        $headers = array_map('trim', $headers);
+        
+        $required_headers = ['username', 'email', 'firstname', 'lastname', 'password'];
+        foreach ($required_headers as $req) {
+            if (!in_array($req, $headers)) {
+                return ['success' => false, 'message' => 'Missing required column: ' . $req];
             }
         }
         
-        return ['success' => true, 'message' => "Created $created users"];
+        $created = 0;
+        $errors = [];
+        
+        foreach ($lines as $lineNum => $line) {
+            $line = trim($line);
+            if (empty($line)) continue;
+            
+            $row = str_getcsv($line);
+            if (count($row) !== count($headers)) {
+                $errors[] = "Row " . ($lineNum + 2) . ": Column count mismatch";
+                continue;
+            }
+            
+            $data = array_combine($headers, $row);
+            
+            $user = new \stdClass();
+            $user->username = $data['username'];
+            $user->password = $data['password'];
+            $user->firstname = $data['firstname'];
+            $user->lastname = $data['lastname'];
+            $user->email = $data['email'];
+            $user->confirmed = 1;
+            $user->mnethostid = $CFG->mnet_localhost_id;
+            $user->auth = 'manual';
+            
+            try {
+                user_create_user($user, true, false);
+                $created++;
+            } catch (\Exception $e) {
+                $errors[] = "Row " . ($lineNum + 2) . ": " . $e->getMessage();
+            }
+        }
+        
+        $msg = "Created $created users.";
+        if (count($errors) > 0) {
+            $msg .= " " . count($errors) . " errors. " . implode("; ", array_slice($errors, 0, 3)) . (count($errors) > 3 ? "..." : "");
+        }
+        
+        return ['success' => count($errors) === 0, 'message' => $msg];
     }
 
     public static function upload_users_csv_returns() {
@@ -694,7 +720,6 @@ class users extends external_api {
         global $DB;
         $context = context_system::instance();
         self::validate_context($context);
-        require_capability('enrol/manual:enrol', $context);
         
         $params = self::validate_parameters(self::user_course_action_parameters(), [
             'action' => $action, 'userid' => $userid, 'courseids' => $courseids,
@@ -709,6 +734,8 @@ class users extends external_api {
         $affected = 0;
         foreach ($params['courseids'] as $cid) {
             $coursecontext = \context_course::instance($cid);
+            require_capability('enrol/manual:enrol', $coursecontext);
+            
             $instances = enrol_get_instances($cid, true);
             $manualinstance = null;
             foreach ($instances as $instance) {

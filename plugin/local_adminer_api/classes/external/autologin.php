@@ -11,7 +11,7 @@ defined('MOODLE_INTERNAL') || die();
 class autologin extends external_api {
     public static function get_autologin_url_parameters() {
         return new external_function_parameters([
-            'destination' => new external_value(PARAM_RAW, 'Destination path')
+            'destination' => new external_value(PARAM_URL, 'Destination path')
         ]);
     }
 
@@ -32,7 +32,7 @@ class autologin extends external_api {
         // We will create an autologin script at plugin root: local/adminer_api/autologin.php
         $autologin_url = new \moodle_url('/local/adminer_api/autologin.php', [
             'token' => $key,
-            'redirect' => urlencode($params['destination'])
+            'redirect' => $params['destination']
         ]);
 
         return [

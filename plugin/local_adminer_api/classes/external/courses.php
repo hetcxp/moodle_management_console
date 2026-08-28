@@ -304,7 +304,8 @@ class courses extends external_api {
 
         switch ($act) {
             case 'create':
-                require_capability('moodle/course:create', $context);
+                $catcontext = \context_coursecat::instance($params['categoryid']);
+                require_capability('moodle/course:create', $catcontext);
                 if (empty($params['fullname']) || empty($params['shortname']) || empty($params['categoryid'])) {
                     return ['success' => false, 'message' => 'fullname, shortname and categoryid are required.', 'affectedcount' => 0];
                 }
@@ -331,9 +332,9 @@ class courses extends external_api {
                 ];
 
             case 'hide':
-                require_capability('moodle/course:visibility', $context);
                 foreach ($params['courseids'] as $cid) {
                     if ($cid > 1) {
+                        require_capability('moodle/course:visibility', \context_course::instance($cid));
                         course_change_visibility($cid, false);
                         $affected++;
                     }
@@ -341,9 +342,9 @@ class courses extends external_api {
                 break;
 
             case 'show':
-                require_capability('moodle/course:visibility', $context);
                 foreach ($params['courseids'] as $cid) {
                     if ($cid > 1) {
+                        require_capability('moodle/course:visibility', \context_course::instance($cid));
                         course_change_visibility($cid, true);
                         $affected++;
                     }
@@ -351,9 +352,9 @@ class courses extends external_api {
                 break;
 
             case 'delete':
-                require_capability('moodle/course:delete', $context);
                 foreach ($params['courseids'] as $cid) {
                     if ($cid > 1) {
+                        require_capability('moodle/course:delete', \context_course::instance($cid));
                         $course = $DB->get_record('course', ['id' => $cid]);
                         if ($course) {
                             delete_course($course, false);
@@ -364,11 +365,20 @@ class courses extends external_api {
                 break;
 
             case 'move':
-                require_capability('moodle/category:manage', $context);
                 if (empty($params['categoryid'])) {
                     return ['success' => false, 'message' => 'categoryid is required to move courses.', 'affectedcount' => 0];
                 }
-                $validcids = array_filter($params['courseids'], fn($id) => $id > 1);
+                $targetcatctx = \context_coursecat::instance($params['categoryid']);
+                require_capability('moodle/category:manage', $targetcatctx);
+                
+                $validcids = [];
+                foreach ($params['courseids'] as $cid) {
+                    if ($cid > 1) {
+                        require_capability('moodle/course:move', \context_course::instance($cid));
+                        $validcids[] = $cid;
+                    }
+                }
+                
                 if (!empty($validcids)) {
                     if (move_courses($validcids, $params['categoryid'])) {
                         $affected = count($validcids);
@@ -377,9 +387,9 @@ class courses extends external_api {
                 break;
 
             case 'update_dates':
-                require_capability('moodle/course:update', $context);
                 foreach ($params['courseids'] as $cid) {
                     if ($cid > 1) {
+                        require_capability('moodle/course:update', \context_course::instance($cid));
                         $course = $DB->get_record('course', ['id' => $cid]);
                         if ($course) {
                             $data = new stdClass();
@@ -649,7 +659,19 @@ class courses extends external_api {
 
         $context = context_system::instance();
         self::validate_context($context);
-        require_capability('moodle/course:enrolreview', $context);
+
+        $params = self::validate_parameters(self::course_cohort_action_parameters(), [
+            'action' => $action,
+            'courseid' => $courseid,
+            'cohortids' => $cohortids,
+            'groupid' => $groupid,
+            'newgroupname' => $newgroupname,
+            'timeend' => $timeend,
+            'message_text' => $message_text,
+        ]);
+
+        $coursecontext = \context_course::instance($params['courseid']);
+        require_capability('moodle/course:enrolreview', $coursecontext);
 
         $params = self::validate_parameters(self::course_cohort_action_parameters(), [
             'action' => $action,
@@ -671,7 +693,7 @@ class courses extends external_api {
         $finalgroupid = $params['groupid'];
         
         if (($params['action'] === 'add' || $params['action'] === 'set_group') && !empty($params['newgroupname'])) {
-            require_capability('moodle/course:managegroups', $context);
+            require_capability('moodle/course:managegroups', $coursecontext);
             $newgroup = new stdClass();
             $newgroup->courseid = $course->id;
             $newgroup->name = $params['newgroupname'];
@@ -729,11 +751,12 @@ class courses extends external_api {
                             $message->name              = 'instantmessage';
                             $message->userfrom          = $USER;
                             $message->userto            = $recipient;
+                            $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
                             $message->subject           = 'Mensaje';
-                            $message->fullmessage       = $params['message_text'];
+                            $message->fullmessage       = $clean_msg;
                             $message->fullmessageformat = FORMAT_HTML;
-                            $message->fullmessagehtml   = $params['message_text'];
-                            $message->smallmessage      = strip_tags($params['message_text']);
+                            $message->fullmessagehtml   = $clean_msg;
+                            $message->smallmessage      = strip_tags($clean_msg);
                             message_send($message);
                             $affected++;
                         }
@@ -773,7 +796,14 @@ class courses extends external_api {
         require_once($CFG->dirroot.'/group/lib.php');
         $context = context_system::instance();
         self::validate_context($context);
-        require_capability('enrol/manual:enrol', $context);
+        
+        $params = self::validate_parameters(self::course_user_action_parameters(), [
+            'action' => $action, 'courseid' => $courseid, 'userids' => $userids,
+            'timeend' => $timeend, 'groupid' => $groupid, 'newgroupname' => $newgroupname, 'message_text' => $message_text
+        ]);
+
+        $coursecontext = \context_course::instance($params['courseid']);
+        require_capability('enrol/manual:enrol', $coursecontext);
         
         $params = self::validate_parameters(self::course_user_action_parameters(), [
             'action' => $action, 'courseid' => $courseid, 'userids' => $userids,
@@ -842,11 +872,12 @@ class courses extends external_api {
                     $message->name              = 'instantmessage';
                     $message->userfrom          = $USER;
                     $message->userto            = $recipient;
+                    $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
                     $message->subject           = 'Mensaje';
-                    $message->fullmessage       = $params['message_text'];
+                    $message->fullmessage       = $clean_msg;
                     $message->fullmessageformat = FORMAT_HTML;
-                    $message->fullmessagehtml   = $params['message_text'];
-                    $message->smallmessage      = strip_tags($params['message_text']);
+                    $message->fullmessagehtml   = $clean_msg;
+                    $message->smallmessage      = strip_tags($clean_msg);
                     message_send($message);
                     $affected++;
                 }
@@ -1059,15 +1090,25 @@ class courses extends external_api {
 
         $context = context_system::instance();
         self::validate_context($context);
-        require_capability('moodle/course:create', $context);
+        
+        $params = self::validate_parameters(self::upload_courses_csv_parameters(), [
+            'fileContent' => $fileContent
+        ]);
+        
+        // El upload csv es bulk creation, validaremos por categoría en el bucle
+
 
         $params = self::validate_parameters(self::upload_courses_csv_parameters(), [
             'fileContent' => $fileContent
         ]);
 
-        $csvContent = base64_decode($params['fileContent']);
+        $csvContent = base64_decode($params['fileContent'], true);
         if ($csvContent === false) {
             return ['success' => false, 'message' => 'Invalid base64 encoding'];
+        }
+
+        if (strlen($csvContent) > 5242880) { // 5MB limit
+            return ['success' => false, 'message' => 'File too large (limit 5MB)'];
         }
 
         $lines = explode("\n", str_replace("\r", "", $csvContent));
@@ -1089,6 +1130,8 @@ class courses extends external_api {
         $successCount = 0;
         $errorCount = 0;
         $errors = [];
+        $processed_shortnames = [];
+        global $DB;
 
         foreach ($lines as $lineNum => $line) {
             $line = trim($line);
@@ -1105,6 +1148,19 @@ class courses extends external_api {
             $fullname = trim($data[$fullnameIdx]);
             $category = trim($data[$categoryIdx]);
 
+            if (isset($processed_shortnames[$shortname])) {
+                $errorCount++;
+                $errors[] = "Row " . ($lineNum + 2) . ": Duplicate shortname in CSV ($shortname)";
+                continue;
+            }
+            if ($DB->record_exists('course', ['shortname' => $shortname])) {
+                $errorCount++;
+                $errors[] = "Row " . ($lineNum + 2) . ": Shortname already exists ($shortname)";
+                continue;
+            }
+            
+            $processed_shortnames[$shortname] = true;
+
             $courseData = new stdClass();
             $courseData->shortname = $shortname;
             $courseData->fullname = $fullname;
@@ -1112,6 +1168,9 @@ class courses extends external_api {
             $courseData->visible = 1;
 
             try {
+                $catcontext = \context_coursecat::instance($courseData->category);
+                require_capability('moodle/course:create', $catcontext);
+                
                 create_course($courseData);
                 $successCount++;
             } catch (\Exception $e) {

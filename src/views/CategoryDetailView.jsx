@@ -169,7 +169,10 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.name}</h1>
               {data.description && (
-                <div className="text-sm text-muted-foreground mt-1 max-w-2xl" dangerouslySetInnerHTML={{ __html: data.description }} />
+                <>
+                  {/* HTML content is sanitized in the backend via clean_text(FORMAT_HTML) */}
+                  <div className="text-sm text-muted-foreground mt-1 max-w-2xl" dangerouslySetInnerHTML={{ __html: data.description }} />
+                </>
               )}
             </div>
           </div>

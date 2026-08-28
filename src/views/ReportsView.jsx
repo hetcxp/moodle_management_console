@@ -4,6 +4,7 @@ import { DownloadCloud, BookOpen, FolderTree, Users, Layers, Loader2, ListTree }
 import { AdminerApi } from '../services/adminer-api';
 import { exportToCsv } from '../components/CsvExporter';
 import { useToast } from '../components/ui/Toast';
+import { fetchAllPaginated } from '../lib/fetch-all';
 import { CourseReportModal } from './reports/CourseReportModal';
 import { CategoryReportModal } from './reports/CategoryReportModal';
 import { UserReportModal } from './reports/UserReportModal';
@@ -25,7 +26,7 @@ export function ReportsView() {
       title: I18N.reports.dashboard.reports.courses.title,
       description: I18N.reports.dashboard.reports.courses.description,
       icon: BookOpen,
-      fetchData: () => AdminerApi.getCourses({ perpage: 5000 }),
+      fetchData: () => fetchAllPaginated(params => AdminerApi.getCourses(params), { perpage: 500 }),
       columns: [
         { label: I18N.reports.dashboard.reports.courses.columns.fullname, accessor: 'fullname' },
         { label: I18N.reports.dashboard.reports.courses.columns.shortname, accessor: 'shortname' },
@@ -43,11 +44,9 @@ export function ReportsView() {
       description: I18N.reports.dashboard.reports.categories.description,
       icon: FolderTree,
       fetchData: async () => {
-        const catsRes = await AdminerApi.getCategories({ perpage: 5000 });
-        const coursesRes = await AdminerApi.getCourses({ perpage: 5000 });
+        const cats = await fetchAllPaginated(params => AdminerApi.getCategories(params), { perpage: 500 });
+        const courses = await fetchAllPaginated(params => AdminerApi.getCourses(params), { perpage: 500 });
         
-        const cats = catsRes.categories || [];
-        const courses = coursesRes.courses || [];
         
         const catProgress = {};
         courses.forEach(c => {
@@ -83,7 +82,7 @@ export function ReportsView() {
       title: I18N.reports.dashboard.reports.users.title,
       description: I18N.reports.dashboard.reports.users.description,
       icon: Users,
-      fetchData: () => AdminerApi.getUsers({ perpage: 5000 }),
+      fetchData: () => fetchAllPaginated(params => AdminerApi.getUsers(params), { perpage: 500 }),
       columns: [
         { label: I18N.reports.dashboard.reports.users.columns.id, accessor: 'id' },
         { label: I18N.reports.dashboard.reports.users.columns.fullname, accessor: 'fullname' },
@@ -104,7 +103,7 @@ export function ReportsView() {
       title: I18N.reports.dashboard.reports.cohorts.title,
       description: I18N.reports.dashboard.reports.cohorts.description,
       icon: Layers,
-      fetchData: () => AdminerApi.getCohorts({ perpage: 5000 }),
+      fetchData: () => fetchAllPaginated(params => AdminerApi.getCohorts(params), { perpage: 500 }),
       columns: [
         { label: I18N.reports.dashboard.reports.cohorts.columns.id, accessor: 'id' },
         { label: I18N.reports.dashboard.reports.cohorts.columns.name, accessor: 'name' },

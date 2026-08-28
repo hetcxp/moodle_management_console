@@ -7,8 +7,8 @@ import { Input } from '../components/ui/Input';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { ChevronLeft, ChevronRight, GraduationCap, Users, Layers, Trash2, BookOpen, Edit } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
-import { CohortMembersTab } from './cohorts/CohortMembersTab';
 import { CohortCoursesTab } from './cohorts/CohortCoursesTab';
+import { runWithConcurrency } from '../lib/concurrency';
 
 export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
@@ -49,11 +49,11 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
         // userCohortAction expect: action, userid, cohortids. But we have multiple users and one cohort.
         // We can iterate, but it's better if we had an endpoint. However, we have userCohortAction which accepts an array of cohortids.
         // Since we have multiple users and ONE cohort, we have to map over users.
-        await Promise.all(selectedIds.map(uid => AdminerApi.userCohortAction('add', uid, [cohortId])));
+        await runWithConcurrency(selectedIds, 5, uid => AdminerApi.userCohortAction('add', uid, [cohortId]));
         addToast({ type: 'success', title: 'Usuario(s) añadidos a la cohorte' });
       } else if (selectorType === 'courses') {
         // courseCohortAction expect: action, courseid, cohortids. 
-        await Promise.all(selectedIds.map(cid => AdminerApi.courseCohortAction('add', cid, [cohortId])));
+        await runWithConcurrency(selectedIds, 5, cid => AdminerApi.courseCohortAction('add', cid, [cohortId]));
         addToast({ type: 'success', title: 'Curso(s) sincronizados a la cohorte' });
       }
       loadData();
@@ -84,7 +84,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   const handleBulkUnlinkUsers = async (userIds) => {
     try {
-      await Promise.all(userIds.map(uid => AdminerApi.userCohortAction('remove', uid, [cohortId])));
+      await runWithConcurrency(userIds, 5, uid => AdminerApi.userCohortAction('remove', uid, [cohortId]));
       addToast({ type: 'success', title: `${userIds.length} usuario(s) removido(s)` });
       loadData();
     } catch (err) {
@@ -94,7 +94,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   const handleBulkUnlinkCourses = async (courseIds) => {
     try {
-      await Promise.all(courseIds.map(cid => AdminerApi.courseCohortAction('remove', cid, [cohortId])));
+      await runWithConcurrency(courseIds, 5, cid => AdminerApi.courseCohortAction('remove', cid, [cohortId]));
       addToast({ type: 'success', title: `${courseIds.length} curso(s) desvinculados` });
       loadData();
     } catch (err) {

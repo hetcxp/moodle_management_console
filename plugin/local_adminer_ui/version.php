@@ -7,5 +7,5 @@ $plugin->requires     = 2024100700;
 $plugin->maturity     = MATURITY_STABLE;
 $plugin->release      = '1.0.0';
 $plugin->dependencies = [
-    'local_adminer_api' => 2026082502,
+    'local_adminer_api' => 2026082601,
 ];

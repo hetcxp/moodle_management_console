@@ -1,0 +1,1 @@
+async function h(n,t,i){const s=[],e=[];for(const c of n){const o=Promise.resolve().then(()=>i(c));if(s.push(o),t<=n.length){const r=o.then(()=>e.splice(e.indexOf(r),1));e.push(r),e.length>=t&&await Promise.race(e)}}return Promise.all(s)}export{h as r};

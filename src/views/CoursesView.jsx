@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useCourses, useCategoriesFlat, useCourseAction } from '../hooks/useAdminerQueries';
+import { useBulkSelection } from '../hooks/useBulkSelection';
+import { usePaginatedExport } from '../hooks/usePaginatedExport';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -70,10 +72,10 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   // Export state
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportOption, setExportOption] = useState('visible');
-  const [exportLoading, setExportLoading] = useState(false);
+  const { exportLoading, handleExport: executeExport } = usePaginatedExport();
 
   // Selection state
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
 
   // Empty block, useEffects and local fetches removed
 
@@ -101,7 +103,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         title: 'Cursos ocultados',
         description: `Se han ocultado ${ids.length} curso(s).`
       });
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -115,7 +117,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         title: 'Cursos visibles',
         description: `Se han hecho visibles ${ids.length} curso(s).`
       });
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -151,7 +153,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         description: `Se eliminaron ${coursesToDelete.length} curso(s).`
       });
       setDeleteConfirmOpen(false);
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar cursos', description: err.message });
     } finally {
@@ -160,67 +162,44 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   };
 
   // Export CSV
-  const handleExport = async () => {
-    let exportData = [];
-    try {
-      setExportLoading(true);
-      const limit = 500;
-      const pages = Math.ceil(totalCount / limit) || 1;
-      
-      for (let i = 0; i < pages; i++) {
-        const res = await AdminerApi.getCourses({
-          page: i,
-          perpage: limit,
-          sort,
-          dir,
-          search,
-          category: parseInt(categoryFilter, 10) || 0,
-          visibility: parseInt(visibilityFilter, 10) || -1
-        });
-        if (res?.courses) {
-          exportData = [...exportData, ...res.courses];
-        }
-      }
+  const handleExport = () => {
+    const columnsForExport = [
+      { label: 'ID', accessor: 'id' },
+      { label: 'Nombre Completo', accessor: 'fullname' },
+      { label: 'Nombre Corto', accessor: 'shortname' },
+      { label: 'Categoría', accessor: 'categoryname' },
+      { label: 'Estado', accessor: (row) => (row.visible === 1 ? 'Visible' : 'Oculto') },
+      { label: 'Inscritos', accessor: 'enrolledcount' },
+      { label: 'Completados', accessor: 'completedcount' },
+      { label: 'Cohortes', accessor: 'cohortscount' },
+      { label: 'Progreso (%)', accessor: 'progress_percent' },
+      { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
+      { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
+      { label: 'Fin', accessor: (row) => row.enddate > 0 ? formatDateOnly(row.enddate) : 'No definida' }
+    ];
 
-      if (exportOption === 'visible') {
-        const columnsForExport = [
-          { label: 'ID', accessor: 'id' },
-          { label: 'Nombre Completo', accessor: 'fullname' },
-          { label: 'Nombre Corto', accessor: 'shortname' },
-          { label: 'Categoría', accessor: 'categoryname' },
-          { label: 'Estado', accessor: (row) => (row.visible === 1 ? 'Visible' : 'Oculto') },
-          { label: 'Inscritos', accessor: 'enrolledcount' },
-          { label: 'Completados', accessor: 'completedcount' },
-          { label: 'Cohortes', accessor: 'cohortscount' },
-          { label: 'Progreso (%)', accessor: 'progress_percent' },
-          { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
-          { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
-          { label: 'Fin', accessor: (row) => row.enddate > 0 ? formatDateOnly(row.enddate) : 'No definida' }
-        ];
-        exportToCsv('cursos_moodle', exportData, columnsForExport);
-      } else {
-        let detailedData = [];
-        for (const course of exportData) {
-          try {
-            const detail = await AdminerApi.getCourseDetail(course.id);
-            if (detail.users && detail.users.length > 0) {
-              for (const user of detail.users) {
-                detailedData.push({
-                  course_id: course.id,
-                  course_fullname: course.fullname,
-                  course_shortname: course.shortname,
-                  course_category: course.categoryname,
-                  course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
-                  course_progress: course.progress_percent,
-                  user_id: user.id,
-                  user_fullname: user.fullname,
-                  user_email: user.email,
-                  user_progress: user.progress || 0,
-                  user_status: user.status === 0 ? 'Activo' : 'Suspendido',
-                  user_roles: user.roles || 'student'
-                });
-              }
-            } else {
+    const columnsDetailed = [
+      { label: 'ID Curso', accessor: 'course_id' },
+      { label: 'Curso', accessor: 'course_fullname' },
+      { label: 'Nombre Corto', accessor: 'course_shortname' },
+      { label: 'Categoría', accessor: 'course_category' },
+      { label: 'Estado Curso', accessor: 'course_visible' },
+      { label: 'Progreso Prom. Curso (%)', accessor: 'course_progress' },
+      { label: 'ID Usuario', accessor: 'user_id' },
+      { label: 'Nombre Usuario', accessor: 'user_fullname' },
+      { label: 'Email', accessor: 'user_email' },
+      { label: 'Rol', accessor: 'user_roles' },
+      { label: 'Estado Usuario', accessor: 'user_status' },
+      { label: 'Progreso Usuario (%)', accessor: 'user_progress' }
+    ];
+
+    const processDetail = async (coursesData) => {
+      let detailedData = [];
+      for (const course of coursesData) {
+        try {
+          const detail = await AdminerApi.getCourseDetail(course.id);
+          if (detail.users && detail.users.length > 0) {
+            for (const user of detail.users) {
               detailedData.push({
                 course_id: course.id,
                 course_fullname: course.fullname,
@@ -228,42 +207,48 @@ export const CoursesView = ({ onNavigateToDetail }) => {
                 course_category: course.categoryname,
                 course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
                 course_progress: course.progress_percent,
-                user_id: '',
-                user_fullname: '',
-                user_email: '',
-                user_progress: '',
-                user_status: '',
-                user_roles: ''
+                user_id: user.id,
+                user_fullname: user.fullname,
+                user_email: user.email,
+                user_progress: user.progress || 0,
+                user_status: user.status === 0 ? 'Activo' : 'Suspendido',
+                user_roles: user.roles || 'student'
               });
             }
-          } catch (e) {
-            console.error('Error fetching detail for course', course.id, e);
+          } else {
+            detailedData.push({
+              course_id: course.id,
+              course_fullname: course.fullname,
+              course_shortname: course.shortname,
+              course_category: course.categoryname,
+              course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
+              course_progress: course.progress_percent,
+              user_id: '',
+              user_fullname: '',
+              user_email: '',
+              user_progress: '',
+              user_status: '',
+              user_roles: ''
+            });
           }
-        }
-        
-        const columns = [
-          { label: 'ID Curso', accessor: 'course_id' },
-          { label: 'Curso', accessor: 'course_fullname' },
-          { label: 'Nombre Corto', accessor: 'course_shortname' },
-          { label: 'Categoría', accessor: 'course_category' },
-          { label: 'Estado Curso', accessor: 'course_visible' },
-          { label: 'Progreso Prom. Curso (%)', accessor: 'course_progress' },
-          { label: 'ID Usuario', accessor: 'user_id' },
-          { label: 'Nombre Usuario', accessor: 'user_fullname' },
-          { label: 'Email', accessor: 'user_email' },
-          { label: 'Rol', accessor: 'user_roles' },
-          { label: 'Estado Usuario', accessor: 'user_status' },
-          { label: 'Progreso Usuario (%)', accessor: 'user_progress' }
-        ];
-        exportToCsv('cursos_usuarios_moodle', detailedData, columns);
+        } catch (e) {}
       }
-      setExportModalOpen(false);
-    } catch (err) {
-      console.error("Export error", err);
-      addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
-    } finally {
-      setExportLoading(false);
-    }
+      return detailedData;
+    };
+
+    executeExport({
+      fetchFn: AdminerApi.getCourses,
+      params: {
+        sort,
+        dir,
+        search,
+        category: parseInt(categoryFilter, 10) || 0,
+        visibility: parseInt(visibilityFilter, 10) || -1
+      },
+      filename: exportOption === 'visible' ? 'cursos_moodle' : 'cursos_usuarios_moodle',
+      columns: exportOption === 'visible' ? columnsForExport : columnsDetailed,
+      processData: exportOption === 'visible' ? null : processDetail
+    }).then(() => setExportModalOpen(false));
   };
 
   // Table Columns configuration
@@ -563,7 +548,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         onClose={() => setMoveModalOpen(false)} 
         onSuccess={() => {
           setMoveModalOpen(false);
-          setSelectedIds([]);
+          clearSelection();
         }}
         categoriesList={categoriesList}
         coursesToMove={coursesToMove}

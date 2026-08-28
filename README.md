@@ -100,8 +100,11 @@ npm run dev
 npm run dev:lts
 # → proxy a https://lts.academyfactory.online
 
-# Build de producción
+# Build de producción estándar (para hospedar fuera de Moodle)
 npm run build
+
+# Build especial Moodle (empaqueta el frontend en el plugin PHP)
+npm run build:moodle
 
 # Ejecutar pruebas unitarias (Vitest)
 npm run test
@@ -120,7 +123,16 @@ VITE_TENANT=default               # Tenant key para multi-tenancy
 VITE_PROXY_TARGET=http://localhost:8000  # Target del proxy Vite
 ```
 
-### 4. Despliegue a Producción (Recomendado: Misma URL)
+### 4. Despliegue a Producción
+
+**Opción A: Deploy acoplado en Moodle (Vía Plugin local_adminer_ui)**
+Para que el frontend viva completamente dentro de Moodle como un plugin nativo:
+1. Configura tus variables de entorno en `.env.production`.
+2. Ejecuta `npm run build:moodle`.
+3. Esto compilará el frontend y copiará los archivos `index.html` y `assets/` a `plugin/local_adminer_ui/app/`.
+4. Realiza commit de estos archivos (están trackeados). El plugin `local_adminer_ui` ahora se puede instalar en Moodle sin requerir Node en el servidor.
+
+**Opción B: Deploy desacoplado (Subcarpeta HTTP)**
 
 Para evitar problemas de CORS, la mejor práctica es alojar el panel en una subcarpeta del mismo dominio de tu Moodle (ej: `https://lts.academyfactory.online/adminer/`).
 

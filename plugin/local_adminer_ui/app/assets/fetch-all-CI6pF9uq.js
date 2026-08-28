@@ -1,0 +1,1 @@
+async function s(n,{perpage:e=100}={}){let a=[],l=0;for(;;){const r=await n({page:l,perpage:e}),t=Array.isArray(r)?r:Object.values(r).find(i=>Array.isArray(i))||[];if(t.length===0||(a=[...a,...t],t.length<e))break;l++}return a}export{s as f};
