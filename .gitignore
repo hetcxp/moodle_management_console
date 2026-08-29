@@ -7,3 +7,4 @@ scratch/
 coverage/
 *.log
 .llm_build/
+.git_diff.tmp
