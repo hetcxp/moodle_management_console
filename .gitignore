@@ -6,3 +6,4 @@ dist/
 scratch/
 coverage/
 *.log
+.llm_build/
