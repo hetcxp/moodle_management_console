@@ -22,7 +22,7 @@ class courses extends external_api {
             'perpage'    => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
             'sort'       => new external_value(PARAM_ALPHA, 'Sort field', VALUE_DEFAULT, 'timecreated'),
             'dir'        => new external_value(PARAM_ALPHA, 'Sort direction ASC or DESC', VALUE_DEFAULT, 'DESC'),
-            'search'     => new external_value(PARAM_RAW, 'Search query text', VALUE_DEFAULT, ''),
+            'search'     => new external_value(PARAM_TEXT, 'Search query text', VALUE_DEFAULT, ''),
             'category'   => new external_value(PARAM_INT, 'Category filter id', VALUE_DEFAULT, 0),
             'visibility' => new external_value(PARAM_INT, 'Visibility filter -1:all, 1:visible, 0:hidden', VALUE_DEFAULT, -1),
             'filters'    => new external_value(PARAM_RAW, 'JSON encoded filters string', VALUE_DEFAULT, '{}'),
@@ -622,7 +622,7 @@ class courses extends external_api {
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'Cohort ID'),
                     'name' => new external_value(PARAM_TEXT, 'Cohort name'),
-                    'idnumber' => new external_value(PARAM_RAW, 'ID number'),
+                    'idnumber' => new external_value(PARAM_TEXT, 'ID number'),
                     'enrolid' => new external_value(PARAM_INT, 'Enrol instance ID'),
                     'status' => new external_value(PARAM_INT, 'Enrolment status (0=active, 1=suspended)'),
                     'timecreated' => new external_value(PARAM_INT, 'Time created', VALUE_DEFAULT, 0),
@@ -1069,10 +1069,10 @@ class courses extends external_api {
             'activities' => new external_multiple_structure(
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'CM ID'),
-                    'name' => new external_value(PARAM_RAW, 'Activity name'),
+                    'name' => new external_value(PARAM_TEXT, 'Activity name'),
                     'modname' => new external_value(PARAM_PLUGIN, 'Module name'),
                     'completionstatus' => new external_value(PARAM_INT, 'Completion status'),
-                    'grade' => new external_value(PARAM_RAW, 'Grade string'),
+                    'grade' => new external_value(PARAM_TEXT, 'Grade string'),
                 ])
             )
         ]);

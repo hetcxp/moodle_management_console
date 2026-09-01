@@ -7,6 +7,7 @@ use core_external\external_single_structure;
 use core_external\external_multiple_structure;
 use core_external\external_value;
 use context_system;
+use local_adminer_api\repository\user_repository;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -18,7 +19,7 @@ class users extends external_api {
     }
 
     public static function get_users_kpis() {
-        global $DB, $CFG;
+        global $CFG;
 
         $context = context_system::instance();
         self::validate_context($context);
@@ -30,27 +31,8 @@ class users extends external_api {
         $recent_threshold = time() - (30 * 86400); // 30 days
         $sqlparams['recent'] = $recent_threshold;
 
-        $sql_stats = "
-            SELECT 
-                COUNT(u.id) AS total_users,
-                SUM(CASE WHEN u.suspended = 0 THEN 1 ELSE 0 END) AS active_users,
-                SUM(CASE WHEN u.suspended = 1 THEN 1 ELSE 0 END) AS suspended_users,
-                SUM(CASE WHEN u.lastaccess > :recent THEN 1 ELSE 0 END) AS recent_active
-            FROM {user} u
-            WHERE u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
-        ";
-        $stats = $DB->get_record_sql($sql_stats, $sqlparams);
-
-        $sql_progress = "
-            SELECT ROUND(AVG(
-                CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
-            ), 1) AS avg_progress
-            FROM {user} u
-            LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = u.id
-            LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = u.id
-            WHERE u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
-        ";
-        $progress = $DB->get_field_sql($sql_progress, $sqlparams);
+        $stats = user_repository::get_users_kpi_stats($sqlparams);
+        $progress = user_repository::get_users_kpi_avg_progress($sqlparams);
 
         return [
             'total_users'     => (int)($stats->total_users ?? 0),
@@ -77,7 +59,7 @@ class users extends external_api {
             'perpage' => new external_value(PARAM_INT, 'Users per page', VALUE_DEFAULT, 20),
             'sort'    => new external_value(PARAM_ALPHA, 'Sort column', VALUE_DEFAULT, 'lastaccess'),
             'dir'     => new external_value(PARAM_ALPHA, 'Sort direction ASC or DESC', VALUE_DEFAULT, 'DESC'),
-            'search'  => new external_value(PARAM_RAW, 'Search query for name or email', VALUE_DEFAULT, ''),
+            'search'  => new external_value(PARAM_TEXT, 'Search query for name or email', VALUE_DEFAULT, ''),
             'filters' => new external_value(PARAM_RAW, 'JSON encoded filters string', VALUE_DEFAULT, '{}'),
         ]);
     }
@@ -182,7 +164,7 @@ class users extends external_api {
         ";
 
         $sql_count = "SELECT COUNT(u.id) FROM {user} u WHERE $where";
-        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
+        $totalcount = user_repository::count_users($sql_count, $sqlparams);
 
         if ($params['sort'] === 'progress') {
             $orderby = "ORDER BY CASE WHEN enr.enrolled_courses > 0 THEN (cmp.completed_courses * 1.0 / enr.enrolled_courses) ELSE 0 END $direction, u.id ASC";
@@ -192,7 +174,7 @@ class users extends external_api {
 
         $sql = $sql_select . " " . $orderby;
         $limitfrom = $params['page'] * $params['perpage'];
-        $records = $DB->get_records_sql($sql, $sqlparams, $limitfrom, $params['perpage']);
+        $records = user_repository::get_paginated_users($sql, $sqlparams, $limitfrom, $params['perpage']);
 
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
 
@@ -238,11 +220,11 @@ class users extends external_api {
             'users'      => new external_multiple_structure(
                 new external_single_structure([
                     'id'                => new external_value(PARAM_INT, 'User ID'),
-                    'username'          => new external_value(PARAM_RAW, 'Username'),
+                    'username'          => new external_value(PARAM_TEXT, 'Username'),
                     'firstname'         => new external_value(PARAM_TEXT, 'First name'),
                     'lastname'          => new external_value(PARAM_TEXT, 'Last name'),
                     'fullname'          => new external_value(PARAM_TEXT, 'Display full name'),
-                    'email'             => new external_value(PARAM_RAW, 'Email address'),
+                    'email'             => new external_value(PARAM_EMAIL, 'Email address'),
                     'suspended'         => new external_value(PARAM_INT, '1 if suspended, 0 if active'),
                     'is_active'         => new external_value(PARAM_INT, '1 if active, 0 if suspended'),
                     'is_admin'          => new external_value(PARAM_INT, '1 if site admin, 0 otherwise'),
@@ -288,7 +270,7 @@ class users extends external_api {
                 require_capability('moodle/user:update', $context);
                 foreach ($ids as $uid) {
                     if ($uid > 1 && !is_siteadmin($uid)) {
-                        $user = $DB->get_record('user', ['id' => $uid, 'deleted' => 0]);
+                        $user = user_repository::get_user($uid);
                         if ($user && !$user->suspended) {
                             $user->suspended = 1;
                             user_update_user($user, false, false);
@@ -302,7 +284,7 @@ class users extends external_api {
                 require_capability('moodle/user:update', $context);
                 foreach ($ids as $uid) {
                     if ($uid > 1) {
-                        $user = $DB->get_record('user', ['id' => $uid, 'deleted' => 0]);
+                        $user = user_repository::get_user($uid);
                         if ($user && $user->suspended) {
                             $user->suspended = 0;
                             user_update_user($user, false, false);
@@ -316,7 +298,7 @@ class users extends external_api {
                 require_capability('moodle/user:delete', $context);
                 foreach ($ids as $uid) {
                     if ($uid > 1 && !is_siteadmin($uid)) {
-                        $user = $DB->get_record('user', ['id' => $uid, 'deleted' => 0]);
+                        $user = user_repository::get_user($uid);
                         if ($user) {
                             delete_user($user);
                             $affected++;
@@ -328,7 +310,7 @@ class users extends external_api {
             case 'message':
                 global $USER;
                 foreach ($ids as $uid) {
-                    $recipient = $DB->get_record('user', ['id' => $uid, 'deleted' => 0]);
+                    $recipient = user_repository::get_user($uid);
                     if ($recipient && !empty($msg)) {
                         $message = new \core\message\message();
                         $message->component         = 'moodle';
@@ -373,7 +355,7 @@ class users extends external_api {
     }
 
     public static function get_user_detail($userid) {
-        global $DB, $CFG;
+        global $CFG;
 
         $context = context_system::instance();
         self::validate_context($context);
@@ -383,25 +365,10 @@ class users extends external_api {
             'userid' => $userid,
         ]);
 
-        $user = $DB->get_record('user', ['id' => $params['userid']], '*', MUST_EXIST);
+        $user = user_repository::get_user_strict($params['userid']);
 
-        $sql_courses = "
-            SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod, MIN(ue.status) as enrolstatus
-              FROM {course} c
-              JOIN {enrol} e ON e.courseid = c.id
-              JOIN {user_enrolments} ue ON ue.enrolid = e.id
-             WHERE ue.userid = :userid
-          GROUP BY c.id, c.fullname, c.shortname
-        ";
-        $enrolled_courses = $DB->get_records_sql($sql_courses, ['userid' => $user->id]);
-
-        $sql_all_enrolments = "
-            SELECT ue.id, e.courseid, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
-              FROM {user_enrolments} ue
-              JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE ue.userid = :userid
-        ";
-        $all_enrolments = $DB->get_records_sql($sql_all_enrolments, ['userid' => $user->id]);
+        $enrolled_courses = user_repository::get_user_enrolled_courses($user->id);
+        $all_enrolments = user_repository::get_user_all_enrolments($user->id);
         
         $course_enrolments_map = [];
         foreach ($all_enrolments as $ue) {
@@ -417,7 +384,7 @@ class users extends external_api {
 
         $courses = [];
         foreach ($enrolled_courses as $c) {
-            $course_obj = $DB->get_record('course', ['id' => $c->id]);
+            $course_obj = \local_adminer_api\repository\course_repository::get_course($c->id);
             $pct = \core_completion\progress::get_course_progress_percentage($course_obj, $user->id);
             $progress_val = $pct !== null ? (int)$pct : 0;
 
@@ -433,13 +400,7 @@ class users extends external_api {
         }
 
         // Cohortes a las que pertenece
-        $sql_cohorts = "
-            SELECT c.id, c.name, c.idnumber
-              FROM {cohort} c
-              JOIN {cohort_members} cm ON cm.cohortid = c.id
-             WHERE cm.userid = :userid
-        ";
-        $linked_cohorts = $DB->get_records_sql($sql_cohorts, ['userid' => $user->id]);
+        $linked_cohorts = user_repository::get_user_cohorts($user->id);
 
         $cohorts = [];
         foreach ($linked_cohorts as $coh) {
@@ -480,9 +441,9 @@ class users extends external_api {
     public static function get_user_detail_returns() {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'User ID'),
-            'username' => new external_value(PARAM_RAW, 'Username'),
+            'username' => new external_value(PARAM_TEXT, 'Username'),
             'fullname' => new external_value(PARAM_TEXT, 'Fullname'),
-            'email' => new external_value(PARAM_TEXT, 'Email'),
+            'email' => new external_value(PARAM_EMAIL, 'Email'),
             'suspended' => new external_value(PARAM_INT, 'Suspended status'),
             'is_active' => new external_value(PARAM_INT, 'Active status'),
             'is_admin' => new external_value(PARAM_INT, 'Is site admin'),
@@ -514,7 +475,7 @@ class users extends external_api {
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'Cohort ID'),
                     'name' => new external_value(PARAM_TEXT, 'Cohort name'),
-                    'idnumber' => new external_value(PARAM_RAW, 'ID number'),
+                    'idnumber' => new external_value(PARAM_TEXT, 'ID number'),
                 ])
             ),
         ]);
@@ -529,7 +490,7 @@ class users extends external_api {
     }
 
     public static function user_cohort_action($action, $userid, $cohortids) {
-        global $DB, $CFG;
+        global $CFG;
         require_once($CFG->dirroot . '/cohort/lib.php');
 
         $context = context_system::instance();
@@ -542,7 +503,7 @@ class users extends external_api {
             'cohortids' => $cohortids,
         ]);
 
-        $user = $DB->get_record('user', ['id' => $params['userid']], '*', MUST_EXIST);
+        $user = user_repository::get_user_strict($params['userid']);
         $affected = 0;
 
         foreach ($params['cohortids'] as $cohortid) {
@@ -746,7 +707,7 @@ class users extends external_api {
             }
             if ($manualinstance) {
                 if ($params['action'] === 'add') {
-                    $roleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
+                    $roleid = user_repository::get_role_id_by_shortname('student');
                     $enrol->enrol_user($manualinstance, $params['userid'], $roleid);
                     $affected++;
                 } else if ($params['action'] === 'remove') {

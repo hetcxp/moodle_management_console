@@ -68,7 +68,7 @@ class categories extends external_api {
                 new external_single_structure([
                     'id'          => new external_value(PARAM_INT, 'Category ID'),
                     'name'        => new external_value(PARAM_TEXT, 'Category name'),
-                    'idnumber'    => new external_value(PARAM_RAW, 'ID number'),
+                    'idnumber'    => new external_value(PARAM_TEXT, 'ID number'),
                     'description' => new external_value(PARAM_RAW, 'Description'),
                     'parent'      => new external_value(PARAM_INT, 'Parent category ID'),
                     'parentname'  => new external_value(PARAM_TEXT, 'Parent category name'),

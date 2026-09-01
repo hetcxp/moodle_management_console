@@ -100,7 +100,7 @@ class competencies extends external_api {
             'perpage' => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 50),
             'sort'    => new external_value(PARAM_ALPHA, 'Sort column', VALUE_DEFAULT, 'shortname'),
             'dir'     => new external_value(PARAM_ALPHA, 'Sort direction', VALUE_DEFAULT, 'ASC'),
-            'search'  => new external_value(PARAM_RAW, 'Search term', VALUE_DEFAULT, ''),
+            'search'  => new external_value(PARAM_TEXT, 'Search term', VALUE_DEFAULT, ''),
             'filters' => new external_value(PARAM_RAW, 'JSON filters', VALUE_DEFAULT, '{}'),
         ]);
     }
@@ -143,7 +143,7 @@ class competencies extends external_api {
                 new external_single_structure([
                     'id'                => new external_value(PARAM_INT, 'Framework ID'),
                     'shortname'         => new external_value(PARAM_TEXT, 'Framework short name'),
-                    'idnumber'          => new external_value(PARAM_RAW, 'Framework ID number'),
+                    'idnumber'          => new external_value(PARAM_TEXT, 'Framework ID number'),
                     'description'       => new external_value(PARAM_RAW, 'Framework description'),
                     'visible'           => new external_value(PARAM_INT, 'Visibility (1 or 0)'),
                     'scaleid'           => new external_value(PARAM_INT, 'Associated scale ID'),
@@ -164,7 +164,7 @@ class competencies extends external_api {
             'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: create, edit, delete, toggle_visibility, hide, show'),
             'frameworkid' => new external_value(PARAM_INT, 'Framework ID (for edit/delete/toggle)', VALUE_DEFAULT, 0),
             'shortname'   => new external_value(PARAM_TEXT, 'Framework name', VALUE_DEFAULT, ''),
-            'idnumber'    => new external_value(PARAM_RAW, 'Framework ID number', VALUE_DEFAULT, ''),
+            'idnumber'    => new external_value(PARAM_TEXT, 'Framework ID number', VALUE_DEFAULT, ''),
             'description' => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
             'scaleid'     => new external_value(PARAM_INT, 'Scale ID', VALUE_DEFAULT, 0),
             'visible'     => new external_value(PARAM_INT, 'Visibility 1/0', VALUE_DEFAULT, 1),
@@ -373,7 +373,7 @@ class competencies extends external_api {
     public static function get_competency_framework_detail_parameters() {
         return new external_function_parameters([
             'frameworkid' => new external_value(PARAM_INT, 'Framework ID'),
-            'search'      => new external_value(PARAM_RAW, 'Filter competencies by search term', VALUE_DEFAULT, ''),
+            'search'      => new external_value(PARAM_TEXT, 'Filter competencies by search term', VALUE_DEFAULT, ''),
         ]);
     }
 
@@ -399,7 +399,7 @@ class competencies extends external_api {
         return new external_single_structure([
             'id'                 => new external_value(PARAM_INT, 'Framework ID'),
             'shortname'          => new external_value(PARAM_TEXT, 'Framework short name'),
-            'idnumber'           => new external_value(PARAM_RAW, 'Framework ID number'),
+            'idnumber'           => new external_value(PARAM_TEXT, 'Framework ID number'),
             'description'        => new external_value(PARAM_RAW, 'Framework description'),
             'visible'            => new external_value(PARAM_INT, 'Visibility (1 or 0)'),
             'scaleid'            => new external_value(PARAM_INT, 'Associated scale ID'),
@@ -414,10 +414,10 @@ class competencies extends external_api {
                 new external_single_structure([
                     'id'           => new external_value(PARAM_INT, 'Competency ID'),
                     'shortname'    => new external_value(PARAM_TEXT, 'Competency name'),
-                    'idnumber'     => new external_value(PARAM_RAW, 'Competency ID number'),
+                    'idnumber'     => new external_value(PARAM_TEXT, 'Competency ID number'),
                     'description'  => new external_value(PARAM_RAW, 'Competency description'),
                     'parentid'     => new external_value(PARAM_INT, 'Parent competency ID (0 for Level 1)'),
-                    'path'         => new external_value(PARAM_RAW, 'Hierarchical path'),
+                    'path'         => new external_value(PARAM_TEXT, 'Hierarchical path'),
                     'sortorder'    => new external_value(PARAM_INT, 'Sort order'),
                     'coursescount'        => new external_value(PARAM_INT, 'Number of linked courses', VALUE_DEFAULT, 0),
                     'pendingreviewscount' => new external_value(PARAM_INT, 'Number of pending reviews for this competency', VALUE_DEFAULT, 0),
@@ -437,7 +437,7 @@ class competencies extends external_api {
             'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete)', VALUE_DEFAULT, 0),
             'frameworkid'  => new external_value(PARAM_INT, 'Framework ID (required for create)', VALUE_DEFAULT, 0),
             'shortname'    => new external_value(PARAM_TEXT, 'Competency name', VALUE_DEFAULT, ''),
-            'idnumber'     => new external_value(PARAM_RAW, 'Competency ID number', VALUE_DEFAULT, ''),
+            'idnumber'     => new external_value(PARAM_TEXT, 'Competency ID number', VALUE_DEFAULT, ''),
             'description'  => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
         ]);
     }
@@ -598,14 +598,14 @@ class competencies extends external_api {
         return new external_single_structure([
             'id'                    => new external_value(PARAM_INT, 'Competency ID'),
             'shortname'             => new external_value(PARAM_TEXT, 'Competency short name'),
-            'idnumber'              => new external_value(PARAM_RAW, 'Competency ID number'),
+            'idnumber'              => new external_value(PARAM_TEXT, 'Competency ID number'),
             'description'           => new external_value(PARAM_RAW, 'Competency description'),
             'parentid'              => new external_value(PARAM_INT, 'Parent competency ID'),
-            'path'                  => new external_value(PARAM_RAW, 'Hierarchy path'),
+            'path'                  => new external_value(PARAM_TEXT, 'Hierarchy path'),
             'sortorder'             => new external_value(PARAM_INT, 'Sort order'),
             'competencyframeworkid' => new external_value(PARAM_INT, 'Framework ID'),
             'frameworkname'         => new external_value(PARAM_TEXT, 'Framework name'),
-            'frameworkidnumber'     => new external_value(PARAM_RAW, 'Framework ID number'),
+            'frameworkidnumber'     => new external_value(PARAM_TEXT, 'Framework ID number'),
             'frameworkvisible'      => new external_value(PARAM_INT, 'Framework visibility'),
             'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
             'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
@@ -1036,7 +1036,7 @@ class competencies extends external_api {
             'frameworkid' => new external_value(PARAM_INT, 'Filter by framework ID', VALUE_DEFAULT, 0),
             'competencyid'=> new external_value(PARAM_INT, 'Filter by competency ID', VALUE_DEFAULT, 0),
             'userid'      => new external_value(PARAM_INT, 'Filter by student user ID', VALUE_DEFAULT, 0),
-            'search'      => new external_value(PARAM_RAW, 'Search query', VALUE_DEFAULT, ''),
+            'search'      => new external_value(PARAM_TEXT, 'Search query', VALUE_DEFAULT, ''),
         ]);
     }
 

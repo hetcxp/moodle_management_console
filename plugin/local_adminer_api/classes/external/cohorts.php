@@ -7,6 +7,7 @@ use core_external\external_single_structure;
 use core_external\external_multiple_structure;
 use core_external\external_value;
 use context_system;
+use local_adminer_api\repository\cohort_repository;
 
 defined('MOODLE_INTERNAL') || die();
 
@@ -18,7 +19,7 @@ class cohorts extends external_api {
             'perpage' => new external_value(PARAM_INT, 'Cohorts per page', VALUE_DEFAULT, 50),
             'sort'    => new external_value(PARAM_ALPHA, 'Sort field', VALUE_DEFAULT, 'name'),
             'dir'     => new external_value(PARAM_ALPHA, 'Sort direction', VALUE_DEFAULT, 'ASC'),
-            'search'  => new external_value(PARAM_RAW, 'Search query', VALUE_DEFAULT, ''),
+            'search'  => new external_value(PARAM_TEXT, 'Search query', VALUE_DEFAULT, ''),
             'filters' => new external_value(PARAM_RAW, 'JSON encoded filters string', VALUE_DEFAULT, '{}'),
         ]);
     }
@@ -93,26 +94,16 @@ class cohorts extends external_api {
         ";
 
         $sql_count = "SELECT COUNT(c.id) FROM {cohort} c WHERE $where";
-        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
+        $totalcount = cohort_repository::count_cohorts($sql_count, $sqlparams);
 
         $limitfrom = $params['page'] * $params['perpage'];
-        $records = $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $params['perpage']);
+        $records = cohort_repository::get_paginated_cohorts($sql_select, $sqlparams, $limitfrom, $params['perpage']);
 
         $cohorts = [];
         foreach ($records as $r) {
             $progress = 0;
             if ($r->memberscount > 0 && $r->coursescount > 0) {
-                $sql_prog = "
-                    SELECT ROUND(AVG(
-                        CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
-                    )) AS avg_progress
-                    FROM {cohort_members} cm
-                    JOIN {user} u ON u.id = cm.userid
-                    LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = cm.userid
-                    LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = cm.userid
-                    WHERE cm.cohortid = :cohortid AND u.deleted = 0
-                ";
-                $prog_val = $DB->get_field_sql($sql_prog, ['cohortid' => $r->id]);
+                $prog_val = cohort_repository::get_cohort_progress($r->id);
                 if ($prog_val) {
                     $progress = (int)$prog_val;
                 }
@@ -146,7 +137,7 @@ class cohorts extends external_api {
                 new external_single_structure([
                     'id'           => new external_value(PARAM_INT, 'Cohort ID'),
                     'name'         => new external_value(PARAM_TEXT, 'Cohort name'),
-                    'idnumber'     => new external_value(PARAM_RAW, 'ID number'),
+                    'idnumber'     => new external_value(PARAM_TEXT, 'ID number'),
                     'description'  => new external_value(PARAM_RAW, 'Description'),
                     'memberscount' => new external_value(PARAM_INT, 'Number of users in cohort'),
                     'coursescount' => new external_value(PARAM_INT, 'Number of linked courses'),
@@ -161,13 +152,13 @@ class cohorts extends external_api {
             'action'      => new external_value(PARAM_ALPHA, 'Action: create, edit, delete'),
             'cohortid'    => new external_value(PARAM_INT, 'Cohort ID for edit/delete', VALUE_DEFAULT, 0),
             'name'        => new external_value(PARAM_TEXT, 'Cohort name', VALUE_DEFAULT, ''),
-            'idnumber'    => new external_value(PARAM_RAW, 'ID number', VALUE_DEFAULT, ''),
+            'idnumber'    => new external_value(PARAM_TEXT, 'ID number', VALUE_DEFAULT, ''),
             'description' => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
         ]);
     }
 
     public static function cohort_action($action, $cohortid = 0, $name = '', $idnumber = '', $description = '') {
-        global $DB, $CFG;
+        global $CFG;
         require_once($CFG->dirroot . '/cohort/lib.php');
         
         $context = context_system::instance();
@@ -227,7 +218,7 @@ class cohorts extends external_api {
                 if (empty($params['cohortid'])) {
                     return ['success' => false, 'message' => 'cohortid is required', 'affectedcount' => 0];
                 }
-                $cohort = $DB->get_record('cohort', ['id' => $params['cohortid']]);
+                $cohort = cohort_repository::get_cohort($params['cohortid']);
                 if ($cohort) {
                     cohort_delete_cohort($cohort);
                     $affected = 1;
@@ -260,8 +251,6 @@ class cohorts extends external_api {
     }
 
     public static function get_cohort_detail($cohortid) {
-        global $DB;
-
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:view', $context);
@@ -270,26 +259,13 @@ class cohorts extends external_api {
             'cohortid' => $cohortid,
         ]);
 
-        $cohort = $DB->get_record('cohort', ['id' => $params['cohortid']], '*', MUST_EXIST);
+        $cohort = cohort_repository::get_cohort_strict($params['cohortid']);
 
         // Cursos sincronizados
-        $sql_courses = "
-            SELECT c.*, e.id as enrolid,
-                   (SELECT COUNT(ue.id) FROM {user_enrolments} ue WHERE ue.enrolid = e.id) as enrolledcount
-              FROM {course} c
-              JOIN {enrol} e ON e.courseid = c.id
-             WHERE e.customint1 = :cohortid AND e.enrol = 'cohort'
-        ";
-        $courses_records = $DB->get_records_sql($sql_courses, ['cohortid' => $cohort->id]);
+        $courses_records = cohort_repository::get_cohort_synced_courses($cohort->id);
 
         // Miembros de la cohorte
-        $sql_members = "
-            SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended
-              FROM {user} u
-              JOIN {cohort_members} cm ON cm.userid = u.id
-             WHERE cm.cohortid = :cohortid AND u.deleted = 0
-        ";
-        $members_records = $DB->get_records_sql($sql_members, ['cohortid' => $cohort->id]);
+        $members_records = cohort_repository::get_cohort_members($cohort->id);
 
         $members = [];
         $course_count = count($courses_records);
@@ -333,8 +309,6 @@ class cohorts extends external_api {
             ];
         }
 
-
-
         return [
             'id' => (int)$cohort->id,
             'name' => (string)$cohort->name,
@@ -349,7 +323,7 @@ class cohorts extends external_api {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'Cohort ID'),
             'name' => new external_value(PARAM_TEXT, 'Cohort name'),
-            'idnumber' => new external_value(PARAM_RAW, 'ID number'),
+            'idnumber' => new external_value(PARAM_TEXT, 'ID number'),
             'description' => new external_value(PARAM_RAW, 'Description'),
             'members' => new external_multiple_structure(
                 new external_single_structure([
@@ -386,40 +360,11 @@ class cohorts extends external_api {
     }
 
     public static function get_cohorts_kpis() {
-        global $DB;
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:view', $context);
 
-        $sql_cohorts = "SELECT COUNT(id) FROM {cohort}";
-        $total_cohorts = (int)$DB->count_records_sql($sql_cohorts);
-
-        $sql_members = "SELECT COUNT(id) FROM {cohort_members}";
-        $total_members = (int)$DB->count_records_sql($sql_members);
-
-        $avg_members = $total_cohorts > 0 ? round($total_members / $total_cohorts, 1) : 0;
-
-        $sql_empty = "
-            SELECT COUNT(c.id) 
-              FROM {cohort} c 
-             WHERE NOT EXISTS (SELECT 1 FROM {cohort_members} cm WHERE cm.cohortid = c.id)
-        ";
-        $empty_cohorts = (int)$DB->count_records_sql($sql_empty);
-
-        $sql_synced = "
-            SELECT COUNT(DISTINCT customint1) 
-              FROM {enrol} 
-             WHERE enrol = 'cohort'
-        ";
-        $synced_courses = (int)$DB->count_records_sql($sql_synced);
-
-        return [
-            'total_cohorts' => $total_cohorts,
-            'total_members' => $total_members,
-            'avg_members' => $avg_members,
-            'empty_cohorts' => $empty_cohorts,
-            'synced_courses' => $synced_courses,
-        ];
+        return cohort_repository::get_kpis();
     }
 
     public static function get_cohorts_kpis_returns() {
@@ -432,3 +377,6 @@ class cohorts extends external_api {
         ]);
     }
 }
+
+
+
