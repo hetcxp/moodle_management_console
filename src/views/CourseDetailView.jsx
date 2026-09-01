@@ -6,11 +6,12 @@ import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
-import { ChevronLeft, ChevronRight, BookOpen, CalendarClock, Calendar, Edit3, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen, CalendarClock, Calendar, Edit3, Users, Award } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
 import { formatDateOnly } from '../lib/utils';
 import { CourseUsersTab } from './courses/CourseUsersTab';
 import { CourseCohortsTab } from './courses/CourseCohortsTab';
+import { CourseCompetenciesTab } from './courses/CourseCompetenciesTab';
 
 export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
@@ -27,7 +28,7 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
     }
   }, [error, addToast, onBack]);
 
-  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'cohorts'
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'cohorts' | 'competencies'
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorType, setSelectorType] = useState('cohorts'); // 'cohorts' | 'users'
 
@@ -39,19 +40,28 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
   const [cohortExpirationDate, setCohortExpirationDate] = useState('');
   const [cohortExpirationEnabled, setCohortExpirationEnabled] = useState(false);
 
-  // Course Dates Edit
-  const [courseDatesModalOpen, setCourseDatesModalOpen] = useState(false);
-  const [courseDatesForm, setCourseDatesForm] = useState({ startdate: '', enddate: '' });
-  const [courseDatesLoading, setCourseDatesLoading] = useState(false);
+  // Course Info & Dates Edit
+  const [courseEditModalOpen, setCourseEditModalOpen] = useState(false);
+  const [courseEditForm, setCourseEditForm] = useState({
+    fullname: '',
+    shortname: '',
+    startdate: '',
+    enddate: ''
+  });
+  const [courseEditErrors, setCourseEditErrors] = useState({});
+  const [courseEditLoading, setCourseEditLoading] = useState(false);
 
   useEffect(() => {
-    if (data && !courseDatesModalOpen) {
-      setCourseDatesForm({
+    if (data && !courseEditModalOpen) {
+      setCourseEditForm({
+        fullname: data.fullname || '',
+        shortname: data.shortname || '',
         startdate: data.startdate > 0 ? new Date(data.startdate * 1000).toISOString().split('T')[0] : '',
         enddate: data.enddate > 0 ? new Date(data.enddate * 1000).toISOString().split('T')[0] : ''
       });
+      setCourseEditErrors({});
     }
-  }, [data, courseDatesModalOpen]);
+  }, [data, courseEditModalOpen]);
 
   const handleCohortAction = async (action, cohortIds, options = {}) => {
     try {
@@ -84,22 +94,37 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
     }
   };
 
-  const handleUpdateCourseDates = async (e) => {
-    e.preventDefault();
-    setCourseDatesLoading(true);
+  const handleUpdateCourse = async (e) => {
+    if (e) e.preventDefault();
+    const newErrors = {};
+    if (!courseEditForm.fullname || courseEditForm.fullname.trim().length < 3) {
+      newErrors.fullname = 'El nombre completo debe tener al menos 3 caracteres.';
+    }
+    if (!courseEditForm.shortname || courseEditForm.shortname.trim().length < 2) {
+      newErrors.shortname = 'El nombre corto debe tener al menos 2 caracteres.';
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setCourseEditErrors(newErrors);
+      return;
+    }
+
+    setCourseEditErrors({});
+    setCourseEditLoading(true);
     try {
       await performCourseAction({
-        action: 'update_dates',
+        action: 'update',
         courseids: [courseId],
-        startdate: courseDatesForm.startdate ? (new Date(courseDatesForm.startdate).getTime() / 1000) : 0,
-        enddate: courseDatesForm.enddate ? (new Date(courseDatesForm.enddate).getTime() / 1000) : 0
+        fullname: courseEditForm.fullname.trim(),
+        shortname: courseEditForm.shortname.trim(),
+        startdate: courseEditForm.startdate ? (new Date(courseEditForm.startdate).getTime() / 1000) : 0,
+        enddate: courseEditForm.enddate ? (new Date(courseEditForm.enddate).getTime() / 1000) : 0
       });
-      addToast({ type: 'success', title: 'Fechas actualizadas exitosamente' });
-      setCourseDatesModalOpen(false);
+      addToast({ type: 'success', title: 'Curso actualizado exitosamente' });
+      setCourseEditModalOpen(false);
     } catch (err) {
-      addToast({ type: 'error', title: 'Error al actualizar fechas', description: err.message });
+      addToast({ type: 'error', title: 'Error al actualizar curso', description: err.message });
     } finally {
-      setCourseDatesLoading(false);
+      setCourseEditLoading(false);
     }
   };
 
@@ -135,7 +160,19 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
               <BookOpen className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.fullname}</h1>
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.fullname}</h1>
+                <PermissionGate capability="can_update_courses">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                    onClick={() => setCourseEditModalOpen(true)}
+                  >
+                    <Edit3 className="h-3.5 w-3.5 mr-1" /> Editar curso
+                  </Button>
+                </PermissionGate>
+              </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
                 <span className="font-mono">{data.shortname}</span>
                 <span className="hidden sm:inline text-border">•</span>
@@ -149,16 +186,6 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
                   {' — '} 
                   {data.enddate > 0 ? formatDateOnly(data.enddate) : 'Sin fin'}
                 </div>
-                <PermissionGate capability="can_update_courses">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-6 px-2 ml-1 text-xs text-primary hover:bg-primary/10"
-                    onClick={() => setCourseDatesModalOpen(true)}
-                  >
-                    <Edit3 className="h-3 w-3 mr-1" /> Editar fechas
-                  </Button>
-                </PermissionGate>
               </div>
             </div>
           </div>
@@ -176,7 +203,7 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
           }`}
         >
           <span>Usuarios Inscritos</span>
-          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.users.length}</Badge>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.users?.length || 0}</Badge>
         </button>
         <button
           onClick={() => setActiveTab('cohorts')}
@@ -187,7 +214,19 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
           }`}
         >
           <span>Cohortes Vinculadas</span>
-          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.cohorts.length}</Badge>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.cohorts?.length || 0}</Badge>
+        </button>
+        <button
+          onClick={() => setActiveTab('competencies')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'competencies'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Award className="h-3.5 w-3.5" />
+          <span>Competencias</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.competencies?.length || 0}</Badge>
         </button>
       </div>
 
@@ -211,6 +250,13 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
           coursegroups={data.coursegroups}
           handleCohortAction={handleCohortAction}
           onOpenSelector={() => { setSelectorType('cohorts'); setSelectorOpen(true); }}
+        />
+      )}
+
+      {activeTab === 'competencies' && (
+        <CourseCompetenciesTab
+          competencies={data.competencies || []}
+          onNavigateToDetail={onNavigateToDetail}
         />
       )}
 
@@ -299,38 +345,60 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
         </div>
       </Dialog>
 
-      {/* Course Dates Modal */}
+      {/* Course Edit Modal */}
       <Dialog
-        open={courseDatesModalOpen}
-        onClose={() => setCourseDatesModalOpen(false)}
-        title="Editar Fechas del Curso"
-        description="Establece o elimina las fechas de inicio y fin del curso."
+        open={courseEditModalOpen}
+        onClose={() => setCourseEditModalOpen(false)}
+        title="Editar Información del Curso"
+        description="Modifica el nombre, nombre corto y fechas de inicio y fin del curso."
         footer={
           <>
-            <Button variant="ghost" onClick={() => setCourseDatesModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleUpdateCourseDates} disabled={courseDatesLoading}>
-              {courseDatesLoading ? 'Guardando...' : 'Guardar Fechas'}
+            <Button variant="ghost" onClick={() => setCourseEditModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleUpdateCourse} disabled={courseEditLoading}>
+              {courseEditLoading ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
           </>
         }
       >
-        <form onSubmit={handleUpdateCourseDates} className="space-y-4 pt-2">
+        <form onSubmit={handleUpdateCourse} className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Nombre Completo del Curso *</label>
+            <Input 
+              placeholder="Ej: Introducción a Python 3"
+              value={courseEditForm.fullname} 
+              onChange={(e) => setCourseEditForm({ ...courseEditForm, fullname: e.target.value })} 
+              className={courseEditErrors.fullname ? 'border-destructive' : ''}
+            />
+            {courseEditErrors.fullname && <p className="text-xs text-destructive mt-1">{courseEditErrors.fullname}</p>}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Nombre Corto / Código *</label>
+            <Input 
+              placeholder="Ej: PY3-101"
+              value={courseEditForm.shortname} 
+              onChange={(e) => setCourseEditForm({ ...courseEditForm, shortname: e.target.value })} 
+              className={courseEditErrors.shortname ? 'border-destructive' : ''}
+            />
+            {courseEditErrors.shortname && <p className="text-xs text-destructive mt-1">{courseEditErrors.shortname}</p>}
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Fecha de Inicio</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Fecha de Inicio</label>
               <Input 
                 type="date" 
-                value={courseDatesForm.startdate} 
-                onChange={(e) => setCourseDatesForm({ ...courseDatesForm, startdate: e.target.value })} 
+                value={courseEditForm.startdate} 
+                onChange={(e) => setCourseEditForm({ ...courseEditForm, startdate: e.target.value })} 
               />
               <p className="text-xs text-muted-foreground">Deja en blanco para no definir inicio.</p>
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-foreground">Fecha de Fin</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">Fecha de Fin</label>
               <Input 
                 type="date" 
-                value={courseDatesForm.enddate} 
-                onChange={(e) => setCourseDatesForm({ ...courseDatesForm, enddate: e.target.value })} 
+                value={courseEditForm.enddate} 
+                onChange={(e) => setCourseEditForm({ ...courseEditForm, enddate: e.target.value })} 
               />
               <p className="text-xs text-muted-foreground">Deja en blanco para no definir fin.</p>
             </div>

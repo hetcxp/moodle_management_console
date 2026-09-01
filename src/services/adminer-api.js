@@ -214,14 +214,18 @@ export const AdminerApi = {
     return await MoodleApi.call('local_adminer_get_competency_framework_detail', { frameworkid, search });
   },
 
-  async competencyAction({ action, competencyid = 0, frameworkid = 0, shortname = '', idnumber = '', description = '' }) {
+  async competencyAction({ action, competencyid = 0, frameworkid = 0, parentid = 0, shortname = '', idnumber = '', description = '', ruletype = '', ruleoutcome = 1, ruleconfig = '' }) {
     return await MoodleApi.call('local_adminer_competency_action', {
       action,
       competencyid,
       frameworkid,
+      parentid,
       shortname,
       idnumber,
-      description
+      description,
+      ruletype,
+      ruleoutcome,
+      ruleconfig
     });
   },
 

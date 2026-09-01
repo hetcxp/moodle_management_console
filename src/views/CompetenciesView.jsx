@@ -328,7 +328,7 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black tracking-tight text-foreground">Marcos de Competencias</h1>
-            <Badge variant="secondary">{totalCount} marcos</Badge>
+            <Badge variant="secondary">{totalCount} {totalCount === 1 ? 'marco' : 'marcos'}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Estructura y gestión de competencias institucionales de Moodle.
@@ -338,59 +338,77 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
 
       {/* KPI Cards */}
       {kpis && (
-        <div className="space-y-4">
-          <KpiGrid
-            loading={loading}
-            items={[
-              {
-                title: 'Marcos de Competencias',
-                value: kpis.total_frameworks,
-                icon: Award,
-                color: 'from-amber-500 to-orange-600',
-                badgeColor: 'bg-amber-500/10 text-amber-500',
-                details: [
-                  { label: 'Visibles', value: kpis.visible_frameworks, textClass: 'text-emerald-600' },
-                  { label: 'Ocultos', value: kpis.hidden_frameworks, textClass: 'text-muted-foreground' },
-                ]
-              },
-              {
-                title: 'Total Competencias',
-                value: kpis.total_competencies,
-                icon: Layers,
-                color: 'from-blue-500 to-sky-600',
-                badgeColor: 'bg-blue-500/10 text-blue-500',
-              },
-            ]}
-          />
-          {/* Tarjeta especial: Revisiones Pendientes con acción */}
-          <div
-            onClick={() => setReviewsModalOpen(true)}
-            className={`bg-card/60 backdrop-blur-md rounded-2xl border p-5 shadow-sm transition-all cursor-pointer hover:border-amber-500/50 ${(kpis.pending_reviews || 0) > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
-          >
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`p-2.5 rounded-xl shrink-0 ${(kpis.pending_reviews || 0) > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-rose-500/10 text-rose-500'}`}>
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-muted-foreground truncate">Revisiones Pendientes</p>
-                  <h3 className="text-2xl font-bold text-foreground">{kpis.pending_reviews || 0}</h3>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setReviewsModalOpen(true);
-                }}
-                className="text-xs text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 shrink-0"
-              >
-                {(kpis.pending_reviews || 0) > 0 ? 'Revisar' : 'Ver'}
-              </Button>
-            </div>
-          </div>
-        </div>
+        <KpiGrid
+          loading={loading}
+          items={[
+            {
+              title: 'Marcos de Competencias',
+              value: kpis.total_frameworks,
+              icon: Award,
+              color: 'from-amber-500 to-orange-600',
+              badgeColor: 'bg-amber-500/10 text-amber-500',
+              details: [
+                { label: 'Visibles', value: kpis.visible_frameworks, textClass: 'text-emerald-600' },
+                { label: 'Ocultos', value: kpis.hidden_frameworks, textClass: 'text-muted-foreground' },
+              ],
+            },
+            {
+              title: 'Total Competencias',
+              value: kpis.total_competencies,
+              icon: Layers,
+              color: 'from-blue-500 to-sky-600',
+              badgeColor: 'bg-blue-500/10 text-blue-500',
+              details: [
+                {
+                  label: 'Promedio / marco',
+                  value: kpis.total_frameworks > 0 ? (kpis.total_competencies / kpis.total_frameworks).toFixed(1) : 0,
+                  textClass: 'text-blue-600',
+                },
+                {
+                  label: 'Total asignadas',
+                  value: kpis.total_competencies,
+                  textClass: 'text-muted-foreground',
+                },
+              ],
+            },
+            {
+              title: 'Marcos Visibles',
+              value: kpis.visible_frameworks,
+              icon: Eye,
+              color: 'from-emerald-500 to-teal-600',
+              badgeColor: 'bg-emerald-500/10 text-emerald-500',
+              details: [
+                {
+                  label: 'Tasa visibilidad',
+                  value: kpis.total_frameworks > 0 ? `${Math.round((kpis.visible_frameworks / kpis.total_frameworks) * 100)}%` : '0%',
+                  textClass: 'text-emerald-600',
+                },
+                {
+                  label: 'Ocultos',
+                  value: kpis.hidden_frameworks,
+                  textClass: 'text-amber-600',
+                },
+              ],
+              progress: kpis.total_frameworks > 0 ? (kpis.visible_frameworks / kpis.total_frameworks) * 100 : 0,
+            },
+            {
+              title: 'Revisiones Pendientes',
+              value: kpis.pending_reviews || 0,
+              icon: Clock,
+              color: (kpis.pending_reviews || 0) > 0 ? 'from-amber-500 to-orange-600' : 'from-slate-500 to-slate-600',
+              badgeColor: (kpis.pending_reviews || 0) > 0 ? 'bg-amber-500/10 text-amber-500' : 'bg-muted text-muted-foreground',
+              details: [
+                {
+                  label: 'Estado',
+                  value: (kpis.pending_reviews || 0) > 0 ? 'Requiere atención' : 'Al día',
+                  textClass: (kpis.pending_reviews || 0) > 0 ? 'text-amber-600 font-semibold' : 'text-emerald-600',
+                },
+              ],
+              actionLabel: (kpis.pending_reviews || 0) > 0 ? 'Revisar pendientes' : 'Ver revisiones',
+              onClick: () => setReviewsModalOpen(true),
+            },
+          ]}
+        />
       )}
 
       {/* Filter Bar */}

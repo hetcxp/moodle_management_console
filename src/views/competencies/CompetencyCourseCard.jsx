@@ -24,7 +24,10 @@ export const CompetencyCourseCard = ({
   onOpenAddActivityModal,
   onRequestUnlinkCourse,
   onUpdateModuleRule,
-  onRequestUnlinkActivity
+  onRequestUnlinkActivity,
+  isReadOnly = false,
+  subcompetencyInfo = null,
+  onNavigateToSubcompetency = null
 }) => {
   const activities = course.activities || [];
   const currentRule = RULE_OUTCOMES.find((r) => r.value === course.ruleoutcome) || RULE_OUTCOMES[0];
@@ -70,6 +73,19 @@ export const CompetencyCourseCard = ({
                   Oculto
                 </Badge>
               )}
+              {isReadOnly && subcompetencyInfo && (
+                <Badge
+                  variant="outline"
+                  className={`text-[11px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20 ${
+                    onNavigateToSubcompetency ? 'cursor-pointer hover:bg-indigo-500/20' : ''
+                  }`}
+                  onClick={onNavigateToSubcompetency ? (e) => { e.stopPropagation(); onNavigateToSubcompetency(); } : undefined}
+                  title={onNavigateToSubcompetency ? 'Ir a la subcompetencia' : undefined}
+                >
+                  <Layers className="h-3 w-3 mr-1" />
+                  {subcompetencyInfo.name || subcompetencyInfo}
+                </Badge>
+              )}
             </div>
 
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -92,57 +108,66 @@ export const CompetencyCourseCard = ({
               Al completar el curso:
             </span>
 
-            <PermissionGate
-              capability="can_manage_competencies"
-              fallback={
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${currentRule.colorClass}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${currentRule.dotColor}`} />
-                  {currentRule.label}
-                </span>
-              }
-            >
-              <div className="relative inline-flex items-center">
-                <select
-                  value={course.ruleoutcome}
-                  onChange={(e) => onUpdateCourseRule(course.id, e.target.value)}
-                  title={currentRule.description}
-                  className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 cursor-pointer transition-colors focus:ring-2 focus:ring-primary focus:outline-none ${currentRule.colorClass}`}
-                >
-                  {RULE_OUTCOMES.map((ro) => (
-                    <option key={ro.value} value={ro.value}>
-                      {ro.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="h-3.5 w-3.5 absolute right-2 pointer-events-none opacity-60" />
-              </div>
-            </PermissionGate>
+            {isReadOnly ? (
+              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${currentRule.colorClass}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${currentRule.dotColor}`} />
+                {currentRule.label}
+              </span>
+            ) : (
+              <PermissionGate
+                capability="can_manage_competencies"
+                fallback={
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${currentRule.colorClass}`}>
+                    <span className={`h-1.5 w-1.5 rounded-full ${currentRule.dotColor}`} />
+                    {currentRule.label}
+                  </span>
+                }
+              >
+                <div className="relative inline-flex items-center">
+                  <select
+                    value={course.ruleoutcome}
+                    onChange={(e) => onUpdateCourseRule(course.id, e.target.value)}
+                    title={currentRule.description}
+                    className={`text-xs font-semibold rounded-lg px-2.5 py-1.5 border appearance-none pr-7 cursor-pointer transition-colors focus:ring-2 focus:ring-primary focus:outline-none ${currentRule.colorClass}`}
+                  >
+                    {RULE_OUTCOMES.map((ro) => (
+                      <option key={ro.value} value={ro.value}>
+                        {ro.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="h-3.5 w-3.5 absolute right-2 pointer-events-none opacity-60" />
+                </div>
+              </PermissionGate>
+            )}
           </div>
 
           {/* Action buttons */}
           <div className="flex items-center gap-1.5">
-            <PermissionGate capability="can_manage_competencies">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onOpenAddActivityModal(course)}
-                className="text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10 h-8"
-                title="Vincular actividad del curso"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Actividad</span>
-              </Button>
+            {!isReadOnly && (
+              <PermissionGate capability="can_manage_competencies">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onOpenAddActivityModal(course)}
+                  className="text-xs gap-1 text-primary hover:text-primary hover:bg-primary/10 h-8"
+                  title="Vincular actividad del curso"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Actividad</span>
+                </Button>
 
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onRequestUnlinkCourse(course)}
-                className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                title="Desvincular curso"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </PermissionGate>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => onRequestUnlinkCourse(course)}
+                  className="h-8 w-8 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                  title="Desvincular curso"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </PermissionGate>
+            )}
 
             {window.ADMINER_CONFIG?.wwwroot && (
               <a
@@ -170,38 +195,46 @@ export const CompetencyCourseCard = ({
               </h4>
             </div>
 
-            <PermissionGate capability="can_manage_competencies">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onOpenAddActivityModal(course)}
-                className="h-7 text-xs gap-1"
-              >
-                <Plus className="h-3 w-3" />
-                Asociar Actividad
-              </Button>
-            </PermissionGate>
+            {!isReadOnly && (
+              <PermissionGate capability="can_manage_competencies">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenAddActivityModal(course)}
+                  className="h-7 text-xs gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Asociar Actividad
+                </Button>
+              </PermissionGate>
+            )}
           </div>
 
           {activities.length === 0 ? (
             <div className="py-6 px-4 text-center rounded-lg border border-dashed border-border/80 bg-background/50">
               <p className="text-xs text-muted-foreground">
-                No hay actividades específicas vinculadas a esta competencia en este curso.
+                {isReadOnly
+                  ? 'No hay actividades específicas asociadas a esta subcompetencia en este curso.'
+                  : 'No hay actividades específicas vinculadas a esta competencia en este curso.'}
               </p>
-              <p className="text-[11px] text-muted-foreground/80 mt-0.5">
-                Puedes asociar exámenes o tareas clave para que al completarlas se registre la competencia.
-              </p>
-              <PermissionGate capability="can_manage_competencies">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onOpenAddActivityModal(course)}
-                  className="mt-2 text-xs text-primary gap-1"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Vincular Primera Actividad
-                </Button>
-              </PermissionGate>
+              {!isReadOnly && (
+                <>
+                  <p className="text-[11px] text-muted-foreground/80 mt-0.5">
+                    Puedes asociar exámenes o tareas clave para que al completarlas se registre la competencia.
+                  </p>
+                  <PermissionGate capability="can_manage_competencies">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onOpenAddActivityModal(course)}
+                      className="mt-2 text-xs text-primary gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Vincular Primera Actividad
+                    </Button>
+                  </PermissionGate>
+                </>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2">
@@ -236,44 +269,53 @@ export const CompetencyCourseCard = ({
                           Al completar:
                         </span>
 
-                        <PermissionGate
-                          capability="can_manage_competencies"
-                          fallback={
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${actRule.colorClass}`}>
-                              <span className={`h-1.5 w-1.5 rounded-full ${actRule.dotColor}`} />
-                              {actRule.label}
-                            </span>
-                          }
-                        >
-                          <div className="relative inline-flex items-center">
-                            <select
-                              value={act.ruleoutcome}
-                              onChange={(e) => onUpdateModuleRule(act.cmid, e.target.value)}
-                              title={actRule.description}
-                              className={`text-[11px] font-medium rounded-md px-2 py-1 border appearance-none pr-6 cursor-pointer focus:ring-1 focus:ring-primary focus:outline-none ${actRule.colorClass}`}
-                            >
-                              {RULE_OUTCOMES.map((ro) => (
-                                <option key={ro.value} value={ro.value}>
-                                  {ro.label}
-                                </option>
-                              ))}
-                            </select>
-                            <ChevronDown className="h-3 w-3 absolute right-1.5 pointer-events-none opacity-60" />
-                          </div>
-                        </PermissionGate>
+                        {isReadOnly ? (
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${actRule.colorClass}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${actRule.dotColor}`} />
+                            {actRule.label}
+                          </span>
+                        ) : (
+                          <PermissionGate
+                            capability="can_manage_competencies"
+                            fallback={
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium border ${actRule.colorClass}`}>
+                                <span className={`h-1.5 w-1.5 rounded-full ${actRule.dotColor}`} />
+                                {actRule.label}
+                              </span>
+                            }
+                          >
+                            <div className="relative inline-flex items-center">
+                              <select
+                                value={act.ruleoutcome}
+                                onChange={(e) => onUpdateModuleRule(act.cmid, e.target.value)}
+                                title={actRule.description}
+                                className={`text-[11px] font-medium rounded-md px-2 py-1 border appearance-none pr-6 cursor-pointer focus:ring-1 focus:ring-primary focus:outline-none ${actRule.colorClass}`}
+                              >
+                                {RULE_OUTCOMES.map((ro) => (
+                                  <option key={ro.value} value={ro.value}>
+                                    {ro.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <ChevronDown className="h-3 w-3 absolute right-1.5 pointer-events-none opacity-60" />
+                            </div>
+                          </PermissionGate>
+                        )}
                       </div>
 
-                      <PermissionGate capability="can_manage_competencies">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => onRequestUnlinkActivity(act)}
-                          className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                          title="Desvincular actividad"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </PermissionGate>
+                      {!isReadOnly && (
+                        <PermissionGate capability="can_manage_competencies">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => onRequestUnlinkActivity(act)}
+                            className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                            title="Desvincular actividad"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </PermissionGate>
+                      )}
                     </div>
                   </div>
                 );

@@ -5,8 +5,9 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
-import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX, KeyRound } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatDate } from '../lib/utils';
 import { API_CONFIG } from '../config/api';
 import { UserCoursesTab } from './users/UserCoursesTab';
@@ -26,6 +27,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [tempPassConfirmOpen, setTempPassConfirmOpen] = useState(false);
+  const [tempPassLoading, setTempPassLoading] = useState(false);
 
   useEffect(() => {
     if (error) {
@@ -130,6 +133,27 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     }
   };
 
+  const handleSendTempPassword = async () => {
+    try {
+      setTempPassLoading(true);
+      const res = await userAction.mutateAsync({ action: 'send_temp_password', userids: [userId] });
+      if (res.success) {
+        addToast({
+          type: 'success',
+          title: 'Contraseña temporal enviada',
+          description: `Se envió el correo con la contraseña temporal e instrucciones a ${data.fullname}.`
+        });
+        setTempPassConfirmOpen(false);
+      } else {
+        addToast({ type: 'error', title: 'Error al enviar clave temporal', description: res.message });
+      }
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error', description: err.message });
+    } finally {
+      setTempPassLoading(false);
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex justify-center p-12">
@@ -185,6 +209,9 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
             </Button>
             <Button variant="outline" onClick={() => setMessageModalOpen(true)}>
               <MessageSquare className="h-4 w-4 mr-2" /> Mensaje
+            </Button>
+            <Button variant="outline" onClick={() => setTempPassConfirmOpen(true)}>
+              <KeyRound className="h-4 w-4 mr-2" /> Clave Temporal
             </Button>
           </PermissionGate>
           <Button
@@ -323,6 +350,17 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           </div>
         </div>
       </Dialog>
+
+      {/* Modal: Confirmar Envío de Contraseña Temporal */}
+      <ConfirmDialog
+        open={tempPassConfirmOpen}
+        onClose={() => setTempPassConfirmOpen(false)}
+        onConfirm={handleSendTempPassword}
+        title="¿Enviar link de contraseña temporal?"
+        description={`Se enviará un correo electrónico a ${data.fullname} (${data.email}) con una contraseña temporal e instrucciones de ingreso. Al iniciar sesión, se le solicitará cambiar su contraseña.`}
+        loading={tempPassLoading}
+        confirmText="Sí, enviar enlace"
+      />
 
     </div>
   );

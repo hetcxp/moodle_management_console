@@ -425,7 +425,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black tracking-tight text-foreground">Gestión de Cursos</h1>
-            <Badge variant="secondary">{totalCount} cursos</Badge>
+            <Badge variant="secondary">{totalCount} {totalCount === 1 ? 'curso' : 'cursos'}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Administra la visibilidad, organización y métricas de finalización de cursos.

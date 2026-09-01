@@ -320,7 +320,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black tracking-tight text-foreground">Categorías de Cursos</h1>
-            <Badge variant="secondary">{totalCategories} categorías</Badge>
+            <Badge variant="secondary">{totalCategories} {totalCategories === 1 ? 'categoría' : 'categorías'}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Estructura organizativa y ramas de contenidos de Moodle.

@@ -22,26 +22,45 @@ export const CompetencyDetailHeader = ({
   totalCoursesCount,
   totalActivitiesCount,
   completeRuleCoursesCount,
+  subcompetenciesCount = 0,
   onBack,
   onNavigateToDetail,
   onOpenReviews,
-  onOpenLinkCourses
+  onOpenLinkCourses,
+  onOpenCreateSubcompetency
 }) => {
+  const hasParent = competency?.parentid > 0;
+  const isRuleActive = competency?.ruletype === 'core_competency\\competency_rule_all_children';
+
   return (
     <>
       {/* Header & Breadcrumbs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-6">
         <div>
           {/* Breadcrumb */}
-          <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
+          <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4 flex-wrap gap-y-1">
             <button
               onClick={() => onNavigateToDetail ? onNavigateToDetail('competency_framework', frameIdNum) : onBack()}
               className="flex items-center hover:text-foreground transition-colors"
             >
               <ChevronLeft className="h-4 w-4 mr-1" /> {effectiveFrameworkName}
             </button>
+
+            {hasParent && (
+              <>
+                <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+                <button
+                  type="button"
+                  onClick={() => onNavigateToDetail ? onNavigateToDetail('competency', { frameworkId: frameIdNum, competencyId: competency.parentid }) : null}
+                  className="hover:text-foreground transition-colors max-w-[200px] truncate"
+                >
+                  {competency.parentname || `Competencia #${competency.parentid}`}
+                </button>
+              </>
+            )}
+
             <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
-            <span className="text-foreground truncate max-w-[300px]">
+            <span className="text-foreground truncate max-w-[260px] font-semibold">
               {competency?.shortname || `Competencia #${compIdNum}`}
             </span>
           </nav>
@@ -60,6 +79,18 @@ export const CompetencyDetailHeader = ({
                     {competency.idnumber}
                   </Badge>
                 )}
+                {isRuleActive && (
+                  <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 text-xs">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Auto-completado Activo
+                  </Badge>
+                )}
+                {hasParent && (
+                  <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30 text-xs">
+                    <Layers className="h-3 w-3 mr-1" />
+                    Subcompetencia
+                  </Badge>
+                )}
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Pertenece al marco:{' '}
@@ -70,6 +101,19 @@ export const CompetencyDetailHeader = ({
                 >
                   {effectiveFrameworkName}
                 </button>
+                {hasParent && (
+                  <>
+                    {' · '}
+                    <span>Hija de: </span>
+                    <button
+                      type="button"
+                      onClick={() => onNavigateToDetail ? onNavigateToDetail('competency', { frameworkId: frameIdNum, competencyId: competency.parentid }) : null}
+                      className="font-medium text-foreground hover:underline hover:text-primary transition-colors"
+                    >
+                      {competency.parentname || `Competencia #${competency.parentid}`}
+                    </button>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -93,6 +137,16 @@ export const CompetencyDetailHeader = ({
           </Button>
 
           <PermissionGate capability="can_manage_competencies">
+            {!hasParent && (
+              <Button
+                variant="outline"
+                onClick={onOpenCreateSubcompetency}
+                className="gap-1.5 shadow-sm text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Nueva Subcompetencia</span>
+              </Button>
+            )}
             <Button
               variant="default"
               onClick={onOpenLinkCourses}
@@ -115,6 +169,28 @@ export const CompetencyDetailHeader = ({
 
       {/* Standalone KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {!hasParent ? (
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3.5">
+            <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
+              <Layers className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Subcompetencias</p>
+              <h3 className="text-xl font-bold text-foreground">{subcompetenciesCount}</h3>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3.5">
+            <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
+              <BookOpen className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Actividades Totales</p>
+              <h3 className="text-xl font-bold text-foreground">{totalActivitiesCount}</h3>
+            </div>
+          </div>
+        )}
+
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3.5">
           <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-600 dark:text-blue-400">
             <BookOpen className="h-5 w-5" />
@@ -122,16 +198,6 @@ export const CompetencyDetailHeader = ({
           <div>
             <p className="text-sm font-medium text-muted-foreground">Cursos Vinculados</p>
             <h3 className="text-xl font-bold text-foreground">{totalCoursesCount}</h3>
-          </div>
-        </div>
-
-        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3.5">
-          <div className="p-2.5 bg-purple-500/10 rounded-xl text-purple-600 dark:text-purple-400">
-            <Layers className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Actividades Clave</p>
-            <h3 className="text-xl font-bold text-foreground">{totalActivitiesCount}</h3>
           </div>
         </div>
 

@@ -24,7 +24,9 @@ import {
   Info,
   Calendar,
   BookOpen,
-  Clock
+  Clock,
+  CornerDownRight,
+  CheckCircle2
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
@@ -41,10 +43,10 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
   const hasManageCompetencies = permissions?.is_siteadmin === 1 || permissions?.can_manage_competencies === 1;
 
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const [perPage] = useState(50);
-  const [sort, setSort] = useState('sortorder');
+  const [sort, setSort] = useState('shortname');
   const [dir, setDir] = useState('ASC');
+  const [page, setPage] = useState(0);
+  const [perPage, setPerPage] = useState(100);
 
   const { data: framework, isLoading, isFetching, refetch } = useCompetencyFrameworkDetail(frameworkId, search);
 
@@ -58,7 +60,7 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCompetency, setEditingCompetency] = useState(null);
-  const [formData, setFormData] = useState({ shortname: '', idnumber: '', description: '' });
+  const [formData, setFormData] = useState({ shortname: '', idnumber: '', description: '', parentid: 0 });
   const [formLoading, setFormLoading] = useState(false);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -82,7 +84,13 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
 
   const handleOpenCreate = () => {
     setEditingCompetency(null);
-    setFormData({ shortname: '', idnumber: '', description: '' });
+    setFormData({ shortname: '', idnumber: '', description: '', parentid: 0 });
+    setModalOpen(true);
+  };
+
+  const handleOpenCreateSubcomp = (parentComp) => {
+    setEditingCompetency(null);
+    setFormData({ shortname: '', idnumber: '', description: '', parentid: parentComp.id });
     setModalOpen(true);
   };
 
@@ -92,6 +100,7 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
       shortname: comp.shortname,
       idnumber: comp.idnumber,
       description: comp.description,
+      parentid: comp.parentid || 0,
     });
     setModalOpen(true);
   };
@@ -113,6 +122,7 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
         await performCompetencyAction({
           action: 'edit',
           competencyid: editingCompetency.id,
+          parentid: Number(formData.parentid || 0),
           shortname: formData.shortname,
           idnumber: formData.idnumber,
           description: formData.description,
@@ -122,13 +132,18 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
         await performCompetencyAction({
           action: 'create',
           frameworkid: Number(frameworkId),
+          parentid: Number(formData.parentid || 0),
           shortname: formData.shortname,
           idnumber: formData.idnumber,
           description: formData.description,
         });
-        addToast({ type: 'success', title: 'Competencia creada' });
+        addToast({
+          type: 'success',
+          title: formData.parentid > 0 ? 'Subcompetencia creada' : 'Competencia creada'
+        });
       }
       setModalOpen(false);
+      refetch();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al guardar', description: err.message });
     } finally {
@@ -152,6 +167,7 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
       addToast({ type: 'success', title: 'Competencia eliminada' });
       setDeleteConfirmOpen(false);
       setCompetencyToDelete(null);
+      refetch();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
     } finally {
@@ -177,55 +193,120 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
   };
 
   const handleExport = () => {
-    const cols = [
-      { label: 'ID', accessor: 'id' },
-      { label: 'Competencia (Nivel 1)', accessor: 'shortname' },
-      { label: 'Código / ID Number', accessor: 'idnumber' },
-      { label: 'Cursos Vinculados', accessor: 'coursescount' },
-      { label: 'Ruta Jerárquica', accessor: 'path' },
-      { label: 'Descripción', accessor: 'description' },
-      { label: 'Fecha de Creación', accessor: (r) => (r.timecreated ? formatDate(r.timecreated) : '') },
+    const filename = `competencias_marco_${frameworkId}_${new Date().toISOString().split('T')[0]}`;
+    const headers = [
+      { key: 'id', label: 'ID' },
+      { key: 'shortname', label: 'Competencia' },
+      { key: 'idnumber', label: 'Código ID' },
+      { key: 'parentname', label: 'Competencia Padre' },
+      { key: 'coursescount', label: 'Cursos Vinculados' },
+      { key: 'childrencount', label: 'Subcompetencias' },
+      { key: 'pendingreviewscount', label: 'Revisiones Pendientes' },
+      { key: 'description', label: 'Descripción' },
     ];
-    exportToCsv(`competencias_${framework?.idnumber || frameworkId}`, competencies, cols);
+    exportToCsv(competencies, headers, filename);
     setExportModalOpen(false);
+    addToast({ type: 'success', title: 'Exportación completada', description: `Se exportaron ${competencies.length} competencias.` });
   };
 
   const handleOpenCompetencyDetail = (comp) => {
     if (onNavigateToDetail) {
-      onNavigateToDetail('competency', { frameworkId: Number(frameworkId), competencyId: comp.id });
+      onNavigateToDetail('competency', {
+        frameworkId: Number(frameworkId),
+        competencyId: comp.id,
+      });
     }
   };
 
   const columns = [
     {
-      header: 'Competencia (Nivel 1)',
+      header: 'Competencia',
       sortKey: 'shortname',
-      cell: (row) => (
-        <div
-          className="flex items-center gap-3 cursor-pointer group"
-          onClick={() => handleOpenCompetencyDetail(row)}
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 font-bold group-hover:bg-blue-500 group-hover:text-white transition-colors dark:bg-blue-500/20 dark:text-blue-400">
-            <Layers className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-foreground group-hover:text-primary transition-colors">{row.shortname}</div>
-            {row.idnumber ? (
-              <div className="text-xs font-mono text-muted-foreground">Código: {row.idnumber}</div>
+      cell: (row) => {
+        const hasRule = row.ruletype === 'core_competency\\competency_rule_all_children';
+        const isSubcomp = (row.parentid || 0) > 0;
+        const level = row.level || (isSubcomp ? 2 : 1);
+        const indentPadding = isSubcomp ? Math.min((level - 1) * 24, 48) : 0;
+
+        return (
+          <div
+            className="flex items-center gap-3 cursor-pointer group"
+            style={{ paddingLeft: `${indentPadding}px` }}
+            onClick={() => handleOpenCompetencyDetail(row)}
+          >
+            {isSubcomp ? (
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 font-bold dark:bg-indigo-500/20 dark:text-indigo-400 shrink-0">
+                <CornerDownRight className="h-4 w-4" />
+              </div>
             ) : (
-              <div className="text-xs text-muted-foreground italic">Sin código ID</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 font-bold group-hover:bg-blue-500 group-hover:text-white transition-colors dark:bg-blue-500/20 dark:text-blue-400 shrink-0">
+                <Layers className="h-4 w-4" />
+              </div>
             )}
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                  {row.shortname}
+                </span>
+
+                {hasRule && (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
+                    <Sparkles className="h-2.5 w-2.5 mr-1" />
+                    Auto-completar
+                  </Badge>
+                )}
+              </div>
+
+              <div className="text-xs text-muted-foreground mt-0.5 space-y-0.5">
+                <div>
+                  {row.idnumber ? (
+                    <span className="font-mono">Código: {row.idnumber}</span>
+                  ) : (
+                    <span className="italic">Sin código ID</span>
+                  )}
+                </div>
+
+                {isSubcomp && row.parentname && (
+                  <div className="text-indigo-600 dark:text-indigo-400 font-medium">
+                    Hija de: {row.parentname}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
-      header: 'Nivel Jerárquico',
-      cell: () => (
-        <Badge variant="outline" className="text-xs font-mono">
-          Nivel 1 (Principal)
-        </Badge>
-      ),
+      header: 'Subcompetencias',
+      sortKey: 'childrencount',
+      cell: (row) => {
+        const isSubcomp = (row.parentid || 0) > 0;
+        if (isSubcomp) {
+          return (
+            <span className="text-xs text-muted-foreground italic">
+              —
+            </span>
+          );
+        }
+        const count = row.childrencount || 0;
+        return (
+          <button
+            type="button"
+            onClick={() => handleOpenCompetencyDetail(row)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+              count > 0
+                ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/20'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+            title="Ver subcompetencias hijas"
+          >
+            <Layers className="h-3.5 w-3.5" />
+            <span>{count} subcompetencia(s)</span>
+          </button>
+        );
+      },
     },
     {
       header: 'Cursos & Actividades',
@@ -253,53 +334,69 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
     {
       header: 'Acciones',
       className: 'text-right',
-      cell: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleOpenCompetencyDetail(row)}
-            title="Gestionar cursos, reglas y actividades clave"
-            className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
-          >
-            <BookOpen className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleOpenReviewsForCompetency(row)}
-            title={row.pendingreviewscount > 0 ? `Ver ${row.pendingreviewscount} revisión(es) pendiente(s)` : 'Ver revisiones pendientes'}
-            className={`h-8 w-8 relative ${row.pendingreviewscount > 0 ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-muted-foreground hover:text-foreground'}`}
-          >
-            <Clock className="h-4 w-4" />
-            {row.pendingreviewscount > 0 && (
-              <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm">
-                {row.pendingreviewscount}
-              </span>
-            )}
-          </Button>
-          <PermissionGate capability="can_manage_competencies">
+      cell: (row) => {
+        const isSubcomp = (row.parentid || 0) > 0;
+        return (
+          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            <PermissionGate capability="can_manage_competencies">
+              {!isSubcomp && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleOpenCreateSubcomp(row)}
+                  title="Crear subcompetencia hija para esta competencia"
+                  className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-500/10"
+                >
+                  <Layers className="h-4 w-4" />
+                </Button>
+              )}
+            </PermissionGate>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleOpenEdit(row)}
-              title="Editar competencia"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => handleOpenCompetencyDetail(row)}
+              title="Gestionar cursos, subcompetencias y reglas"
+              className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
             >
-              <Edit className="h-4 w-4" />
+              <BookOpen className="h-4 w-4" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleOpenDelete(row)}
-              title="Eliminar competencia"
-              className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+              onClick={() => handleOpenReviewsForCompetency(row)}
+              title={row.pendingreviewscount > 0 ? `Ver ${row.pendingreviewscount} revisión(es) pendiente(s)` : 'Ver revisiones pendientes'}
+              className={`h-8 w-8 relative ${row.pendingreviewscount > 0 ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Trash2 className="h-4 w-4" />
+              <Clock className="h-4 w-4" />
+              {row.pendingreviewscount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold text-white shadow-sm">
+                  {row.pendingreviewscount}
+                </span>
+              )}
             </Button>
-          </PermissionGate>
-        </div>
-      ),
+            <PermissionGate capability="can_manage_competencies">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleOpenEdit(row)}
+                title="Editar competencia"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => handleOpenDelete(row)}
+                title="Eliminar competencia"
+                className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </PermissionGate>
+          </div>
+        );
+      },
     },
   ];
 
@@ -472,8 +569,18 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
       <Dialog
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        title={editingCompetency ? 'Editar Competencia' : 'Nueva Competencia (Nivel 1)'}
-        description="Define la competencia institucional dentro de este marco."
+        title={
+          editingCompetency
+            ? 'Editar Competencia'
+            : formData.parentid > 0
+            ? 'Nueva Subcompetencia'
+            : 'Nueva Competencia (Nivel 1)'
+        }
+        description={
+          formData.parentid > 0
+            ? 'Crea una subcompetencia jerárquica asociada a una competencia padre.'
+            : 'Define la competencia institucional dentro de este marco.'
+        }
         footer={
           <>
             <Button variant="outline" onClick={() => setModalOpen(false)}>
@@ -484,12 +591,41 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
                 ? 'Guardando...'
                 : editingCompetency
                 ? 'Guardar Cambios'
+                : formData.parentid > 0
+                ? 'Crear Subcompetencia'
                 : 'Crear Competencia'}
             </Button>
           </>
         }
       >
         <form onSubmit={handleSaveCompetency} className="space-y-4 pt-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Jerarquía / Nivel</label>
+            {editingCompetency && (competencies.some((c) => c.parentid === editingCompetency.id) || (editingCompetency.childrencount || 0) > 0) ? (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+                <span className="font-semibold">Nivel 1 (Competencia Principal)</span>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  Esta competencia tiene subcompetencias asociadas y no puede convertirse en subcompetencia.
+                </p>
+              </div>
+            ) : (
+              <select
+                value={formData.parentid}
+                onChange={(e) => setFormData({ ...formData, parentid: Number(e.target.value) })}
+                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                <option value="0">Nivel 1 (Competencia Principal)</option>
+                {competencies
+                  .filter((c) => (c.parentid || 0) === 0 && (!editingCompetency || c.id !== editingCompetency.id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      Subcompetencia de: {c.shortname} {c.idnumber ? `(${c.idnumber})` : ''}
+                    </option>
+                  ))}
+              </select>
+            )}
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">Nombre de la Competencia *</label>
             <Input

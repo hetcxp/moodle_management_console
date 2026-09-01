@@ -298,8 +298,9 @@ export const DataTable = memo(({
                     </tr>
                   )}
                   
-                  {(virtualize ? rowVirtualizer.getVirtualItems() : processedData).map((item, index) => {
-                    const rowIdx = virtualize ? item.index : index;
+                  {(virtualize && rowVirtualizer.getVirtualItems().length > 0 ? rowVirtualizer.getVirtualItems() : processedData).map((item, index) => {
+                    const isVirtualItem = virtualize && item.index !== undefined;
+                    const rowIdx = isVirtualItem ? item.index : index;
                     const row = processedData[rowIdx];
                     const rowId = row[keyField];
                     const isSelected = selectedIds.includes(rowId);
@@ -307,8 +308,8 @@ export const DataTable = memo(({
                     return (
                       <tr
                         key={rowId || rowIdx}
-                        data-index={virtualize ? item.index : undefined}
-                        ref={virtualize ? rowVirtualizer.measureElement : null}
+                        data-index={isVirtualItem ? item.index : undefined}
+                        ref={isVirtualItem ? rowVirtualizer.measureElement : null}
                         onClick={(e) => {
                         if (onRowClick && !e.target.closest('td:first-child > button, td:first-child > input, td:last-child > button')) {
                           onRowClick(row);

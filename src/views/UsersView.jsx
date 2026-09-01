@@ -13,11 +13,12 @@ import { formatDate } from '../lib/utils';
 import { PermissionGate } from '../components/PermissionGate';
 import { useAuth } from '../context/AuthContext';
 import { API_CONFIG } from '../config/api';
-import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload, ExternalLink, Activity, Users } from 'lucide-react';
+import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload, ExternalLink, Activity, Users, KeyRound } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { KpiGrid } from '../components/KpiGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Select } from '../components/ui/Select';
+import { Checkbox } from '../components/ui/Checkbox';
 
 export const UsersView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -61,12 +62,19 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const [uploadCsvOpen, setUploadCsvOpen] = useState(false);
   const [csvFile, setCsvFile] = useState(null);
   const [userForm, setUserForm] = useState({ firstname: '', lastname: '', email: '', username: '', password: '' });
+  const [useEmailAsUsername, setUseEmailAsUsername] = useState(false);
+  const [createAndSendPassword, setCreateAndSendPassword] = useState(false);
   const [userErrors, setUserErrors] = useState({});
 
   // Confirm delete modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [usersToDelete, setUsersToDelete] = useState([]);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Confirm temp password modal
+  const [tempPassConfirmOpen, setTempPassConfirmOpen] = useState(false);
+  const [usersForTempPass, setUsersForTempPass] = useState([]);
+  const [tempPassLoading, setTempPassLoading] = useState(false);
 
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -125,6 +133,29 @@ export const UsersView = ({ onNavigateToDetail }) => {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
       setDeleteLoading(false);
+    }
+  };
+
+  const handleOpenTempPassConfirm = (ids = selectedIds) => {
+    setUsersForTempPass(ids);
+    setTempPassConfirmOpen(true);
+  };
+
+  const handleExecuteSendTempPassword = async () => {
+    setTempPassLoading(true);
+    try {
+      await performUserAction({ action: 'send_temp_password', userids: usersForTempPass });
+      addToast({
+        type: 'success',
+        title: 'Contraseña temporal enviada',
+        description: `Se envió el correo con la contraseña temporal e instrucciones a ${usersForTempPass.length} usuario(s).`
+      });
+      setTempPassConfirmOpen(false);
+      setSelectedIds([]);
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error', description: err.message });
+    } finally {
+      setTempPassLoading(false);
     }
   };
 
@@ -351,12 +382,28 @@ export const UsersView = ({ onNavigateToDetail }) => {
           </Button>
 
           <PermissionGate capability="can_update_users">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Enviar link de contraseña temporal"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenTempPassConfirm([row.id]);
+              }}
+              disabled={row.is_admin === 1}
+              className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+            >
+              <KeyRound className="h-4 w-4" />
+            </Button>
             {row.is_active === 1 ? (
               <Button
                 variant="ghost"
                 size="icon"
                 title="Suspender usuario"
-                onClick={() => handleBulkSuspend([row.id])}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBulkSuspend([row.id]);
+                }}
                 disabled={row.is_admin === 1}
                 className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
               >
@@ -367,7 +414,10 @@ export const UsersView = ({ onNavigateToDetail }) => {
                 variant="ghost"
                 size="icon"
                 title="Activar usuario"
-                onClick={() => handleBulkActivate([row.id])}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleBulkActivate([row.id]);
+                }}
                 className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
               >
                 <UserCheck className="h-4 w-4" />
@@ -380,7 +430,10 @@ export const UsersView = ({ onNavigateToDetail }) => {
               variant="ghost"
               size="icon"
               title="Eliminar usuario"
-              onClick={() => handleOpenDelete([row.id])}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenDelete([row.id]);
+              }}
               disabled={row.is_admin === 1}
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
@@ -398,7 +451,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black tracking-tight text-foreground">Directorio de Usuarios</h1>
-            <Badge variant="secondary">{totalCount} usuarios</Badge>
+            <Badge variant="secondary">{totalCount} {totalCount === 1 ? 'usuario' : 'usuarios'}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Supervisa el estado de las cuentas, cohortes y avance en los cursos.
@@ -485,6 +538,12 @@ export const UsersView = ({ onNavigateToDetail }) => {
               icon: <UserX className="h-3.5 w-3.5" />,
               onClick: handleBulkSuspend,
               variant: 'warning'
+            },
+            {
+              label: 'Enviar Contraseña Temporal',
+              icon: <KeyRound className="h-3.5 w-3.5" />,
+              onClick: handleOpenTempPassConfirm,
+              variant: 'secondary'
             }
           ] : []),
           ...(hasDeleteUsers ? [{
@@ -495,6 +554,17 @@ export const UsersView = ({ onNavigateToDetail }) => {
           }] : [])
         ]}
         virtualize={true}
+      />
+
+      {/* Modal: Confirmar Envío de Contraseña Temporal */}
+      <ConfirmDialog
+        open={tempPassConfirmOpen}
+        onClose={() => setTempPassConfirmOpen(false)}
+        onConfirm={handleExecuteSendTempPassword}
+        title="¿Enviar link de contraseña temporal?"
+        description="Esta acción enviará un correo electrónico a los usuarios seleccionados con una contraseña temporal e instrucciones de ingreso. Al iniciar sesión, se les pedirá cambiar su contraseña."
+        loading={tempPassLoading}
+        confirmText={`Sí, enviar a ${usersForTempPass.length} usuario(s)`}
       />
 
       {/* Modal: Confirmar Borrado */}
@@ -511,46 +581,98 @@ export const UsersView = ({ onNavigateToDetail }) => {
       {/* Modal: Añadir Usuario */}
       <Dialog
         open={addUserOpen}
-        onClose={() => { setAddUserOpen(false); setUserErrors({}); setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' }); }}
+        onClose={() => {
+          setAddUserOpen(false);
+          setUserErrors({});
+          setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
+          setUseEmailAsUsername(false);
+          setCreateAndSendPassword(false);
+        }}
         title="Añadir Nuevo Usuario"
         description="Completa los datos para crear un nuevo usuario en la plataforma."
         footer={
           <>
-            <Button variant="outline" onClick={() => { setAddUserOpen(false); setUserErrors({}); setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' }); }}>Cancelar</Button>
-            <Button onClick={async () => {
-              const newErrors = {};
-              if (!userForm.firstname || userForm.firstname.trim().length < 2) newErrors.firstname = 'El nombre debe tener al menos 2 caracteres.';
-              if (!userForm.lastname || userForm.lastname.trim().length < 2) newErrors.lastname = 'El apellido debe tener al menos 2 caracteres.';
-              if (!userForm.email || !/^\S+@\S+\.\S+$/.test(userForm.email)) newErrors.email = 'Debe ser un email válido.';
-              if (!userForm.username || userForm.username.trim().length < 3) newErrors.username = 'El usuario debe tener al menos 3 caracteres.';
-              if (!userForm.password || userForm.password.length < 6) newErrors.password = 'La contraseña debe tener al menos 6 caracteres.';
-              
-              setUserErrors(newErrors);
-              if (Object.keys(newErrors).length === 0) {
-                setIsActionLoading(true);
-                try {
-                  const result = await performAddUser(userForm);
-                  if (result.success) {
-                    addToast({ title: 'Usuario Creado', description: `ID: ${result.userid}`, type: 'success' });
-                    setAddUserOpen(false);
-                    setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
-                  } else {
-                    addToast({ title: 'Error', description: result.message, type: 'error' });
-                  }
-                } catch (err) {
-                  addToast({ title: 'Error', description: err.message, type: 'error' });
-                } finally {
-                  setIsActionLoading(false);
+            <Button
+              variant="outline"
+              onClick={() => {
+                setAddUserOpen(false);
+                setUserErrors({});
+                setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
+                setUseEmailAsUsername(false);
+                setCreateAndSendPassword(false);
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              disabled={isActionLoading}
+              onClick={async () => {
+                const newErrors = {};
+                if (!userForm.firstname || userForm.firstname.trim().length < 2) {
+                  newErrors.firstname = 'El nombre debe tener al menos 2 caracteres.';
                 }
-              }
-            }}>Guardar Usuario</Button>
+                if (!userForm.lastname || userForm.lastname.trim().length < 2) {
+                  newErrors.lastname = 'El apellido debe tener al menos 2 caracteres.';
+                }
+                if (!userForm.email || !/^\S+@\S+\.\S+$/.test(userForm.email)) {
+                  newErrors.email = 'Debe ser un email válido.';
+                }
+
+                const effectiveUsername = useEmailAsUsername ? userForm.email : userForm.username;
+                if (!effectiveUsername || effectiveUsername.trim().length < 3) {
+                  newErrors.username = 'El usuario debe tener al menos 3 caracteres.';
+                }
+
+                if (!createAndSendPassword) {
+                  if (!userForm.password || userForm.password.length < 6) {
+                    newErrors.password = 'La contraseña debe tener al menos 6 caracteres.';
+                  }
+                }
+                
+                setUserErrors(newErrors);
+                if (Object.keys(newErrors).length === 0) {
+                  setIsActionLoading(true);
+                  try {
+                    const result = await performAddUser({
+                      firstname: userForm.firstname.trim(),
+                      lastname: userForm.lastname.trim(),
+                      email: userForm.email.trim(),
+                      username: effectiveUsername.trim().toLowerCase(),
+                      password: createAndSendPassword ? '' : userForm.password,
+                      createpassword: createAndSendPassword ? 1 : 0
+                    });
+                    if (result.success) {
+                      addToast({
+                        title: 'Usuario Creado',
+                        description: createAndSendPassword
+                          ? `Usuario creado con ID: ${result.userid}. Se ha enviado la contraseña por correo.`
+                          : `ID: ${result.userid}`,
+                        type: 'success'
+                      });
+                      setAddUserOpen(false);
+                      setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
+                      setUseEmailAsUsername(false);
+                      setCreateAndSendPassword(false);
+                    } else {
+                      addToast({ title: 'Error', description: result.message, type: 'error' });
+                    }
+                  } catch (err) {
+                    addToast({ title: 'Error', description: err.message, type: 'error' });
+                  } finally {
+                    setIsActionLoading(false);
+                  }
+                }
+              }}
+            >
+              {isActionLoading ? 'Guardando...' : 'Guardar Usuario'}
+            </Button>
           </>
         }
       >
         <div className="space-y-4 pt-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-xs font-semibold">Nombre *</label>
+              <label className="text-xs font-semibold text-foreground">Nombre *</label>
               <Input 
                 placeholder="Ej. Juan" 
                 value={userForm.firstname} 
@@ -560,7 +682,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
               {userErrors.firstname && <p className="text-xs text-destructive">{userErrors.firstname}</p>}
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-semibold">Apellidos *</label>
+              <label className="text-xs font-semibold text-foreground">Apellidos *</label>
               <Input 
                 placeholder="Ej. Pérez" 
                 value={userForm.lastname} 
@@ -570,37 +692,98 @@ export const UsersView = ({ onNavigateToDetail }) => {
               {userErrors.lastname && <p className="text-xs text-destructive">{userErrors.lastname}</p>}
             </div>
           </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-semibold">Email *</label>
+            <label className="text-xs font-semibold text-foreground">Email *</label>
             <Input 
               type="email" 
               placeholder="juan.perez@ejemplo.com" 
               value={userForm.email} 
-              onChange={(e) => setUserForm({...userForm, email: e.target.value})}
+              onChange={(e) => {
+                const val = e.target.value;
+                setUserForm(prev => ({
+                  ...prev,
+                  email: val,
+                  ...(useEmailAsUsername ? { username: val } : {})
+                }));
+              }}
               className={userErrors.email ? 'border-destructive' : ''}
             />
             {userErrors.email && <p className="text-xs text-destructive">{userErrors.email}</p>}
           </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-semibold">Nombre de usuario *</label>
+            <label className="text-xs font-semibold text-foreground">Nombre de usuario *</label>
             <Input 
               placeholder="juanperez" 
-              value={userForm.username} 
+              value={useEmailAsUsername ? userForm.email : userForm.username} 
+              disabled={useEmailAsUsername}
               onChange={(e) => setUserForm({...userForm, username: e.target.value})}
-              className={userErrors.username ? 'border-destructive' : ''}
+              className={`${userErrors.username && !useEmailAsUsername ? 'border-destructive' : ''} ${useEmailAsUsername ? 'bg-muted/60 text-muted-foreground cursor-not-allowed' : ''}`}
             />
-            {userErrors.username && <p className="text-xs text-destructive">{userErrors.username}</p>}
+            {userErrors.username && !useEmailAsUsername && (
+              <p className="text-xs text-destructive">{userErrors.username}</p>
+            )}
+
+            <div className="flex items-center gap-2 pt-0.5">
+              <Checkbox 
+                id="use-email-as-username"
+                checked={useEmailAsUsername}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setUseEmailAsUsername(isChecked);
+                  if (isChecked) {
+                    setUserForm(prev => ({ ...prev, username: prev.email }));
+                    if (userErrors.username) {
+                      setUserErrors(prev => ({ ...prev, username: null }));
+                    }
+                  }
+                }}
+              />
+              <label htmlFor="use-email-as-username" className="text-xs text-muted-foreground cursor-pointer select-none">
+                Usar el email como nombre de usuario
+              </label>
+            </div>
           </div>
+
           <div className="space-y-2">
-            <label className="text-xs font-semibold">Contraseña *</label>
-            <Input 
-              type="password" 
-              placeholder="Contraseña segura" 
-              value={userForm.password} 
-              onChange={(e) => setUserForm({...userForm, password: e.target.value})}
-              className={userErrors.password ? 'border-destructive' : ''}
-            />
-            {userErrors.password && <p className="text-xs text-destructive">{userErrors.password}</p>}
+            <label className="text-xs font-semibold text-foreground">
+              Contraseña {!createAndSendPassword && '*'}
+            </label>
+            {!createAndSendPassword ? (
+              <Input 
+                type="password" 
+                placeholder="Contraseña segura" 
+                value={userForm.password} 
+                onChange={(e) => setUserForm({...userForm, password: e.target.value})}
+                className={userErrors.password ? 'border-destructive' : ''}
+              />
+            ) : (
+              <div className="p-3 bg-muted/40 rounded-lg border border-border/60 text-xs text-muted-foreground flex items-start gap-2.5">
+                <Mail className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                <span>Se generará una contraseña segura automáticamente y se enviará por correo electrónico con las instrucciones de acceso.</span>
+              </div>
+            )}
+            {userErrors.password && !createAndSendPassword && (
+              <p className="text-xs text-destructive">{userErrors.password}</p>
+            )}
+
+            <div className="flex items-center gap-2 pt-0.5">
+              <Checkbox 
+                id="create-and-send-password"
+                checked={createAndSendPassword}
+                onChange={(e) => {
+                  const isChecked = e.target.checked;
+                  setCreateAndSendPassword(isChecked);
+                  if (isChecked && userErrors.password) {
+                    setUserErrors(prev => ({ ...prev, password: null }));
+                  }
+                }}
+              />
+              <label htmlFor="create-and-send-password" className="text-xs text-muted-foreground cursor-pointer select-none">
+                Crear y enviar la contraseña al usuario por correo
+              </label>
+            </div>
           </div>
         </div>
       </Dialog>

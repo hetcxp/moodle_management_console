@@ -3,15 +3,20 @@ import { X } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '../../lib/utils';
 
-export const Dialog = ({ open, onClose, title, description, children, footer, maxWidth = 'max-w-lg' }) => {
+export const Dialog = ({ open, onClose, onOpenChange, title, description, children, footer, maxWidth = 'max-w-lg' }) => {
   if (!open) return null;
+
+  const handleClose = () => {
+    if (onClose) onClose();
+    if (onOpenChange) onOpenChange(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden p-4 sm:p-6 animate-fadeIn">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Modal Box */}
@@ -27,7 +32,7 @@ export const Dialog = ({ open, onClose, title, description, children, footer, ma
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={handleClose}
             className="h-8 w-8 rounded-full text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />

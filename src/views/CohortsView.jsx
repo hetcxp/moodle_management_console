@@ -322,7 +322,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
         <div className="space-y-1">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-black tracking-tight text-foreground">Cohortes de Moodle</h1>
-            <Badge variant="secondary">{totalCount} cohortes</Badge>
+            <Badge variant="secondary">{totalCount} {totalCount === 1 ? 'cohorte' : 'cohortes'}</Badge>
           </div>
           <p className="text-sm text-muted-foreground">
             Grupos globales de usuarios sincronizados en la plataforma.

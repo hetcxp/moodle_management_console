@@ -231,6 +231,56 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
         />
       )}
 
+      {/* Modals */}
+      <Dialog
+        open={moveModalOpen}
+        onClose={() => setMoveModalOpen(false)}
+        title="Mover Cursos"
+        description={`Selecciona la categoría de destino para los ${coursesToMove.length} cursos seleccionados.`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setMoveModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleExecuteMove} disabled={!targetCategory || moveLoading}>
+              {moveLoading ? 'Moviendo...' : 'Mover Cursos'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-1.5 pt-2">
+          <label className="text-xs font-bold text-foreground">Categoría Destino</label>
+          <Select
+            value={targetCategory}
+            onChange={(e) => setTargetCategory(e.target.value)}
+          >
+            <option value="">-- Seleccionar categoría --</option>
+            {flatCategories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      </Dialog>
+
+      <CourseCreateModal 
+        open={createCourseModalOpen} 
+        onClose={() => setCreateCourseModalOpen(false)} 
+        onSuccess={() => {
+          setCreateCourseModalOpen(false);
+        }}
+        categoriesList={flatCategories} 
+        defaultCategoryId={categoryId}
+      />
+
+      <SelectorModal
+        open={bringCourseModalOpen}
+        onClose={() => setBringCourseModalOpen(false)}
+        title="Traer Cursos a esta Categoría"
+        entityType="courses"
+        multiple={true}
+        onSelect={handleBringCourses}
+        extraFilters={{ exclude_category: parseInt(categoryId, 10) }}
+      />
     </div>
   );
 };
