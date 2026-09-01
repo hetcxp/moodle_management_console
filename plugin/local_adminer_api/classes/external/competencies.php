@@ -1,0 +1,1152 @@
+<?php
+namespace local_adminer_api\external;
+
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_single_structure;
+use core_external\external_multiple_structure;
+use core_external\external_value;
+use context_system;
+use local_adminer_api\repository\competency_repository;
+
+defined('MOODLE_INTERNAL') || die();
+
+class competencies extends external_api {
+
+    /**
+     * Helper para verificar permisos de visualización.
+     */
+    protected static function check_view_capability($context) {
+        if (is_siteadmin()) {
+            return;
+        }
+        if (has_capability('moodle/competency:competencymanage', $context) ||
+            has_capability('moodle/competency:competencyview', $context)) {
+            return;
+        }
+        throw new \moodle_exception('nopermissions', 'error', '', 'view competencies');
+    }
+
+    /**
+     * Helper para verificar permisos de gestión.
+     */
+    protected static function check_manage_capability($context) {
+        if (is_siteadmin()) {
+            return;
+        }
+        require_capability('moodle/competency:competencymanage', $context);
+    }
+
+    // ==========================================
+    // 1. GET SCALES
+    // ==========================================
+    public static function get_scales_parameters() {
+        return new external_function_parameters([]);
+    }
+
+    public static function get_scales() {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $scales = competency_repository::get_scales();
+        return ['scales' => $scales];
+    }
+
+    public static function get_scales_returns() {
+        return new external_single_structure([
+            'scales' => new external_multiple_structure(
+                new external_single_structure([
+                    'id'        => new external_value(PARAM_INT, 'Scale ID'),
+                    'name'      => new external_value(PARAM_TEXT, 'Scale name'),
+                    'isdefault' => new external_value(PARAM_INT, '1 if this is the default standard scale'),
+                    'items'     => new external_multiple_structure(new external_value(PARAM_TEXT, 'Scale grade label')),
+                ])
+            ),
+        ]);
+    }
+
+    // ==========================================
+    // 2. GET KPIS
+    // ==========================================
+    public static function get_competency_kpis_parameters() {
+        return new external_function_parameters([]);
+    }
+
+    public static function get_competency_kpis() {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        return competency_repository::get_kpis();
+    }
+
+    public static function get_competency_kpis_returns() {
+        return new external_single_structure([
+            'total_frameworks'   => new external_value(PARAM_INT, 'Total frameworks count'),
+            'visible_frameworks' => new external_value(PARAM_INT, 'Visible frameworks count'),
+            'hidden_frameworks'  => new external_value(PARAM_INT, 'Hidden frameworks count'),
+            'total_competencies' => new external_value(PARAM_INT, 'Total competencies count'),
+            'pending_reviews'    => new external_value(PARAM_INT, 'Total pending competency reviews count', VALUE_DEFAULT, 0),
+        ]);
+    }
+
+    // ==========================================
+    // 3. GET FRAMEWORKS (PAGINATED)
+    // ==========================================
+    public static function get_competency_frameworks_parameters() {
+        return new external_function_parameters([
+            'page'    => new external_value(PARAM_INT, 'Page index', VALUE_DEFAULT, 0),
+            'perpage' => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 50),
+            'sort'    => new external_value(PARAM_ALPHA, 'Sort column', VALUE_DEFAULT, 'shortname'),
+            'dir'     => new external_value(PARAM_ALPHA, 'Sort direction', VALUE_DEFAULT, 'ASC'),
+            'search'  => new external_value(PARAM_RAW, 'Search term', VALUE_DEFAULT, ''),
+            'filters' => new external_value(PARAM_RAW, 'JSON filters', VALUE_DEFAULT, '{}'),
+        ]);
+    }
+
+    public static function get_competency_frameworks($page = 0, $perpage = 50, $sort = 'shortname', $dir = 'ASC', $search = '', $filters = '{}') {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_competency_frameworks_parameters(), [
+            'page'    => $page,
+            'perpage' => $perpage,
+            'sort'    => $sort,
+            'dir'     => $dir,
+            'search'  => $search,
+            'filters' => $filters,
+        ]);
+
+        $decoded_filters = json_decode($params['filters'], true);
+        if (!is_array($decoded_filters)) {
+            $decoded_filters = [];
+        }
+
+        return competency_repository::get_paginated_frameworks(
+            $params['page'],
+            $params['perpage'],
+            $params['sort'],
+            $params['dir'],
+            $params['search'],
+            $decoded_filters
+        );
+    }
+
+    public static function get_competency_frameworks_returns() {
+        return new external_single_structure([
+            'totalcount' => new external_value(PARAM_INT, 'Total frameworks count'),
+            'page'       => new external_value(PARAM_INT, 'Current page index'),
+            'perpage'    => new external_value(PARAM_INT, 'Items per page'),
+            'frameworks' => new external_multiple_structure(
+                new external_single_structure([
+                    'id'                => new external_value(PARAM_INT, 'Framework ID'),
+                    'shortname'         => new external_value(PARAM_TEXT, 'Framework short name'),
+                    'idnumber'          => new external_value(PARAM_RAW, 'Framework ID number'),
+                    'description'       => new external_value(PARAM_RAW, 'Framework description'),
+                    'visible'           => new external_value(PARAM_INT, 'Visibility (1 or 0)'),
+                    'scaleid'           => new external_value(PARAM_INT, 'Associated scale ID'),
+                    'scalename'         => new external_value(PARAM_TEXT, 'Associated scale name'),
+                    'competenciescount' => new external_value(PARAM_INT, 'Number of competencies'),
+                    'timecreated'       => new external_value(PARAM_INT, 'Creation timestamp'),
+                    'timemodified'      => new external_value(PARAM_INT, 'Last modified timestamp'),
+                ])
+            ),
+        ]);
+    }
+
+    // ==========================================
+    // 4. FRAMEWORK ACTION (CREATE/EDIT/DELETE/TOGGLE)
+    // ==========================================
+    public static function competency_framework_action_parameters() {
+        return new external_function_parameters([
+            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: create, edit, delete, toggle_visibility, hide, show'),
+            'frameworkid' => new external_value(PARAM_INT, 'Framework ID (for edit/delete/toggle)', VALUE_DEFAULT, 0),
+            'shortname'   => new external_value(PARAM_TEXT, 'Framework name', VALUE_DEFAULT, ''),
+            'idnumber'    => new external_value(PARAM_RAW, 'Framework ID number', VALUE_DEFAULT, ''),
+            'description' => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
+            'scaleid'     => new external_value(PARAM_INT, 'Scale ID', VALUE_DEFAULT, 0),
+            'visible'     => new external_value(PARAM_INT, 'Visibility 1/0', VALUE_DEFAULT, 1),
+        ]);
+    }
+
+    public static function competency_framework_action($action, $frameworkid = 0, $shortname = '', $idnumber = '', $description = '', $scaleid = 0, $visible = 1) {
+        global $DB, $USER;
+
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_manage_capability($context);
+
+        $params = self::validate_parameters(self::competency_framework_action_parameters(), [
+            'action'      => $action,
+            'frameworkid' => $frameworkid,
+            'shortname'   => $shortname,
+            'idnumber'    => $idnumber,
+            'description' => $description,
+            'scaleid'     => $scaleid,
+            'visible'     => $visible,
+        ]);
+
+        $act = $params['action'];
+        $now = time();
+
+        switch ($act) {
+            case 'create':
+                if (empty(trim($params['shortname']))) {
+                    return ['success' => false, 'message' => 'El nombre del marco es obligatorio.', 'affectedcount' => 0];
+                }
+
+                // Resolver escala: si no viene dada o es 0, buscar la primera escala estándar
+                $target_scaleid = $params['scaleid'];
+                if (empty($target_scaleid)) {
+                    $first_scale = $DB->get_record('scale', ['courseid' => 0], 'id ASC', 'id, scale');
+                    $target_scaleid = $first_scale ? (int)$first_scale->id : 1;
+                }
+
+                // Generar scaleconfiguration por defecto según elementos de la escala
+                $scale_rec = $DB->get_record('scale', ['id' => $target_scaleid]);
+                $scale_config = [];
+                if ($scale_rec && !empty($scale_rec->scale)) {
+                    $items = array_map('trim', explode(',', $scale_rec->scale));
+                    $item_count = count($items);
+                    foreach ($items as $idx => $item) {
+                        $val_id = $idx + 1;
+                        $is_last = ($val_id === $item_count);
+                        $scale_config[] = [
+                            'scaleid'      => $target_scaleid,
+                            'id'           => $val_id,
+                            'scaledefault' => $is_last ? 1 : 0,
+                            'proficient'   => $is_last ? 1 : 0,
+                        ];
+                    }
+                }
+
+                $record = new \stdClass();
+                $record->shortname          = trim($params['shortname']);
+                $record->idnumber           = trim($params['idnumber']);
+                $record->description        = clean_text($params['description'], FORMAT_HTML);
+                $record->descriptionformat  = FORMAT_HTML;
+                $record->visible            = $params['visible'] ? 1 : 0;
+                $record->scaleid            = $target_scaleid;
+                $record->scaleconfiguration = json_encode($scale_config);
+                $record->contextid          = $context->id;
+                $record->taxonomies         = json_encode(['1' => 'competency']);
+                $record->timecreated        = $now;
+                $record->timemodified       = $now;
+                $record->usermodified       = $USER->id;
+
+                $newid = $DB->insert_record('competency_framework', $record);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias creado exitosamente.',
+                    'affectedcount' => (int)$newid,
+                ];
+
+            case 'edit':
+                if (empty($params['frameworkid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco a editar.', 'affectedcount' => 0];
+                }
+                if (empty(trim($params['shortname']))) {
+                    return ['success' => false, 'message' => 'El nombre del marco es obligatorio.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency_framework', ['id' => $params['frameworkid']], '*', MUST_EXIST);
+
+                $existing->shortname    = trim($params['shortname']);
+                $existing->idnumber     = trim($params['idnumber']);
+                $existing->description  = clean_text($params['description'], FORMAT_HTML);
+                $existing->visible      = $params['visible'] ? 1 : 0;
+                $existing->timemodified = $now;
+                $existing->usermodified = $USER->id;
+
+                if (!empty($params['scaleid']) && $params['scaleid'] != $existing->scaleid) {
+                    $existing->scaleid = (int)$params['scaleid'];
+                    $scale_rec = $DB->get_record('scale', ['id' => $existing->scaleid]);
+                    if ($scale_rec && !empty($scale_rec->scale)) {
+                        $items = array_map('trim', explode(',', $scale_rec->scale));
+                        $item_count = count($items);
+                        $scale_config = [];
+                        foreach ($items as $idx => $item) {
+                            $val_id = $idx + 1;
+                            $is_last = ($val_id === $item_count);
+                            $scale_config[] = [
+                                'scaleid'      => $existing->scaleid,
+                                'id'           => $val_id,
+                                'scaledefault' => $is_last ? 1 : 0,
+                                'proficient'   => $is_last ? 1 : 0,
+                            ];
+                        }
+                        $existing->scaleconfiguration = json_encode($scale_config);
+                    }
+                }
+
+                $DB->update_record('competency_framework', $existing);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias actualizado exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'toggle_visibility':
+                if (empty($params['frameworkid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco.', 'affectedcount' => 0];
+                }
+                $existing = $DB->get_record('competency_framework', ['id' => $params['frameworkid']], '*', MUST_EXIST);
+                $existing->visible = $existing->visible ? 0 : 1;
+                $existing->timemodified = $now;
+                $existing->usermodified = $USER->id;
+                $DB->update_record('competency_framework', $existing);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Visibilidad del marco actualizada a ' . ($existing->visible ? 'visible' : 'oculto'),
+                    'affectedcount' => (int)$existing->visible,
+                ];
+
+            case 'hide':
+                if (empty($params['frameworkid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco.', 'affectedcount' => 0];
+                }
+                $existing = $DB->get_record('competency_framework', ['id' => $params['frameworkid']], '*', MUST_EXIST);
+                $existing->visible = 0;
+                $existing->timemodified = $now;
+                $existing->usermodified = $USER->id;
+                $DB->update_record('competency_framework', $existing);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias ocultado.',
+                    'affectedcount' => 0,
+                ];
+
+            case 'show':
+                if (empty($params['frameworkid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco.', 'affectedcount' => 0];
+                }
+                $existing = $DB->get_record('competency_framework', ['id' => $params['frameworkid']], '*', MUST_EXIST);
+                $existing->visible = 1;
+                $existing->timemodified = $now;
+                $existing->usermodified = $USER->id;
+                $DB->update_record('competency_framework', $existing);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias hecho visible.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'delete':
+                if (empty($params['frameworkid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco a eliminar.', 'affectedcount' => 0];
+                }
+
+                // Eliminar competencias del marco
+                $DB->delete_records('competency', ['competencyframeworkid' => $params['frameworkid']]);
+                // Eliminar el marco
+                $DB->delete_records('competency_framework', ['id' => $params['frameworkid']]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco y competencias eliminados exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $act, 'affectedcount' => 0];
+        }
+    }
+
+    public static function competency_framework_action_returns() {
+        return new external_single_structure([
+            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
+            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
+            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected or new ID'),
+        ]);
+    }
+
+    // ==========================================
+    // 5. GET FRAMEWORK DETAIL + LEVEL 1 COMPETENCIES
+    // ==========================================
+    public static function get_competency_framework_detail_parameters() {
+        return new external_function_parameters([
+            'frameworkid' => new external_value(PARAM_INT, 'Framework ID'),
+            'search'      => new external_value(PARAM_RAW, 'Filter competencies by search term', VALUE_DEFAULT, ''),
+        ]);
+    }
+
+    public static function get_competency_framework_detail($frameworkid, $search = '') {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_competency_framework_detail_parameters(), [
+            'frameworkid' => $frameworkid,
+            'search'      => $search,
+        ]);
+
+        $detail = competency_repository::get_framework_detail($params['frameworkid'], $params['search']);
+        if (!$detail) {
+            throw new \moodle_exception('invalidrecord', 'error', '', 'competency_framework');
+        }
+
+        return $detail;
+    }
+
+    public static function get_competency_framework_detail_returns() {
+        return new external_single_structure([
+            'id'                 => new external_value(PARAM_INT, 'Framework ID'),
+            'shortname'          => new external_value(PARAM_TEXT, 'Framework short name'),
+            'idnumber'           => new external_value(PARAM_RAW, 'Framework ID number'),
+            'description'        => new external_value(PARAM_RAW, 'Framework description'),
+            'visible'            => new external_value(PARAM_INT, 'Visibility (1 or 0)'),
+            'scaleid'            => new external_value(PARAM_INT, 'Associated scale ID'),
+            'scalename'          => new external_value(PARAM_TEXT, 'Associated scale name'),
+            'scaleconfiguration' => new external_value(PARAM_RAW, 'Scale configuration JSON'),
+            'taxonomies'         => new external_value(PARAM_RAW, 'Taxonomies JSON'),
+            'timecreated'        => new external_value(PARAM_INT, 'Creation timestamp'),
+            'timemodified'       => new external_value(PARAM_INT, 'Last modified timestamp'),
+            'competenciescount'  => new external_value(PARAM_INT, 'Number of Level 1 competencies'),
+            'pendingreviewscount'=> new external_value(PARAM_INT, 'Number of pending reviews in framework', VALUE_DEFAULT, 0),
+            'competencies'       => new external_multiple_structure(
+                new external_single_structure([
+                    'id'           => new external_value(PARAM_INT, 'Competency ID'),
+                    'shortname'    => new external_value(PARAM_TEXT, 'Competency name'),
+                    'idnumber'     => new external_value(PARAM_RAW, 'Competency ID number'),
+                    'description'  => new external_value(PARAM_RAW, 'Competency description'),
+                    'parentid'     => new external_value(PARAM_INT, 'Parent competency ID (0 for Level 1)'),
+                    'path'         => new external_value(PARAM_RAW, 'Hierarchical path'),
+                    'sortorder'    => new external_value(PARAM_INT, 'Sort order'),
+                    'coursescount'        => new external_value(PARAM_INT, 'Number of linked courses', VALUE_DEFAULT, 0),
+                    'pendingreviewscount' => new external_value(PARAM_INT, 'Number of pending reviews for this competency', VALUE_DEFAULT, 0),
+                    'timecreated'         => new external_value(PARAM_INT, 'Creation timestamp'),
+                    'timemodified'        => new external_value(PARAM_INT, 'Last modified timestamp'),
+                ])
+            ),
+        ]);
+    }
+
+    // ==========================================
+    // 6. COMPETENCY ACTION (CREATE/EDIT/DELETE)
+    // ==========================================
+    public static function competency_action_parameters() {
+        return new external_function_parameters([
+            'action'       => new external_value(PARAM_ALPHA, 'Action: create, edit, delete'),
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete)', VALUE_DEFAULT, 0),
+            'frameworkid'  => new external_value(PARAM_INT, 'Framework ID (required for create)', VALUE_DEFAULT, 0),
+            'shortname'    => new external_value(PARAM_TEXT, 'Competency name', VALUE_DEFAULT, ''),
+            'idnumber'     => new external_value(PARAM_RAW, 'Competency ID number', VALUE_DEFAULT, ''),
+            'description'  => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
+        ]);
+    }
+
+    public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $shortname = '', $idnumber = '', $description = '') {
+        global $DB, $USER;
+
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_manage_capability($context);
+
+        $params = self::validate_parameters(self::competency_action_parameters(), [
+            'action'       => $action,
+            'competencyid' => $competencyid,
+            'frameworkid'  => $frameworkid,
+            'shortname'    => $shortname,
+            'idnumber'     => $idnumber,
+            'description'  => $description,
+        ]);
+
+        $act = $params['action'];
+        $now = time();
+
+        switch ($act) {
+            case 'create':
+                if (empty($params['frameworkid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco para crear la competencia.', 'affectedcount' => 0];
+                }
+                if (empty(trim($params['shortname']))) {
+                    return ['success' => false, 'message' => 'El nombre de la competencia es obligatorio.', 'affectedcount' => 0];
+                }
+
+                // Comprobar que el marco existe
+                $framework = $DB->get_record('competency_framework', ['id' => $params['frameworkid']], '*', MUST_EXIST);
+
+                // Calcular siguiente sortorder
+                $max_sort = (int)$DB->get_field_sql(
+                    "SELECT MAX(sortorder) FROM {competency} WHERE competencyframeworkid = :fid AND parentid = 0",
+                    ['fid' => $framework->id]
+                );
+
+                $record = new \stdClass();
+                $record->shortname             = trim($params['shortname']);
+                $record->idnumber              = trim($params['idnumber']);
+                $record->description           = clean_text($params['description'], FORMAT_HTML);
+                $record->descriptionformat     = FORMAT_HTML;
+                $record->competencyframeworkid = $framework->id;
+                $record->parentid              = 0; // Nivel 1
+                $record->path                  = '/0/';
+                $record->sortorder             = $max_sort + 1;
+                $record->ruletype              = null;
+                $record->ruleoutcome           = 1;
+                $record->ruleconfig            = null;
+                $record->scaleid               = null;
+                $record->scaleconfiguration    = null;
+                $record->timecreated           = $now;
+                $record->timemodified          = $now;
+                $record->usermodified          = $USER->id;
+
+                $newid = $DB->insert_record('competency', $record);
+                // Actualizar path canónico /0/{id}/
+                $DB->set_field('competency', 'path', '/0/' . $newid . '/', ['id' => $newid]);
+
+                // Actualizar timestamp en el marco
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $framework->id]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Competencia creada exitosamente.',
+                    'affectedcount' => (int)$newid,
+                ];
+
+            case 'edit':
+                if (empty($params['competencyid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia a editar.', 'affectedcount' => 0];
+                }
+                if (empty(trim($params['shortname']))) {
+                    return ['success' => false, 'message' => 'El nombre de la competencia es obligatorio.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency', ['id' => $params['competencyid']], '*', MUST_EXIST);
+                $existing->shortname    = trim($params['shortname']);
+                $existing->idnumber     = trim($params['idnumber']);
+                $existing->description  = clean_text($params['description'], FORMAT_HTML);
+                $existing->timemodified = $now;
+                $existing->usermodified = $USER->id;
+
+                $DB->update_record('competency', $existing);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $existing->competencyframeworkid]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Competencia actualizada exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'delete':
+                if (empty($params['competencyid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia a eliminar.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency', ['id' => $params['competencyid']], '*', MUST_EXIST);
+                $fid = $existing->competencyframeworkid;
+
+                // Eliminar competencia y posibles hijas
+                $DB->delete_records_select('competency', 'id = :id OR path LIKE :pathlike', [
+                    'id'       => $existing->id,
+                    'pathlike' => '%/' . $existing->id . '/%',
+                ]);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $fid]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Competencia eliminada exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $act, 'affectedcount' => 0];
+        }
+    }
+
+    public static function competency_action_returns() {
+        return new external_single_structure([
+            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
+            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
+            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected or new ID'),
+        ]);
+    }
+
+    // ==========================================
+    // 7. GET COMPETENCY DETAIL
+    // ==========================================
+    public static function get_competency_detail_parameters() {
+        return new external_function_parameters([
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
+        ]);
+    }
+
+    public static function get_competency_detail($competencyid) {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_competency_detail_parameters(), [
+            'competencyid' => $competencyid,
+        ]);
+
+        $detail = competency_repository::get_competency_detail($params['competencyid']);
+        if (!$detail) {
+            throw new \moodle_exception('invalidrecord', 'error', '', 'competency');
+        }
+
+        return $detail;
+    }
+
+    public static function get_competency_detail_returns() {
+        return new external_single_structure([
+            'id'                    => new external_value(PARAM_INT, 'Competency ID'),
+            'shortname'             => new external_value(PARAM_TEXT, 'Competency short name'),
+            'idnumber'              => new external_value(PARAM_RAW, 'Competency ID number'),
+            'description'           => new external_value(PARAM_RAW, 'Competency description'),
+            'parentid'              => new external_value(PARAM_INT, 'Parent competency ID'),
+            'path'                  => new external_value(PARAM_RAW, 'Hierarchy path'),
+            'sortorder'             => new external_value(PARAM_INT, 'Sort order'),
+            'competencyframeworkid' => new external_value(PARAM_INT, 'Framework ID'),
+            'frameworkname'         => new external_value(PARAM_TEXT, 'Framework name'),
+            'frameworkidnumber'     => new external_value(PARAM_RAW, 'Framework ID number'),
+            'frameworkvisible'      => new external_value(PARAM_INT, 'Framework visibility'),
+            'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
+            'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
+            'pendingreviewscount'   => new external_value(PARAM_INT, 'Pending reviews count', VALUE_DEFAULT, 0),
+            'timecreated'           => new external_value(PARAM_INT, 'Time created'),
+            'timemodified'          => new external_value(PARAM_INT, 'Time modified'),
+        ]);
+    }
+
+    // ==========================================
+    // 8. GET COMPETENCY COURSES & ACTIVITIES
+    // ==========================================
+    public static function get_competency_courses_parameters() {
+        return new external_function_parameters([
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
+        ]);
+    }
+
+    public static function get_competency_courses($competencyid) {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_competency_courses_parameters(), [
+            'competencyid' => $competencyid,
+        ]);
+
+        $courses = competency_repository::get_competency_courses($params['competencyid']);
+        return ['courses' => $courses];
+    }
+
+    public static function get_competency_courses_returns() {
+        return new external_single_structure([
+            'courses' => new external_multiple_structure(
+                new external_single_structure([
+                    'id'           => new external_value(PARAM_INT, 'Course ID'),
+                    'fullname'     => new external_value(PARAM_TEXT, 'Course full name'),
+                    'shortname'    => new external_value(PARAM_TEXT, 'Course short name'),
+                    'idnumber'     => new external_value(PARAM_RAW, 'Course ID number'),
+                    'visible'      => new external_value(PARAM_INT, 'Course visibility'),
+                    'category'     => new external_value(PARAM_INT, 'Category ID'),
+                    'categoryname' => new external_value(PARAM_TEXT, 'Category name'),
+                    'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion'),
+                    'sortorder'    => new external_value(PARAM_INT, 'Sort order in course'),
+                    'timecreated'  => new external_value(PARAM_INT, 'Linked time timestamp'),
+                    'activities'   => new external_multiple_structure(
+                        new external_single_structure([
+                            'id'          => new external_value(PARAM_INT, 'Module competency ID'),
+                            'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
+                            'modname'     => new external_value(PARAM_TEXT, 'Module type name'),
+                            'name'        => new external_value(PARAM_TEXT, 'Activity title'),
+                            'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on activity completion'),
+                            'sortorder'   => new external_value(PARAM_INT, 'Sort order'),
+                            'timecreated' => new external_value(PARAM_INT, 'Linked timestamp'),
+                        ]),
+                        'Linked activities within this course',
+                        VALUE_DEFAULT,
+                        []
+                    ),
+                ])
+            ),
+        ]);
+    }
+
+    // ==========================================
+    // 9. COMPETENCY COURSE ACTION (ADD/REMOVE/UPDATE_RULE)
+    // ==========================================
+    public static function competency_course_action_parameters() {
+        return new external_function_parameters([
+            'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: add, remove, update_rule'),
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
+            'courseids'    => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs'),
+            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion (default 1)', VALUE_DEFAULT, 1),
+        ]);
+    }
+
+    public static function competency_course_action($action, $competencyid, $courseids, $ruleoutcome = 1) {
+        global $DB, $USER;
+
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_manage_capability($context);
+
+        $params = self::validate_parameters(self::competency_course_action_parameters(), [
+            'action'       => $action,
+            'competencyid' => $competencyid,
+            'courseids'    => $courseids,
+            'ruleoutcome'  => $ruleoutcome,
+        ]);
+
+        $competency = $DB->get_record('competency', ['id' => $params['competencyid']], '*', MUST_EXIST);
+        $act = $params['action'];
+        $now = time();
+        $affected = 0;
+
+        switch ($act) {
+            case 'add':
+                foreach ($params['courseids'] as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid <= 0 || $cid == SITEID) {
+                        continue;
+                    }
+                    if (!$DB->record_exists('course', ['id' => $cid])) {
+                        continue;
+                    }
+                    if (!$DB->record_exists('competency_coursecomp', ['competencyid' => $competency->id, 'courseid' => $cid])) {
+                        $inserted = false;
+                        if (class_exists('\core_competency\course_competency')) {
+                            try {
+                                $cc = new \core_competency\course_competency(0, (object)[
+                                    'courseid'     => $cid,
+                                    'competencyid' => $competency->id,
+                                    'ruleoutcome'  => (int)$params['ruleoutcome'],
+                                ]);
+                                $cc->create();
+                                $inserted = true;
+                                $affected++;
+                            } catch (\Exception $e) {
+                                $inserted = false;
+                            }
+                        }
+
+                        if (!$inserted) {
+                            $max_sort = (int)$DB->count_records('competency_coursecomp', ['courseid' => $cid]);
+                            $record = new \stdClass();
+                            $record->courseid     = $cid;
+                            $record->competencyid = $competency->id;
+                            $record->ruleoutcome  = (int)$params['ruleoutcome'];
+                            $record->sortorder    = $max_sort;
+                            $record->timecreated  = $now;
+                            $record->timemodified = $now;
+                            $record->usermodified = !empty($USER->id) ? (int)$USER->id : 2;
+
+                            $DB->insert_record('competency_coursecomp', $record);
+                            $affected++;
+                        }
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Se vincularon {$affected} curso(s) a la competencia.",
+                    'affectedcount' => $affected,
+                ];
+
+            case 'remove':
+                foreach ($params['courseids'] as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid <= 0) {
+                        continue;
+                    }
+                    $deleted = false;
+                    if (class_exists('\core_competency\course_competency')) {
+                        try {
+                            $cc = \core_competency\course_competency::get_record([
+                                'courseid'     => $cid,
+                                'competencyid' => $competency->id,
+                            ]);
+                            if ($cc) {
+                                $cc->delete();
+                                $deleted = true;
+                                $affected++;
+                            }
+                        } catch (\Exception $e) {
+                            $deleted = false;
+                        }
+                    }
+                    if (!$deleted) {
+                        $DB->delete_records('competency_coursecomp', [
+                            'competencyid' => $competency->id,
+                            'courseid'     => $cid,
+                        ]);
+                        $affected++;
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Se desvincularon {$affected} curso(s) de la competencia.",
+                    'affectedcount' => $affected,
+                ];
+
+            case 'update_rule':
+                foreach ($params['courseids'] as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid <= 0) {
+                        continue;
+                    }
+                    $updated = false;
+                    if (class_exists('\core_competency\course_competency')) {
+                        try {
+                            $cc = \core_competency\course_competency::get_record([
+                                'courseid'     => $cid,
+                                'competencyid' => $competency->id,
+                            ]);
+                            if ($cc) {
+                                $cc->set('ruleoutcome', (int)$params['ruleoutcome']);
+                                $cc->update();
+                                $updated = true;
+                                $affected++;
+                            }
+                        } catch (\Exception $e) {
+                            $updated = false;
+                        }
+                    }
+                    if (!$updated) {
+                        $DB->set_field('competency_coursecomp', 'ruleoutcome', (int)$params['ruleoutcome'], [
+                            'competencyid' => $competency->id,
+                            'courseid'     => $cid,
+                        ]);
+                        $affected++;
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Regla de finalización del curso actualizada correctamente.",
+                    'affectedcount' => $affected,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $act, 'affectedcount' => 0];
+        }
+    }
+
+    public static function competency_course_action_returns() {
+        return new external_single_structure([
+            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
+            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
+            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected'),
+        ]);
+    }
+
+    // ==========================================
+    // 10. GET COURSE AVAILABLE ACTIVITIES
+    // ==========================================
+    public static function get_course_available_activities_parameters() {
+        return new external_function_parameters([
+            'courseid'     => new external_value(PARAM_INT, 'Course ID'),
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID', VALUE_DEFAULT, 0),
+        ]);
+    }
+
+    public static function get_course_available_activities($courseid, $competencyid = 0) {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_course_available_activities_parameters(), [
+            'courseid'     => $courseid,
+            'competencyid' => $competencyid,
+        ]);
+
+        $activities = competency_repository::get_course_available_activities($params['courseid'], $params['competencyid']);
+        return ['activities' => $activities];
+    }
+
+    public static function get_course_available_activities_returns() {
+        return new external_single_structure([
+            'activities' => new external_multiple_structure(
+                new external_single_structure([
+                    'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
+                    'courseid'    => new external_value(PARAM_INT, 'Course ID'),
+                    'modname'     => new external_value(PARAM_TEXT, 'Module name'),
+                    'name'        => new external_value(PARAM_TEXT, 'Activity title'),
+                    'visible'     => new external_value(PARAM_INT, 'Visibility (1 or 0)'),
+                    'section'     => new external_value(PARAM_INT, 'Section number'),
+                    'islinked'    => new external_value(PARAM_INT, '1 if linked to competency, 0 otherwise'),
+                    'linkid'      => new external_value(PARAM_INT, 'Link ID if linked'),
+                    'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on completion'),
+                ])
+            ),
+        ]);
+    }
+
+    // ==========================================
+    // 11. MODULE COMPETENCY ACTION (ADD/REMOVE/UPDATE_RULE)
+    // ==========================================
+    public static function module_competency_action_parameters() {
+        return new external_function_parameters([
+            'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: add, remove, update_rule'),
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
+            'cmid'         => new external_value(PARAM_INT, 'Course module ID'),
+            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion (default 1)', VALUE_DEFAULT, 1),
+        ]);
+    }
+
+    public static function module_competency_action($action, $competencyid, $cmid, $ruleoutcome = 1) {
+        global $DB, $USER;
+
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_manage_capability($context);
+
+        $params = self::validate_parameters(self::module_competency_action_parameters(), [
+            'action'       => $action,
+            'competencyid' => $competencyid,
+            'cmid'         => $cmid,
+            'ruleoutcome'  => $ruleoutcome,
+        ]);
+
+        $competency = $DB->get_record('competency', ['id' => $params['competencyid']], '*', MUST_EXIST);
+        $cm = $DB->get_record('course_modules', ['id' => $params['cmid']], '*', MUST_EXIST);
+
+        $act = $params['action'];
+        $now = time();
+
+        switch ($act) {
+            case 'add':
+                if (!$DB->record_exists('competency_modulecomp', ['competencyid' => $competency->id, 'cmid' => $cm->id])) {
+                    $inserted = false;
+                    if (class_exists('\core_competency\course_module_competency')) {
+                        try {
+                            $mc = new \core_competency\course_module_competency(0, (object)[
+                                'cmid'         => $cm->id,
+                                'competencyid' => $competency->id,
+                                'ruleoutcome'  => (int)$params['ruleoutcome'],
+                            ]);
+                            $mc->create();
+                            $inserted = true;
+                        } catch (\Exception $e) {
+                            $inserted = false;
+                        }
+                    }
+
+                    if (!$inserted) {
+                        $max_sort = (int)$DB->count_records('competency_modulecomp', ['cmid' => $cm->id]);
+                        $record = new \stdClass();
+                        $record->cmid         = $cm->id;
+                        $record->competencyid = $competency->id;
+                        $record->ruleoutcome  = (int)$params['ruleoutcome'];
+                        $record->sortorder    = $max_sort;
+                        $record->timecreated  = $now;
+                        $record->timemodified = $now;
+                        $record->usermodified = !empty($USER->id) ? (int)$USER->id : 2;
+
+                        $DB->insert_record('competency_modulecomp', $record);
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Actividad vinculada exitosamente a la competencia.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'remove':
+                $deleted = false;
+                if (class_exists('\core_competency\course_module_competency')) {
+                    try {
+                        $mc = \core_competency\course_module_competency::get_record([
+                            'cmid'         => $cm->id,
+                            'competencyid' => $competency->id,
+                        ]);
+                        if ($mc) {
+                            $mc->delete();
+                            $deleted = true;
+                        }
+                    } catch (\Exception $e) {
+                        $deleted = false;
+                    }
+                }
+
+                if (!$deleted) {
+                    $DB->delete_records('competency_modulecomp', [
+                        'competencyid' => $competency->id,
+                        'cmid'         => $cm->id,
+                    ]);
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Actividad desvinculada de la competencia.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'update_rule':
+                $updated = false;
+                if (class_exists('\core_competency\course_module_competency')) {
+                    try {
+                        $mc = \core_competency\course_module_competency::get_record([
+                            'cmid'         => $cm->id,
+                            'competencyid' => $competency->id,
+                        ]);
+                        if ($mc) {
+                            $mc->set('ruleoutcome', (int)$params['ruleoutcome']);
+                            $mc->update();
+                            $updated = true;
+                        }
+                    } catch (\Exception $e) {
+                        $updated = false;
+                    }
+                }
+
+                if (!$updated) {
+                    $DB->set_field('competency_modulecomp', 'ruleoutcome', (int)$params['ruleoutcome'], [
+                        'competencyid' => $competency->id,
+                        'cmid'         => $cm->id,
+                    ]);
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Regla de la actividad actualizada correctamente.',
+                    'affectedcount' => 1,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $act, 'affectedcount' => 0];
+        }
+    }
+
+    public static function module_competency_action_returns() {
+        return new external_single_structure([
+            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
+            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
+            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected'),
+        ]);
+    }
+
+    // ==========================================
+    // 12. GET COMPETENCY REVIEWS (PENDING / IN REVIEW)
+    // ==========================================
+    public static function get_competency_reviews_parameters() {
+        return new external_function_parameters([
+            'page'        => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
+            'perpage'     => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
+            'frameworkid' => new external_value(PARAM_INT, 'Filter by framework ID', VALUE_DEFAULT, 0),
+            'competencyid'=> new external_value(PARAM_INT, 'Filter by competency ID', VALUE_DEFAULT, 0),
+            'userid'      => new external_value(PARAM_INT, 'Filter by student user ID', VALUE_DEFAULT, 0),
+            'search'      => new external_value(PARAM_RAW, 'Search query', VALUE_DEFAULT, ''),
+        ]);
+    }
+
+    public static function get_competency_reviews($page = 0, $perpage = 20, $frameworkid = 0, $competencyid = 0, $userid = 0, $search = '') {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_competency_reviews_parameters(), [
+            'page'         => $page,
+            'perpage'      => $perpage,
+            'frameworkid'  => $frameworkid,
+            'competencyid' => $competencyid,
+            'userid'       => $userid,
+            'search'       => $search,
+        ]);
+
+        $filters = [
+            'frameworkid'  => $params['frameworkid'],
+            'competencyid' => $params['competencyid'],
+            'userid'       => $params['userid'],
+            'search'       => trim($params['search']),
+        ];
+
+        return competency_repository::get_pending_reviews($filters, $params['page'], $params['perpage']);
+    }
+
+    public static function get_competency_reviews_returns() {
+        return new external_single_structure([
+            'totalcount' => new external_value(PARAM_INT, 'Total pending reviews count'),
+            'page'       => new external_value(PARAM_INT, 'Current page index'),
+            'perpage'    => new external_value(PARAM_INT, 'Items per page'),
+            'reviews'    => new external_multiple_structure(
+                new external_single_structure([
+                    'usercompid'            => new external_value(PARAM_INT, 'User competency ID'),
+                    'userid'                => new external_value(PARAM_INT, 'User ID'),
+                    'userfullname'          => new external_value(PARAM_TEXT, 'User full name'),
+                    'useremail'             => new external_value(PARAM_TEXT, 'User email'),
+                    'competencyid'          => new external_value(PARAM_INT, 'Competency ID'),
+                    'competencyname'        => new external_value(PARAM_TEXT, 'Competency short name'),
+                    'competencyidnumber'    => new external_value(PARAM_RAW, 'Competency ID number'),
+                    'competencyframeworkid' => new external_value(PARAM_INT, 'Framework ID'),
+                    'frameworkname'         => new external_value(PARAM_TEXT, 'Framework short name'),
+                    'status'                => new external_value(PARAM_INT, 'Review status (1=Waiting, 2=In Review)'),
+                    'proficiency'           => new external_value(PARAM_INT, 'Proficiency (1 or 0)'),
+                    'currentgrade'          => new external_value(PARAM_INT, 'Current grade in scale'),
+                    'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
+                    'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
+                    'scaleoptions'          => new external_multiple_structure(
+                        new external_single_structure([
+                            'value' => new external_value(PARAM_INT, 'Scale item rating value'),
+                            'name'  => new external_value(PARAM_TEXT, 'Scale item display label'),
+                        ]),
+                        'Scale grade options',
+                        VALUE_DEFAULT,
+                        []
+                    ),
+                    'latestevidence'        => new external_value(PARAM_RAW, 'Latest evidence note'),
+                    'timemodified'          => new external_value(PARAM_INT, 'Timestamp requested/modified'),
+                ])
+            ),
+        ]);
+    }
+
+    // ==========================================
+    // 13. COMPETENCY REVIEW ACTION (EVALUATE / COMPLETE)
+    // ==========================================
+    public static function competency_review_action_parameters() {
+        return new external_function_parameters([
+            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: evaluate, complete'),
+            'usercompid'  => new external_value(PARAM_INT, 'User competency record ID'),
+            'grade'       => new external_value(PARAM_INT, 'Grade value in scale', VALUE_DEFAULT, 1),
+            'proficiency' => new external_value(PARAM_INT, 'Proficiency result (1=proficient, 0=not)', VALUE_DEFAULT, 1),
+            'note'        => new external_value(PARAM_RAW, 'Review feedback / evidence note', VALUE_DEFAULT, ''),
+        ]);
+    }
+
+    public static function competency_review_action($action, $usercompid, $grade = 1, $proficiency = 1, $note = '') {
+        global $USER;
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_manage_capability($context);
+
+        $params = self::validate_parameters(self::competency_review_action_parameters(), [
+            'action'      => $action,
+            'usercompid'  => $usercompid,
+            'grade'       => $grade,
+            'proficiency' => $proficiency,
+            'note'        => $note,
+        ]);
+
+        $success = competency_repository::evaluate_competency_review(
+            $params['usercompid'],
+            $params['grade'],
+            $params['proficiency'],
+            $params['note'],
+            $USER->id
+        );
+
+        return [
+            'success' => $success,
+            'message' => $success ? 'Revisión de competencia completada exitosamente.' : 'Error al guardar revisión.',
+        ];
+    }
+
+    public static function competency_review_action_returns() {
+        return new external_single_structure([
+            'success' => new external_value(PARAM_BOOL, 'True if operation succeeded'),
+            'message' => new external_value(PARAM_TEXT, 'Status description message'),
+        ]);
+    }
+}
+

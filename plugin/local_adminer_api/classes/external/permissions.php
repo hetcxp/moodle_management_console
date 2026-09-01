@@ -33,6 +33,8 @@ class permissions extends external_api {
             'can_update_users'      => has_capability('moodle/user:update', $context) ? 1 : 0,
             'can_delete_users'      => has_capability('moodle/user:delete', $context) ? 1 : 0,
             'can_view_cohorts'      => has_capability('moodle/cohort:view', $context) ? 1 : 0,
+            'can_view_competencies' => (has_capability('moodle/competency:competencyview', $context) || has_capability('moodle/competency:competencymanage', $context) || is_siteadmin($USER->id)) ? 1 : 0,
+            'can_manage_competencies' => (has_capability('moodle/competency:competencymanage', $context) || is_siteadmin($USER->id)) ? 1 : 0,
         ];
     }
 
@@ -49,6 +51,8 @@ class permissions extends external_api {
             'can_update_users'      => new external_value(PARAM_INT, '1 if user can edit/suspend users'),
             'can_delete_users'      => new external_value(PARAM_INT, '1 if user can delete users'),
             'can_view_cohorts'      => new external_value(PARAM_INT, '1 if user can view cohorts'),
+            'can_view_competencies' => new external_value(PARAM_INT, '1 if user can view competencies'),
+            'can_manage_competencies' => new external_value(PARAM_INT, '1 if user can manage competencies'),
         ]);
     }
 }
