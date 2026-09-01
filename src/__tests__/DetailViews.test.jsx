@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 import { UserDetailView } from '../views/UserDetailView';
 import { CategoryDetailView } from '../views/CategoryDetailView';
@@ -77,7 +77,35 @@ vi.mock('../services/adminer-api', () => ({
         { id: 42, fullname: 'John Doe', email: 'jdoe@example.com', progress: 75, status: 0, roles: 'student', enrolstatus: 0, enrolments: [] }
       ],
       cohorts: [],
-      coursegroups: []
+      coursegroups: [],
+      competencies: [
+        {
+          id: 50,
+          linkid: 1,
+          shortname: 'State Management with Hooks',
+          idnumber: 'COMP-HOOKS',
+          description: 'Dominio de hooks de React y Context API',
+          parentid: 0,
+          parentname: '',
+          path: '/0/50/',
+          frameworkid: 3,
+          frameworkname: 'Desarrollo Web Frontend',
+          frameworkidnumber: 'FW-FRONTEND',
+          frameworkvisible: 1,
+          ruleoutcome: 3,
+          sortorder: 1,
+          activities: [
+            {
+              id: 10,
+              cmid: 1001,
+              modname: 'quiz',
+              name: 'Quiz 1: Hooks y Context',
+              ruleoutcome: 3,
+              sortorder: 1
+            }
+          ]
+        }
+      ]
     }),
     getCourseUserDetail: vi.fn().mockResolvedValue({
       status: 0,
@@ -111,7 +139,14 @@ vi.mock('../services/adminer-api', () => ({
     cohortAction: vi.fn().mockResolvedValue({ success: true }),
     courseUserAction: vi.fn().mockResolvedValue({ success: true }),
     courseCohortAction: vi.fn().mockResolvedValue({ success: true }),
-    courseAction: vi.fn().mockResolvedValue({ success: true })
+    courseAction: vi.fn().mockResolvedValue({ success: true }),
+    getCourses: vi.fn().mockResolvedValue({
+      courses: [{ id: 999, fullname: 'External Course', shortname: 'EXT-101' }],
+      totalcount: 1
+    }),
+    getCategoriesFlat: vi.fn().mockResolvedValue({
+      categories: [{ id: 7, name: 'Engineering' }]
+    })
   }
 }));
 
@@ -129,9 +164,10 @@ describe('Detail Views Integration (TD-012)', () => {
 
     expect(screen.getByText('jdoe@example.com')).toBeDefined();
     expect(screen.getByText('React Fundamentals')).toBeDefined();
+    expect(screen.getByText('Clave Temporal')).toBeDefined();
   });
 
-  it('renders CategoryDetailView with category details and courses', async () => {
+  it('renders CategoryDetailView with category details and courses, and opens Traer Curso modal', async () => {
     renderWithProviders(<CategoryDetailView categoryId={7} onBack={vi.fn()} />);
 
     await waitFor(() => {
@@ -139,6 +175,13 @@ describe('Detail Views Integration (TD-012)', () => {
     });
 
     expect(screen.getByText('Node.js Mastery')).toBeDefined();
+
+    const traerCursoBtn = screen.getByRole('button', { name: /traer curso/i });
+    fireEvent.click(traerCursoBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Traer Cursos a esta Categoría')).toBeDefined();
+    });
   });
 
   it('renders CohortDetailView with cohort details and members', async () => {
@@ -172,4 +215,73 @@ describe('Detail Views Integration (TD-012)', () => {
 
     expect(screen.getByText('John Doe')).toBeDefined();
   });
+
+  it('allows editing course fullname, shortname and dates in CourseDetailView', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    renderWithProviders(<CourseDetailView courseId={101} onBack={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Editar curso')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Editar curso'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Editar Información del Curso')).toBeDefined();
+    });
+
+    const fullnameInput = screen.getByPlaceholderText('Ej: Introducción a Python 3');
+    const shortnameInput = screen.getByPlaceholderText('Ej: PY3-101');
+
+    expect(fullnameInput.value).toBe('React Fundamentals');
+    expect(shortnameInput.value).toBe('REACT-101');
+
+    fireEvent.change(fullnameInput, { target: { value: 'Advanced React 2026' } });
+    fireEvent.change(shortnameInput, { target: { value: 'REACT-ADV' } });
+
+    fireEvent.click(screen.getByText('Guardar Cambios'));
+
+    await waitFor(() => {
+      expect(AdminerApi.courseAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'update',
+          courseids: [101],
+          fullname: 'Advanced React 2026',
+          shortname: 'REACT-ADV'
+        })
+      );
+    });
+  });
+
+  it('renders Competencias tab in CourseDetailView and displays linked competencies in read-only mode', async () => {
+    renderWithProviders(<CourseDetailView courseId={101} onBack={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /competencias/i })).toBeDefined();
+    });
+
+    const compTabBtn = screen.getByRole('button', { name: /competencias/i });
+    fireEvent.click(compTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('State Management with Hooks')).toBeDefined();
+    });
+
+    expect(screen.getByText('COMP-HOOKS')).toBeDefined();
+    expect(screen.getByText('Desarrollo Web Frontend')).toBeDefined();
+    expect(screen.getAllByText('Marcar completada').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('1 actividad')).toBeDefined();
+
+    // Click on Detalle button to open read-only dialog
+    const detailBtn = screen.getByRole('button', { name: /detalle/i });
+    fireEvent.click(detailBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Información detallada de la vinculación de esta competencia y sus actividades en el curso.')).toBeDefined();
+    });
+
+    expect(screen.getByText('Quiz 1: Hooks y Context')).toBeDefined();
+    expect(screen.getByRole('button', { name: /cerrar/i })).toBeDefined();
+  });
 });
+

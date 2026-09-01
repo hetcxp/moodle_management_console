@@ -155,8 +155,59 @@ async function runCompetencyTests() {
     assert(typeof comp1Detail.coursescount === 'number', 'coursescount debe ser numérico');
     console.log(`✅ Detalle verificado. Competencias de Nivel 1 en el marco: ${detailRes.competenciescount}`);
 
-    // 9. Test: Vincular Competencia con Cursos (local_adminer_competency_course_action - add)
-    console.log('\n9. Test: Vincular competencia con cursos (local_adminer_competency_course_action - add)');
+    // 9. Test: Crear Subcompetencia jerárquica (parentid = comp1Id)
+    console.log('\n9. Test: Crear subcompetencia jerárquica (local_adminer_competency_action - create subcompetency)');
+    const subcompName = `Subcompetencia 1.1 - ${Date.now()}`;
+    const createSubcompRes = await callMoodleApi('local_adminer_competency_action', {
+      action: 'create',
+      frameworkid: frameworkId,
+      parentid: comp1Id,
+      shortname: subcompName,
+      idnumber: `SUBCOMP-1-1-${Date.now()}`,
+      description: 'Subcompetencia hija para evaluación por componentes',
+    });
+    assert(createSubcompRes.success === true, 'Creación de subcompetencia debe ser exitosa');
+    const subcompId = createSubcompRes.affectedcount;
+    assert(subcompId > 0, 'Debe retornar ID válido de la subcompetencia');
+    console.log(`✅ Subcompetencia creada con éxito (ID: ${subcompId}, Padre: ${comp1Id})`);
+
+    // 10. Test: Configurar Regla de Completado Automático en Competencia Padre (update_rule)
+    console.log('\n10. Test: Configurar regla de completado en competencia padre (local_adminer_competency_action - update_rule)');
+    const ruleRes = await callMoodleApi('local_adminer_competency_action', {
+      action: 'update_rule',
+      competencyid: comp1Id,
+      ruletype: 'core_competency\\competency_rule_all_children',
+      ruleoutcome: 2, // OUTCOME_COMPLETE
+    });
+    assert(ruleRes.success === true, 'Actualización de regla debe ser exitosa');
+    console.log('✅ Regla core_competency\\competency_rule_all_children configurada con OUTCOME_COMPLETE (2).');
+
+    // 11. Test: Obtener Detalle de Competencia Padre y verificar subcompetencias y regla
+    console.log('\n11. Test: Obtener detalle de competencia padre (local_adminer_get_competency_detail)');
+    const comp1DetailWithSub = await callMoodleApi('local_adminer_get_competency_detail', {
+      competencyid: comp1Id,
+    });
+    assert(comp1DetailWithSub && comp1DetailWithSub.id === comp1Id, 'El detalle de la competencia debe coincidir');
+    assert.strictEqual(comp1DetailWithSub.ruletype, 'core_competency\\competency_rule_all_children', 'La regla debe ser core_competency\\competency_rule_all_children');
+    assert.strictEqual(comp1DetailWithSub.ruleoutcome, 2, 'ruleoutcome debe ser 2 (completada)');
+    assert.strictEqual(comp1DetailWithSub.childrencount, 1, 'childrencount debe ser 1');
+    assert(Array.isArray(comp1DetailWithSub.children), 'children debe ser un array');
+    assert.strictEqual(comp1DetailWithSub.children.length, 1, 'Debe contener 1 subcompetencia en children');
+    assert.strictEqual(comp1DetailWithSub.children[0].id, subcompId, 'El ID de la subcompetencia debe coincidir');
+    console.log(`✅ Detalle de competencia padre verificado: ${comp1DetailWithSub.childrencount} subcompetencia(s), Regla: ${comp1DetailWithSub.ruletype}`);
+
+    // 12. Test: Obtener Detalle de Subcompetencia y verificar parentid y parentname
+    console.log('\n12. Test: Obtener detalle de subcompetencia hija (local_adminer_get_competency_detail)');
+    const subcompDetail = await callMoodleApi('local_adminer_get_competency_detail', {
+      competencyid: subcompId,
+    });
+    assert(subcompDetail && subcompDetail.id === subcompId, 'ID de subcompetencia debe coincidir');
+    assert.strictEqual(subcompDetail.parentid, comp1Id, 'parentid debe ser el ID del padre');
+    assert(subcompDetail.path.includes(`/${comp1Id}/${subcompId}/`), 'El path jerárquico debe incluir padre e hijo');
+    console.log(`✅ Detalle de subcompetencia verificado: Parent ID ${subcompDetail.parentid}, Path: ${subcompDetail.path}`);
+
+    // 13. Test: Vincular Competencia con Cursos (local_adminer_competency_course_action - add)
+    console.log('\n13. Test: Vincular competencia con cursos (local_adminer_competency_course_action - add)');
     const coursesRes = await callMoodleApi('local_adminer_get_courses', { perpage: 5 });
     const availableCourses = coursesRes?.courses || [];
     if (availableCourses.length > 0) {
@@ -177,16 +228,17 @@ async function runCompetencyTests() {
       assert.strictEqual(linkedRes.courses.length, targetCourseIds.length, 'El número de cursos vinculados debe coincidir');
       console.log(`✅ ${linkedRes.courses.length} curso(s) vinculados a la competencia ${comp1Id} exitosamente.`);
 
-      // Verificar que get_competency_framework_detail refleja coursescount
+      // Verificar que get_competency_framework_detail refleja coursescount y childrencount
       const detailWithCourses = await callMoodleApi('local_adminer_get_competency_framework_detail', {
         frameworkid: frameworkId,
       });
       const comp1WithCourses = detailWithCourses.competencies.find((c) => c.id === comp1Id);
       assert.strictEqual(comp1WithCourses.coursescount, targetCourseIds.length, 'coursescount debe actualizarse');
-      console.log(`✅ coursescount actualizado en detalle de marco: ${comp1WithCourses.coursescount}`);
+      assert.strictEqual(comp1WithCourses.childrencount, 1, 'childrencount debe ser 1 en el marco');
+      console.log(`✅ coursescount (${comp1WithCourses.coursescount}) y childrencount (${comp1WithCourses.childrencount}) actualizados en detalle de marco.`);
 
       // Desvincular cursos (local_adminer_competency_course_action - remove)
-      console.log('\n10. Test: Desvincular cursos de la competencia (local_adminer_competency_course_action - remove)');
+      console.log('\n14. Test: Desvincular cursos de la competencia (local_adminer_competency_course_action - remove)');
       const unlinkRes = await callMoodleApi('local_adminer_competency_course_action', {
         action: 'remove',
         competencyid: comp1Id,
@@ -204,8 +256,8 @@ async function runCompetencyTests() {
       console.log('⚠️ No hay cursos disponibles para testear vinculación.');
     }
 
-    // 11. Test: Eliminar una Competencia
-    console.log('\n11. Test: Eliminar una competencia (local_adminer_competency_action - delete)');
+    // 15. Test: Eliminar una Competencia y validar cascada
+    console.log('\n15. Test: Eliminar una competencia (local_adminer_competency_action - delete)');
     const delCompRes = await callMoodleApi('local_adminer_competency_action', {
       action: 'delete',
       competencyid: comp2Id,
@@ -218,8 +270,8 @@ async function runCompetencyTests() {
     assert.strictEqual(detailAfterDel.competenciescount, 1, 'Debe quedar 1 competencia tras la eliminación');
     console.log('✅ Competencia eliminada y conteo actualizado correctamente.');
 
-    // 12. Test: Limpieza (Eliminar Marco de Prueba)
-    console.log('\n12. Test: Limpieza de datos - Eliminar marco (local_adminer_competency_framework_action - delete)');
+    // 16. Test: Limpieza (Eliminar Marco de Prueba)
+    console.log('\n16. Test: Limpieza de datos - Eliminar marco (local_adminer_competency_framework_action - delete)');
     const delFwRes = await callMoodleApi('local_adminer_competency_framework_action', {
       action: 'delete',
       frameworkid: frameworkId,

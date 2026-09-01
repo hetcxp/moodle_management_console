@@ -28,6 +28,21 @@ vi.mock('../services/adminer-api', () => ({
           path: '/0/101/',
           sortorder: 1,
           coursescount: 2,
+          childrencount: 1,
+          timecreated: 1725148800,
+          timemodified: 1725148800,
+        },
+        {
+          id: 102,
+          shortname: 'Subcompetencia SQL',
+          idnumber: 'DAT-02',
+          description: 'Subcompetencia hija',
+          parentid: 101,
+          parentname: 'Competencia en Datos',
+          path: '/0/101/102/',
+          sortorder: 2,
+          coursescount: 0,
+          childrencount: 0,
           timecreated: 1725148800,
           timemodified: 1725148800,
         },
@@ -168,7 +183,7 @@ describe('CompetencyFrameworkDetailView & CompetencyCoursesModal', () => {
       expect(screen.getByText('Competencia en Datos')).toBeDefined();
     });
 
-    const reviewsBtn = screen.getByTitle(/Ver revisiones pendientes/i);
+    const reviewsBtn = screen.getAllByTitle(/Ver revisiones pendientes/i)[0];
     fireEvent.click(reviewsBtn);
 
     await waitFor(() => {
@@ -206,6 +221,99 @@ describe('CompetencyFrameworkDetailView & CompetencyCoursesModal', () => {
       frameworkId: 1,
       competencyId: 101,
     });
+  });
+
+  it('opens subcompetency creation modal when clicking + Subcompetencia button in row', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Competencia en Datos')).toBeDefined();
+    });
+
+    const subcompBtn = screen.getByTitle('Crear subcompetencia hija para esta competencia');
+    fireEvent.click(subcompBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Nueva Subcompetencia' })).toBeDefined();
+    });
+
+    // Fill name input
+    const nameInput = screen.getByPlaceholderText('Ej. Análisis de Datos y Visualización');
+    fireEvent.change(nameInput, { target: { value: 'Subcompetencia ETL' } });
+
+    // Submit
+    const submitBtn = screen.getByRole('button', { name: 'Crear Subcompetencia' });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(AdminerApi.competencyAction).toHaveBeenCalledWith({
+        action: 'create',
+        frameworkid: 1,
+        parentid: 101,
+        shortname: 'Subcompetencia ETL',
+        idnumber: '',
+        description: '',
+      });
+    });
+  });
+
+  it('allows editing competency and changing its parent hierarchy', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Competencia en Datos')).toBeDefined();
+    });
+
+    const editBtn = screen.getAllByTitle('Editar competencia')[0];
+    fireEvent.click(editBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Editar Competencia' })).toBeDefined();
+    });
+
+    const submitBtn = screen.getByRole('button', { name: 'Guardar Cambios' });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(AdminerApi.competencyAction).toHaveBeenCalledWith({
+        action: 'edit',
+        competencyid: 101,
+        parentid: 0,
+        shortname: 'Competencia en Datos',
+        idnumber: 'DAT-01',
+        description: 'Habilidad de análisis de datos',
+      });
+    });
+  });
+
+  it('does not render redundant "Nivel 1" or "Subcompetencia" badges, and renders "Hija de:" underneath', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Competencia en Datos')).toBeDefined();
+      expect(screen.getByText('Subcompetencia SQL')).toBeDefined();
+    });
+
+    // Should NOT have redundant badges
+    expect(screen.queryByText('Nivel 1')).toBeNull();
+    expect(screen.queryByText('Subcompetencia')).toBeNull();
+
+    // Should render "Hija de: Competencia en Datos"
+    expect(screen.getByText('Hija de: Competencia en Datos')).toBeDefined();
+  });
+
+  it('restricts 2-level hierarchy: subcompetency row does not show create subcompetency button', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Subcompetencia SQL')).toBeDefined();
+    });
+
+    // Only 1 create subcompetency button should exist in table (for root competency 101, none for subcomp 102)
+    const subcompButtons = screen.getAllByTitle('Crear subcompetencia hija para esta competencia');
+    expect(subcompButtons.length).toBe(1);
   });
 });
 

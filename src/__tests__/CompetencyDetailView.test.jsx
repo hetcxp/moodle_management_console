@@ -22,8 +22,45 @@ vi.mock('../services/adminer-api', () => ({
       frameworkvisible: 1,
       scaleid: 1,
       scalename: 'Escala Estándar',
+      ruletype: 'core_competency\\competency_rule_all_children',
+      ruleoutcome: 2,
+      childrencount: 2,
       timecreated: 1725148800,
       timemodified: 1725148800,
+      children: [
+        {
+          id: 201,
+          shortname: 'Subcompetencia Limpieza de Datos',
+          idnumber: 'DAT-01-A',
+          description: 'Manejo de valores nulos y outliers',
+          parentid: 101,
+          path: '/0/101/201/',
+          sortorder: 1,
+          coursescount: 1,
+          childrencount: 0,
+          ruletype: '',
+          ruleoutcome: 1,
+          pendingreviewscount: 0,
+          timecreated: 1725148800,
+          timemodified: 1725148800,
+        },
+        {
+          id: 202,
+          shortname: 'Subcompetencia Modelado SQL',
+          idnumber: 'DAT-01-B',
+          description: 'Consultas avanzadas y optimización',
+          parentid: 101,
+          path: '/0/101/202/',
+          sortorder: 2,
+          coursescount: 2,
+          childrencount: 0,
+          ruletype: '',
+          ruleoutcome: 1,
+          pendingreviewscount: 0,
+          timecreated: 1725148800,
+          timemodified: 1725148800,
+        }
+      ]
     }),
     getCompetencyCourses: vi.fn().mockResolvedValue({
       courses: [
@@ -73,6 +110,43 @@ vi.mock('../services/adminer-api', () => ({
           activities: []
         },
       ],
+      subcompetencycourses: [
+        {
+          competencyid: 201,
+          competencyname: 'Subcompetencia Limpieza de Datos',
+          competencyidnumber: 'DAT-01-A',
+          courses: [
+            {
+              id: 40,
+              fullname: 'Curso de Python para Data Science',
+              shortname: 'PY-DATA',
+              idnumber: 'PY-100',
+              visible: 1,
+              category: 1,
+              categoryname: 'Tecnología',
+              ruleoutcome: 3,
+              sortorder: 1,
+              timecreated: 1725148800,
+              activities: [
+                {
+                  id: 601,
+                  cmid: 1101,
+                  modname: 'quiz',
+                  name: 'Quiz Limpieza Pandas',
+                  ruleoutcome: 3,
+                  sortorder: 1,
+                  timecreated: 1725148800,
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }),
+    competencyAction: vi.fn().mockResolvedValue({
+      success: true,
+      message: 'Operación de competencia completada',
+      affectedcount: 1,
     }),
     competencyCourseAction: vi.fn().mockResolvedValue({
       success: true,
@@ -168,17 +242,72 @@ describe('CompetencyDetailView', () => {
       </QueryClientProvider>
     );
 
-  it('renders competency metadata, KPIs and linked courses with activities count', async () => {
+  it('renders competency metadata, subcompetencies tab and children list', async () => {
     renderComponent();
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
       expect(screen.getByText('DAT-01')).toBeDefined();
+      expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
+      expect(screen.getByText('Subcompetencia Modelado SQL')).toBeDefined();
+      expect(screen.getByText('DAT-01-A')).toBeDefined();
+      expect(screen.getByText('DAT-01-B')).toBeDefined();
+    });
+  });
+
+  it('navigates between Subcompetencias, Regla de Completado and Cursos tabs', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
+    });
+
+    // Switch to Regla de Completado tab
+    const ruleTabBtn = screen.getByRole('button', { name: /Regla de Completado/i });
+    fireEvent.click(ruleTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Regla de Completado por Subcompetencias')).toBeDefined();
+      expect(screen.getByText(/competency_rule_all_children/i)).toBeDefined();
+    });
+
+    // Switch to Cursos y Actividades tab
+    const coursesTabBtn = screen.getByRole('button', { name: /Cursos y Actividades/i });
+    fireEvent.click(coursesTabBtn);
+
+    await waitFor(() => {
       expect(screen.getByText('Curso de Big Data')).toBeDefined();
       expect(screen.getByText('Machine Learning Básico')).toBeDefined();
-      expect(screen.getByText(/2 actividad\(es\) clave vinculada\(s\)/i)).toBeDefined();
-      expect(screen.getByText('Examen Final Big Data')).toBeDefined();
-      expect(screen.getByText('Proyecto Práctico Hadoop')).toBeDefined();
+    });
+  });
+
+  it('saves updated completion rule in Regla de Completado tab', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    renderComponent();
+
+    const ruleTabBtn = await screen.findByRole('button', { name: /Regla de Completado/i });
+    fireEvent.click(ruleTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Regla de Completado por Subcompetencias')).toBeDefined();
+    });
+
+    // Click "Sin regla" option
+    const noRuleBtn = screen.getByText('Sin regla', { selector: 'span' }).closest('button');
+    fireEvent.click(noRuleBtn);
+
+    // Click "Guardar Regla" button
+    const saveRuleBtn = screen.getByRole('button', { name: /Guardar Regla/i });
+    fireEvent.click(saveRuleBtn);
+
+    await waitFor(() => {
+      expect(AdminerApi.competencyAction).toHaveBeenCalledWith({
+        action: 'update_rule',
+        competencyid: 101,
+        ruletype: '',
+        ruleoutcome: 1,
+        ruleconfig: '',
+      });
     });
   });
 
@@ -186,7 +315,7 @@ describe('CompetencyDetailView', () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText('Curso de Big Data')).toBeDefined();
+      expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
     });
 
     const reviewsBtn = screen.getByTitle('Ver revisiones pendientes');
@@ -198,9 +327,12 @@ describe('CompetencyDetailView', () => {
     });
   });
 
-  it('updates course completion rule inline', async () => {
+  it('updates course completion rule in Cursos tab', async () => {
     const { AdminerApi } = await import('../services/adminer-api');
     renderComponent();
+
+    const coursesTabBtn = await screen.findByRole('button', { name: /Cursos y Actividades/i });
+    fireEvent.click(coursesTabBtn);
 
     await waitFor(() => {
       expect(screen.getByText('Curso de Big Data')).toBeDefined();
@@ -221,54 +353,73 @@ describe('CompetencyDetailView', () => {
     });
   });
 
-  it('updates activity completion rule inline', async () => {
+  it('opens subcompetency creation modal and creates subcompetency successfully', async () => {
     const { AdminerApi } = await import('../services/adminer-api');
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getByText('Examen Final Big Data')).toBeDefined();
+      expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
     });
 
-    const selects = screen.getAllByRole('combobox');
-    // selects[0]: filter, selects[1]: course 10, selects[2]: activity 1001, selects[3]: activity 1002, selects[4]: course 20
-    const activitySelect = selects[2];
-    fireEvent.change(activitySelect, { target: { value: '1' } });
+    const newSubcompBtns = screen.getAllByRole('button', { name: /Nueva Subcompetencia/i });
+    // Click the first "Nueva Subcompetencia" button
+    fireEvent.click(newSubcompBtns[0]);
 
     await waitFor(() => {
-      expect(AdminerApi.moduleCompetencyAction).toHaveBeenCalledWith({
-        action: 'update_rule',
-        competencyid: 101,
-        cmid: 1001,
+      expect(screen.getByRole('heading', { name: 'Nueva Subcompetencia' })).toBeDefined();
+    });
+
+    // Fill form
+    const nameInput = screen.getByPlaceholderText('Ej. Dominio de funciones asíncronas');
+    fireEvent.change(nameInput, { target: { value: 'Subcompetencia Normalización SQL' } });
+
+    // Submit form
+    const submitBtn = screen.getByRole('button', { name: 'Crear Subcompetencia' });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(AdminerApi.competencyAction).toHaveBeenCalledWith({
+        action: 'create',
+        frameworkid: 1,
+        parentid: 101,
+        shortname: 'Subcompetencia Normalización SQL',
+        idnumber: '',
+        description: '',
+        ruletype: '',
         ruleoutcome: 1,
       });
     });
   });
 
-  it('unlinks course when confirming modal', async () => {
-    const { AdminerApi } = await import('../services/adminer-api');
+  it('renders subcompetency courses in read-only mode in courses tab', async () => {
     renderComponent();
 
+    const coursesTabBtn = await screen.findByRole('button', { name: /Cursos y Actividades/i });
+    fireEvent.click(coursesTabBtn);
+
     await waitFor(() => {
-      expect(screen.getByText('Machine Learning Básico')).toBeDefined();
+      // Direct courses section
+      expect(screen.getByText('Cursos Vinculados Directamente')).toBeDefined();
+      expect(screen.getByText('Curso de Big Data')).toBeDefined();
+
+      // Subcompetency courses section
+      expect(screen.getByText('Cursos de las Subcompetencias')).toBeDefined();
+      expect(screen.getByText('Modo Lectura')).toBeDefined();
+      expect(screen.getByText('Curso de Python para Data Science')).toBeDefined();
+      expect(screen.getByText('PY-DATA')).toBeDefined();
+      expect(screen.getByText('Ver Subcompetencia')).toBeDefined();
     });
 
-    const unlinkButtons = screen.getAllByTitle('Desvincular curso');
-    fireEvent.click(unlinkButtons[1]);
+    // Subcompetency course has read-only completion rule badge (no combobox for subcompetency course)
+    const pythonCard = screen.getByText('Curso de Python para Data Science').closest('div');
+    expect(pythonCard).toBeDefined();
 
-    await waitFor(() => {
-      expect(screen.getByText('Confirmar Desvinculación de Curso')).toBeDefined();
-    });
-
-    const confirmBtns = screen.getAllByRole('button', { name: /Desvincular Curso/i });
-    // The button inside dialog is the last one
-    fireEvent.click(confirmBtns[confirmBtns.length - 1]);
-
-    await waitFor(() => {
-      expect(AdminerApi.competencyCourseAction).toHaveBeenCalledWith({
-        action: 'remove',
-        competencyid: 101,
-        courseids: [20],
-      });
+    // Click "Ver Subcompetencia" button
+    const viewSubcompBtn = screen.getByText('Ver Subcompetencia');
+    fireEvent.click(viewSubcompBtn);
+    expect(mockNavigateToDetail).toHaveBeenCalledWith('competency', {
+      frameworkId: 1,
+      competencyId: 201,
     });
   });
 });
