@@ -24,6 +24,7 @@ export function useCourses(params) {
   return useQuery({
     queryKey: ['courses', params],
     queryFn: () => AdminerApi.getCourses(params),
+    staleTime: 0,
   });
 }
 
@@ -32,6 +33,7 @@ export function useCourseDetail(courseId) {
     queryKey: ['course', courseId],
     queryFn: () => AdminerApi.getCourseDetail(courseId),
     enabled: !!courseId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -80,6 +82,7 @@ export function useCourseUserDetail(courseId, userId) {
     queryKey: ['course_user', courseId, userId],
     queryFn: () => AdminerApi.getCourseUserDetail(courseId, userId),
     enabled: !!courseId && !!userId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -88,6 +91,7 @@ export function useCategories(params) {
   return useQuery({
     queryKey: ['categories', params],
     queryFn: () => AdminerApi.getCategories(params),
+    staleTime: 0,
   });
 }
 
@@ -95,6 +99,7 @@ export function useCategoriesFlat() {
   return useQuery({
     queryKey: ['categories_flat'],
     queryFn: () => AdminerApi.getCategoriesFlat(),
+    staleTime: 0,
   });
 }
 
@@ -103,6 +108,7 @@ export function useCategoryDetail(categoryId) {
     queryKey: ['category', categoryId],
     queryFn: () => AdminerApi.getCategoryDetail(categoryId),
     enabled: !!categoryId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -124,6 +130,7 @@ export function useUsers(params) {
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => AdminerApi.getUsers(params),
+    staleTime: 0,
   });
 }
 
@@ -139,6 +146,7 @@ export function useUserDetail(userId) {
     queryKey: ['user', userId],
     queryFn: () => AdminerApi.getUserDetail(userId),
     enabled: !!userId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -181,7 +189,8 @@ export function useUserCohortAction() {
 export function useUserCourseAction() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ action, userid, courseids }) => AdminerApi.userCourseAction(action, userid, courseids),
+    mutationFn: ({ action, userid, courseids, extraParams, ...rest }) => 
+      AdminerApi.userCourseAction(action, userid, courseids, extraParams || rest),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['course'] });
@@ -194,6 +203,7 @@ export function useCohorts(params) {
   return useQuery({
     queryKey: ['cohorts', params],
     queryFn: () => AdminerApi.getCohorts(params),
+    staleTime: 0,
   });
 }
 
@@ -209,6 +219,7 @@ export function useCohortDetail(cohortId) {
     queryKey: ['cohort', cohortId],
     queryFn: () => AdminerApi.getCohortDetail(cohortId),
     enabled: !!cohortId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -245,6 +256,7 @@ export function useCompetencyFrameworks(params) {
   return useQuery({
     queryKey: ['competency_frameworks', params],
     queryFn: () => AdminerApi.getCompetencyFrameworks(params),
+    staleTime: 0,
   });
 }
 
@@ -253,6 +265,7 @@ export function useCompetencyFrameworkDetail(frameworkId, search = '') {
     queryKey: ['competency_framework', frameworkId, search],
     queryFn: () => AdminerApi.getCompetencyFrameworkDetail(frameworkId, search),
     enabled: !!frameworkId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -277,6 +290,7 @@ export function useCompetencyAction() {
       queryClient.invalidateQueries({ queryKey: ['competency_frameworks'] });
       queryClient.invalidateQueries({ queryKey: ['competency_kpis'] });
       queryClient.invalidateQueries({ queryKey: ['competency_framework'] });
+      queryClient.invalidateQueries({ queryKey: ['competency_detail'] });
     },
   });
 }
@@ -286,6 +300,7 @@ export function useCompetencyDetail(competencyId) {
     queryKey: ['competency_detail', competencyId],
     queryFn: () => AdminerApi.getCompetencyDetail(competencyId),
     enabled: !!competencyId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -294,6 +309,7 @@ export function useCompetencyCourses(competencyId) {
     queryKey: ['competency_courses', competencyId],
     queryFn: () => AdminerApi.getCompetencyCourses(competencyId),
     enabled: !!competencyId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -308,7 +324,7 @@ export function useCompetencyCourseAction() {
       }
       queryClient.invalidateQueries({ queryKey: ['competency_framework'] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      queryClient.invalidateQueries({ queryKey: ['course_detail'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
     },
   });
 }
@@ -318,6 +334,7 @@ export function useCourseAvailableActivities(courseId, competencyId = 0) {
     queryKey: ['course_available_activities', courseId, competencyId],
     queryFn: () => AdminerApi.getCourseAvailableActivities(courseId, competencyId),
     enabled: !!courseId,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -338,6 +355,7 @@ export function useCompetencyReviews(params) {
   return useQuery({
     queryKey: ['competency_reviews', params],
     queryFn: () => AdminerApi.getCompetencyReviews(params),
+    staleTime: 0,
   });
 }
 

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useCourseDetail, useCourseCohortAction, useCourseUserAction, useCourseAction } from '../hooks/useAdminerQueries';
-import { AdminerApi } from '../services/adminer-api';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
@@ -15,10 +15,17 @@ import { CourseCohortsTab } from './courses/CourseCohortsTab';
 export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
   
-  const { data, isLoading: loading } = useCourseDetail(courseId);
+  const { data, isLoading: loading, error } = useCourseDetail(courseId);
   const { mutateAsync: performCourseCohortAction } = useCourseCohortAction();
   const { mutateAsync: performCourseUserAction } = useCourseUserAction();
   const { mutateAsync: performCourseAction } = useCourseAction();
+
+  useEffect(() => {
+    if (error) {
+      addToast({ type: 'error', title: 'Error cargando curso', description: error.message });
+      onBack();
+    }
+  }, [error, addToast, onBack]);
 
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'cohorts'
   const [selectorOpen, setSelectorOpen] = useState(false);
@@ -159,18 +166,28 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/70">
+      <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'users' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('users')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'users'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Usuarios Inscritos ({data.users.length})
+          <span>Usuarios Inscritos</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.users.length}</Badge>
         </button>
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'cohorts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('cohorts')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'cohorts'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Cohortes Vinculadas ({data.cohorts.length})
+          <span>Cohortes Vinculadas</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.cohorts.length}</Badge>
         </button>
       </div>
 

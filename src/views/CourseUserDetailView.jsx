@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { AdminerApi } from '../services/adminer-api';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useCourseUserDetail, useCourseUserAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { DataTable } from '../components/DataTable';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
@@ -11,8 +12,9 @@ import { PermissionGate } from '../components/PermissionGate';
 export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) => {
   const { addToast } = useToast();
   
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, error } = useCourseUserDetail(courseId, userId);
+  const courseUserAction = useCourseUserAction();
+
   const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'audit'
 
   const [expirationModalOpen, setExpirationModalOpen] = useState(false);
@@ -22,33 +24,41 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getCourseUserDetail(courseId, userId);
-      setData(res);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error cargando detalle', description: err.message });
-      onBack();
-    } finally {
-      setLoading(false);
-    }
-  }, [courseId, userId, addToast, onBack]);
+  const [unenrollConfirmOpen, setUnenrollConfirmOpen] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (error) {
+      addToast({ type: 'error', title: 'Error cargando detalle', description: error.message });
+      onBack();
+    }
+  }, [error, addToast, onBack]);
 
   const handleAction = async (action, options = {}) => {
     try {
       if (action === 'message') {
-        // Moodle interno: simulado por ahora para usuario individual
-        addToast({ type: 'info', title: 'Funcionalidad de mensajería individual en desarrollo' });
+        if (!messageText.trim()) {
+          addToast({ type: 'warning', title: 'El mensaje no puede estar vacío' });
+          return;
+        }
+        await courseUserAction.mutateAsync({
+          action: 'message',
+          courseid: courseId,
+          userids: [userId],
+          timeend: 0,
+          message_text: messageText
+        });
+        addToast({ type: 'success', title: 'Mensaje enviado exitosamente' });
         setMessageModalOpen(false);
+        setMessageText('');
         return;
       }
 
-      await AdminerApi.courseUserAction(action, courseId, [userId], options.timeend || 0);
+      await courseUserAction.mutateAsync({
+        action,
+        courseid: courseId,
+        userids: [userId],
+        timeend: options.timeend || 0
+      });
       
       if (action === 'remove') {
         addToast({ type: 'success', title: 'Usuario desmatriculado exitosamente' });
@@ -60,8 +70,6 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
       addToast({ type: 'success', title: `Matriculación ${actionTitles[action]} exitosamente` });
       
       if (action === 'set_expiration') setExpirationModalOpen(false);
-      
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al procesar acción', description: err.message });
     }
@@ -181,9 +189,9 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
               <p className="text-sm text-muted-foreground">{user.email}</p>
               
               <div className="flex items-center gap-3 mt-3">
-                <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${data.status === 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'}`}>
+                <Badge variant={data.status === 0 ? 'success' : 'destructive'}>
                   {data.status === 0 ? 'Activo en Curso' : 'Suspendido en Curso'}
-                </span>
+                </Badge>
                 <span className="inline-flex items-center text-xs font-medium text-muted-foreground">
                   Progreso: {data.progress}%
                 </span>
@@ -234,11 +242,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
             <Button
               variant="destructive"
               size="sm"
-              onClick={() => {
-                if (window.confirm('¿Estás seguro de desmatricular a este usuario? Perderá acceso al curso.')) {
-                  handleAction('remove');
-                }
-              }}
+              onClick={() => setUnenrollConfirmOpen(true)}
             >
               <Trash2 className="h-4 w-4 mr-2" /> Desmatricular
             </Button>
@@ -247,18 +251,27 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/70">
+      <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'performance' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('performance')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'performance'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Desempeño y Actividades
+          <span>Desempeño y Actividades</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{(data.activities || []).length}</Badge>
         </button>
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'audit' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('audit')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'audit'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Auditoría de Acceso
+          <span>Auditoría de Acceso</span>
         </button>
       </div>
 
@@ -387,6 +400,39 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
           ></textarea>
+        </div>
+      </Dialog>
+
+      {/* Confirmation Dialog for Unenrollment */}
+      <Dialog
+        open={unenrollConfirmOpen}
+        onClose={() => setUnenrollConfirmOpen(false)}
+        title="Confirmar Desmatriculación"
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-4 pt-2">
+          <p className="text-sm text-muted-foreground">
+            ¿Estás seguro de que deseas desmatricular a <strong className="text-foreground font-semibold">"{user?.fullname}"</strong> de este curso? Perderá acceso permanentemente.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setUnenrollConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setUnenrollConfirmOpen(false);
+                handleAction('remove');
+              }}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Desmatricular
+            </Button>
+          </div>
         </div>
       </Dialog>
     </div>

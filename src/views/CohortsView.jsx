@@ -12,6 +12,7 @@ import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { useAuth } from '../context/AuthContext';
 import { PermissionGate } from '../components/PermissionGate';
+import { KpiGrid } from '../components/KpiGrid';
 
 export const CohortsView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -316,62 +317,54 @@ export const CohortsView = ({ onNavigateToDetail }) => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Cohortes de Moodle
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Grupos globales de usuarios sincronizados en la plataforma.
-        </p>
+      {/* Title section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Cohortes de Moodle</h1>
+            <Badge variant="secondary">{totalCount} cohortes</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Grupos globales de usuarios sincronizados en la plataforma.
+          </p>
+        </div>
       </div>
 
+      {/* KPIs section */}
       {kpis && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-primary/10 rounded-xl">
-                <Layers className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Cohortes</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.total_cohorts}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-emerald-500/10 rounded-xl">
-                <Users className="h-5 w-5 text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Miembros</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.total_members}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 rounded-xl">
-                <AlertCircle className="h-5 w-5 text-amber-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Cohortes Vacías</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.empty_cohorts}</h3>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 rounded-xl">
-                <BookOpen className="h-5 w-5 text-blue-500" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Cursos Vinculados</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.synced_courses}</h3>
-              </div>
-            </div>
-          </div>
-        </div>
+        <KpiGrid
+          loading={loading}
+          items={[
+            {
+              title: 'Total Cohortes',
+              value: kpis.total_cohorts,
+              icon: Layers,
+              color: 'from-primary to-indigo-600',
+              badgeColor: 'bg-primary/10 text-primary',
+            },
+            {
+              title: 'Total Miembros',
+              value: kpis.total_members,
+              icon: Users,
+              color: 'from-emerald-500 to-teal-600',
+              badgeColor: 'bg-emerald-500/10 text-emerald-500',
+            },
+            {
+              title: 'Cohortes Vacías',
+              value: kpis.empty_cohorts,
+              icon: AlertCircle,
+              color: 'from-amber-500 to-orange-600',
+              badgeColor: 'bg-amber-500/10 text-amber-500',
+            },
+            {
+              title: 'Cursos Vinculados',
+              value: kpis.synced_courses,
+              icon: BookOpen,
+              color: 'from-blue-500 to-sky-600',
+              badgeColor: 'bg-blue-500/10 text-blue-500',
+            },
+          ]}
+        />
       )}
 
       <FilterBar

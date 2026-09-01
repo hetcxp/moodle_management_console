@@ -1,19 +1,28 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { AuthService } from '../services/auth.js';
 import { AdminerApi } from '../services/adminer-api.js';
 
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  const isMounted = useRef(true);
   const [user, setUser] = useState(AuthService.getUser());
   const [token, setToken] = useState(AuthService.getToken());
   const [permissions, setPermissions] = useState(null);
   const [permissionsError, setPermissionsError] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
   const fetchPermissions = async (retry = true) => {
     try {
       const perms = await AdminerApi.getPermissions();
+      if (!isMounted.current) return;
       setPermissions(perms);
       setPermissionsError(false);
     } catch (err) {
@@ -21,10 +30,12 @@ export const AuthProvider = ({ children }) => {
         console.warn('Could not fetch permissions, retrying in 3s...', err);
         return new Promise(resolve => {
           setTimeout(async () => {
+            if (!isMounted.current) return resolve();
             resolve(await fetchPermissions(false));
           }, 3000);
         });
       }
+      if (!isMounted.current) return;
       console.warn('Could not fetch permissions after retry, setting default fallback permissions:', err);
       setPermissionsError(true);
       // Fallback if permissions service fails
@@ -40,6 +51,9 @@ export const AuthProvider = ({ children }) => {
         can_update_users: 0,
         can_delete_users: 0,
         can_view_cohorts: 0,
+        can_view_competencies: 0,
+        can_manage_competencies: 0,
+        can_view_reports: 0,
       });
     }
   };

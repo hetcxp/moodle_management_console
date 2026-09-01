@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AdminerApi } from '../services/adminer-api';
+import React, { useState, useEffect } from 'react';
+import { useUserDetail, useUserCohortAction, useUserCourseAction, useUserAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
@@ -15,36 +15,29 @@ import { UserCohortsTab } from './users/UserCohortsTab';
 export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
   
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, error } = useUserDetail(userId);
+  const userCohortAction = useUserCohortAction();
+  const userCourseAction = useUserCourseAction();
+  const userAction = useUserAction();
+
   const [activeTab, setActiveTab] = useState('courses');
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorType, setSelectorType] = useState('courses');
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageText, setMessageText] = useState('');
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getUserDetail(userId);
-      setData(res);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error cargando usuario', description: err.message });
-      onBack();
-    } finally {
-      setLoading(false);
-    }
-  }, [userId, addToast, onBack]);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (error) {
+      addToast({ type: 'error', title: 'Error cargando usuario', description: error.message });
+      onBack();
+    }
+  }, [error, addToast, onBack]);
 
   const handleLinkCohorts = async (cohortIds) => {
     try {
-      await AdminerApi.userCohortAction('add', userId, cohortIds);
+      await userCohortAction.mutateAsync({ action: 'add', userid: userId, cohortids: cohortIds });
       addToast({ type: 'success', title: 'Usuario vinculado a cohorte(s)' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al vincular', description: err.message });
     }
@@ -52,9 +45,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
   const handleUnlinkCohort = async (cohortId) => {
     try {
-      await AdminerApi.userCohortAction('remove', userId, [cohortId]);
+      await userCohortAction.mutateAsync({ action: 'remove', userid: userId, cohortids: [cohortId] });
       addToast({ type: 'success', title: 'Usuario desvinculado exitosamente' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al desvincular', description: err.message });
     }
@@ -62,9 +54,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
   const handleEnrollCourses = async (courseIds) => {
     try {
-      await AdminerApi.userCourseAction('add', userId, courseIds);
+      await userCourseAction.mutateAsync({ action: 'add', userid: userId, courseids: courseIds });
       addToast({ type: 'success', title: 'Usuario matriculado exitosamente' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al matricular', description: err.message });
     }
@@ -72,9 +63,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
   const handleUnenrollCourse = async (courseId) => {
     try {
-      await AdminerApi.userCourseAction('remove', userId, [courseId]);
+      await userCourseAction.mutateAsync({ action: 'remove', userid: userId, courseids: [courseId] });
       addToast({ type: 'success', title: 'Usuario desmatriculado del curso' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -82,9 +72,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
   const handleBulkUnenrollCourses = async (ids) => {
     try {
-      await AdminerApi.userCourseAction('remove', userId, ids);
+      await userCourseAction.mutateAsync({ action: 'remove', userid: userId, courseids: ids });
       addToast({ type: 'success', title: `${ids.length} curso(s) desmatriculados` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -92,13 +81,12 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
   const handleUserCourseAction = async (action, courseIds, extraParams = {}) => {
     try {
-      await AdminerApi.userCourseAction(action, userId, courseIds, extraParams);
+      await userCourseAction.mutateAsync({ action, userid: userId, courseids: courseIds, extraParams });
       let title = '';
       if (action === 'suspend') title = 'Matriculación suspendida exitosamente';
       else if (action === 'activate') title = 'Matriculación activada exitosamente';
       else if (action === 'update_dates') title = 'Fechas actualizadas exitosamente';
       addToast({ type: 'success', title });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -106,9 +94,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
   const handleBulkUnlinkCohorts = async (ids) => {
     try {
-      await AdminerApi.userCohortAction('remove', userId, ids);
+      await userCohortAction.mutateAsync({ action: 'remove', userid: userId, cohortids: ids });
       addToast({ type: 'success', title: `${ids.length} cohorte(s) desvinculadas` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -117,9 +104,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   const handleToggleSuspend = async () => {
     try {
       const action = data.is_active ? 'suspend' : 'activate';
-      await AdminerApi.userAction({ action, userids: [userId] });
+      await userAction.mutateAsync({ action, userids: [userId] });
       addToast({ type: 'success', title: `Usuario ${data.is_active ? 'suspendido' : 'activado'} exitosamente` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error de acción', description: err.message });
     }
@@ -128,8 +114,8 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   const handleSendMessage = async () => {
     if (!messageText.trim()) return;
     try {
-      setLoading(true);
-      const res = await AdminerApi.userAction({ action: 'message', userids: [userId], message_text: messageText });
+      setSendingMessage(true);
+      const res = await userAction.mutateAsync({ action: 'message', userids: [userId], message_text: messageText });
       if (res.success) {
         addToast({ type: 'success', title: 'Mensaje enviado' });
         setMessageModalOpen(false);
@@ -140,7 +126,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     } catch (err) {
       addToast({ type: 'error', title: 'Error de red', description: err.message });
     } finally {
-      setLoading(false);
+      setSendingMessage(false);
     }
   };
 
@@ -253,18 +239,28 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/70">
+      <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'courses' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('courses')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'courses'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Cursos Inscritos ({data.courses.length})
+          <span>Cursos Inscritos</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.courses.length}</Badge>
         </button>
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'cohorts' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('cohorts')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'cohorts'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Cohortes ({data.cohorts.length})
+          <span>Cohortes</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.cohorts.length}</Badge>
         </button>
       </div>
 
@@ -311,7 +307,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
         footer={
           <>
             <Button variant="outline" onClick={() => { setMessageModalOpen(false); setMessageText(''); }}>Cancelar</Button>
-            <Button onClick={handleSendMessage} disabled={!messageText.trim() || loading}>Enviar Mensaje</Button>
+            <Button onClick={handleSendMessage} disabled={!messageText.trim() || sendingMessage}>Enviar Mensaje</Button>
           </>
         }
       >

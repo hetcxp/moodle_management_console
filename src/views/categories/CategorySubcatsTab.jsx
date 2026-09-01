@@ -6,7 +6,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { FolderTree, BookOpen, Eye, EyeOff, Edit, Trash2, Plus } from 'lucide-react';
-import { AdminerApi } from '../../services/adminer-api';
+import { useCategoryAction } from '../../hooks/useAdminerQueries';
 import { useToast } from '../../components/ui/Toast';
 import { PermissionGate } from '../../components/PermissionGate';
 
@@ -21,6 +21,7 @@ export const CategorySubcatsTab = ({
   onNavigateToDetail
 }) => {
   const { addToast } = useToast();
+  const categoryAction = useCategoryAction();
   const [subcatSearch, setSubcatSearch] = useState('');
   const [subcatVisibility, setSubcatVisibility] = useState('-1');
   const [selectedSubcatIds, setSelectedSubcatIds] = useState([]);
@@ -54,7 +55,7 @@ export const CategorySubcatsTab = ({
     setFormLoading(true);
     try {
       if (editingSubcategory) {
-        await AdminerApi.categoryAction({
+        await categoryAction.mutateAsync({
           action: 'edit',
           categoryid: editingSubcategory.id,
           name: formData.name,
@@ -63,7 +64,7 @@ export const CategorySubcatsTab = ({
         });
         addToast({ type: 'success', title: 'Subcategoría actualizada' });
       } else {
-        await AdminerApi.categoryAction({
+        await categoryAction.mutateAsync({
           action: 'create',
           name: formData.name,
           parent: parseInt(categoryId, 10), // Create as subcategory of current
@@ -72,7 +73,6 @@ export const CategorySubcatsTab = ({
         addToast({ type: 'success', title: 'Subcategoría creada' });
       }
       setModalOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -84,10 +84,9 @@ export const CategorySubcatsTab = ({
     if (!categoryToDelete) return;
     setDeleteLoading(true);
     try {
-      await AdminerApi.categoryAction({ action: 'delete', categoryids: [categoryToDelete.id] });
+      await categoryAction.mutateAsync({ action: 'delete', categoryids: [categoryToDelete.id] });
       addToast({ type: 'success', title: 'Categoría eliminada' });
       setDeleteConfirmOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
     } finally {
@@ -197,6 +196,7 @@ export const CategorySubcatsTab = ({
         onSearchChange={setSubcatSearch}
         filters={[
           {
+            id: 'visibility',
             label: 'Estado',
             value: subcatVisibility,
             onChange: setSubcatVisibility,

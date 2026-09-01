@@ -186,6 +186,7 @@ export const CategoryCoursesTab = ({
         onSearchChange={setCourseSearch}
         filters={[
           {
+            id: 'visibility',
             label: 'Estado',
             value: courseVisibility,
             onChange: setCourseVisibility,

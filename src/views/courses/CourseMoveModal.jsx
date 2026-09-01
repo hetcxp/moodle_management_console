@@ -3,12 +3,12 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
-import { AdminerApi } from '../../services/adminer-api';
+import { useCourseAction } from '../../hooks/useAdminerQueries';
 
 export const CourseMoveModal = ({ open, onClose, onSuccess, categoriesList, coursesToMove }) => {
   const { addToast } = useToast();
+  const { mutateAsync: performCourseAction, isPending: moveLoading } = useCourseAction();
   const [targetCategory, setTargetCategory] = useState('');
-  const [moveLoading, setMoveLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -24,9 +24,8 @@ export const CourseMoveModal = ({ open, onClose, onSuccess, categoriesList, cour
       return;
     }
     
-    setMoveLoading(true);
     try {
-      await AdminerApi.courseAction({
+      await performCourseAction({
         action: 'move',
         courseids: coursesToMove,
         categoryid: parseInt(targetCategory, 10)
@@ -39,8 +38,6 @@ export const CourseMoveModal = ({ open, onClose, onSuccess, categoriesList, cour
       onSuccess();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al mover cursos', description: err.message });
-    } finally {
-      setMoveLoading(false);
     }
   };
 
@@ -70,7 +67,7 @@ export const CourseMoveModal = ({ open, onClose, onSuccess, categoriesList, cour
               setTargetCategory(e.target.value);
               setError('');
             }}
-            className={error ? 'border-red-500' : ''}
+            className={error ? 'border-destructive' : ''}
           >
             {categoriesList.map((cat) => (
               <option key={cat.id} value={cat.id}>
@@ -78,7 +75,7 @@ export const CourseMoveModal = ({ open, onClose, onSuccess, categoriesList, cour
               </option>
             ))}
           </Select>
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {error && <p className="text-xs text-destructive mt-1">{error}</p>}
         </div>
       </div>
     </Dialog>

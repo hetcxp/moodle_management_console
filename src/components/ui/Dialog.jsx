@@ -16,7 +16,7 @@ export const Dialog = ({ open, onClose, title, description, children, footer, ma
 
       {/* Modal Box */}
       <div className={cn(
-        'relative z-50 w-full rounded-2xl border border-border bg-card p-6 shadow-2xl transition-all dark:bg-slate-900',
+        'relative z-50 w-full rounded-2xl border border-border bg-card p-6 shadow-2xl transition-all',
         maxWidth
       )}>
         <div className="flex items-start justify-between gap-4">

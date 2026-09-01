@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AdminerApi } from '../services/adminer-api';
+import React, { useState, useEffect } from 'react';
+import { useCategoryDetail, useCategoriesFlat, useCourseAction, useCategoryAction } from '../hooks/useAdminerQueries';
 import { CourseCreateModal } from './courses/CourseCreateModal';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { Dialog } from '../components/ui/Dialog';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
@@ -19,8 +20,11 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
   const hasUpdateCourse = permissions?.is_siteadmin === 1 || permissions?.can_update_courses === 1;
   const hasCreateCourse = permissions?.is_siteadmin === 1 || permissions?.can_create_courses === 1;
 
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, error, refetch: loadData } = useCategoryDetail(categoryId);
+  const { data: flatCatsData } = useCategoriesFlat();
+  const courseAction = useCourseAction();
+  const categoryAction = useCategoryAction();
+
   const [activeTab, setActiveTab] = useState('courses'); // 'courses' | 'subcategories'
 
   // Move courses modal
@@ -28,59 +32,37 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
   const [targetCategory, setTargetCategory] = useState('');
   const [coursesToMove, setCoursesToMove] = useState([]);
   const [moveLoading, setMoveLoading] = useState(false);
-  const [flatCategories, setFlatCategories] = useState([]);
+
+  const flatCategories = flatCatsData?.categories || [];
 
   // Create / Bring courses
   const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false);
   const [bringCourseModalOpen, setBringCourseModalOpen] = useState(false);
 
+  useEffect(() => {
+    if (error) {
+      addToast({ type: 'error', title: 'Error cargando categoría', description: error.message });
+      onBack();
+    }
+  }, [error, addToast, onBack]);
+
   const handleBringCourses = async (selectedIds) => {
     try {
-      await AdminerApi.courseAction({
+      await courseAction.mutateAsync({
         action: 'move',
         courseids: selectedIds,
         categoryid: parseInt(categoryId, 10)
       });
       addToast({ type: 'success', title: 'Cursos vinculados exitosamente' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
   };
 
-  const loadFlatCategories = async () => {
-    try {
-      const res = await AdminerApi.getCategoriesFlat();
-      setFlatCategories(res.categories || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getCategoryDetail(categoryId);
-      setData(res);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error cargando categoría', description: err.message });
-      onBack();
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryId, addToast, onBack]);
-
-  useEffect(() => {
-    loadData();
-    loadFlatCategories();
-    setActiveTab('courses');
-  }, [loadData]);
-
   const handleBulkCourseAction = async (action, ids) => {
     try {
-      await AdminerApi.courseAction({ action, courseids: ids.map(Number) });
+      await courseAction.mutateAsync({ action, courseids: ids.map(Number) });
       addToast({ type: 'success', title: `Cursos ${action === 'hide' ? 'ocultados' : 'visibles'}` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -88,9 +70,8 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
 
   const handleBulkSubcategoryAction = async (action, ids) => {
     try {
-      await AdminerApi.categoryAction({ action, categoryids: ids.map(Number) });
+      await categoryAction.mutateAsync({ action, categoryids: ids.map(Number) });
       addToast({ type: 'success', title: `Subcategorías ${action === 'hide' ? 'ocultadas' : action === 'delete' ? 'eliminadas' : 'visibles'}` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -106,14 +87,13 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
     if (!targetCategory) return;
     setMoveLoading(true);
     try {
-      await AdminerApi.courseAction({
+      await courseAction.mutateAsync({
         action: 'move',
         courseids: coursesToMove,
         categoryid: parseInt(targetCategory, 10)
       });
       addToast({ type: 'success', title: 'Cursos movidos correctamente' });
       setMoveModalOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al mover cursos', description: err.message });
     } finally {
@@ -139,12 +119,11 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
 
   const handleToggleCategoryVisibility = async (id, isVisible) => {
     try {
-      await AdminerApi.categoryAction({ 
+      await categoryAction.mutateAsync({ 
         action: isVisible ? 'hide' : 'show', 
         categoryids: [Number(id)] 
       });
       addToast({ type: 'success', title: isVisible ? 'Categoría ocultada' : 'Categoría visible' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -197,18 +176,28 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/70">
+      <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'courses' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('courses')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'courses'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Cursos en esta Categoría ({totalCourses})
+          <span>Cursos en esta Categoría</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{totalCourses}</Badge>
         </button>
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'subcategories' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('subcategories')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'subcategories'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Subcategorías ({totalSubcats})
+          <span>Subcategorías</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{totalSubcats}</Badge>
         </button>
       </div>
 

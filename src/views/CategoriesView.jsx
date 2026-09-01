@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useCategoriesFlat, useCategoryAction } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -9,6 +10,7 @@ import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { PermissionGate } from '../components/PermissionGate';
+import { KpiGrid } from '../components/KpiGrid';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Trash2, Edit, Plus, FolderTree, BookOpen } from 'lucide-react';
 import { exportToCsv } from '../components/CsvExporter';
@@ -18,10 +20,13 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
   const { permissions } = useAuth();
   const hasManageCategory = permissions?.is_siteadmin === 1 || permissions?.can_manage_categories === 1;
 
-  const [flatCategories, setFlatCategories] = useState([]);
+  const { data: flatCatsData, isLoading: loading, refetch: loadData } = useCategoriesFlat();
+  const categoryAction = useCategoryAction();
+
+  const flatCategories = flatCatsData?.categories || [];
+
   const [page, setPage] = useState(0);
   const [perPage] = useState(50);
-  const [loading, setLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
 
   // Filtering & Sorting
@@ -47,23 +52,6 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportOption, setExportOption] = useState('visible');
   const [exportLoading, setExportLoading] = useState(false);
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getCategoriesFlat();
-      setFlatCategories(res.categories || []);
-      setSelectedIds([]);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error al cargar categorías', description: err.message });
-    } finally {
-      setLoading(false);
-    }
-  }, [addToast]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -91,7 +79,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
     setFormLoading(true);
     try {
       if (editingCategory) {
-        await AdminerApi.categoryAction({
+        await categoryAction.mutateAsync({
           action: 'edit',
           categoryid: editingCategory.id,
           name: formData.name,
@@ -100,7 +88,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
         });
         addToast({ type: 'success', title: 'Categoría actualizada con éxito.' });
       } else {
-        await AdminerApi.categoryAction({
+        await categoryAction.mutateAsync({
           action: 'create',
           name: formData.name,
           parent: parseInt(formData.parent, 10),
@@ -109,7 +97,6 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
         addToast({ type: 'success', title: 'Categoría creada con éxito.' });
       }
       setModalOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -120,9 +107,8 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
   const handleToggleVisibility = async (id, isVisible) => {
     const action = isVisible ? 'hide' : 'show';
     try {
-      await AdminerApi.categoryAction({ action, categoryids: [Number(id)] });
+      await categoryAction.mutateAsync({ action, categoryids: [Number(id)] });
       addToast({ type: 'success', title: isVisible ? 'Categoría ocultada' : 'Categoría visible' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -130,10 +116,9 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
 
   const handleBulkAction = async (action, ids) => {
     try {
-      await AdminerApi.categoryAction({ action, categoryids: ids.map(Number) });
+      await categoryAction.mutateAsync({ action, categoryids: ids.map(Number) });
       addToast({ type: 'success', title: `Categorías ${action === 'hide' ? 'ocultadas' : action === 'delete' ? 'eliminadas' : 'visibles'}` });
       setSelectedIds([]);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -143,10 +128,9 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
     if (!categoryToDelete) return;
     setDeleteLoading(true);
     try {
-      await AdminerApi.categoryAction({ action: 'delete', categoryids: [categoryToDelete.id] });
+      await categoryAction.mutateAsync({ action: 'delete', categoryids: [categoryToDelete.id] });
       addToast({ type: 'success', title: 'Categoría eliminada' });
       setDeleteConfirmOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
     } finally {
@@ -332,62 +316,56 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Title section */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Categorías de Cursos
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Estructura organizativa y ramas de contenidos de Moodle.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Categorías de Cursos</h1>
+            <Badge variant="secondary">{totalCategories} categorías</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Estructura organizativa y ramas de contenidos de Moodle.
+          </p>
+        </div>
       </div>
 
       {/* KPIs section */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/10 rounded-xl">
-              <FolderTree className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Categorías</p>
-              <h3 className="text-2xl font-bold text-foreground">{totalCategories}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-emerald-500/10 rounded-xl">
-              <Eye className="h-5 w-5 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Visibles</p>
-              <h3 className="text-2xl font-bold text-foreground">{visibleCategories}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-amber-500/10 rounded-xl">
-              <EyeOff className="h-5 w-5 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Ocultas</p>
-              <h3 className="text-2xl font-bold text-foreground">{hiddenCategories}</h3>
-            </div>
-          </div>
-        </div>
-        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-500/10 rounded-xl">
-              <BookOpen className="h-5 w-5 text-blue-500" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Cursos Asignados</p>
-              <h3 className="text-2xl font-bold text-foreground">{totalCourses}</h3>
-            </div>
-          </div>
-        </div>
-      </div>
+      <KpiGrid
+        loading={loading}
+        items={[
+          {
+            title: 'Total Categorías',
+            value: totalCategories,
+            icon: FolderTree,
+            color: 'from-primary to-indigo-600',
+            badgeColor: 'bg-primary/10 text-primary',
+            details: [
+              { label: 'Visibles', value: visibleCategories, textClass: 'text-emerald-600' },
+              { label: 'Ocultas', value: hiddenCategories, textClass: 'text-amber-600' },
+            ]
+          },
+          {
+            title: 'Cursos Asignados',
+            value: totalCourses,
+            icon: BookOpen,
+            color: 'from-blue-500 to-sky-600',
+            badgeColor: 'bg-blue-500/10 text-blue-500',
+          },
+          {
+            title: 'Visibles',
+            value: visibleCategories,
+            icon: Eye,
+            color: 'from-emerald-500 to-teal-600',
+            badgeColor: 'bg-emerald-500/10 text-emerald-500',
+          },
+          {
+            title: 'Ocultas',
+            value: hiddenCategories,
+            icon: EyeOff,
+            color: 'from-amber-500 to-orange-600',
+            badgeColor: 'bg-amber-500/10 text-amber-500',
+          },
+        ]}
+      />
 
       <FilterBar
         onRefresh={loadData}
@@ -397,6 +375,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
         onSearchChange={setSearch}
         filters={[
           {
+            id: 'visibility',
             label: 'Estado',
             value: visibilityFilter,
             onChange: setVisibilityFilter,

@@ -18,6 +18,7 @@ import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
 import { useAuth } from '../context/AuthContext';
 import { PermissionGate } from '../components/PermissionGate';
+import { KpiGrid } from '../components/KpiGrid';
 
 export const CompetenciesView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -323,51 +324,45 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Marcos de Competencias
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Estructura y gestión de competencias institucionales de Moodle.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Marcos de Competencias</h1>
+            <Badge variant="secondary">{totalCount} marcos</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Estructura y gestión de competencias institucionales de Moodle.
+          </p>
+        </div>
       </div>
 
       {/* KPI Cards */}
       {kpis && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-amber-500/10 rounded-xl text-amber-500">
-                <Award className="h-5 w-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-muted-foreground">Marcos de Competencias</p>
-                <div className="flex items-baseline gap-3 flex-wrap">
-                  <h3 className="text-2xl font-bold text-foreground">{kpis.total_frameworks}</h3>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium" title="Marcos visibles">
-                      <Eye className="h-3.5 w-3.5" /> {kpis.visible_frameworks} visibles
-                    </span>
-                    <span className="text-muted-foreground/40">•</span>
-                    <span className="inline-flex items-center gap-1 text-muted-foreground font-medium" title="Marcos ocultos">
-                      <EyeOff className="h-3.5 w-3.5" /> {kpis.hidden_frameworks} ocultos
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-blue-500/10 rounded-xl text-blue-500">
-                <Layers className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Competencias</p>
-                <h3 className="text-2xl font-bold text-foreground">{kpis.total_competencies}</h3>
-              </div>
-            </div>
-          </div>
+        <div className="space-y-4">
+          <KpiGrid
+            loading={loading}
+            items={[
+              {
+                title: 'Marcos de Competencias',
+                value: kpis.total_frameworks,
+                icon: Award,
+                color: 'from-amber-500 to-orange-600',
+                badgeColor: 'bg-amber-500/10 text-amber-500',
+                details: [
+                  { label: 'Visibles', value: kpis.visible_frameworks, textClass: 'text-emerald-600' },
+                  { label: 'Ocultos', value: kpis.hidden_frameworks, textClass: 'text-muted-foreground' },
+                ]
+              },
+              {
+                title: 'Total Competencias',
+                value: kpis.total_competencies,
+                icon: Layers,
+                color: 'from-blue-500 to-sky-600',
+                badgeColor: 'bg-blue-500/10 text-blue-500',
+              },
+            ]}
+          />
+          {/* Tarjeta especial: Revisiones Pendientes con acción */}
           <div
             onClick={() => setReviewsModalOpen(true)}
             className={`bg-card/60 backdrop-blur-md rounded-2xl border p-5 shadow-sm transition-all cursor-pointer hover:border-amber-500/50 ${(kpis.pending_reviews || 0) > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}

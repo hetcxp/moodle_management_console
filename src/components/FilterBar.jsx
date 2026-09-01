@@ -111,24 +111,27 @@ export const FilterBar = memo(({
       {/* Bottom Row: Filters & Refresh */}
       {(filters.length > 0 || onRefresh) && (
         <div className="flex flex-wrap items-center gap-3 pt-1">
-          {filters.map((filter) => (
-            <div key={filter.id} className="min-w-[160px] flex-1 sm:flex-none">
-              <label htmlFor={`filter-${filter.id}`} className="sr-only">Filtrar por {filter.label}</label>
-              <select
-                id={`filter-${filter.id}`}
-                value={filter.value}
-                onChange={(e) => filter.onChange(e.target.value)}
-                className="h-10 w-full rounded-lg border border-input bg-background/80 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-all"
-                aria-label={filter.label}
-              >
-                {filter.options.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+          {filters.map((filter) => {
+            const filterId = filter.id ?? filter.label;
+            return (
+              <div key={filterId} className="min-w-[160px] flex-1 sm:flex-none">
+                <label htmlFor={`filter-${filterId}`} className="sr-only">Filtrar por {filter.label}</label>
+                <select
+                  id={`filter-${filterId}`}
+                  value={filter.value}
+                  onChange={(e) => filter.onChange(e.target.value)}
+                  className="h-10 w-full rounded-lg border border-input bg-background/80 px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-1 transition-all"
+                  aria-label={filter.label}
+                >
+                  {filter.options.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
 
           {onRefresh && (
             <Button

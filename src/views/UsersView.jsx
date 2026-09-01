@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useUsers, useUsersKpis, useUserAction, useAddUser } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
@@ -21,6 +22,7 @@ import { Select } from '../components/ui/Select';
 export const UsersView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
   const { permissions } = useAuth();
+  const queryClient = useQueryClient();
 
   const hasUpdateUsers = permissions?.is_siteadmin === 1 || permissions?.can_update_users === 1;
   const hasDeleteUsers = permissions?.is_siteadmin === 1 || permissions?.can_delete_users === 1;
@@ -163,6 +165,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         exportToCsv('usuarios_moodle', exportData, cols);
       } else {
         let detailedData = [];
+        const usersFailed = [];
         for (const user of exportData) {
           try {
             const detail = await AdminerApi.getUserDetail(user.id);
@@ -197,7 +200,27 @@ export const UsersView = ({ onNavigateToDetail }) => {
             }
           } catch (e) {
             console.error('Error fetching detail for user', user.id, e);
+            usersFailed.push(user.id);
+            detailedData.push({
+              user_id: user.id,
+              user_fullname: user.fullname,
+              user_email: user.email,
+              user_status: user.is_active === 1 ? 'Activo' : 'Suspendido',
+              user_progress: user.progress || 0,
+              course_id: '',
+              course_fullname: '',
+              course_shortname: '',
+              course_progress: '',
+              course_enrollment_status: ''
+            });
           }
+        }
+        if (usersFailed.length > 0) {
+          addToast({
+            type: 'warning',
+            title: 'Exportación incompleta',
+            description: `No se pudo obtener detalle de ${usersFailed.length} usuario(s). Sus filas se exportaron con datos básicos.`
+          });
         }
         
         const cols = [
@@ -371,12 +394,13 @@ export const UsersView = ({ onNavigateToDetail }) => {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Directorio de Usuarios
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Directorio de Usuarios</h1>
+            <Badge variant="secondary">{totalCount} usuarios</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
             Supervisa el estado de las cuentas, cohortes y avance en los cursos.
           </p>
         </div>
@@ -531,9 +555,9 @@ export const UsersView = ({ onNavigateToDetail }) => {
                 placeholder="Ej. Juan" 
                 value={userForm.firstname} 
                 onChange={(e) => setUserForm({...userForm, firstname: e.target.value})}
-                className={userErrors.firstname ? 'border-red-500' : ''}
+                className={userErrors.firstname ? 'border-destructive' : ''}
               />
-              {userErrors.firstname && <p className="text-xs text-red-500">{userErrors.firstname}</p>}
+              {userErrors.firstname && <p className="text-xs text-destructive">{userErrors.firstname}</p>}
             </div>
             <div className="space-y-2">
               <label className="text-xs font-semibold">Apellidos *</label>
@@ -541,9 +565,9 @@ export const UsersView = ({ onNavigateToDetail }) => {
                 placeholder="Ej. Pérez" 
                 value={userForm.lastname} 
                 onChange={(e) => setUserForm({...userForm, lastname: e.target.value})}
-                className={userErrors.lastname ? 'border-red-500' : ''}
+                className={userErrors.lastname ? 'border-destructive' : ''}
               />
-              {userErrors.lastname && <p className="text-xs text-red-500">{userErrors.lastname}</p>}
+              {userErrors.lastname && <p className="text-xs text-destructive">{userErrors.lastname}</p>}
             </div>
           </div>
           <div className="space-y-2">
@@ -553,9 +577,9 @@ export const UsersView = ({ onNavigateToDetail }) => {
               placeholder="juan.perez@ejemplo.com" 
               value={userForm.email} 
               onChange={(e) => setUserForm({...userForm, email: e.target.value})}
-              className={userErrors.email ? 'border-red-500' : ''}
+              className={userErrors.email ? 'border-destructive' : ''}
             />
-            {userErrors.email && <p className="text-xs text-red-500">{userErrors.email}</p>}
+            {userErrors.email && <p className="text-xs text-destructive">{userErrors.email}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-xs font-semibold">Nombre de usuario *</label>
@@ -563,9 +587,9 @@ export const UsersView = ({ onNavigateToDetail }) => {
               placeholder="juanperez" 
               value={userForm.username} 
               onChange={(e) => setUserForm({...userForm, username: e.target.value})}
-              className={userErrors.username ? 'border-red-500' : ''}
+              className={userErrors.username ? 'border-destructive' : ''}
             />
-            {userErrors.username && <p className="text-xs text-red-500">{userErrors.username}</p>}
+            {userErrors.username && <p className="text-xs text-destructive">{userErrors.username}</p>}
           </div>
           <div className="space-y-2">
             <label className="text-xs font-semibold">Contraseña *</label>
@@ -574,9 +598,9 @@ export const UsersView = ({ onNavigateToDetail }) => {
               placeholder="Contraseña segura" 
               value={userForm.password} 
               onChange={(e) => setUserForm({...userForm, password: e.target.value})}
-              className={userErrors.password ? 'border-red-500' : ''}
+              className={userErrors.password ? 'border-destructive' : ''}
             />
-            {userErrors.password && <p className="text-xs text-red-500">{userErrors.password}</p>}
+            {userErrors.password && <p className="text-xs text-destructive">{userErrors.password}</p>}
           </div>
         </div>
       </Dialog>
@@ -604,6 +628,9 @@ export const UsersView = ({ onNavigateToDetail }) => {
                       addToast({ title: 'Archivo subido', description: res.message, type: 'success' });
                       setUploadCsvOpen(false);
                       setCsvFile(null);
+                      queryClient.invalidateQueries({ queryKey: ['users'] });
+                      queryClient.invalidateQueries({ queryKey: ['users_kpis'] });
+                      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
                       refetch();
                     } else {
                       addToast({ title: 'Error', description: res.message, type: 'error' });

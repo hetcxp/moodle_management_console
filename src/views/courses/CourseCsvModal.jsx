@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/Toast';
@@ -6,6 +7,7 @@ import { AdminerApi } from '../../services/adminer-api';
 
 export const CourseCsvModal = ({ open, onClose, onSuccess }) => {
   const { addToast } = useToast();
+  const queryClient = useQueryClient();
   const [csvFile, setCsvFile] = useState(null);
   const [csvLoading, setCsvLoading] = useState(false);
   const [error, setError] = useState('');
@@ -37,6 +39,8 @@ export const CourseCsvModal = ({ open, onClose, onSuccess }) => {
           const res = await AdminerApi.uploadCoursesCsv(base64Content);
           if (res.success) {
             addToast({ type: 'success', title: 'Importación Completada', description: res.message });
+            queryClient.invalidateQueries({ queryKey: ['courses'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
             onSuccess();
           } else {
             addToast({ type: 'error', title: 'Error en la importación', description: res.message });
@@ -81,9 +85,9 @@ export const CourseCsvModal = ({ open, onClose, onSuccess }) => {
               setCsvFile(e.target.files[0]);
               setError('');
             }}
-            className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${error ? 'border-red-500' : 'border-input'}`}
+            className={`flex h-10 w-full rounded-md border bg-background px-3 py-2 text-sm text-foreground file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${error ? 'border-destructive' : 'border-input'}`}
           />
-          {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+          {error && <p className="text-xs text-destructive mt-1">{error}</p>}
           <p className="text-xs text-muted-foreground mt-2">
             El archivo debe contener al menos las columnas: <code>fullname</code>, <code>shortname</code>, <code>category</code>.
           </p>

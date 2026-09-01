@@ -231,7 +231,23 @@ export const CoursesView = ({ onNavigateToDetail }) => {
               user_roles: ''
             });
           }
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[Export Detail Error] Course ID:', course.id, e);
+          detailedData.push({
+            course_id: course.id,
+            course_fullname: course.fullname,
+            course_shortname: course.shortname,
+            course_category: course.categoryname,
+            course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
+            course_progress: course.progress_percent,
+            user_id: '',
+            user_fullname: 'Error al obtener usuarios',
+            user_email: '',
+            user_progress: '',
+            user_status: '',
+            user_roles: ''
+          });
+        }
       }
       return detailedData;
     };
@@ -405,13 +421,16 @@ export const CoursesView = ({ onNavigateToDetail }) => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Title section */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Gestión de Cursos
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Administra la visibilidad, organización y métricas de finalización de cursos.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Gestión de Cursos</h1>
+            <Badge variant="secondary">{totalCount} cursos</Badge>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Administra la visibilidad, organización y métricas de finalización de cursos.
+          </p>
+        </div>
       </div>
 
       {/* KPIs section */}

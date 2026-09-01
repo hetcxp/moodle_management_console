@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
 import { DownloadCloud, BookOpen, FolderTree, Users, Layers, Loader2, ListTree } from 'lucide-react';
 import { AdminerApi } from '../services/adminer-api';
 import { exportToCsv } from '../components/CsvExporter';
@@ -160,7 +161,7 @@ export function ReportsView() {
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">{I18N.reports.dashboard.title}</h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground">{I18N.reports.dashboard.title}</h1>
           <p className="text-muted-foreground text-sm mt-1">
             {I18N.reports.dashboard.subtitle}
           </p>
@@ -185,22 +186,24 @@ export function ReportsView() {
               </CardHeader>
               <CardContent className="mt-auto pt-4 border-t border-border mt-4">
                 <div className="flex gap-2 w-full">
-                  <button
+                  <Button
+                    variant="secondary"
                     onClick={() => handleDownload(report.id)}
                     disabled={isDownloading}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-md bg-secondary text-secondary-foreground py-2 text-sm font-medium hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 gap-2"
                   >
                     {isDownloading && downloading === report.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <DownloadCloud className="h-4 w-4" />}
                     {I18N.reports.dashboard.buttons.summary}
-                  </button>
+                  </Button>
                   {report.onOpenDetail && (
-                    <button
+                    <Button
+                      variant="outline"
                       onClick={report.onOpenDetail}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-md border border-input bg-background py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+                      className="flex-1 gap-2"
                     >
                       <ListTree className="h-4 w-4" />
                       {report.detailLabel}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </CardContent>

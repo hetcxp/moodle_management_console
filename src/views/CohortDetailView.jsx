@@ -1,20 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { AdminerApi } from '../services/adminer-api';
+import React, { useState, useEffect } from 'react';
+import { useCohortDetail, useCohortAction, useUserCohortAction, useCourseCohortAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { ChevronLeft, ChevronRight, GraduationCap, Users, Layers, Trash2, BookOpen, Edit } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
+import { CohortMembersTab } from './cohorts/CohortMembersTab';
 import { CohortCoursesTab } from './cohorts/CohortCoursesTab';
 import { runWithConcurrency } from '../lib/concurrency';
 
 export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
   
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data, isLoading: loading, error } = useCohortDetail(cohortId);
+  const cohortAction = useCohortAction();
+  const userCohortAction = useUserCohortAction();
+  const courseCohortAction = useCourseCohortAction();
+
   const [activeTab, setActiveTab] = useState('members'); // 'members' | 'courses'
   const [selectorType, setSelectorType] = useState(null); // 'users' | 'courses' | null
 
@@ -26,37 +31,22 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await AdminerApi.getCohortDetail(cohortId);
-      setData(res);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error cargando cohorte', description: err.message });
-      onBack();
-    } finally {
-      setLoading(false);
-    }
-  }, [cohortId, addToast, onBack]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (error) {
+      addToast({ type: 'error', title: 'Error cargando cohorte', description: error.message });
+      onBack();
+    }
+  }, [error, addToast, onBack]);
 
   const handleLink = async (selectedIds) => {
     try {
       if (selectorType === 'users') {
-        // userCohortAction expect: action, userid, cohortids. But we have multiple users and one cohort.
-        // We can iterate, but it's better if we had an endpoint. However, we have userCohortAction which accepts an array of cohortids.
-        // Since we have multiple users and ONE cohort, we have to map over users.
-        await runWithConcurrency(selectedIds, 5, uid => AdminerApi.userCohortAction('add', uid, [cohortId]));
+        await runWithConcurrency(selectedIds, 5, uid => userCohortAction.mutateAsync({ action: 'add', userid: uid, cohortids: [cohortId] }));
         addToast({ type: 'success', title: 'Usuario(s) añadidos a la cohorte' });
       } else if (selectorType === 'courses') {
-        // courseCohortAction expect: action, courseid, cohortids. 
-        await runWithConcurrency(selectedIds, 5, cid => AdminerApi.courseCohortAction('add', cid, [cohortId]));
+        await runWithConcurrency(selectedIds, 5, cid => courseCohortAction.mutateAsync({ action: 'add', courseid: cid, cohortids: [cohortId] }));
         addToast({ type: 'success', title: 'Curso(s) sincronizados a la cohorte' });
       }
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al vincular', description: err.message });
     }
@@ -64,9 +54,8 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   const handleUnlinkUser = async (userId) => {
     try {
-      await AdminerApi.userCohortAction('remove', userId, [cohortId]);
+      await userCohortAction.mutateAsync({ action: 'remove', userid: userId, cohortids: [cohortId] });
       addToast({ type: 'success', title: 'Usuario removido de la cohorte' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al remover usuario', description: err.message });
     }
@@ -74,9 +63,8 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   const handleUnlinkCourse = async (courseId) => {
     try {
-      await AdminerApi.courseCohortAction('remove', courseId, [cohortId]);
+      await courseCohortAction.mutateAsync({ action: 'remove', courseid: courseId, cohortids: [cohortId] });
       addToast({ type: 'success', title: 'Curso desvinculado de la cohorte' });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al desvincular curso', description: err.message });
     }
@@ -84,9 +72,8 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   const handleBulkUnlinkUsers = async (userIds) => {
     try {
-      await runWithConcurrency(userIds, 5, uid => AdminerApi.userCohortAction('remove', uid, [cohortId]));
+      await runWithConcurrency(userIds, 5, uid => userCohortAction.mutateAsync({ action: 'remove', userid: uid, cohortids: [cohortId] }));
       addToast({ type: 'success', title: `${userIds.length} usuario(s) removido(s)` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al remover usuarios', description: err.message });
     }
@@ -94,9 +81,8 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   const handleBulkUnlinkCourses = async (courseIds) => {
     try {
-      await runWithConcurrency(courseIds, 5, cid => AdminerApi.courseCohortAction('remove', cid, [cohortId]));
+      await runWithConcurrency(courseIds, 5, cid => courseCohortAction.mutateAsync({ action: 'remove', courseid: cid, cohortids: [cohortId] }));
       addToast({ type: 'success', title: `${courseIds.length} curso(s) desvinculados` });
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al desvincular cursos', description: err.message });
     }
@@ -106,7 +92,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
     e.preventDefault();
     setFormLoading(true);
     try {
-      await AdminerApi.cohortAction({
+      await cohortAction.mutateAsync({
         action: 'edit',
         cohortid: cohortId,
         name: formData.name,
@@ -115,7 +101,6 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
       });
       addToast({ type: 'success', title: 'Cohorte actualizada' });
       setEditModalOpen(false);
-      loadData();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -126,7 +111,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
   const handleDelete = async () => {
     setDeleteLoading(true);
     try {
-      await AdminerApi.cohortAction({ action: 'delete', cohortid: cohortId });
+      await cohortAction.mutateAsync({ action: 'delete', cohortid: cohortId });
       addToast({ type: 'success', title: 'Cohorte eliminada' });
       setDeleteConfirmOpen(false);
       onBack();
@@ -236,18 +221,28 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border/70">
+      <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'members' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('members')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'members'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Miembros ({data.members.length})
+          <span>Miembros</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.members.length}</Badge>
         </button>
         <button
-          className={`px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${activeTab === 'courses' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'}`}
           onClick={() => setActiveTab('courses')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'courses'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
         >
-          Cursos Sincronizados ({data.courses.length})
+          <span>Cursos Sincronizados</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.courses.length}</Badge>
         </button>
       </div>
 

@@ -4,11 +4,11 @@ import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
-import { AdminerApi } from '../../services/adminer-api';
+import { useCourseAction } from '../../hooks/useAdminerQueries';
 
 export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, defaultCategoryId }) => {
   const { addToast } = useToast();
-  const [createLoading, setCreateLoading] = useState(false);
+  const { mutateAsync: performCourseAction, isPending: createLoading } = useCourseAction();
   
   const [form, setForm] = useState({
     fullname: '',
@@ -56,9 +56,8 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
     e.preventDefault();
     if (!validate()) return;
     
-    setCreateLoading(true);
     try {
-      await AdminerApi.courseAction({
+      await performCourseAction({
         action: 'create',
         fullname: form.fullname,
         shortname: form.shortname,
@@ -76,8 +75,6 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
       onSuccess();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al crear curso', description: err.message });
-    } finally {
-      setCreateLoading(false);
     }
   };
 
@@ -105,9 +102,9 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
             placeholder="Ej: Introducción a Python 3"
             value={form.fullname}
             onChange={(e) => setForm({ ...form, fullname: e.target.value })}
-            className={errors.fullname ? 'border-red-500' : ''}
+            className={errors.fullname ? 'border-destructive' : ''}
           />
-          {errors.fullname && <p className="text-xs text-red-500 mt-1">{errors.fullname}</p>}
+          {errors.fullname && <p className="text-xs text-destructive mt-1">{errors.fullname}</p>}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -117,9 +114,9 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
               placeholder="Ej: PY3-101"
               value={form.shortname}
               onChange={(e) => setForm({ ...form, shortname: e.target.value })}
-              className={errors.shortname ? 'border-red-500' : ''}
+              className={errors.shortname ? 'border-destructive' : ''}
             />
-            {errors.shortname && <p className="text-xs text-red-500 mt-1">{errors.shortname}</p>}
+            {errors.shortname && <p className="text-xs text-destructive mt-1">{errors.shortname}</p>}
           </div>
 
           <div className="space-y-1.5">
@@ -127,7 +124,7 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
             <Select
               value={form.categoryid}
               onChange={(e) => setForm({ ...form, categoryid: e.target.value })}
-              className={errors.categoryid ? 'border-red-500' : ''}
+              className={errors.categoryid ? 'border-destructive' : ''}
             >
               {categoriesList.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -135,7 +132,7 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
                 </option>
               ))}
             </Select>
-            {errors.categoryid && <p className="text-xs text-red-500 mt-1">{errors.categoryid}</p>}
+            {errors.categoryid && <p className="text-xs text-destructive mt-1">{errors.categoryid}</p>}
           </div>
         </div>
 

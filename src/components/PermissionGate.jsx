@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
-export const PermissionGate = ({ capability, children, fallback = null }) => {
+export const PermissionGate = ({ capability, permission, children, fallback = null }) => {
   const { permissions } = useAuth();
 
   if (!permissions) {
@@ -12,7 +12,8 @@ export const PermissionGate = ({ capability, children, fallback = null }) => {
     return <>{children}</>;
   }
 
-  if (capability && permissions[capability] === 1) {
+  const cap = capability || permission;
+  if (cap && permissions[cap] === 1) {
     return <>{children}</>;
   }
 

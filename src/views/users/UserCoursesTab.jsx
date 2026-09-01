@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BookOpen, User, Layers, UserCheck, UserX, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, Download } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { PermissionGate } from '../../components/PermissionGate';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
@@ -191,9 +192,9 @@ export const UserCoursesTab = ({
         { label: 'Suspendido', value: '1' }
       ],
       cell: (row) => (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${row.enrolstatus === 0 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400'}`}>
+        <Badge variant={row.enrolstatus === 0 ? 'success' : 'destructive'}>
           {row.enrolstatus === 0 ? 'Activo' : 'Suspendido'}
-        </span>
+        </Badge>
       )
     },
     {
