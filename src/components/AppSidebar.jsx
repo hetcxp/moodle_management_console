@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Shield, Sparkles, DownloadCloud } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Award, Shield, Sparkles, DownloadCloud } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 
@@ -36,6 +36,12 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
       label: 'Cohortes',
       icon: Layers,
       capability: 'can_view_cohorts',
+    },
+    {
+      id: 'competencies',
+      label: 'Competencias',
+      icon: Award,
+      capability: 'can_view_competencies',
     },
     {
       id: 'reports',

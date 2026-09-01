@@ -21,6 +21,9 @@ const CourseUserDetailView = lazy(() => import('./views/CourseUserDetailView').t
 const UserDetailView = lazy(() => import('./views/UserDetailView').then(m => ({ default: m.UserDetailView })));
 const CohortDetailView = lazy(() => import('./views/CohortDetailView').then(m => ({ default: m.CohortDetailView })));
 const CategoryDetailView = lazy(() => import('./views/CategoryDetailView').then(m => ({ default: m.CategoryDetailView })));
+const CompetenciesView = lazy(() => import('./views/CompetenciesView').then(m => ({ default: m.CompetenciesView })));
+const CompetencyFrameworkDetailView = lazy(() => import('./views/CompetencyFrameworkDetailView').then(m => ({ default: m.CompetencyFrameworkDetailView })));
+const CompetencyDetailView = lazy(() => import('./views/CompetencyDetailView').then(m => ({ default: m.CompetencyDetailView })));
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
@@ -39,6 +42,7 @@ const AdminerApp = () => {
     if (location.startsWith('/categories')) return 'categories';
     if (location.startsWith('/users')) return 'users';
     if (location.startsWith('/cohorts')) return 'cohorts';
+    if (location.startsWith('/competencies')) return 'competencies';
     if (location.startsWith('/reports')) return 'reports';
     return 'dashboard';
   };
@@ -79,6 +83,14 @@ const AdminerApp = () => {
   const navigateToDetail = (entity, id) => {
     if (entity === 'course_user') {
       setLocation(`/courses/${id.courseId}/users/${id.userId}`);
+    } else if (entity === 'competency') {
+      if (typeof id === 'object' && id.frameworkId && id.competencyId) {
+        setLocation(`/competencies/${id.frameworkId}/competency/${id.competencyId}`);
+      } else {
+        setLocation(`/competencies/${id}`);
+      }
+    } else if (entity === 'competency_framework') {
+      setLocation(`/competencies/${id}`);
     } else {
       // Maps to /courses/123, /users/123, etc.
       // entity is singular ('course', 'user'), we append 's'
@@ -156,6 +168,24 @@ const AdminerApp = () => {
                 </Route>
                 <Route path="/cohorts/:id">
                   {params => <CohortDetailView cohortId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Cohortes" />}
+                </Route>
+
+                {/* Competencies */}
+                <Route path="/competencies">
+                  <CompetenciesView onNavigateToDetail={navigateToDetail} />
+                </Route>
+                <Route path="/competencies/:frameworkId/competency/:competencyId">
+                  {params => (
+                    <CompetencyDetailView
+                      frameworkId={params.frameworkId}
+                      competencyId={params.competencyId}
+                      onBack={() => setLocation(`/competencies/${params.frameworkId}`)}
+                      onNavigateToDetail={navigateToDetail}
+                    />
+                  )}
+                </Route>
+                <Route path="/competencies/:id">
+                  {params => <CompetencyFrameworkDetailView frameworkId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Competencias" />}
                 </Route>
 
                 {/* Reports */}

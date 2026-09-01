@@ -176,5 +176,104 @@ export const AdminerApi = {
 
   async getAutologinUrl(destination) {
     return await MoodleApi.call('local_adminer_get_autologin_url', { destination });
+  },
+
+  // 7. Competencies
+  async getScales() {
+    return await MoodleApi.call('local_adminer_get_scales');
+  },
+
+  async getCompetencyKpis() {
+    return await MoodleApi.call('local_adminer_get_competency_kpis');
+  },
+
+  async getCompetencyFrameworks({ page = 0, perpage = 50, sort = 'shortname', dir = 'ASC', search = '', filters = {} } = {}) {
+    return await MoodleApi.call('local_adminer_get_competency_frameworks', {
+      page,
+      perpage,
+      sort,
+      dir,
+      search,
+      filters: JSON.stringify(filters)
+    });
+  },
+
+  async competencyFrameworkAction({ action, frameworkid = 0, shortname = '', idnumber = '', description = '', scaleid = 0, visible = 1 }) {
+    return await MoodleApi.call('local_adminer_competency_framework_action', {
+      action,
+      frameworkid,
+      shortname,
+      idnumber,
+      description,
+      scaleid,
+      visible
+    });
+  },
+
+  async getCompetencyFrameworkDetail(frameworkid, search = '') {
+    return await MoodleApi.call('local_adminer_get_competency_framework_detail', { frameworkid, search });
+  },
+
+  async competencyAction({ action, competencyid = 0, frameworkid = 0, shortname = '', idnumber = '', description = '' }) {
+    return await MoodleApi.call('local_adminer_competency_action', {
+      action,
+      competencyid,
+      frameworkid,
+      shortname,
+      idnumber,
+      description
+    });
+  },
+
+  async getCompetencyDetail(competencyid) {
+    return await MoodleApi.call('local_adminer_get_competency_detail', { competencyid });
+  },
+
+  async getCompetencyCourses(competencyid) {
+    return await MoodleApi.call('local_adminer_get_competency_courses', { competencyid });
+  },
+
+  async competencyCourseAction({ action, competencyid, courseids, ruleoutcome = 1 }) {
+    return await MoodleApi.call('local_adminer_competency_course_action', {
+      action,
+      competencyid,
+      courseids,
+      ruleoutcome
+    });
+  },
+
+  async getCourseAvailableActivities(courseid, competencyid = 0) {
+    return await MoodleApi.call('local_adminer_get_course_available_activities', { courseid, competencyid });
+  },
+
+  async moduleCompetencyAction({ action, competencyid, cmid, ruleoutcome = 1 }) {
+    return await MoodleApi.call('local_adminer_module_competency_action', {
+      action,
+      competencyid,
+      cmid,
+      ruleoutcome
+    });
+  },
+
+  async getCompetencyReviews({ page = 0, perpage = 20, frameworkid = 0, competencyid = 0, userid = 0, search = '' } = {}) {
+    return await MoodleApi.call('local_adminer_get_competency_reviews', {
+      page,
+      perpage,
+      frameworkid,
+      competencyid,
+      userid,
+      search
+    });
+  },
+
+  async competencyReviewAction({ action = 'evaluate', usercompid, grade = 1, proficiency = 1, note = '' }) {
+    return await MoodleApi.call('local_adminer_competency_review_action', {
+      action,
+      usercompid,
+      grade,
+      proficiency,
+      note
+    });
   }
 };
+
