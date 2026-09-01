@@ -47,6 +47,12 @@ class external_services_test extends advanced_testcase {
         // Test show
         $show_res = \local_adminer_api\external\courses::course_action('show', [$course1->id]);
         $this->assertTrue($show_res['success']);
+
+        // Test move
+        $targetcat = $this->getDataGenerator()->create_category(['name' => 'Target Cat']);
+        $move_res = \local_adminer_api\external\courses::course_action('move', [$course1->id], $targetcat->id);
+        $this->assertTrue($move_res['success']);
+        $this->assertEquals(1, $move_res['affectedcount']);
     }
 
     public function test_get_categories() {
@@ -139,6 +145,23 @@ class external_services_test extends advanced_testcase {
         $messages = $sink->get_messages();
         $this->assertCount(1, $messages);
         $this->assertEquals('Test message', $messages[0]->fullmessage);
+        $sink->close();
+    }
+
+    public function test_user_action_send_temp_password() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user(['email' => 'temppass@example.com']);
+
+        $sink = $this->redirectEmails();
+
+        $res = \local_adminer_api\external\users::user_action('send_temp_password', [$user->id]);
+        $this->assertTrue($res['success']);
+        $this->assertEquals(1, $res['affectedcount']);
+
+        $emails = $sink->get_emails();
+        $this->assertCount(1, $emails);
+        $this->assertEquals('temppass@example.com', $emails[0]->to);
         $sink->close();
     }
 }

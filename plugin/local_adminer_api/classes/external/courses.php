@@ -267,12 +267,12 @@ class courses extends external_api {
 
     public static function course_action_parameters() {
         return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: create, hide, show, delete, move, update_dates'),
+            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: create, hide, show, delete, move, update, update_dates'),
             'courseids'   => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs', VALUE_DEFAULT, []),
             'categoryid'  => new external_value(PARAM_INT, 'Target category ID for move or create', VALUE_DEFAULT, 0),
-            'fullname'    => new external_value(PARAM_TEXT, 'Course fullname for create', VALUE_DEFAULT, ''),
-            'shortname'   => new external_value(PARAM_TEXT, 'Course shortname for create', VALUE_DEFAULT, ''),
-            'summary'     => new external_value(PARAM_RAW, 'Course summary for create', VALUE_DEFAULT, ''),
+            'fullname'    => new external_value(PARAM_TEXT, 'Course fullname for create or update', VALUE_DEFAULT, ''),
+            'shortname'   => new external_value(PARAM_TEXT, 'Course shortname for create or update', VALUE_DEFAULT, ''),
+            'summary'     => new external_value(PARAM_RAW, 'Course summary for create or update', VALUE_DEFAULT, ''),
             'visible'     => new external_value(PARAM_INT, 'Course visibility for create', VALUE_DEFAULT, 1),
             'startdate'   => new external_value(PARAM_INT, 'Course start date', VALUE_DEFAULT, 0),
             'enddate'     => new external_value(PARAM_INT, 'Course end date', VALUE_DEFAULT, 0),
@@ -374,7 +374,7 @@ class courses extends external_api {
                 $validcids = [];
                 foreach ($params['courseids'] as $cid) {
                     if ($cid > 1) {
-                        require_capability('moodle/course:move', \context_course::instance($cid));
+                        require_capability('moodle/course:update', \context_course::instance($cid));
                         $validcids[] = $cid;
                     }
                 }
@@ -386,6 +386,7 @@ class courses extends external_api {
                 }
                 break;
 
+            case 'update':
             case 'update_dates':
                 foreach ($params['courseids'] as $cid) {
                     if ($cid > 1) {
@@ -394,6 +395,18 @@ class courses extends external_api {
                         if ($course) {
                             $data = new stdClass();
                             $data->id = $cid;
+                            if (!empty($params['fullname'])) {
+                                $data->fullname = $params['fullname'];
+                            }
+                            if (!empty($params['shortname'])) {
+                                $data->shortname = $params['shortname'];
+                            }
+                            if ($params['categoryid'] > 0) {
+                                $data->category = $params['categoryid'];
+                            }
+                            if ($params['summary'] !== '') {
+                                $data->summary = $params['summary'];
+                            }
                             $data->startdate = $params['startdate'] > 0 ? $params['startdate'] : 0;
                             $data->enddate = $params['enddate'] > 0 ? $params['enddate'] : 0;
                             update_course($data);
@@ -573,6 +586,8 @@ class courses extends external_api {
         $category = $DB->get_record('course_categories', ['id' => $course->category]);
         $categoryname = $category ? (string)$category->name : '';
 
+        $competencies = course_repository::get_course_competencies($course->id);
+
         return [
             'id' => (int)$course->id,
             'fullname' => $course->fullname,
@@ -583,7 +598,8 @@ class courses extends external_api {
             'enddate' => (int)$course->enddate,
             'users' => $users,
             'cohorts' => $cohorts,
-            'coursegroups' => $coursegroups
+            'coursegroups' => $coursegroups,
+            'competencies' => $competencies
         ];
     }
 
@@ -636,6 +652,45 @@ class courses extends external_api {
                     'id' => new external_value(PARAM_INT, 'Group ID'),
                     'name' => new external_value(PARAM_TEXT, 'Group name'),
                 ])
+            ),
+            'competencies' => new external_multiple_structure(
+                new external_single_structure([
+                    'id'                => new external_value(PARAM_INT, 'Competency ID'),
+                    'linkid'            => new external_value(PARAM_INT, 'Course competency link ID', VALUE_DEFAULT, 0),
+                    'shortname'         => new external_value(PARAM_TEXT, 'Competency short name'),
+                    'idnumber'          => new external_value(PARAM_TEXT, 'Competency ID number', VALUE_DEFAULT, ''),
+                    'description'       => new external_value(PARAM_RAW, 'Competency description', VALUE_DEFAULT, ''),
+                    'parentid'          => new external_value(PARAM_INT, 'Parent competency ID', VALUE_DEFAULT, 0),
+                    'parentname'        => new external_value(PARAM_TEXT, 'Parent competency name', VALUE_DEFAULT, ''),
+                    'path'              => new external_value(PARAM_TEXT, 'Hierarchy path', VALUE_DEFAULT, ''),
+                    'frameworkid'       => new external_value(PARAM_INT, 'Framework ID'),
+                    'frameworkname'     => new external_value(PARAM_TEXT, 'Framework name'),
+                    'frameworkidnumber' => new external_value(PARAM_TEXT, 'Framework ID number', VALUE_DEFAULT, ''),
+                    'frameworkvisible'  => new external_value(PARAM_INT, 'Framework visibility', VALUE_DEFAULT, 1),
+                    'ruleoutcome'       => new external_value(PARAM_INT, 'Rule outcome when course completed', VALUE_DEFAULT, 1),
+                    'sortorder'         => new external_value(PARAM_INT, 'Sort order', VALUE_DEFAULT, 0),
+                    'timecreated'       => new external_value(PARAM_INT, 'Time created', VALUE_DEFAULT, 0),
+                    'enrolledcount'     => new external_value(PARAM_INT, 'Enrolled students count', VALUE_DEFAULT, 0),
+                    'completedcount'    => new external_value(PARAM_INT, 'Students completed count', VALUE_DEFAULT, 0),
+                    'progress'          => new external_value(PARAM_INT, 'Completion progress percentage', VALUE_DEFAULT, 0),
+                    'activities'        => new external_multiple_structure(
+                        new external_single_structure([
+                            'id'          => new external_value(PARAM_INT, 'Module competency link ID'),
+                            'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
+                            'modname'     => new external_value(PARAM_TEXT, 'Module type name'),
+                            'name'        => new external_value(PARAM_TEXT, 'Activity name'),
+                            'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on activity completion'),
+                            'sortorder'   => new external_value(PARAM_INT, 'Sort order', VALUE_DEFAULT, 0),
+                            'timecreated' => new external_value(PARAM_INT, 'Time created', VALUE_DEFAULT, 0),
+                        ]),
+                        'Linked activities in this course',
+                        VALUE_DEFAULT,
+                        []
+                    ),
+                ]),
+                'Competencies linked to course',
+                VALUE_DEFAULT,
+                []
             ),
         ]);
     }

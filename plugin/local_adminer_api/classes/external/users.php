@@ -240,7 +240,7 @@ class users extends external_api {
 
     public static function user_action_parameters() {
         return new external_function_parameters([
-            'action'  => new external_value(PARAM_ALPHA, 'Action: suspend, activate, delete, message'),
+            'action'  => new external_value(PARAM_ALPHANUMEXT, 'Action: suspend, activate, delete, message, send_temp_password, reset_password'),
             'userids' => new external_multiple_structure(new external_value(PARAM_INT, 'User ID'), 'List of user IDs to act upon'),
             'message_text' => new external_value(PARAM_RAW, 'Message text', VALUE_DEFAULT, ''),
         ]);
@@ -325,6 +325,22 @@ class users extends external_api {
                         $message->smallmessage      = strip_tags($clean_msg);
                         message_send($message);
                         $affected++;
+                    }
+                }
+                break;
+
+            case 'send_temp_password':
+            case 'reset_password':
+                require_capability('moodle/user:update', $context);
+                foreach ($ids as $uid) {
+                    if ($uid > 1) {
+                        $user = user_repository::get_user($uid);
+                        if ($user && empty($user->deleted) && $user->auth !== 'nologin') {
+                            $sent = setnew_password_and_mail($user);
+                            if ($sent) {
+                                $affected++;
+                            }
+                        }
                     }
                 }
                 break;
@@ -538,29 +554,34 @@ class users extends external_api {
 
     public static function add_user_parameters() {
         return new external_function_parameters([
-            'username'  => new external_value(PARAM_USERNAME, 'Username'),
-            'password'  => new external_value(PARAM_RAW, 'Password'),
-            'firstname' => new external_value(PARAM_TEXT, 'First name'),
-            'lastname'  => new external_value(PARAM_TEXT, 'Last name'),
-            'email'     => new external_value(PARAM_EMAIL, 'Email address'),
+            'username'       => new external_value(PARAM_RAW, 'Username'),
+            'password'       => new external_value(PARAM_RAW, 'Password', VALUE_DEFAULT, ''),
+            'firstname'      => new external_value(PARAM_TEXT, 'First name'),
+            'lastname'       => new external_value(PARAM_TEXT, 'Last name'),
+            'email'          => new external_value(PARAM_EMAIL, 'Email address'),
+            'createpassword' => new external_value(PARAM_INT, '1 to generate password and send email', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function add_user($username, $password, $firstname, $lastname, $email) {
-        global $CFG;
+    public static function add_user($username, $password = '', $firstname = '', $lastname = '', $email = '', $createpassword = 0) {
+        global $CFG, $DB;
         require_once($CFG->dirroot . '/user/lib.php');
+        require_once($CFG->libdir . '/moodlelib.php');
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/user:create', $context);
         
         $params = self::validate_parameters(self::add_user_parameters(), [
-            'username' => $username, 'password' => $password, 'firstname' => $firstname,
-            'lastname' => $lastname, 'email' => $email
+            'username'       => $username, 
+            'password'       => $password, 
+            'firstname'      => $firstname,
+            'lastname'       => $lastname, 
+            'email'          => $email,
+            'createpassword' => $createpassword,
         ]);
         
         $user = new \stdClass();
-        $user->username = $params['username'];
-        $user->password = $params['password'];
+        $user->username = trim(\core_text::strtolower($params['username']));
         $user->firstname = $params['firstname'];
         $user->lastname = $params['lastname'];
         $user->email = $params['email'];
@@ -568,9 +589,23 @@ class users extends external_api {
         $user->mnethostid = $CFG->mnet_localhost_id;
         $user->auth = 'manual';
         
+        if (!empty($params['createpassword'])) {
+            $user->password = generate_password(12);
+        } else {
+            $user->password = $params['password'];
+        }
+        
         try {
             $userid = user_create_user($user, true, false);
-            return ['success' => true, 'userid' => $userid, 'message' => 'User created successfully'];
+            
+            if (!empty($params['createpassword'])) {
+                $created_user = user_repository::get_user($userid);
+                if ($created_user) {
+                    setnew_password_and_mail($created_user);
+                }
+            }
+
+            return ['success' => true, 'userid' => (int)$userid, 'message' => 'User created successfully'];
         } catch (\Exception $e) {
             return ['success' => false, 'message' => $e->getMessage()];
         }

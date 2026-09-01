@@ -162,7 +162,7 @@ class competency_repository {
             return null;
         }
 
-        $where_comp = "c.competencyframeworkid = :frameworkid AND c.parentid = 0";
+        $where_comp = "c.competencyframeworkid = :frameworkid";
         $sqlparams_comp = ['frameworkid' => $frameworkid];
 
         if (!empty($search)) {
@@ -177,31 +177,45 @@ class competency_repository {
 
         $sql_competencies = "
             SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.path, c.sortorder,
-                   c.timecreated, c.timemodified,
+                   c.ruletype, c.ruleoutcome, c.timecreated, c.timemodified,
+                   COALESCE(p.shortname, '') AS parentname,
                    COALESCE((SELECT COUNT(DISTINCT cc.courseid) FROM {competency_coursecomp} cc WHERE cc.competencyid = c.id), 0) AS coursescount,
+                   COALESCE((SELECT COUNT(sub.id) FROM {competency} sub WHERE sub.parentid = c.id), 0) AS childrencount,
                    COALESCE((SELECT COUNT(uc.id) FROM {competency_usercomp} uc WHERE uc.competencyid = c.id AND uc.status IN (1, 2)), 0) AS pendingreviewscount
               FROM {competency} c
+         LEFT JOIN {competency} p ON p.id = c.parentid
              WHERE $where_comp
-          ORDER BY c.sortorder ASC, c.shortname ASC
+          ORDER BY c.path ASC, c.sortorder ASC, c.shortname ASC
         ";
         $comp_records = $DB->get_records_sql($sql_competencies, $sqlparams_comp);
 
         $competencies = [];
         foreach ($comp_records as $c) {
+            $clean_path = trim((string)$c->path, '/');
+            $depth = !empty($clean_path) ? substr_count($clean_path, '/') : 1;
+            $level = max(1, $depth);
+
             $competencies[] = [
                 'id'                  => (int)$c->id,
                 'shortname'           => (string)$c->shortname,
                 'idnumber'            => (string)($c->idnumber ?? ''),
                 'description'         => (string)($c->description ?? ''),
                 'parentid'            => (int)$c->parentid,
+                'parentname'          => (string)($c->parentname ?? ''),
+                'level'               => (int)$level,
                 'path'                => (string)$c->path,
                 'sortorder'           => (int)$c->sortorder,
                 'coursescount'        => (int)($c->coursescount ?? 0),
+                'childrencount'       => (int)($c->childrencount ?? 0),
+                'ruletype'            => (string)($c->ruletype ?? ''),
+                'ruleoutcome'         => (int)($c->ruleoutcome ?? 1),
                 'pendingreviewscount' => (int)($c->pendingreviewscount ?? 0),
                 'timecreated'         => (int)$c->timecreated,
                 'timemodified'        => (int)$c->timemodified,
             ];
-        }        return [
+        }
+
+        return [
             'id'                 => (int)$framework->id,
             'shortname'          => (string)$framework->shortname,
             'idnumber'           => (string)($framework->idnumber ?? ''),
@@ -220,7 +234,7 @@ class competency_repository {
     }
 
     /**
-     * Devuelve los detalles de una competencia individual.
+     * Devuelve los detalles de una competencia individual y sus subcompetencias hijas.
      *
      * @param int $competencyid
      * @return array|null
@@ -230,11 +244,14 @@ class competency_repository {
 
         $sql = "
             SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.path, c.sortorder,
+                   c.ruletype, c.ruleoutcome, c.ruleconfig,
                    c.competencyframeworkid, c.timecreated, c.timemodified,
+                   p.shortname AS parentname,
                    f.shortname AS frameworkname, f.idnumber AS frameworkidnumber, f.visible AS frameworkvisible,
                    f.scaleid, COALESCE(s.name, 'Escala estándar') AS scalename
               FROM {competency} c
               JOIN {competency_framework} f ON f.id = c.competencyframeworkid
+         LEFT JOIN {competency} p ON p.id = c.parentid
          LEFT JOIN {scale} s ON s.id = f.scaleid
              WHERE c.id = :competencyid
         ";
@@ -244,12 +261,46 @@ class competency_repository {
             return null;
         }
 
+        // Consultar subcompetencias hijas directas
+        $sql_children = "
+            SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.path, c.sortorder,
+                   c.ruletype, c.ruleoutcome, c.timecreated, c.timemodified,
+                   COALESCE((SELECT COUNT(DISTINCT cc.courseid) FROM {competency_coursecomp} cc WHERE cc.competencyid = c.id), 0) AS coursescount,
+                   COALESCE((SELECT COUNT(sub.id) FROM {competency} sub WHERE sub.parentid = c.id), 0) AS childrencount,
+                   COALESCE((SELECT COUNT(uc.id) FROM {competency_usercomp} uc WHERE uc.competencyid = c.id AND uc.status IN (1, 2)), 0) AS pendingreviewscount
+              FROM {competency} c
+             WHERE c.parentid = :competencyid
+          ORDER BY c.sortorder ASC, c.shortname ASC
+        ";
+        $children_records = $DB->get_records_sql($sql_children, ['competencyid' => $competencyid]);
+
+        $children = [];
+        foreach ($children_records as $ch) {
+            $children[] = [
+                'id'                  => (int)$ch->id,
+                'shortname'           => (string)$ch->shortname,
+                'idnumber'            => (string)($ch->idnumber ?? ''),
+                'description'         => (string)($ch->description ?? ''),
+                'parentid'            => (int)$ch->parentid,
+                'path'                => (string)$ch->path,
+                'sortorder'           => (int)$ch->sortorder,
+                'coursescount'        => (int)($ch->coursescount ?? 0),
+                'childrencount'       => (int)($ch->childrencount ?? 0),
+                'ruletype'            => (string)($ch->ruletype ?? ''),
+                'ruleoutcome'         => (int)($ch->ruleoutcome ?? 1),
+                'pendingreviewscount' => (int)($ch->pendingreviewscount ?? 0),
+                'timecreated'         => (int)$ch->timecreated,
+                'timemodified'        => (int)$ch->timemodified,
+            ];
+        }
+
         return [
             'id'                   => (int)$record->id,
             'shortname'            => (string)$record->shortname,
             'idnumber'             => (string)($record->idnumber ?? ''),
             'description'          => (string)($record->description ?? ''),
             'parentid'             => (int)$record->parentid,
+            'parentname'           => (string)($record->parentname ?? ''),
             'path'                 => (string)$record->path,
             'sortorder'            => (int)$record->sortorder,
             'competencyframeworkid'=> (int)$record->competencyframeworkid,
@@ -258,9 +309,14 @@ class competency_repository {
             'frameworkvisible'     => (int)$record->frameworkvisible,
             'scaleid'              => (int)$record->scaleid,
             'scalename'            => (string)$record->scalename,
+            'ruletype'             => (string)($record->ruletype ?? ''),
+            'ruleoutcome'          => (int)($record->ruleoutcome ?? 1),
+            'ruleconfig'           => (string)($record->ruleconfig ?? ''),
+            'childrencount'        => count($children),
             'pendingreviewscount'  => self::count_pending_reviews_by_competency((int)$record->id),
             'timecreated'          => (int)$record->timecreated,
             'timemodified'         => (int)$record->timemodified,
+            'children'             => $children,
         ];
     }
 
@@ -339,6 +395,108 @@ class competency_repository {
         }
 
         return $courses;
+    }
+
+    /**
+     * Devuelve los cursos y actividades vinculados a cada subcompetencia hija de una competencia principal.
+     *
+     * @param int $competencyid
+     * @return array
+     */
+    public static function get_subcompetencies_courses($competencyid) {
+        global $DB;
+
+        // 1. Obtener subcompetencias hijas directas
+        $sql_children = "
+            SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.sortorder
+              FROM {competency} c
+             WHERE c.parentid = :competencyid
+          ORDER BY c.sortorder ASC, c.shortname ASC
+        ";
+        $children = $DB->get_records_sql($sql_children, ['competencyid' => $competencyid]);
+        if (empty($children)) {
+            return [];
+        }
+
+        $subcomp_ids = array_map('intval', array_keys($children));
+        list($insql, $params) = $DB->get_in_or_equal($subcomp_ids, SQL_PARAMS_NAMED, 'sc');
+
+        // 2. Obtener todos los cursos vinculados a cualquiera de las subcompetencias
+        $sql_courses = "
+            SELECT cc.id AS linkid, cc.competencyid, c.id AS courseid, c.fullname, c.shortname, c.idnumber, c.visible, c.category,
+                   COALESCE(cat.name, '') AS categoryname,
+                   cc.ruleoutcome, cc.sortorder, cc.timecreated
+              FROM {competency_coursecomp} cc
+              JOIN {course} c ON c.id = cc.courseid
+         LEFT JOIN {course_categories} cat ON cat.id = c.category
+             WHERE cc.competencyid $insql
+          ORDER BY cc.sortorder ASC, c.fullname ASC
+        ";
+        $course_records = $DB->get_records_sql($sql_courses, $params);
+
+        // 3. Obtener actividades asociadas a cualquiera de las subcompetencias
+        $sql_modules = "
+            SELECT mc.id, mc.competencyid, mc.cmid, mc.ruleoutcome, mc.sortorder, mc.timecreated,
+                   cm.course AS courseid, cm.module AS moduleid, m.name AS modname, cm.instance
+              FROM {competency_modulecomp} mc
+              JOIN {course_modules} cm ON cm.id = mc.cmid
+              JOIN {modules} m ON m.id = cm.module
+             WHERE mc.competencyid $insql
+          ORDER BY mc.sortorder ASC, mc.id ASC
+        ";
+        $module_records = $DB->get_records_sql($sql_modules, $params);
+
+        $modules_by_subcomp_course = [];
+        foreach ($module_records as $mr) {
+            $activity_name = '';
+            try {
+                $activity_name = (string)$DB->get_field($mr->modname, 'name', ['id' => $mr->instance]);
+            } catch (\Exception $e) {
+                $activity_name = '';
+            }
+            if (empty($activity_name)) {
+                $activity_name = ucfirst($mr->modname) . ' #' . $mr->instance;
+            }
+
+            $modules_by_subcomp_course[$mr->competencyid][$mr->courseid][] = [
+                'id'          => (int)$mr->id,
+                'cmid'        => (int)$mr->cmid,
+                'modname'     => (string)$mr->modname,
+                'name'        => $activity_name,
+                'ruleoutcome' => (int)$mr->ruleoutcome,
+                'sortorder'   => (int)$mr->sortorder,
+                'timecreated' => (int)$mr->timecreated,
+            ];
+        }
+
+        $courses_by_subcomp = [];
+        foreach ($course_records as $cr) {
+            $courses_by_subcomp[$cr->competencyid][] = [
+                'id'           => (int)$cr->courseid,
+                'fullname'     => (string)$cr->fullname,
+                'shortname'    => (string)$cr->shortname,
+                'idnumber'     => (string)($cr->idnumber ?? ''),
+                'visible'      => (int)$cr->visible,
+                'category'     => (int)$cr->category,
+                'categoryname' => (string)($cr->categoryname ?? ''),
+                'ruleoutcome'  => (int)$cr->ruleoutcome,
+                'sortorder'    => (int)$cr->sortorder,
+                'timecreated'  => (int)$cr->timecreated,
+                'activities'   => $modules_by_subcomp_course[$cr->competencyid][$cr->courseid] ?? [],
+            ];
+        }
+
+        $subcompetency_courses = [];
+        foreach ($children as $child) {
+            $subcompetency_courses[] = [
+                'competencyid'       => (int)$child->id,
+                'competencyname'     => (string)$child->shortname,
+                'competencyidnumber' => (string)($child->idnumber ?? ''),
+                'courses'            => $courses_by_subcomp[$child->id] ?? [],
+            ];
+        }
+
+        return $subcompetency_courses;
     }
 
     /**

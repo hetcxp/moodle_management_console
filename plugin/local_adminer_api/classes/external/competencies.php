@@ -412,14 +412,19 @@ class competencies extends external_api {
             'pendingreviewscount'=> new external_value(PARAM_INT, 'Number of pending reviews in framework', VALUE_DEFAULT, 0),
             'competencies'       => new external_multiple_structure(
                 new external_single_structure([
-                    'id'           => new external_value(PARAM_INT, 'Competency ID'),
-                    'shortname'    => new external_value(PARAM_TEXT, 'Competency name'),
-                    'idnumber'     => new external_value(PARAM_TEXT, 'Competency ID number'),
-                    'description'  => new external_value(PARAM_RAW, 'Competency description'),
-                    'parentid'     => new external_value(PARAM_INT, 'Parent competency ID (0 for Level 1)'),
-                    'path'         => new external_value(PARAM_TEXT, 'Hierarchical path'),
-                    'sortorder'    => new external_value(PARAM_INT, 'Sort order'),
+                    'id'                  => new external_value(PARAM_INT, 'Competency ID'),
+                    'shortname'           => new external_value(PARAM_TEXT, 'Competency name'),
+                    'idnumber'            => new external_value(PARAM_TEXT, 'Competency ID number'),
+                    'description'         => new external_value(PARAM_RAW, 'Competency description'),
+                    'parentid'            => new external_value(PARAM_INT, 'Parent competency ID (0 for Level 1)'),
+                    'parentname'          => new external_value(PARAM_TEXT, 'Parent competency name', VALUE_DEFAULT, ''),
+                    'level'               => new external_value(PARAM_INT, 'Hierarchy level (1 for root, 2+ for subcompetencies)', VALUE_DEFAULT, 1),
+                    'path'                => new external_value(PARAM_TEXT, 'Hierarchical path'),
+                    'sortorder'           => new external_value(PARAM_INT, 'Sort order'),
                     'coursescount'        => new external_value(PARAM_INT, 'Number of linked courses', VALUE_DEFAULT, 0),
+                    'childrencount'       => new external_value(PARAM_INT, 'Number of direct subcompetencies', VALUE_DEFAULT, 0),
+                    'ruletype'            => new external_value(PARAM_RAW, 'Rule type classname', VALUE_DEFAULT, ''),
+                    'ruleoutcome'         => new external_value(PARAM_INT, 'Rule outcome', VALUE_DEFAULT, 1),
                     'pendingreviewscount' => new external_value(PARAM_INT, 'Number of pending reviews for this competency', VALUE_DEFAULT, 0),
                     'timecreated'         => new external_value(PARAM_INT, 'Creation timestamp'),
                     'timemodified'        => new external_value(PARAM_INT, 'Last modified timestamp'),
@@ -429,20 +434,24 @@ class competencies extends external_api {
     }
 
     // ==========================================
-    // 6. COMPETENCY ACTION (CREATE/EDIT/DELETE)
+    // 6. COMPETENCY ACTION (CREATE/EDIT/DELETE/UPDATE_RULE)
     // ==========================================
     public static function competency_action_parameters() {
         return new external_function_parameters([
-            'action'       => new external_value(PARAM_ALPHA, 'Action: create, edit, delete'),
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete)', VALUE_DEFAULT, 0),
+            'action'       => new external_value(PARAM_ALPHA, 'Action: create, edit, delete, update_rule'),
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete/update_rule)', VALUE_DEFAULT, 0),
             'frameworkid'  => new external_value(PARAM_INT, 'Framework ID (required for create)', VALUE_DEFAULT, 0),
+            'parentid'     => new external_value(PARAM_INT, 'Parent competency ID (0 for root/level 1)', VALUE_DEFAULT, 0),
             'shortname'    => new external_value(PARAM_TEXT, 'Competency name', VALUE_DEFAULT, ''),
             'idnumber'     => new external_value(PARAM_TEXT, 'Competency ID number', VALUE_DEFAULT, ''),
             'description'  => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
+            'ruletype'     => new external_value(PARAM_RAW, 'Rule type classname or empty for none', VALUE_DEFAULT, ''),
+            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)', VALUE_DEFAULT, 1),
+            'ruleconfig'   => new external_value(PARAM_RAW, 'Rule configuration JSON', VALUE_DEFAULT, ''),
         ]);
     }
 
-    public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $shortname = '', $idnumber = '', $description = '') {
+    public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $parentid = 0, $shortname = '', $idnumber = '', $description = '', $ruletype = '', $ruleoutcome = 1, $ruleconfig = '') {
         global $DB, $USER;
 
         $context = context_system::instance();
@@ -453,9 +462,13 @@ class competencies extends external_api {
             'action'       => $action,
             'competencyid' => $competencyid,
             'frameworkid'  => $frameworkid,
+            'parentid'     => $parentid,
             'shortname'    => $shortname,
             'idnumber'     => $idnumber,
             'description'  => $description,
+            'ruletype'     => $ruletype,
+            'ruleoutcome'  => $ruleoutcome,
+            'ruleconfig'   => $ruleconfig,
         ]);
 
         $act = $params['action'];
@@ -473,10 +486,27 @@ class competencies extends external_api {
                 // Comprobar que el marco existe
                 $framework = $DB->get_record('competency_framework', ['id' => $params['frameworkid']], '*', MUST_EXIST);
 
-                // Calcular siguiente sortorder
+                // Resolver jerarquía del padre si viene especificado
+                $parent = null;
+                $target_parentid = (int)$params['parentid'];
+                if ($target_parentid > 0) {
+                    $parent = $DB->get_record('competency', [
+                        'id'                    => $target_parentid,
+                        'competencyframeworkid' => $framework->id,
+                    ], '*', MUST_EXIST);
+                    if ((int)$parent->parentid > 0) {
+                        return [
+                            'success'       => false,
+                            'message'       => 'Solo se permiten 2 niveles de jerarquía. La competencia seleccionada ya es una subcompetencia.',
+                            'affectedcount' => 0,
+                        ];
+                    }
+                }
+
+                // Calcular siguiente sortorder entre hermanos
                 $max_sort = (int)$DB->get_field_sql(
-                    "SELECT MAX(sortorder) FROM {competency} WHERE competencyframeworkid = :fid AND parentid = 0",
-                    ['fid' => $framework->id]
+                    "SELECT MAX(sortorder) FROM {competency} WHERE competencyframeworkid = :fid AND parentid = :pid",
+                    ['fid' => $framework->id, 'pid' => $target_parentid]
                 );
 
                 $record = new \stdClass();
@@ -485,12 +515,12 @@ class competencies extends external_api {
                 $record->description           = clean_text($params['description'], FORMAT_HTML);
                 $record->descriptionformat     = FORMAT_HTML;
                 $record->competencyframeworkid = $framework->id;
-                $record->parentid              = 0; // Nivel 1
-                $record->path                  = '/0/';
+                $record->parentid              = $target_parentid;
+                $record->path                  = $parent ? $parent->path : '/0/';
                 $record->sortorder             = $max_sort + 1;
-                $record->ruletype              = null;
-                $record->ruleoutcome           = 1;
-                $record->ruleconfig            = null;
+                $record->ruletype              = !empty($params['ruletype']) ? trim($params['ruletype']) : null;
+                $record->ruleoutcome           = (int)($params['ruleoutcome'] ?? 1);
+                $record->ruleconfig            = !empty($params['ruleconfig']) ? trim($params['ruleconfig']) : null;
                 $record->scaleid               = null;
                 $record->scaleconfiguration    = null;
                 $record->timecreated           = $now;
@@ -498,15 +528,17 @@ class competencies extends external_api {
                 $record->usermodified          = $USER->id;
 
                 $newid = $DB->insert_record('competency', $record);
-                // Actualizar path canónico /0/{id}/
-                $DB->set_field('competency', 'path', '/0/' . $newid . '/', ['id' => $newid]);
+
+                // Construir path canónico /0/id/ o /0/parent/id/
+                $newpath = $parent ? ($parent->path . $newid . '/') : ('/0/' . $newid . '/');
+                $DB->set_field('competency', 'path', $newpath, ['id' => $newid]);
 
                 // Actualizar timestamp en el marco
                 $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $framework->id]);
 
                 return [
                     'success'       => true,
-                    'message'       => 'Competencia creada exitosamente.',
+                    'message'       => $target_parentid > 0 ? 'Subcompetencia creada exitosamente.' : 'Competencia creada exitosamente.',
                     'affectedcount' => (int)$newid,
                 ];
 
@@ -522,6 +554,70 @@ class competencies extends external_api {
                 $existing->shortname    = trim($params['shortname']);
                 $existing->idnumber     = trim($params['idnumber']);
                 $existing->description  = clean_text($params['description'], FORMAT_HTML);
+                if (isset($params['ruletype'])) {
+                    $existing->ruletype = !empty($params['ruletype']) ? trim($params['ruletype']) : null;
+                }
+                if (isset($params['ruleoutcome'])) {
+                    $existing->ruleoutcome = (int)$params['ruleoutcome'];
+                }
+                if (isset($params['ruleconfig'])) {
+                    $existing->ruleconfig = !empty($params['ruleconfig']) ? trim($params['ruleconfig']) : null;
+                }
+
+                // Si se modifica el parentid, recalcular path y jerarquía de descendientes
+                if (isset($params['parentid']) && (int)$params['parentid'] !== (int)$existing->parentid) {
+                    $new_parentid = (int)$params['parentid'];
+                    if ($new_parentid === (int)$existing->id) {
+                        return ['success' => false, 'message' => 'Una competencia no puede ser padre de sí misma.', 'affectedcount' => 0];
+                    }
+                    if ($new_parentid > 0) {
+                        // Comprobar si la competencia actual tiene subcompetencias
+                        $has_children = $DB->record_exists('competency', ['parentid' => $existing->id]);
+                        if ($has_children) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Esta competencia tiene subcompetencias asociadas y no puede convertirse en subcompetencia.',
+                                'affectedcount' => 0,
+                            ];
+                        }
+
+                        $parent = $DB->get_record('competency', [
+                            'id'                    => $new_parentid,
+                            'competencyframeworkid' => $existing->competencyframeworkid,
+                        ], '*', MUST_EXIST);
+
+                        if ((int)$parent->parentid > 0) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Solo se permiten 2 niveles de jerarquía. La competencia seleccionada ya es una subcompetencia.',
+                                'affectedcount' => 0,
+                            ];
+                        }
+                    }
+                    $oldpath = $existing->path;
+                    if ($new_parentid > 0) {
+                        if (!empty($parent->path) && strpos($parent->path, $oldpath) === 0) {
+                            return ['success' => false, 'message' => 'No se puede mover una competencia dentro de sus propias subcompetencias.', 'affectedcount' => 0];
+                        }
+                        $newpath = $parent->path . $existing->id . '/';
+                    } else {
+                        $newpath = '/0/' . $existing->id . '/';
+                    }
+                    $existing->parentid = $new_parentid;
+                    $existing->path = $newpath;
+
+                    // Actualizar paths de descendientes recursivamente
+                    $descendants = $DB->get_records_select(
+                        'competency',
+                        'competencyframeworkid = :fid AND path LIKE :pathlike AND id != :id',
+                        ['fid' => $existing->competencyframeworkid, 'pathlike' => $oldpath . '%', 'id' => $existing->id]
+                    );
+                    foreach ($descendants as $desc) {
+                        $desc->path = $newpath . substr($desc->path, strlen($oldpath));
+                        $DB->update_record('competency', $desc);
+                    }
+                }
+
                 $existing->timemodified = $now;
                 $existing->usermodified = $USER->id;
 
@@ -534,6 +630,27 @@ class competencies extends external_api {
                     'affectedcount' => 1,
                 ];
 
+            case 'update_rule':
+                if (empty($params['competencyid'])) {
+                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia para actualizar la regla.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency', ['id' => $params['competencyid']], '*', MUST_EXIST);
+                $existing->ruletype     = !empty($params['ruletype']) ? trim($params['ruletype']) : null;
+                $existing->ruleoutcome  = (int)($params['ruleoutcome'] ?? 2);
+                $existing->ruleconfig   = !empty($params['ruleconfig']) ? trim($params['ruleconfig']) : null;
+                $existing->timemodified = $now;
+                $existing->usermodified = $USER->id;
+
+                $DB->update_record('competency', $existing);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $existing->competencyframeworkid]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Regla de completado actualizada exitosamente.',
+                    'affectedcount' => (int)$existing->id,
+                ];
+
             case 'delete':
                 if (empty($params['competencyid'])) {
                     return ['success' => false, 'message' => 'Se requiere el ID de la competencia a eliminar.', 'affectedcount' => 0];
@@ -542,7 +659,7 @@ class competencies extends external_api {
                 $existing = $DB->get_record('competency', ['id' => $params['competencyid']], '*', MUST_EXIST);
                 $fid = $existing->competencyframeworkid;
 
-                // Eliminar competencia y posibles hijas
+                // Eliminar competencia y posibles hijas jerárquicas
                 $DB->delete_records_select('competency', 'id = :id OR path LIKE :pathlike', [
                     'id'       => $existing->id,
                     'pathlike' => '%/' . $existing->id . '/%',
@@ -551,7 +668,7 @@ class competencies extends external_api {
 
                 return [
                     'success'       => true,
-                    'message'       => 'Competencia eliminada exitosamente.',
+                    'message'       => 'Competencia y subcompetencias eliminadas exitosamente.',
                     'affectedcount' => 1,
                 ];
 
@@ -601,6 +718,7 @@ class competencies extends external_api {
             'idnumber'              => new external_value(PARAM_TEXT, 'Competency ID number'),
             'description'           => new external_value(PARAM_RAW, 'Competency description'),
             'parentid'              => new external_value(PARAM_INT, 'Parent competency ID'),
+            'parentname'            => new external_value(PARAM_TEXT, 'Parent competency name', VALUE_DEFAULT, ''),
             'path'                  => new external_value(PARAM_TEXT, 'Hierarchy path'),
             'sortorder'             => new external_value(PARAM_INT, 'Sort order'),
             'competencyframeworkid' => new external_value(PARAM_INT, 'Framework ID'),
@@ -609,9 +727,34 @@ class competencies extends external_api {
             'frameworkvisible'      => new external_value(PARAM_INT, 'Framework visibility'),
             'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
             'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
+            'ruletype'              => new external_value(PARAM_RAW, 'Rule type classname', VALUE_DEFAULT, ''),
+            'ruleoutcome'           => new external_value(PARAM_INT, 'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)', VALUE_DEFAULT, 1),
+            'ruleconfig'            => new external_value(PARAM_RAW, 'Rule configuration JSON', VALUE_DEFAULT, ''),
+            'childrencount'         => new external_value(PARAM_INT, 'Number of direct children subcompetencies', VALUE_DEFAULT, 0),
             'pendingreviewscount'   => new external_value(PARAM_INT, 'Pending reviews count', VALUE_DEFAULT, 0),
             'timecreated'           => new external_value(PARAM_INT, 'Time created'),
             'timemodified'          => new external_value(PARAM_INT, 'Time modified'),
+            'children'              => new external_multiple_structure(
+                new external_single_structure([
+                    'id'                  => new external_value(PARAM_INT, 'Subcompetency ID'),
+                    'shortname'           => new external_value(PARAM_TEXT, 'Subcompetency short name'),
+                    'idnumber'            => new external_value(PARAM_TEXT, 'Subcompetency ID number'),
+                    'description'         => new external_value(PARAM_RAW, 'Subcompetency description'),
+                    'parentid'            => new external_value(PARAM_INT, 'Parent ID'),
+                    'path'                => new external_value(PARAM_TEXT, 'Path'),
+                    'sortorder'           => new external_value(PARAM_INT, 'Sort order'),
+                    'coursescount'        => new external_value(PARAM_INT, 'Linked courses count', VALUE_DEFAULT, 0),
+                    'childrencount'       => new external_value(PARAM_INT, 'Nested subcompetencies count', VALUE_DEFAULT, 0),
+                    'ruletype'            => new external_value(PARAM_RAW, 'Rule type classname', VALUE_DEFAULT, ''),
+                    'ruleoutcome'         => new external_value(PARAM_INT, 'Rule outcome', VALUE_DEFAULT, 1),
+                    'pendingreviewscount' => new external_value(PARAM_INT, 'Pending reviews count', VALUE_DEFAULT, 0),
+                    'timecreated'         => new external_value(PARAM_INT, 'Time created'),
+                    'timemodified'        => new external_value(PARAM_INT, 'Time modified'),
+                ]),
+                'Direct subcompetencies list',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 
@@ -620,21 +763,31 @@ class competencies extends external_api {
     // ==========================================
     public static function get_competency_courses_parameters() {
         return new external_function_parameters([
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
+            'competencyid'           => new external_value(PARAM_INT, 'Competency ID'),
+            'includesubcompetencies' => new external_value(PARAM_BOOL, 'Include courses from child subcompetencies', VALUE_DEFAULT, true),
         ]);
     }
 
-    public static function get_competency_courses($competencyid) {
+    public static function get_competency_courses($competencyid, $includesubcompetencies = true) {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
 
         $params = self::validate_parameters(self::get_competency_courses_parameters(), [
-            'competencyid' => $competencyid,
+            'competencyid'           => $competencyid,
+            'includesubcompetencies' => $includesubcompetencies,
         ]);
 
         $courses = competency_repository::get_competency_courses($params['competencyid']);
-        return ['courses' => $courses];
+        $subcompetencycourses = [];
+        if (!empty($params['includesubcompetencies'])) {
+            $subcompetencycourses = competency_repository::get_subcompetencies_courses($params['competencyid']);
+        }
+
+        return [
+            'courses'              => $courses,
+            'subcompetencycourses' => $subcompetencycourses,
+        ];
     }
 
     public static function get_competency_courses_returns() {
@@ -666,6 +819,47 @@ class competencies extends external_api {
                         []
                     ),
                 ])
+            ),
+            'subcompetencycourses' => new external_multiple_structure(
+                new external_single_structure([
+                    'competencyid'       => new external_value(PARAM_INT, 'Subcompetency ID'),
+                    'competencyname'     => new external_value(PARAM_TEXT, 'Subcompetency name'),
+                    'competencyidnumber' => new external_value(PARAM_RAW, 'Subcompetency ID number'),
+                    'courses'            => new external_multiple_structure(
+                        new external_single_structure([
+                            'id'           => new external_value(PARAM_INT, 'Course ID'),
+                            'fullname'     => new external_value(PARAM_TEXT, 'Course full name'),
+                            'shortname'    => new external_value(PARAM_TEXT, 'Course short name'),
+                            'idnumber'     => new external_value(PARAM_RAW, 'Course ID number'),
+                            'visible'      => new external_value(PARAM_INT, 'Course visibility'),
+                            'category'     => new external_value(PARAM_INT, 'Category ID'),
+                            'categoryname' => new external_value(PARAM_TEXT, 'Category name'),
+                            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion'),
+                            'sortorder'    => new external_value(PARAM_INT, 'Sort order in course'),
+                            'timecreated'  => new external_value(PARAM_INT, 'Linked time timestamp'),
+                            'activities'   => new external_multiple_structure(
+                                new external_single_structure([
+                                    'id'          => new external_value(PARAM_INT, 'Module competency ID'),
+                                    'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
+                                    'modname'     => new external_value(PARAM_TEXT, 'Module type name'),
+                                    'name'        => new external_value(PARAM_TEXT, 'Activity title'),
+                                    'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on activity completion'),
+                                    'sortorder'   => new external_value(PARAM_INT, 'Sort order'),
+                                    'timecreated' => new external_value(PARAM_INT, 'Linked timestamp'),
+                                ]),
+                                'Linked activities within this course',
+                                VALUE_DEFAULT,
+                                []
+                            ),
+                        ]),
+                        'Courses linked to this subcompetency',
+                        VALUE_DEFAULT,
+                        []
+                    ),
+                ]),
+                'Courses grouped by child subcompetency',
+                VALUE_DEFAULT,
+                []
             ),
         ]);
     }
