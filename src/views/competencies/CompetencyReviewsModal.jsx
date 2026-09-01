@@ -216,7 +216,7 @@ export const CompetencyReviewsModal = ({
                         ) : (
                           <Button
                             size="sm"
-                            variant="primary"
+                            variant="default"
                             onClick={() => handleStartReview(rev)}
                             className="text-xs gap-1.5 shadow-sm"
                           >
@@ -324,7 +324,7 @@ export const CompetencyReviewsModal = ({
                           </Button>
                           <Button
                             type="submit"
-                            variant="primary"
+                            variant="default"
                             size="sm"
                             disabled={isSubmitting}
                             className="text-xs gap-1.5 shadow-sm"
