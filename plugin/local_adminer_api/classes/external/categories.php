@@ -160,105 +160,119 @@ class categories extends external_api {
             $ids[] = $params['categoryid'];
         }
 
-        switch ($act) {
-            case 'create':
-                $parentcontext = ($params['parent'] > 0) ? \context_coursecat::instance($params['parent']) : \context_system::instance();
-                require_capability('moodle/category:manage', $parentcontext);
-                
-                if (empty($params['name'])) {
-                    return ['success' => false, 'message' => 'Category name is required', 'affectedcount' => 0];
-                }
-                $data = new stdClass();
-                $data->name = $params['name'];
-                $data->parent = $params['parent'];
-                $data->description = clean_text($params['description'], FORMAT_HTML);
-                $data->descriptionformat = FORMAT_HTML;
-                $cat = core_course_category::create($data);
-                return [
-                    'success'       => true,
-                    'message'       => 'Category created with ID ' . $cat->id,
-                    'affectedcount' => 1,
-                ];
-
-            case 'edit':
-                if (empty($params['categoryid']) || empty($params['name'])) {
-                    return ['success' => false, 'message' => 'categoryid and name are required', 'affectedcount' => 0];
-                }
-                require_capability('moodle/category:manage', \context_coursecat::instance($params['categoryid']));
-                if ($params['parent'] != 0) {
-                    $cat = core_course_category::get($params['categoryid']);
-                    if ($cat->parent != $params['parent']) {
-                        require_capability('moodle/category:manage', \context_coursecat::instance($params['parent']));
+        global $DB;
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            switch ($act) {
+                case 'create':
+                    $parentcontext = ($params['parent'] > 0) ? \context_coursecat::instance($params['parent']) : \context_system::instance();
+                    require_capability('moodle/category:manage', $parentcontext);
+                    
+                    if (empty($params['name'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'Category name is required', 'affectedcount' => 0];
                     }
-                }
-                
-                $cat = core_course_category::get($params['categoryid']);
-                $data = new stdClass();
-                $data->id = $params['categoryid'];
-                $data->name = $params['name'];
-                $data->parent = $params['parent'];
-                $data->description = clean_text($params['description'], FORMAT_HTML);
-                $data->descriptionformat = FORMAT_HTML;
-                $cat->update($data);
-                return [
-                    'success'       => true,
-                    'message'       => 'Category updated successfully',
-                    'affectedcount' => 1,
-                ];
-
-            case 'hide':
-                foreach ($ids as $cid) {
-                    require_capability('moodle/category:manage', \context_coursecat::instance($cid));
-                    $cat = core_course_category::get($cid, IGNORE_MISSING);
-                    if ($cat) {
-                        $updatedata = new stdClass();
-                        $updatedata->id = $cid;
-                        $updatedata->visible = 0;
-                        $cat->update($updatedata);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'show':
-                foreach ($ids as $cid) {
-                    require_capability('moodle/category:manage', \context_coursecat::instance($cid));
-                    $cat = core_course_category::get($cid, IGNORE_MISSING);
-                    if ($cat) {
-                        $updatedata = new stdClass();
-                        $updatedata->id = $cid;
-                        $updatedata->visible = 1;
-                        $cat->update($updatedata);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'delete':
-                $undeleted = [];
-                foreach ($ids as $cid) {
-                    require_capability('moodle/category:manage', \context_coursecat::instance($cid));
-                    $cat = core_course_category::get($cid, IGNORE_MISSING);
-                    if ($cat) {
-                        if ($cat->coursecount == 0) {
-                            $cat->delete_full(false);
-                            $affected++;
-                        } else {
-                            $undeleted[] = $cat->name;
-                        }
-                    }
-                }
-                if (!empty($undeleted)) {
+                    $data = new stdClass();
+                    $data->name = $params['name'];
+                    $data->parent = $params['parent'];
+                    $data->description = clean_text($params['description'], FORMAT_HTML);
+                    $data->descriptionformat = FORMAT_HTML;
+                    $cat = core_course_category::create($data);
+                    $transaction->allow_commit();
                     return [
                         'success'       => true,
-                        'message'       => "Acción completada. Las siguientes categorías no se eliminaron porque contienen cursos: " . implode(', ', $undeleted),
-                        'affectedcount' => $affected,
+                        'message'       => 'Category created with ID ' . $cat->id,
+                        'affectedcount' => 1,
                     ];
-                }
-                break;
 
-            default:
-                return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
+                case 'edit':
+                    if (empty($params['categoryid']) || empty($params['name'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'categoryid and name are required', 'affectedcount' => 0];
+                    }
+                    require_capability('moodle/category:manage', \context_coursecat::instance($params['categoryid']));
+                    if ($params['parent'] != 0) {
+                        $cat = core_course_category::get($params['categoryid']);
+                        if ($cat->parent != $params['parent']) {
+                            require_capability('moodle/category:manage', \context_coursecat::instance($params['parent']));
+                        }
+                    }
+                    
+                    $cat = core_course_category::get($params['categoryid']);
+                    $data = new stdClass();
+                    $data->id = $params['categoryid'];
+                    $data->name = $params['name'];
+                    $data->parent = $params['parent'];
+                    $data->description = clean_text($params['description'], FORMAT_HTML);
+                    $data->descriptionformat = FORMAT_HTML;
+                    $cat->update($data);
+                    $transaction->allow_commit();
+                    return [
+                        'success'       => true,
+                        'message'       => 'Category updated successfully',
+                        'affectedcount' => 1,
+                    ];
+
+                case 'hide':
+                    foreach ($ids as $cid) {
+                        require_capability('moodle/category:manage', \context_coursecat::instance($cid));
+                        $cat = core_course_category::get($cid, IGNORE_MISSING);
+                        if ($cat) {
+                            $updatedata = new stdClass();
+                            $updatedata->id = $cid;
+                            $updatedata->visible = 0;
+                            $cat->update($updatedata);
+                            $affected++;
+                        }
+                    }
+                    break;
+
+                case 'show':
+                    foreach ($ids as $cid) {
+                        require_capability('moodle/category:manage', \context_coursecat::instance($cid));
+                        $cat = core_course_category::get($cid, IGNORE_MISSING);
+                        if ($cat) {
+                            $updatedata = new stdClass();
+                            $updatedata->id = $cid;
+                            $updatedata->visible = 1;
+                            $cat->update($updatedata);
+                            $affected++;
+                        }
+                    }
+                    break;
+
+                case 'delete':
+                    $undeleted = [];
+                    foreach ($ids as $cid) {
+                        require_capability('moodle/category:manage', \context_coursecat::instance($cid));
+                        $cat = core_course_category::get($cid, IGNORE_MISSING);
+                        if ($cat) {
+                            if ($cat->coursecount == 0) {
+                                $cat->delete_full(false);
+                                $affected++;
+                            } else {
+                                $undeleted[] = $cat->name;
+                            }
+                        }
+                    }
+                    if (!empty($undeleted)) {
+                        $transaction->allow_commit();
+                        return [
+                            'success'       => true,
+                            'message'       => "Acción completada. Las siguientes categorías no se eliminaron porque contienen cursos: " . implode(', ', $undeleted),
+                            'affectedcount' => $affected,
+                        ];
+                    }
+                    break;
+
+                default:
+                    $transaction->allow_commit();
+                    return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
+            }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
         return [
@@ -310,26 +324,13 @@ class categories extends external_api {
         $records = category_repository::get_courses_by_category($cat->id);
 
         foreach ($records as $c) {
-            $completedcount = 0;
-            if ($c->enrolledcount > 0) {
-                $course_obj = $DB->get_record('course', ['id' => $c->id]);
-                $users = category_repository::get_course_users($c->id);
-                
-                foreach ($users as $uid) {
-                    $progress = \core_completion\progress::get_course_progress_percentage($course_obj, $uid);
-                    if ($progress !== null && (int)round($progress) === 100) {
-                        $completedcount++;
-                    }
-                }
-            }
-
             $courses[] = [
                 'id' => (int)$c->id,
                 'fullname' => (string)$c->fullname,
                 'shortname' => (string)$c->shortname,
                 'visible' => (int)$c->visible,
                 'enrolledcount' => (int)$c->enrolledcount,
-                'completedcount' => $completedcount,
+                'completedcount' => (int)($c->completedcount ?? 0),
             ];
         }
 

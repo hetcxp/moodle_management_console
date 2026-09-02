@@ -25,8 +25,6 @@ class cohorts extends external_api {
     }
 
     public static function get_cohorts($page = 0, $perpage = 50, $sort = 'name', $dir = 'ASC', $search = '', $filters = '{}') {
-        global $DB;
-
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:view', $context);
@@ -40,73 +38,16 @@ class cohorts extends external_api {
             'filters' => $filters,
         ]);
 
-        $where = "1=1";
-        $sqlparams = [];
+        list($records, $totalcount) = cohort_repository::get_cohorts_filtered($params);
 
-        if (!empty($params['search'])) {
-            $like = '%' . $params['search'] . '%';
-            $where .= " AND (" . $DB->sql_like('c.name', ':s1', false, false) .
-                      " OR " . $DB->sql_like('c.idnumber', ':s2', false, false) . ")";
-            $sqlparams['s1'] = $like;
-            $sqlparams['s2'] = $like;
-        }
-
-        $decoded_filters = json_decode($params['filters'], true);
-        if (is_array($decoded_filters) && !empty($decoded_filters)) {
-            $filter_index = 1;
-            $allowed_filters = ['name' => 'c.name', 'idnumber' => 'c.idnumber'];
-            foreach ($decoded_filters as $key => $value) {
-                if (array_key_exists($key, $allowed_filters) && $value !== '') {
-                    $fieldname = $allowed_filters[$key];
-                    if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filter_index", false, false);
-                        $sqlparams["filterval$filter_index"] = '%' . $value . '%';
-                    }
-                    $filter_index++;
-                }
-            }
-            if (isset($decoded_filters['empty_only']) && $decoded_filters['empty_only']) {
-                if ($decoded_filters['empty_only'] === '1' || $decoded_filters['empty_only'] === true) {
-                    $where .= " AND NOT EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.cohortid = c.id)";
-                } else if ($decoded_filters['empty_only'] === '0') {
-                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.cohortid = c.id)";
-                }
-            }
-        }
-
-        $sortfield = 'c.name';
-        $d = strtoupper($params['dir']) === 'DESC' ? 'DESC' : 'ASC';
-        switch (strtolower($params['sort'])) {
-            case 'idnumber': $sortfield = 'c.idnumber'; break;
-            case 'memberscount': $sortfield = 'memberscount'; break;
-            case 'coursescount': $sortfield = 'coursescount'; break;
-            case 'name':
-            default: $sortfield = 'c.name'; break;
-        }
-
-        $sql_select = "
-            SELECT c.id, c.name, c.idnumber, c.description,
-                   (SELECT COUNT(cm.id) FROM {cohort_members} cm WHERE cm.cohortid = c.id) AS memberscount,
-                   (SELECT COUNT(DISTINCT e.courseid) FROM {enrol} e WHERE e.enrol = 'cohort' AND e.customint1 = c.id) AS coursescount
-              FROM {cohort} c
-             WHERE $where
-          ORDER BY $sortfield $d
-        ";
-
-        $sql_count = "SELECT COUNT(c.id) FROM {cohort} c WHERE $where";
-        $totalcount = cohort_repository::count_cohorts($sql_count, $sqlparams);
-
-        $limitfrom = $params['page'] * $params['perpage'];
-        $records = cohort_repository::get_paginated_cohorts($sql_select, $sqlparams, $limitfrom, $params['perpage']);
+        $cohort_ids = array_keys($records);
+        $progress_map = cohort_repository::get_cohorts_progress_map($cohort_ids);
 
         $cohorts = [];
         foreach ($records as $r) {
             $progress = 0;
             if ($r->memberscount > 0 && $r->coursescount > 0) {
-                $prog_val = cohort_repository::get_cohort_progress($r->id);
-                if ($prog_val) {
-                    $progress = (int)$prog_val;
-                }
+                $progress = isset($progress_map[$r->id]) ? (int)$progress_map[$r->id] : 0;
             }
 
             $cohorts[] = [
@@ -176,57 +117,70 @@ class cohorts extends external_api {
         $act = $params['action'];
         $affected = 0;
 
-        switch ($act) {
-            case 'create':
-                if (empty($params['name'])) {
-                    return ['success' => false, 'message' => 'Cohort name is required', 'affectedcount' => 0];
-                }
-                $data = new \stdClass();
-                $data->name = $params['name'];
-                $data->idnumber = $params['idnumber'];
-                $data->description = clean_text($params['description'], FORMAT_HTML);
-                $data->descriptionformat = FORMAT_HTML;
-                $data->contextid = $context->id;
-                
-                $id = cohort_add_cohort($data);
-                return [
-                    'success'       => true,
-                    'message'       => 'Cohort created successfully with ID ' . $id,
-                    'affectedcount' => 1,
-                ];
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            switch ($act) {
+                case 'create':
+                    if (empty($params['name'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'Cohort name is required', 'affectedcount' => 0];
+                    }
+                    $data = new \stdClass();
+                    $data->name = $params['name'];
+                    $data->idnumber = $params['idnumber'];
+                    $data->description = clean_text($params['description'], FORMAT_HTML);
+                    $data->descriptionformat = FORMAT_HTML;
+                    $data->contextid = $context->id;
+                    
+                    $id = cohort_add_cohort($data);
+                    $transaction->allow_commit();
+                    return [
+                        'success'       => true,
+                        'message'       => 'Cohort created successfully with ID ' . $id,
+                        'affectedcount' => 1,
+                    ];
 
-            case 'edit':
-                if (empty($params['cohortid']) || empty($params['name'])) {
-                    return ['success' => false, 'message' => 'cohortid and name are required', 'affectedcount' => 0];
-                }
-                $data = new \stdClass();
-                $data->id = $params['cohortid'];
-                $data->name = $params['name'];
-                $data->idnumber = $params['idnumber'];
-                $data->description = clean_text($params['description'], FORMAT_HTML);
-                $data->descriptionformat = FORMAT_HTML;
-                $data->contextid = $context->id;
-                
-                cohort_update_cohort($data);
-                return [
-                    'success'       => true,
-                    'message'       => 'Cohort updated successfully',
-                    'affectedcount' => 1,
-                ];
+                case 'edit':
+                    if (empty($params['cohortid']) || empty($params['name'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'cohortid and name are required', 'affectedcount' => 0];
+                    }
+                    $data = new \stdClass();
+                    $data->id = $params['cohortid'];
+                    $data->name = $params['name'];
+                    $data->idnumber = $params['idnumber'];
+                    $data->description = clean_text($params['description'], FORMAT_HTML);
+                    $data->descriptionformat = FORMAT_HTML;
+                    $data->contextid = $context->id;
+                    
+                    cohort_update_cohort($data);
+                    $transaction->allow_commit();
+                    return [
+                        'success'       => true,
+                        'message'       => 'Cohort updated successfully',
+                        'affectedcount' => 1,
+                    ];
 
-            case 'delete':
-                if (empty($params['cohortid'])) {
-                    return ['success' => false, 'message' => 'cohortid is required', 'affectedcount' => 0];
-                }
-                $cohort = cohort_repository::get_cohort($params['cohortid']);
-                if ($cohort) {
-                    cohort_delete_cohort($cohort);
-                    $affected = 1;
-                }
-                break;
-                
-            default:
-                return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
+                case 'delete':
+                    if (empty($params['cohortid'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'cohortid is required', 'affectedcount' => 0];
+                    }
+                    $cohort = cohort_repository::get_cohort($params['cohortid']);
+                    if ($cohort) {
+                        cohort_delete_cohort($cohort);
+                        $affected = 1;
+                    }
+                    break;
+                    
+                default:
+                    $transaction->allow_commit();
+                    return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
+            }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
         return [
@@ -267,6 +221,9 @@ class cohorts extends external_api {
         // Miembros de la cohorte
         $members_records = cohort_repository::get_cohort_members($cohort->id);
 
+        $member_ids = array_keys($members_records);
+        $progress_data = cohort_repository::get_cohort_members_progress_data($member_ids, array_values($courses_records));
+
         $members = [];
         $course_count = count($courses_records);
 
@@ -275,8 +232,7 @@ class cohorts extends external_api {
             $total_progress = 0;
             
             foreach ($courses_records as $c) {
-                $pct = \core_completion\progress::get_course_progress_percentage($c, $u->id);
-                $prog_val = $pct !== null ? (int)round($pct) : 0;
+                $prog_val = $progress_data[$u->id][$c->id] ?? 0;
                 $total_progress += $prog_val;
                 
                 $user_course_progress[] = [

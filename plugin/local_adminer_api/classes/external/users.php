@@ -65,7 +65,7 @@ class users extends external_api {
     }
 
     public static function get_users($page = 0, $perpage = 20, $sort = 'lastaccess', $dir = 'DESC', $search = '', $filters = '{}') {
-        global $DB, $CFG;
+        global $CFG;
 
         $context = context_system::instance();
         self::validate_context($context);
@@ -80,101 +80,7 @@ class users extends external_api {
             'filters' => $filters,
         ]);
 
-        $allowed_sorts = [
-            'id'         => 'u.id',
-            'firstname'  => 'u.firstname',
-            'lastname'   => 'u.lastname',
-            'email'      => 'u.email',
-            'suspended'  => 'u.suspended',
-            'lastaccess' => 'u.lastaccess',
-            'cohorts'    => 'coh.cohorts_count',
-            'courses'    => 'enr.enrolled_courses',
-            'progress'   => 'progress_sort'
-        ];
-
-        if (!array_key_exists($params['sort'], $allowed_sorts)) {
-            $params['sort'] = 'lastaccess';
-        }
-        $sortfield = $allowed_sorts[$params['sort']];
-        $direction = strtoupper($params['dir']) === 'ASC' ? 'ASC' : 'DESC';
-
-        $guestid = $CFG->siteguest ?? 0;
-        $where = "u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid";
-        $sqlparams = ['adminid' => 1, 'guestid' => $guestid];
-        if (!empty($params['search'])) {
-            $searchlike = '%' . $params['search'] . '%';
-            $where .= " AND (" . $DB->sql_like('u.firstname', ':search1', false, false) .
-                      " OR " . $DB->sql_like('u.lastname', ':search2', false, false) .
-                      " OR " . $DB->sql_like('u.email', ':search3', false, false) .
-                      " OR " . $DB->sql_like('u.username', ':search4', false, false) . ")";
-            $sqlparams['search1'] = $searchlike;
-            $sqlparams['search2'] = $searchlike;
-            $sqlparams['search3'] = $searchlike;
-            $sqlparams['search4'] = $searchlike;
-        }
-
-        $decoded_filters = json_decode($params['filters'], true);
-        if (is_array($decoded_filters) && !empty($decoded_filters)) {
-            $filter_index = 1;
-            foreach ($decoded_filters as $key => $value) {
-                if (array_key_exists($key, $allowed_sorts) && $value !== '') {
-                    $fieldname = $allowed_sorts[$key];
-                    if ($key === 'suspended') {
-                        $where .= " AND $fieldname = :filterval$filter_index";
-                        $sqlparams["filterval$filter_index"] = (int)$value;
-                    } else if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filter_index", false, false);
-                        $sqlparams["filterval$filter_index"] = '%' . $value . '%';
-                    }
-                    $filter_index++;
-                } else if ($key === 'cohortid' && $value !== '' && $value !== '0') {
-                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.userid = u.id AND cm_f.cohortid = :filterval$filter_index)";
-                    $sqlparams["filterval$filter_index"] = (int)$value;
-                    $filter_index++;
-                }
-            }
-        }
-
-        $sql_select = "
-            SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.suspended, u.lastaccess,
-                   u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
-                   COALESCE(coh.cohorts_count, 0) AS cohorts_count,
-                   COALESCE(enr.enrolled_courses, 0) AS enrolled_courses,
-                   COALESCE(cmp.completed_courses, 0) AS completed_courses
-              FROM {user} u
-         LEFT JOIN (
-            SELECT cm.userid, COUNT(cm.id) as cohorts_count
-              FROM {cohort_members} cm
-             GROUP BY cm.userid
-         ) coh ON coh.userid = u.id
-         LEFT JOIN (
-            SELECT ue.userid, COUNT(DISTINCT ue.id) as enrolled_courses
-              FROM {user_enrolments} ue 
-              JOIN {enrol} e ON e.id = ue.enrolid 
-             WHERE ue.status = 0
-             GROUP BY ue.userid
-         ) enr ON enr.userid = u.id
-         LEFT JOIN (
-            SELECT cc.userid, COUNT(DISTINCT cc.id) as completed_courses
-              FROM {course_completions} cc 
-             WHERE cc.timecompleted IS NOT NULL
-             GROUP BY cc.userid
-         ) cmp ON cmp.userid = u.id
-             WHERE $where
-        ";
-
-        $sql_count = "SELECT COUNT(u.id) FROM {user} u WHERE $where";
-        $totalcount = user_repository::count_users($sql_count, $sqlparams);
-
-        if ($params['sort'] === 'progress') {
-            $orderby = "ORDER BY CASE WHEN enr.enrolled_courses > 0 THEN (cmp.completed_courses * 1.0 / enr.enrolled_courses) ELSE 0 END $direction, u.id ASC";
-        } else {
-            $orderby = "ORDER BY $sortfield $direction";
-        }
-
-        $sql = $sql_select . " " . $orderby;
-        $limitfrom = $params['page'] * $params['perpage'];
-        $records = user_repository::get_paginated_users($sql, $sqlparams, $limitfrom, $params['perpage']);
+        list($records, $totalcount) = user_repository::get_users_filtered($params);
 
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
 
@@ -265,88 +171,96 @@ class users extends external_api {
         $msg = $params['message_text'];
         $affected = 0;
 
-        switch ($act) {
-            case 'suspend':
-                require_capability('moodle/user:update', $context);
-                foreach ($ids as $uid) {
-                    if ($uid > 1 && !is_siteadmin($uid)) {
-                        $user = user_repository::get_user($uid);
-                        if ($user && !$user->suspended) {
-                            $user->suspended = 1;
-                            user_update_user($user, false, false);
-                            $affected++;
-                        }
-                    }
-                }
-                break;
-
-            case 'activate':
-                require_capability('moodle/user:update', $context);
-                foreach ($ids as $uid) {
-                    if ($uid > 1) {
-                        $user = user_repository::get_user($uid);
-                        if ($user && $user->suspended) {
-                            $user->suspended = 0;
-                            user_update_user($user, false, false);
-                            $affected++;
-                        }
-                    }
-                }
-                break;
-
-            case 'delete':
-                require_capability('moodle/user:delete', $context);
-                foreach ($ids as $uid) {
-                    if ($uid > 1 && !is_siteadmin($uid)) {
-                        $user = user_repository::get_user($uid);
-                        if ($user) {
-                            delete_user($user);
-                            $affected++;
-                        }
-                    }
-                }
-                break;
-
-            case 'message':
-                global $USER;
-                foreach ($ids as $uid) {
-                    $recipient = user_repository::get_user($uid);
-                    if ($recipient && !empty($msg)) {
-                        $message = new \core\message\message();
-                        $message->component         = 'moodle';
-                        $message->name              = 'instantmessage';
-                        $message->userfrom          = $USER;
-                        $message->userto            = $recipient;
-                        $clean_msg = clean_text($msg, FORMAT_HTML);
-                        $message->subject           = 'Mensaje';
-                        $message->fullmessage       = $clean_msg;
-                        $message->fullmessageformat = FORMAT_HTML;
-                        $message->fullmessagehtml   = $clean_msg;
-                        $message->smallmessage      = strip_tags($clean_msg);
-                        message_send($message);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'send_temp_password':
-            case 'reset_password':
-                require_capability('moodle/user:update', $context);
-                foreach ($ids as $uid) {
-                    if ($uid > 1) {
-                        $user = user_repository::get_user($uid);
-                        if ($user && empty($user->deleted) && $user->auth !== 'nologin') {
-                            $sent = setnew_password_and_mail($user);
-                            if ($sent) {
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            switch ($act) {
+                case 'suspend':
+                    require_capability('moodle/user:update', $context);
+                    foreach ($ids as $uid) {
+                        if ($uid > 1 && !is_siteadmin($uid)) {
+                            $user = user_repository::get_user($uid);
+                            if ($user && !$user->suspended) {
+                                $user->suspended = 1;
+                                user_update_user($user, false, false);
                                 $affected++;
                             }
                         }
                     }
-                }
-                break;
+                    break;
 
-            default:
-                return ['success' => false, 'message' => 'Invalid action: ' . $act, 'affectedcount' => 0];
+                case 'activate':
+                    require_capability('moodle/user:update', $context);
+                    foreach ($ids as $uid) {
+                        if ($uid > 1) {
+                            $user = user_repository::get_user($uid);
+                            if ($user && $user->suspended) {
+                                $user->suspended = 0;
+                                user_update_user($user, false, false);
+                                $affected++;
+                            }
+                        }
+                    }
+                    break;
+
+                case 'delete':
+                    require_capability('moodle/user:delete', $context);
+                    foreach ($ids as $uid) {
+                        if ($uid > 1 && !is_siteadmin($uid)) {
+                            $user = user_repository::get_user($uid);
+                            if ($user) {
+                                delete_user($user);
+                                $affected++;
+                            }
+                        }
+                    }
+                    break;
+
+                case 'message':
+                    global $USER;
+                    foreach ($ids as $uid) {
+                        $recipient = user_repository::get_user($uid);
+                        if ($recipient && !empty($msg)) {
+                            $message = new \core\message\message();
+                            $message->component         = 'moodle';
+                            $message->name              = 'instantmessage';
+                            $message->userfrom          = $USER;
+                            $message->userto            = $recipient;
+                            $clean_msg = clean_text($msg, FORMAT_HTML);
+                            $message->subject           = 'Mensaje';
+                            $message->fullmessage       = $clean_msg;
+                            $message->fullmessageformat = FORMAT_HTML;
+                            $message->fullmessagehtml   = $clean_msg;
+                            $message->smallmessage      = strip_tags($clean_msg);
+                            message_send($message);
+                            $affected++;
+                        }
+                    }
+                    break;
+
+                case 'send_temp_password':
+                case 'reset_password':
+                    require_capability('moodle/user:update', $context);
+                    foreach ($ids as $uid) {
+                        if ($uid > 1) {
+                            $user = user_repository::get_user($uid);
+                            if ($user && empty($user->deleted) && $user->auth !== 'nologin') {
+                                $sent = setnew_password_and_mail($user);
+                                if ($sent) {
+                                    $affected++;
+                                }
+                            }
+                        }
+                    }
+                    break;
+
+                default:
+                    $transaction->allow_commit();
+                    return ['success' => false, 'message' => 'Invalid action: ' . $act, 'affectedcount' => 0];
+            }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
         return [
@@ -398,11 +312,11 @@ class users extends external_api {
 
         require_once($CFG->libdir . '/completionlib.php');
 
+        $progress_map = user_repository::get_user_courses_progress_data($user->id, $enrolled_courses);
+
         $courses = [];
         foreach ($enrolled_courses as $c) {
-            $course_obj = \local_adminer_api\repository\course_repository::get_course($c->id);
-            $pct = \core_completion\progress::get_course_progress_percentage($course_obj, $user->id);
-            $progress_val = $pct !== null ? (int)$pct : 0;
+            $progress_val = $progress_map[$c->id] ?? 0;
 
             $courses[] = [
                 'id' => (int)$c->id,
@@ -506,7 +420,7 @@ class users extends external_api {
     }
 
     public static function user_cohort_action($action, $userid, $cohortids) {
-        global $CFG;
+        global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');
 
         $context = context_system::instance();
@@ -522,18 +436,25 @@ class users extends external_api {
         $user = user_repository::get_user_strict($params['userid']);
         $affected = 0;
 
-        foreach ($params['cohortids'] as $cohortid) {
-            if ($params['action'] === 'add') {
-                if (!cohort_is_member($cohortid, $user->id)) {
-                    cohort_add_member($cohortid, $user->id);
-                    $affected++;
-                }
-            } else if ($params['action'] === 'remove') {
-                if (cohort_is_member($cohortid, $user->id)) {
-                    cohort_remove_member($cohortid, $user->id);
-                    $affected++;
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            foreach ($params['cohortids'] as $cohortid) {
+                if ($params['action'] === 'add') {
+                    if (!cohort_is_member($cohortid, $user->id)) {
+                        cohort_add_member($cohortid, $user->id);
+                        $affected++;
+                    }
+                } else if ($params['action'] === 'remove') {
+                    if (cohort_is_member($cohortid, $user->id)) {
+                        cohort_remove_member($cohortid, $user->id);
+                        $affected++;
+                    }
                 }
             }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
         return [
@@ -728,37 +649,44 @@ class users extends external_api {
         }
         
         $affected = 0;
-        foreach ($params['courseids'] as $cid) {
-            $coursecontext = \context_course::instance($cid);
-            require_capability('enrol/manual:enrol', $coursecontext);
-            
-            $instances = enrol_get_instances($cid, true);
-            $manualinstance = null;
-            foreach ($instances as $instance) {
-                if ($instance->enrol === 'manual') {
-                    $manualinstance = $instance;
-                    break;
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            foreach ($params['courseids'] as $cid) {
+                $coursecontext = \context_course::instance($cid);
+                require_capability('enrol/manual:enrol', $coursecontext);
+                
+                $instances = enrol_get_instances($cid, true);
+                $manualinstance = null;
+                foreach ($instances as $instance) {
+                    if ($instance->enrol === 'manual') {
+                        $manualinstance = $instance;
+                        break;
+                    }
+                }
+                if ($manualinstance) {
+                    if ($params['action'] === 'add') {
+                        $roleid = user_repository::get_role_id_by_shortname('student');
+                        $enrol->enrol_user($manualinstance, $params['userid'], $roleid);
+                        $affected++;
+                    } else if ($params['action'] === 'remove') {
+                        $enrol->unenrol_user($manualinstance, $params['userid']);
+                        $affected++;
+                    } else if ($params['action'] === 'suspend') {
+                        $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_SUSPENDED);
+                        $affected++;
+                    } else if ($params['action'] === 'activate') {
+                        $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_ACTIVE);
+                        $affected++;
+                    } else if ($params['action'] === 'update_dates') {
+                        $enrol->update_user_enrol($manualinstance, $params['userid'], NULL, $params['timestart'], $params['timeend']);
+                        $affected++;
+                    }
                 }
             }
-            if ($manualinstance) {
-                if ($params['action'] === 'add') {
-                    $roleid = user_repository::get_role_id_by_shortname('student');
-                    $enrol->enrol_user($manualinstance, $params['userid'], $roleid);
-                    $affected++;
-                } else if ($params['action'] === 'remove') {
-                    $enrol->unenrol_user($manualinstance, $params['userid']);
-                    $affected++;
-                } else if ($params['action'] === 'suspend') {
-                    $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_SUSPENDED);
-                    $affected++;
-                } else if ($params['action'] === 'activate') {
-                    $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_ACTIVE);
-                    $affected++;
-                } else if ($params['action'] === 'update_dates') {
-                    $enrol->update_user_enrol($manualinstance, $params['userid'], NULL, $params['timestart'], $params['timeend']);
-                    $affected++;
-                }
-            }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
         return ['success' => true, 'message' => "Successfully processed $affected enrolments"];
     }

@@ -5,6 +5,73 @@ defined('MOODLE_INTERNAL') || die();
 
 class cohort_repository {
 
+    public static function get_cohorts_filtered(array $params): array {
+        global $DB;
+
+        $where = "1=1";
+        $sqlparams = [];
+
+        if (!empty($params['search'])) {
+            $like = '%' . $params['search'] . '%';
+            $where .= " AND (" . $DB->sql_like('c.name', ':s1', false, false) .
+                      " OR " . $DB->sql_like('c.idnumber', ':s2', false, false) . ")";
+            $sqlparams['s1'] = $like;
+            $sqlparams['s2'] = $like;
+        }
+
+        $decoded_filters = is_string($params['filters'] ?? null) ? json_decode($params['filters'], true) : ($params['filters'] ?? []);
+        if (is_array($decoded_filters) && !empty($decoded_filters)) {
+            $filter_index = 1;
+            $allowed_filters = ['name' => 'c.name', 'idnumber' => 'c.idnumber'];
+            foreach ($decoded_filters as $key => $value) {
+                if (array_key_exists($key, $allowed_filters) && $value !== '') {
+                    $fieldname = $allowed_filters[$key];
+                    if (is_string($value)) {
+                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filter_index", false, false);
+                        $sqlparams["filterval$filter_index"] = '%' . $value . '%';
+                    }
+                    $filter_index++;
+                }
+            }
+            if (isset($decoded_filters['empty_only']) && $decoded_filters['empty_only']) {
+                if ($decoded_filters['empty_only'] === '1' || $decoded_filters['empty_only'] === true) {
+                    $where .= " AND NOT EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.cohortid = c.id)";
+                } else if ($decoded_filters['empty_only'] === '0') {
+                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.cohortid = c.id)";
+                }
+            }
+        }
+
+        $sortfield = 'c.name';
+        $d = strtoupper($params['dir'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+        switch (strtolower($params['sort'] ?? 'name')) {
+            case 'idnumber': $sortfield = 'c.idnumber'; break;
+            case 'memberscount': $sortfield = 'memberscount'; break;
+            case 'coursescount': $sortfield = 'coursescount'; break;
+            case 'name':
+            default: $sortfield = 'c.name'; break;
+        }
+
+        $sql_select = "
+            SELECT c.id, c.name, c.idnumber, c.description,
+                   (SELECT COUNT(cm.id) FROM {cohort_members} cm WHERE cm.cohortid = c.id) AS memberscount,
+                   (SELECT COUNT(DISTINCT e.courseid) FROM {enrol} e WHERE e.enrol = 'cohort' AND e.customint1 = c.id) AS coursescount
+              FROM {cohort} c
+             WHERE $where
+          ORDER BY $sortfield $d
+        ";
+
+        $sql_count = "SELECT COUNT(c.id) FROM {cohort} c WHERE $where";
+        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
+
+        $page = (int)($params['page'] ?? 0);
+        $perpage = (int)($params['perpage'] ?? 50);
+        $limitfrom = $page * $perpage;
+        $records = $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $perpage);
+
+        return [$records, $totalcount];
+    }
+
     public static function count_cohorts($sql_count, $sqlparams = []) {
         global $DB;
         return (int)$DB->count_records_sql($sql_count, $sqlparams);
@@ -28,6 +95,100 @@ class cohort_repository {
             WHERE cm.cohortid = :cohortid AND u.deleted = 0
         ";
         return $DB->get_field_sql($sql_prog, ['cohortid' => $cohortid]);
+    }
+
+    public static function get_cohorts_progress_map(array $cohortids): array {
+        global $DB;
+        if (empty($cohortids)) {
+            return [];
+        }
+        list($in_sql, $in_params) = $DB->get_in_or_equal($cohortids, SQL_PARAMS_NAMED, 'coh');
+        $sql = "
+            SELECT cm.cohortid,
+                   ROUND(AVG(
+                       CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
+                   )) AS avg_progress
+              FROM {cohort_members} cm
+              JOIN {user} u ON u.id = cm.userid
+         LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = cm.userid
+         LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = cm.userid
+             WHERE cm.cohortid $in_sql AND u.deleted = 0
+          GROUP BY cm.cohortid
+        ";
+        return $DB->get_records_sql_menu($sql, $in_params) ?: [];
+    }
+
+    public static function get_cohort_members_progress_data(array $userids, array $courses_records): array {
+        global $DB, $CFG;
+        if (empty($userids) || empty($courses_records)) {
+            return [];
+        }
+
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $course_ids = array_map(function($c) { return (int)$c->id; }, $courses_records);
+        list($in_u_sql, $in_u_params) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'u');
+        list($in_c_sql, $in_c_params) = $DB->get_in_or_equal($course_ids, SQL_PARAMS_NAMED, 'c');
+        $sqlparams = array_merge($in_u_params, $in_c_params);
+
+        // Course completions (100%)
+        $sql_completions = "
+            SELECT " . $DB->sql_concat('cc.userid', "'-'", 'cc.course') . " AS u_c, 100 AS progress
+              FROM {course_completions} cc
+             WHERE cc.userid $in_u_sql AND cc.course $in_c_sql AND cc.timecompleted IS NOT NULL
+        ";
+        $completed_map = $DB->get_records_sql_menu($sql_completions, $sqlparams) ?: [];
+
+        // Trackable activities by course
+        $trackable_by_course = [];
+        $all_trackable_cmids = [];
+        foreach ($courses_records as $c) {
+            $cinfo = new \completion_info($c);
+            if ($cinfo->is_enabled()) {
+                $acts = $cinfo->get_activities();
+                $trackable_by_course[$c->id] = count($acts);
+                foreach (array_keys($acts) as $cmid) {
+                    $all_trackable_cmids[$cmid] = $c->id;
+                }
+            } else {
+                $trackable_by_course[$c->id] = 0;
+            }
+        }
+
+        // Module completions in batch
+        $cm_completed_counts = [];
+        if (!empty($all_trackable_cmids)) {
+            list($in_cm_sql, $in_cm_params) = $DB->get_in_or_equal(array_keys($all_trackable_cmids), SQL_PARAMS_NAMED, 'cm');
+            $cm_params = array_merge($in_u_params, $in_cm_params);
+            $sql_cm = "
+                SELECT " . $DB->sql_concat('cmc.userid', "'-'", 'cm.course') . " AS u_c,
+                       COUNT(DISTINCT cmc.coursemoduleid) AS completed_count
+                  FROM {course_modules_completion} cmc
+                  JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                 WHERE cmc.userid $in_u_sql AND cmc.coursemoduleid $in_cm_sql AND cmc.completionstate IN (1, 2)
+              GROUP BY cmc.userid, cm.course
+            ";
+            $cm_completed_counts = $DB->get_records_sql_menu($sql_cm, $cm_params) ?: [];
+        }
+
+        // Build result map: [userid => [courseid => progress]]
+        $result = [];
+        foreach ($userids as $uid) {
+            $result[$uid] = [];
+            foreach ($course_ids as $cid) {
+                $key = $uid . '-' . $cid;
+                if (isset($completed_map[$key])) {
+                    $result[$uid][$cid] = 100;
+                } else if (!empty($trackable_by_course[$cid])) {
+                    $cm_done = isset($cm_completed_counts[$key]) ? (int)$cm_completed_counts[$key] : 0;
+                    $result[$uid][$cid] = (int)round(($cm_done / $trackable_by_course[$cid]) * 100);
+                } else {
+                    $result[$uid][$cid] = 0;
+                }
+            }
+        }
+
+        return $result;
     }
 
     public static function get_cohort($cohortid) {

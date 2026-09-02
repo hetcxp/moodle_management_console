@@ -30,8 +30,6 @@ class courses extends external_api {
     }
 
     public static function get_courses($page = 0, $perpage = 20, $sort = 'timecreated', $dir = 'DESC', $search = '', $category = 0, $visibility = -1, $filters = '{}') {
-        global $DB;
-
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/course:view', $context);
@@ -47,157 +45,7 @@ class courses extends external_api {
             'filters'    => $filters,
         ]);
 
-        $sortablecolumns = [
-            'id'            => 'c.id',
-            'fullname'      => 'c.fullname',
-            'shortname'     => 'c.shortname',
-            'categoryname'  => 'cc.name',
-            'visible'       => 'c.visible',
-            'enrolledcount' => 'enr.enrolledcount',
-            'completedcount'=> 'cmp.completedcount',
-            'cohortscount'  => 'coh.cohortscount',
-            'progress'      => 'progress_sort',
-            'timecreated'   => 'c.timecreated',
-            'startdate'     => 'c.startdate',
-            'enddate'       => 'c.enddate'
-        ];
-
-        if (!array_key_exists($params['sort'], $sortablecolumns)) {
-            $params['sort'] = 'timecreated';
-        }
-        $sortfield = $sortablecolumns[$params['sort']];
-        $direction = strtoupper($params['dir']) === 'ASC' ? 'ASC' : 'DESC';
-
-        $where = "c.id <> 1";
-        $sqlparams = [];
-
-        if (!empty($params['search'])) {
-            $where .= " AND (" . $DB->sql_like('c.fullname', ':search1', false, false) .
-                      " OR " . $DB->sql_like('c.shortname', ':search2', false, false) . ")";
-            $sqlparams['search1'] = '%' . $params['search'] . '%';
-            $sqlparams['search2'] = '%' . $params['search'] . '%';
-        }
-
-        if (!empty($params['category'])) {
-            $where .= " AND c.category = :category";
-            $sqlparams['category'] = $params['category'];
-        }
-
-        if ($params['visibility'] !== -1) {
-            $where .= " AND c.visible = :visibility";
-            $sqlparams['visibility'] = $params['visibility'];
-        }
-
-        $decoded_filters = json_decode($params['filters'], true);
-        if (is_array($decoded_filters) && !empty($decoded_filters)) {
-            $filter_index = 1;
-            foreach ($decoded_filters as $key => $value) {
-                if ($key === 'empty_only' && $value) {
-                    $where .= " AND NOT EXISTS (
-                        SELECT 1 FROM {enrol} filter_e 
-                        JOIN {user_enrolments} filter_ue ON filter_e.id = filter_ue.enrolid 
-                        WHERE filter_e.courseid = c.id AND filter_ue.status = 0
-                    )";
-                } else if ($key === 'exclude_category' && $value) {
-                    $where .= " AND c.category != :filterval$filter_index";
-                    $sqlparams["filterval$filter_index"] = (int)$value;
-                    $filter_index++;
-                } else if (array_key_exists($key, $sortablecolumns) && $value !== '') {
-                    $fieldname = $sortablecolumns[$key];
-                    if ($key === 'visible') {
-                        $where .= " AND $fieldname = :filterval$filter_index";
-                        $sqlparams["filterval$filter_index"] = (int)$value;
-                    } else if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filter_index", false, false);
-                        $sqlparams["filterval$filter_index"] = '%' . $value . '%';
-                    }
-                    $filter_index++;
-                }
-            }
-        }
-
-        $sql_select = "
-            SELECT c.id, c.fullname, c.shortname, c.visible, c.timecreated, c.category, c.startdate, c.enddate,
-                   COALESCE(cc.name, '') AS categoryname,
-                   COALESCE(enr.enrolledcount, 0) AS enrolledcount,
-                   COALESCE(cmp.completedcount, 0) AS completedcount,
-                   COALESCE(coh.cohortscount, 0) AS cohortscount
-              FROM {course} c
-         LEFT JOIN {course_categories} cc ON c.category = cc.id
-         LEFT JOIN (
-            SELECT e.courseid, COUNT(DISTINCT ue.userid) as enrolledcount
-              FROM {enrol} e
-              JOIN {user_enrolments} ue ON e.id = ue.enrolid
-             WHERE ue.status = 0
-             GROUP BY e.courseid
-         ) enr ON enr.courseid = c.id
-         LEFT JOIN (
-            SELECT ccmp.course, COUNT(DISTINCT ccmp.userid) as completedcount
-              FROM {course_completions} ccmp
-              JOIN {enrol} e ON e.courseid = ccmp.course
-              JOIN {user_enrolments} ue ON e.id = ue.enrolid AND ue.userid = ccmp.userid
-             WHERE ccmp.timecompleted IS NOT NULL AND ue.status = 0
-             GROUP BY ccmp.course
-         ) cmp ON cmp.course = c.id
-         LEFT JOIN (
-            SELECT e.courseid, COUNT(DISTINCT e.customint1) as cohortscount
-              FROM {enrol} e
-             WHERE e.enrol = 'cohort'
-             GROUP BY e.courseid
-         ) coh ON coh.courseid = c.id
-             WHERE $where
-        ";
-
-        $sql_count = "SELECT COUNT(c.id) FROM {course} c WHERE $where";
-        $totalcount = course_repository::count_courses($sql_count, $sqlparams);
-
-        // Fetch paginated data
-        // Calcular KPIs (ignorar paginación)
-        $sql_kpis = "
-            SELECT COUNT(c.id) AS total_courses,
-                   SUM(COALESCE(enr.enrolledcount, 0)) AS total_enrolled,
-                   SUM(COALESCE(cmp.completedcount, 0)) AS total_completed,
-                   SUM(CASE WHEN COALESCE(enr.enrolledcount, 0) = 0 THEN 1 ELSE 0 END) AS empty_courses
-              FROM {course} c
-         LEFT JOIN (
-            SELECT e.courseid, COUNT(DISTINCT ue.userid) as enrolledcount
-              FROM {enrol} e
-              JOIN {user_enrolments} ue ON e.id = ue.enrolid
-             WHERE ue.status = 0
-             GROUP BY e.courseid
-         ) enr ON enr.courseid = c.id
-         LEFT JOIN (
-            SELECT ccmp.course, COUNT(DISTINCT ccmp.userid) as completedcount
-              FROM {course_completions} ccmp
-              JOIN {enrol} e ON e.courseid = ccmp.course
-              JOIN {user_enrolments} ue ON e.id = ue.enrolid AND ue.userid = ccmp.userid
-             WHERE ccmp.timecompleted IS NOT NULL AND ue.status = 0
-             GROUP BY ccmp.course
-         ) cmp ON cmp.course = c.id
-             WHERE $where
-        ";
-        
-        $kpi_record = course_repository::get_course_kpis($sql_kpis, $sqlparams);
-        $global_enrolled = (int)($kpi_record->total_enrolled ?? 0);
-        $kpis = [
-            'total_courses' => (int)($kpi_record->total_courses ?? 0),
-            'total_enrolled' => (int)($kpi_record->total_enrolled ?? 0),
-            'avg_progress' => 0,
-            'empty_courses' => (int)($kpi_record->empty_courses ?? 0),
-        ];
-        if ($kpis['total_enrolled'] > 0) {
-            $kpis['avg_progress'] = round(((int)($kpi_record->total_completed ?? 0) / $kpis['total_enrolled']) * 100);
-        }
-
-        if ($params['sort'] === 'progress') {
-            $orderby = "ORDER BY CASE WHEN enr.enrolledcount > 0 THEN (cmp.completedcount * 1.0 / enr.enrolledcount) ELSE 0 END $direction, c.id ASC";
-        } else {
-            $orderby = "ORDER BY $sortfield $direction";
-        }
-
-        $sql = $sql_select . " " . $orderby;
-        $limitfrom = $params['page'] * $params['perpage'];
-        $records = course_repository::get_paginated_courses($sql, $sqlparams, $limitfrom, $params['perpage']);
+        list($records, $totalcount, $kpis) = course_repository::get_courses_filtered($params);
 
         $courses = [];
         foreach ($records as $r) {
@@ -302,122 +150,134 @@ class courses extends external_api {
         $affected = 0;
         $act = $params['action'];
 
-        switch ($act) {
-            case 'create':
-                $catcontext = \context_coursecat::instance($params['categoryid']);
-                require_capability('moodle/course:create', $catcontext);
-                if (empty($params['fullname']) || empty($params['shortname']) || empty($params['categoryid'])) {
-                    return ['success' => false, 'message' => 'fullname, shortname and categoryid are required.', 'affectedcount' => 0];
-                }
-
-                $data = new stdClass();
-                $data->fullname = $params['fullname'];
-                $data->shortname = $params['shortname'];
-                $data->summary = $params['summary'];
-                $data->category = $params['categoryid'];
-                $data->visible = $params['visible'];
-                
-                if ($params['startdate'] > 0) {
-                    $data->startdate = $params['startdate'];
-                }
-                if ($params['enddate'] > 0) {
-                    $data->enddate = $params['enddate'];
-                }
-                
-                $newcourse = create_course($data);
-                return [
-                    'success' => true,
-                    'message' => 'Course created successfully with ID ' . $newcourse->id,
-                    'affectedcount' => 1,
-                ];
-
-            case 'hide':
-                foreach ($params['courseids'] as $cid) {
-                    if ($cid > 1) {
-                        require_capability('moodle/course:visibility', \context_course::instance($cid));
-                        course_change_visibility($cid, false);
-                        $affected++;
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            switch ($act) {
+                case 'create':
+                    $catcontext = \context_coursecat::instance($params['categoryid']);
+                    require_capability('moodle/course:create', $catcontext);
+                    if (empty($params['fullname']) || empty($params['shortname']) || empty($params['categoryid'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'fullname, shortname and categoryid are required.', 'affectedcount' => 0];
                     }
-                }
-                break;
 
-            case 'show':
-                foreach ($params['courseids'] as $cid) {
-                    if ($cid > 1) {
-                        require_capability('moodle/course:visibility', \context_course::instance($cid));
-                        course_change_visibility($cid, true);
-                        $affected++;
+                    $data = new \stdClass();
+                    $data->fullname = $params['fullname'];
+                    $data->shortname = $params['shortname'];
+                    $data->summary = $params['summary'];
+                    $data->category = $params['categoryid'];
+                    $data->visible = $params['visible'];
+                    
+                    if ($params['startdate'] > 0) {
+                        $data->startdate = $params['startdate'];
                     }
-                }
-                break;
+                    if ($params['enddate'] > 0) {
+                        $data->enddate = $params['enddate'];
+                    }
+                    
+                    $newcourse = create_course($data);
+                    $transaction->allow_commit();
+                    return [
+                        'success' => true,
+                        'message' => 'Course created successfully with ID ' . $newcourse->id,
+                        'affectedcount' => 1,
+                    ];
 
-            case 'delete':
-                foreach ($params['courseids'] as $cid) {
-                    if ($cid > 1) {
-                        require_capability('moodle/course:delete', \context_course::instance($cid));
-                        $course = $DB->get_record('course', ['id' => $cid]);
-                        if ($course) {
-                            delete_course($course, false);
+                case 'hide':
+                    foreach ($params['courseids'] as $cid) {
+                        if ($cid > 1) {
+                            require_capability('moodle/course:visibility', \context_course::instance($cid));
+                            course_change_visibility($cid, false);
                             $affected++;
                         }
                     }
-                }
-                break;
+                    break;
 
-            case 'move':
-                if (empty($params['categoryid'])) {
-                    return ['success' => false, 'message' => 'categoryid is required to move courses.', 'affectedcount' => 0];
-                }
-                $targetcatctx = \context_coursecat::instance($params['categoryid']);
-                require_capability('moodle/category:manage', $targetcatctx);
-                
-                $validcids = [];
-                foreach ($params['courseids'] as $cid) {
-                    if ($cid > 1) {
-                        require_capability('moodle/course:update', \context_course::instance($cid));
-                        $validcids[] = $cid;
-                    }
-                }
-                
-                if (!empty($validcids)) {
-                    if (move_courses($validcids, $params['categoryid'])) {
-                        $affected = count($validcids);
-                    }
-                }
-                break;
-
-            case 'update':
-            case 'update_dates':
-                foreach ($params['courseids'] as $cid) {
-                    if ($cid > 1) {
-                        require_capability('moodle/course:update', \context_course::instance($cid));
-                        $course = $DB->get_record('course', ['id' => $cid]);
-                        if ($course) {
-                            $data = new stdClass();
-                            $data->id = $cid;
-                            if (!empty($params['fullname'])) {
-                                $data->fullname = $params['fullname'];
-                            }
-                            if (!empty($params['shortname'])) {
-                                $data->shortname = $params['shortname'];
-                            }
-                            if ($params['categoryid'] > 0) {
-                                $data->category = $params['categoryid'];
-                            }
-                            if ($params['summary'] !== '') {
-                                $data->summary = $params['summary'];
-                            }
-                            $data->startdate = $params['startdate'] > 0 ? $params['startdate'] : 0;
-                            $data->enddate = $params['enddate'] > 0 ? $params['enddate'] : 0;
-                            update_course($data);
+                case 'show':
+                    foreach ($params['courseids'] as $cid) {
+                        if ($cid > 1) {
+                            require_capability('moodle/course:visibility', \context_course::instance($cid));
+                            course_change_visibility($cid, true);
                             $affected++;
                         }
                     }
-                }
-                break;
+                    break;
 
-            default:
-                return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
+                case 'delete':
+                    foreach ($params['courseids'] as $cid) {
+                        if ($cid > 1) {
+                            require_capability('moodle/course:delete', \context_course::instance($cid));
+                            $course = $DB->get_record('course', ['id' => $cid]);
+                            if ($course) {
+                                delete_course($course, false);
+                                $affected++;
+                            }
+                        }
+                    }
+                    break;
+
+                case 'move':
+                    if (empty($params['categoryid'])) {
+                        $transaction->allow_commit();
+                        return ['success' => false, 'message' => 'categoryid is required to move courses.', 'affectedcount' => 0];
+                    }
+                    $targetcatctx = \context_coursecat::instance($params['categoryid']);
+                    require_capability('moodle/category:manage', $targetcatctx);
+                    
+                    $validcids = [];
+                    foreach ($params['courseids'] as $cid) {
+                        if ($cid > 1) {
+                            require_capability('moodle/course:update', \context_course::instance($cid));
+                            $validcids[] = $cid;
+                        }
+                    }
+                    
+                    if (!empty($validcids)) {
+                        if (move_courses($validcids, $params['categoryid'])) {
+                            $affected = count($validcids);
+                        }
+                    }
+                    break;
+
+                case 'update':
+                case 'update_dates':
+                    foreach ($params['courseids'] as $cid) {
+                        if ($cid > 1) {
+                            require_capability('moodle/course:update', \context_course::instance($cid));
+                            $course = $DB->get_record('course', ['id' => $cid]);
+                            if ($course) {
+                                $data = new \stdClass();
+                                $data->id = $cid;
+                                if (!empty($params['fullname'])) {
+                                    $data->fullname = $params['fullname'];
+                                }
+                                if (!empty($params['shortname'])) {
+                                    $data->shortname = $params['shortname'];
+                                }
+                                if ($params['categoryid'] > 0) {
+                                    $data->category = $params['categoryid'];
+                                }
+                                if ($params['summary'] !== '') {
+                                    $data->summary = $params['summary'];
+                                }
+                                $data->startdate = $params['startdate'] > 0 ? $params['startdate'] : 0;
+                                $data->enddate = $params['enddate'] > 0 ? $params['enddate'] : 0;
+                                update_course($data);
+                                $affected++;
+                            }
+                        }
+                    }
+                    break;
+
+                default:
+                    $transaction->allow_commit();
+                    return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
+            }
+
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
         return [
@@ -442,8 +302,6 @@ class courses extends external_api {
     }
 
     public static function get_course_detail($courseid) {
-        global $DB;
-
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/course:view', $context);
@@ -452,46 +310,11 @@ class courses extends external_api {
             'courseid' => $courseid,
         ]);
 
-        $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
-        $coursecontext = \context_course::instance($course->id);
+        $course = course_repository::get_course_strict($params['courseid']);
+        $enrolled_users = course_repository::get_course_enrolled_users_detail($course->id);
+        $cohort_user_map = course_repository::get_course_user_cohort_map($course->id);
+        $all_enrolments = course_repository::get_course_all_enrolments($course->id);
 
-        // Obtener usuarios inscritos y su progreso
-        $sql_users = "
-            SELECT u.id, u.firstname, u.lastname, u.email, 
-                   MIN(ue.status) as enrolstatus,
-                   MIN(ue.timestart) as timestart, 
-                   MAX(ue.timeend) as timeend, 
-                   MIN(ue.timecreated) as timecreated,
-                   COALESCE(ccmp.timecompleted, 0) as timecompleted
-              FROM {user} u
-              JOIN {user_enrolments} ue ON ue.userid = u.id
-              JOIN {enrol} e ON e.id = ue.enrolid
-         LEFT JOIN {course_completions} ccmp ON ccmp.userid = u.id AND ccmp.course = e.courseid
-             WHERE e.courseid = :courseid AND u.deleted = 0
-          GROUP BY u.id, u.firstname, u.lastname, u.email, ccmp.timecompleted
-        ";
-        $enrolled_users = $DB->get_records_sql($sql_users, ['courseid' => $course->id]);
-        
-        $sql_user_cohorts = "
-            SELECT ue.userid, e.customint1 as cohortid
-              FROM {user_enrolments} ue
-              JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE e.courseid = :courseid AND e.enrol = 'cohort'
-        ";
-        $user_cohorts_rs = $DB->get_recordset_sql($sql_user_cohorts, ['courseid' => $course->id]);
-        $cohort_user_map = [];
-        foreach ($user_cohorts_rs as $uc) {
-            $cohort_user_map[$uc->userid][] = (int)$uc->cohortid;
-        }
-        $user_cohorts_rs->close();
-
-        $sql_all_enrolments = "
-            SELECT ue.id, ue.userid, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
-              FROM {user_enrolments} ue
-              JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE e.courseid = :courseid
-        ";
-        $all_enrolments = $DB->get_records_sql($sql_all_enrolments, ['courseid' => $course->id]);
         $user_enrolments_map = [];
         foreach ($all_enrolments as $ue) {
             $user_enrolments_map[$ue->userid][] = [
@@ -502,24 +325,30 @@ class courses extends external_api {
             ];
         }
 
-        // Get user roles
-        $sql_roles = "
-            SELECT ra.userid, r.shortname
-              FROM {role_assignments} ra
-              JOIN {role} r ON r.id = ra.roleid
-              JOIN {context} ctx ON ctx.id = ra.contextid
-             WHERE ctx.contextlevel = 50 AND ctx.instanceid = :courseid
-        ";
-        $role_assignments = $DB->get_records_sql($sql_roles, ['courseid' => $course->id]);
-        $user_roles_map = [];
-        foreach ($role_assignments as $ra) {
-            $user_roles_map[$ra->userid][] = $ra->shortname;
+        $user_roles_map = course_repository::get_course_user_roles_map($course->id);
+
+        // Batch calculate completion progress for all enrolled users
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+        $cinfo = new \completion_info($course);
+        $trackable_activities = $cinfo->is_enabled() ? $cinfo->get_activities() : [];
+        $total_activities = count($trackable_activities);
+
+        $user_cm_completed = [];
+        if ($total_activities > 0) {
+            $user_cm_completed = course_repository::get_course_cm_completions(array_keys($trackable_activities));
         }
 
         $users = [];
         foreach ($enrolled_users as $u) {
-            $progress = \core_completion\progress::get_course_progress_percentage($course, $u->id);
-            $progress_val = $progress !== null ? (int)round($progress) : 0;
+            $progress_val = 0;
+            if (!empty($u->timecompleted)) {
+                $progress_val = 100;
+            } else if ($total_activities > 0) {
+                $completed = isset($user_cm_completed[$u->id]) ? (int)$user_cm_completed[$u->id] : 0;
+                $progress_val = (int)round(($completed / $total_activities) * 100);
+            }
+
             $users[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
@@ -534,20 +363,7 @@ class courses extends external_api {
             ];
         }
 
-        // Obtener cohortes vinculadas (enrol = 'cohort')
-        $sql_cohorts = "
-            SELECT c.id, c.name, c.idnumber, e.id as enrolid, e.status as enrolstatus,
-                   e.timecreated, e.enrolenddate, e.customint2 as groupid,
-                   COUNT(DISTINCT ue.userid) as enrolledcount,
-                   COUNT(DISTINCT ccmp.userid) as completedcount
-              FROM {cohort} c
-              JOIN {enrol} e ON e.customint1 = c.id
-         LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-         LEFT JOIN {course_completions} ccmp ON ccmp.userid = ue.userid AND ccmp.course = e.courseid AND ccmp.timecompleted IS NOT NULL
-             WHERE e.courseid = :courseid AND e.enrol = 'cohort'
-          GROUP BY c.id, c.name, c.idnumber, e.id, e.status, e.timecreated, e.enrolenddate, e.customint2
-        ";
-        $linked_cohorts = $DB->get_records_sql($sql_cohorts, ['courseid' => $course->id]);
+        $linked_cohorts = course_repository::get_course_linked_cohorts($course->id);
 
         $cohorts = [];
         foreach ($linked_cohorts as $c) {
@@ -570,22 +386,8 @@ class courses extends external_api {
             ];
         }
 
-        $coursegroups = [];
-        global $CFG;
-        require_once($CFG->dirroot . '/group/lib.php');
-        $groups = groups_get_all_groups($course->id);
-        if ($groups) {
-            foreach ($groups as $g) {
-                $coursegroups[] = [
-                    'id' => (int)$g->id,
-                    'name' => (string)$g->name
-                ];
-            }
-        }
-
-        $category = $DB->get_record('course_categories', ['id' => $course->category]);
-        $categoryname = $category ? (string)$category->name : '';
-
+        $coursegroups = course_repository::get_course_groups_list($course->id);
+        $categoryname = course_repository::get_course_category_name($course->category);
         $competencies = course_repository::get_course_competencies($course->id);
 
         return [
@@ -728,16 +530,6 @@ class courses extends external_api {
         $coursecontext = \context_course::instance($params['courseid']);
         require_capability('moodle/course:enrolreview', $coursecontext);
 
-        $params = self::validate_parameters(self::course_cohort_action_parameters(), [
-            'action' => $action,
-            'courseid' => $courseid,
-            'cohortids' => $cohortids,
-            'groupid' => $groupid,
-            'newgroupname' => $newgroupname,
-            'timeend' => $timeend,
-            'message_text' => $message_text,
-        ]);
-
         $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
         $enrolplugin = enrol_get_plugin('cohort');
         if (!$enrolplugin) {
@@ -746,78 +538,85 @@ class courses extends external_api {
 
         $affected = 0;
         $finalgroupid = $params['groupid'];
-        
-        if (($params['action'] === 'add' || $params['action'] === 'set_group') && !empty($params['newgroupname'])) {
-            require_capability('moodle/course:managegroups', $coursecontext);
-            $newgroup = new stdClass();
-            $newgroup->courseid = $course->id;
-            $newgroup->name = $params['newgroupname'];
-            $finalgroupid = groups_create_group($newgroup);
-        }
 
-        foreach ($params['cohortids'] as $cohortid) {
-            if ($params['action'] === 'add') {
-                if (!$DB->record_exists('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid])) {
-                    $enrolplugin->add_instance($course, ['customint1' => $cohortid, 'customint2' => $finalgroupid]);
-                    
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance && $params['timeend'] > 0) {
-                        $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            if (($params['action'] === 'add' || $params['action'] === 'set_group') && !empty($params['newgroupname'])) {
+                require_capability('moodle/course:managegroups', $coursecontext);
+                $newgroup = new \stdClass();
+                $newgroup->courseid = $course->id;
+                $newgroup->name = $params['newgroupname'];
+                $finalgroupid = groups_create_group($newgroup);
+            }
+
+            foreach ($params['cohortids'] as $cohortid) {
+                if ($params['action'] === 'add') {
+                    if (!$DB->record_exists('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid])) {
+                        $enrolplugin->add_instance($course, ['customint1' => $cohortid, 'customint2' => $finalgroupid]);
+                        
+                        $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                        if ($instance && $params['timeend'] > 0) {
+                            $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
+                        }
+                        $affected++;
                     }
-                    $affected++;
-                }
-            } else if ($params['action'] === 'remove') {
-                $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                if ($instance) {
-                    $enrolplugin->delete_instance($instance);
-                    $affected++;
-                }
-            } else if ($params['action'] === 'suspend' || $params['action'] === 'activate') {
-                $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                if ($instance) {
-                    $status = ($params['action'] === 'suspend') ? ENROL_INSTANCE_SUSPENDED : ENROL_INSTANCE_ENABLED;
-                    $enrolplugin->update_status($instance, $status);
-                    $affected++;
-                }
-            } else if ($params['action'] === 'set_group') {
-                $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                if ($instance) {
-                    $DB->set_field('enrol', 'customint2', $finalgroupid, ['id' => $instance->id]);
-                    $affected++;
-                }
-            } else if ($params['action'] === 'set_expiration') {
-                $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                if ($instance) {
-                    $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
-                    $DB->execute("UPDATE {user_enrolments} SET timeend = ? WHERE enrolid = ?", [$params['timeend'], $instance->id]);
-                    $affected++;
-                }
-            } else if ($params['action'] === 'message') {
-                global $USER;
-                $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                if ($instance && !empty($params['message_text'])) {
-                    $users = $DB->get_records_menu('user_enrolments', ['enrolid' => $instance->id], '', 'userid, userid AS uid');
-                    foreach ($users as $uid) {
-                        $recipient = $DB->get_record('user', ['id' => $uid]);
-                        if ($recipient) {
-                            $message = new \core\message\message();
-                            $message->courseid          = $course->id;
-                            $message->component         = 'moodle';
-                            $message->name              = 'instantmessage';
-                            $message->userfrom          = $USER;
-                            $message->userto            = $recipient;
-                            $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
-                            $message->subject           = 'Mensaje';
-                            $message->fullmessage       = $clean_msg;
-                            $message->fullmessageformat = FORMAT_HTML;
-                            $message->fullmessagehtml   = $clean_msg;
-                            $message->smallmessage      = strip_tags($clean_msg);
-                            message_send($message);
-                            $affected++;
+                } else if ($params['action'] === 'remove') {
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if ($instance) {
+                        $enrolplugin->delete_instance($instance);
+                        $affected++;
+                    }
+                } else if ($params['action'] === 'suspend' || $params['action'] === 'activate') {
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if ($instance) {
+                        $status = ($params['action'] === 'suspend') ? ENROL_INSTANCE_SUSPENDED : ENROL_INSTANCE_ENABLED;
+                        $enrolplugin->update_status($instance, $status);
+                        $affected++;
+                    }
+                } else if ($params['action'] === 'set_group') {
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if ($instance) {
+                        $DB->set_field('enrol', 'customint2', $finalgroupid, ['id' => $instance->id]);
+                        $affected++;
+                    }
+                } else if ($params['action'] === 'set_expiration') {
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if ($instance) {
+                        $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
+                        $DB->execute("UPDATE {user_enrolments} SET timeend = ? WHERE enrolid = ?", [$params['timeend'], $instance->id]);
+                        $affected++;
+                    }
+                } else if ($params['action'] === 'message') {
+                    global $USER;
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if ($instance && !empty($params['message_text'])) {
+                        $users = $DB->get_records_menu('user_enrolments', ['enrolid' => $instance->id], '', 'userid, userid AS uid');
+                        foreach ($users as $uid) {
+                            $recipient = $DB->get_record('user', ['id' => $uid]);
+                            if ($recipient) {
+                                $message = new \core\message\message();
+                                $message->courseid          = $course->id;
+                                $message->component         = 'moodle';
+                                $message->name              = 'instantmessage';
+                                $message->userfrom          = $USER;
+                                $message->userto            = $recipient;
+                                $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
+                                $message->subject           = 'Mensaje';
+                                $message->fullmessage       = $clean_msg;
+                                $message->fullmessageformat = FORMAT_HTML;
+                                $message->fullmessagehtml   = $clean_msg;
+                                $message->smallmessage      = strip_tags($clean_msg);
+                                message_send($message);
+                                $affected++;
+                            }
                         }
                     }
                 }
             }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
         return [
@@ -860,11 +659,6 @@ class courses extends external_api {
         $coursecontext = \context_course::instance($params['courseid']);
         require_capability('enrol/manual:enrol', $coursecontext);
         
-        $params = self::validate_parameters(self::course_user_action_parameters(), [
-            'action' => $action, 'courseid' => $courseid, 'userids' => $userids,
-            'timeend' => $timeend, 'groupid' => $groupid, 'newgroupname' => $newgroupname, 'message_text' => $message_text
-        ]);
-        
         $enrol = enrol_get_plugin('manual');
         if (!$enrol) {
             return ['success' => false, 'message' => 'Manual enrolment plugin disabled'];
@@ -888,56 +682,65 @@ class courses extends external_api {
         $roleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
 
         $targetgroupid = $params['groupid'];
-        if ($params['action'] === 'setgroup' && $targetgroupid === 0 && !empty($params['newgroupname'])) {
-            $newgroup = new \stdClass();
-            $newgroup->courseid = $params['courseid'];
-            $newgroup->name = $params['newgroupname'];
-            $targetgroupid = groups_create_group($newgroup);
-        }
-        
-        foreach ($params['userids'] as $uid) {
-            if ($params['action'] === 'add') {
-                $enrol->enrol_user($manualinstance, $uid, $roleid);
-                $affected++;
-            } else if ($params['action'] === 'remove') {
-                $enrol->unenrol_user($manualinstance, $uid);
-                $affected++;
-            } else if ($params['action'] === 'suspend') {
-                $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_SUSPENDED);
-                $affected++;
-            } else if ($params['action'] === 'activate') {
-                $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_ACTIVE);
-                $affected++;
-            } else if ($params['action'] === 'set_expiration') {
-                $enrol->update_user_enrol($manualinstance, $uid, NULL, NULL, $params['timeend']);
-                $affected++;
-            } else if ($params['action'] === 'setgroup') {
-                if ($targetgroupid > 0) {
-                    if (groups_add_member($targetgroupid, $uid)) {
+
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            if ($params['action'] === 'setgroup' && $targetgroupid === 0 && !empty($params['newgroupname'])) {
+                $newgroup = new \stdClass();
+                $newgroup->courseid = $params['courseid'];
+                $newgroup->name = $params['newgroupname'];
+                $targetgroupid = groups_create_group($newgroup);
+            }
+            
+            foreach ($params['userids'] as $uid) {
+                if ($params['action'] === 'add') {
+                    $enrol->enrol_user($manualinstance, $uid, $roleid);
+                    $affected++;
+                } else if ($params['action'] === 'remove') {
+                    $enrol->unenrol_user($manualinstance, $uid);
+                    $affected++;
+                } else if ($params['action'] === 'suspend') {
+                    $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_SUSPENDED);
+                    $affected++;
+                } else if ($params['action'] === 'activate') {
+                    $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_ACTIVE);
+                    $affected++;
+                } else if ($params['action'] === 'set_expiration') {
+                    $enrol->update_user_enrol($manualinstance, $uid, NULL, NULL, $params['timeend']);
+                    $affected++;
+                } else if ($params['action'] === 'setgroup') {
+                    if ($targetgroupid > 0) {
+                        if (groups_add_member($targetgroupid, $uid)) {
+                            $affected++;
+                        }
+                    }
+                } else if ($params['action'] === 'message') {
+                    global $USER;
+                    $recipient = $DB->get_record('user', ['id' => $uid]);
+                    if ($recipient && !empty($params['message_text'])) {
+                        $message = new \core\message\message();
+                        $message->courseid          = $params['courseid'];
+                        $message->component         = 'moodle';
+                        $message->name              = 'instantmessage';
+                        $message->userfrom          = $USER;
+                        $message->userto            = $recipient;
+                        $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
+                        $message->subject           = 'Mensaje';
+                        $message->fullmessage       = $clean_msg;
+                        $message->fullmessageformat = FORMAT_HTML;
+                        $message->fullmessagehtml   = $clean_msg;
+                        $message->smallmessage      = strip_tags($clean_msg);
+                        message_send($message);
                         $affected++;
                     }
                 }
-            } else if ($params['action'] === 'message') {
-                global $USER;
-                $recipient = $DB->get_record('user', ['id' => $uid]);
-                if ($recipient && !empty($params['message_text'])) {
-                    $message = new \core\message\message();
-                    $message->courseid          = $params['courseid'];
-                    $message->component         = 'moodle';
-                    $message->name              = 'instantmessage';
-                    $message->userfrom          = $USER;
-                    $message->userto            = $recipient;
-                    $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
-                    $message->subject           = 'Mensaje';
-                    $message->fullmessage       = $clean_msg;
-                    $message->fullmessageformat = FORMAT_HTML;
-                    $message->fullmessagehtml   = $clean_msg;
-                    $message->smallmessage      = strip_tags($clean_msg);
-                    message_send($message);
-                    $affected++;
-                }
             }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
+
         return ['success' => true, 'message' => "Successfully processed $affected enrolments"];
     }
 
@@ -969,11 +772,11 @@ class courses extends external_api {
             'userid'   => $userid,
         ]);
 
-        $course = $DB->get_record('course', ['id' => $params['courseid']]);
+        $course = course_repository::get_course($params['courseid']);
         if (!$course) {
             throw new \moodle_exception('error', 'moodle', '', 'Course not found. courseid=' . $params['courseid']);
         }
-        $user = $DB->get_record('user', ['id' => $params['userid']]);
+        $user = \local_adminer_api\repository\user_repository::get_user($params['userid']);
         if (!$user) {
             throw new \moodle_exception('error', 'moodle', '', 'User not found. userid=' . $params['userid']);
         }
@@ -986,13 +789,7 @@ class courses extends external_api {
         ];
 
         // Enrolment Data
-        $sql_enrol = "
-            SELECT ue.id, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
-              FROM {user_enrolments} ue
-              JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE e.courseid = :courseid AND ue.userid = :userid
-        ";
-        $enrolments_rs = $DB->get_records_sql($sql_enrol, ['courseid' => $course->id, 'userid' => $user->id]);
+        $enrolments_rs = course_repository::get_course_user_enrolments($course->id, $user->id);
         $enrolments = [];
         $status = 1; // Default suspended
         $timestart = 0;
@@ -1014,28 +811,7 @@ class courses extends external_api {
         }
 
         // Access Logs
-        $lastaccess_rec = $DB->get_record('user_lastaccess', ['courseid' => $course->id, 'userid' => $user->id]);
-        $lastaccess = $lastaccess_rec ? (int)$lastaccess_rec->timeaccess : 0;
-        
-        $firstaccess = 0;
-        if ($lastaccess > 0) {
-            try {
-                $sql_logs = "
-                    SELECT MIN(timecreated) as firstaccess
-                      FROM {logstore_standard_log}
-                     WHERE courseid = :courseid AND userid = :userid
-                ";
-                $log_data = $DB->get_record_sql($sql_logs, ['courseid' => $course->id, 'userid' => $user->id]);
-                if ($log_data && $log_data->firstaccess) {
-                    $firstaccess = (int)$log_data->firstaccess;
-                }
-            } catch (\Throwable $e) {
-                // Ignore exception if log table is missing or fails
-            }
-            if ($firstaccess == 0) {
-                $firstaccess = $lastaccess;
-            }
-        }
+        list($firstaccess, $lastaccess) = course_repository::get_course_user_first_and_last_access($course->id, $user->id);
 
         // Activities and Grades
         $modinfo = get_fast_modinfo($course);
@@ -1146,13 +922,6 @@ class courses extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
         
-        $params = self::validate_parameters(self::upload_courses_csv_parameters(), [
-            'fileContent' => $fileContent
-        ]);
-        
-        // El upload csv es bulk creation, validaremos por categoría en el bucle
-
-
         $params = self::validate_parameters(self::upload_courses_csv_parameters(), [
             'fileContent' => $fileContent
         ]);

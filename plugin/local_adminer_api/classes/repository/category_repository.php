@@ -32,10 +32,12 @@ class category_repository {
         global $DB;
         $sql = "
             SELECT c.id, c.fullname, c.shortname, c.visible,
-                   COUNT(DISTINCT ue.userid) AS enrolledcount
+                   COUNT(DISTINCT ue.userid) AS enrolledcount,
+                   COUNT(DISTINCT ccmp.userid) AS completedcount
               FROM {course} c
          LEFT JOIN {enrol} e ON e.courseid = c.id
          LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
+         LEFT JOIN {course_completions} ccmp ON ccmp.course = c.id AND ccmp.userid = ue.userid AND ccmp.timecompleted IS NOT NULL
              WHERE c.category = :categoryid
           GROUP BY c.id, c.fullname, c.shortname, c.visible
           ORDER BY c.fullname ASC
