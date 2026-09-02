@@ -10,15 +10,14 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 import { Badge } from '../components/ui/Badge';
-import { useAuth } from '../context/AuthContext';
+import { usePermission } from '../hooks/usePermission';
 import { PermissionGate } from '../components/PermissionGate';
 import { KpiGrid } from '../components/KpiGrid';
 
 export const CohortsView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
-  const { permissions } = useAuth();
   
-  const hasManageCohorts = permissions?.is_siteadmin === 1 || permissions?.can_manage_cohorts === 1;
+  const hasManageCohorts = usePermission('can_manage_cohorts');
 
   const [page, setPage] = useState(0);
   const [perPage] = useState(50);

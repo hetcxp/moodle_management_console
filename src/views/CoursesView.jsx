@@ -14,7 +14,6 @@ import { useToast } from '../components/ui/Toast';
 import { exportToCsv } from '../components/CsvExporter';
 import { formatDate, formatDateOnly } from '../lib/utils';
 import { PermissionGate } from '../components/PermissionGate';
-import { useAuth } from '../context/AuthContext';
 import { API_CONFIG } from '../config/api';
 import { Eye, EyeOff, Trash2, FolderInput, Plus, ExternalLink, GraduationCap, Users, Layers, Upload, Activity, Calendar } from 'lucide-react';
 import { KpiGrid } from '../components/KpiGrid';
@@ -23,14 +22,15 @@ import { CourseCreateModal } from './courses/CourseCreateModal';
 import { CourseMoveModal } from './courses/CourseMoveModal';
 import { CourseCsvModal } from './courses/CourseCsvModal';
 
+import { usePermission } from '../hooks/usePermission';
+
 export const CoursesView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
-  const { permissions } = useAuth();
 
-  const hasCreateCourse = permissions?.is_siteadmin === 1 || permissions?.can_create_courses === 1;
-  const hasUpdateCourse = permissions?.is_siteadmin === 1 || permissions?.can_update_courses === 1;
-  const hasManageCategory = permissions?.is_siteadmin === 1 || permissions?.can_manage_categories === 1;
-  const hasDeleteCourse = permissions?.is_siteadmin === 1 || permissions?.can_delete_courses === 1;
+  const hasCreateCourse = usePermission('can_create_courses');
+  const hasUpdateCourse = usePermission('can_update_courses');
+  const hasManageCategory = usePermission('can_manage_categories');
+  const hasDeleteCourse = usePermission('can_delete_courses');
 
   // Table state
   const [page, setPage] = useState(0);

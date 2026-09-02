@@ -11,14 +11,13 @@ import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { PermissionGate } from '../components/PermissionGate';
 import { KpiGrid } from '../components/KpiGrid';
-import { useAuth } from '../context/AuthContext';
+import { usePermission } from '../hooks/usePermission';
 import { Eye, EyeOff, Trash2, Edit, Plus, FolderTree, BookOpen } from 'lucide-react';
 import { exportToCsv } from '../components/CsvExporter';
 
 export const CategoriesView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
-  const { permissions } = useAuth();
-  const hasManageCategory = permissions?.is_siteadmin === 1 || permissions?.can_manage_categories === 1;
+  const hasManageCategory = usePermission('can_manage_categories');
 
   const { data: flatCatsData, isLoading: loading, refetch: loadData } = useCategoriesFlat();
   const categoryAction = useCategoryAction();

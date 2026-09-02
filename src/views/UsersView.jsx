@@ -11,7 +11,7 @@ import { useToast } from '../components/ui/Toast';
 import { exportToCsv } from '../components/CsvExporter';
 import { formatDate } from '../lib/utils';
 import { PermissionGate } from '../components/PermissionGate';
-import { useAuth } from '../context/AuthContext';
+import { usePermission } from '../hooks/usePermission';
 import { API_CONFIG } from '../config/api';
 import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload, ExternalLink, Activity, Users, KeyRound } from 'lucide-react';
 import { Input } from '../components/ui/Input';
@@ -22,11 +22,10 @@ import { Checkbox } from '../components/ui/Checkbox';
 
 export const UsersView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
-  const { permissions } = useAuth();
   const queryClient = useQueryClient();
 
-  const hasUpdateUsers = permissions?.is_siteadmin === 1 || permissions?.can_update_users === 1;
-  const hasDeleteUsers = permissions?.is_siteadmin === 1 || permissions?.can_delete_users === 1;
+  const hasUpdateUsers = usePermission('can_update_users');
+  const hasDeleteUsers = usePermission('can_delete_users');
 
   const [page, setPage] = useState(0);
   const [perPage] = useState(20);

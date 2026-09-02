@@ -79,6 +79,15 @@ const AdminerApp = () => {
     return <LoginView />;
   }
 
+  const ENTITY_ROUTES = {
+    course: 'courses',
+    user: 'users',
+    cohort: 'cohorts',
+    category: 'categories',
+    competency: 'competencies',
+    competency_framework: 'competencies'
+  };
+
   // Preserve existing navigate interface for views
   const navigateToDetail = (entity, id) => {
     if (entity === 'course_user') {
@@ -92,9 +101,7 @@ const AdminerApp = () => {
     } else if (entity === 'competency_framework') {
       setLocation(`/competencies/${id}`);
     } else {
-      // Maps to /courses/123, /users/123, etc.
-      // entity is singular ('course', 'user'), we append 's'
-      const prefix = entity === 'category' ? 'categories' : `${entity}s`;
+      const prefix = ENTITY_ROUTES[entity] || `${entity}s`;
       setLocation(`/${prefix}/${id}`);
     }
   };
