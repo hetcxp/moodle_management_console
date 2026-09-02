@@ -1,10 +1,34 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Unit tests for local_adminer_api web services.
+ *
+ * @package    local_adminer_api
+ * @category   test
+ * @copyright  2026 Hector Teran
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 namespace local_adminer_api;
+
+defined('MOODLE_INTERNAL') || die();
 
 use advanced_testcase;
 use context_system;
-
-defined('MOODLE_INTERNAL') || die();
 
 global $CFG;
 require_once($CFG->dirroot . '/webservice/tests/helpers.php');
@@ -14,6 +38,9 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  *
  * @package    local_adminer_api
  * @category   test
+ * @copyright  2026 Hector Teran
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @covers     \local_adminer_api\external\dashboard
  */
 class external_services_test extends advanced_testcase {
 

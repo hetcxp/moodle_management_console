@@ -1,18 +1,48 @@
 <?php
-namespace local_adminer_api\external;
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-use core_external\external_api;
-use core_external\external_function_parameters;
-use core_external\external_single_structure;
-use core_external\external_multiple_structure;
-use core_external\external_value;
-use context_system;
-use core_course_category;
-use stdClass;
-use local_adminer_api\repository\category_repository;
+/**
+ * External service for categories in local_adminer_api.
+ *
+ * @package    local_adminer_api
+ * @copyright  2026 Hector Teran
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+namespace local_adminer_api\external;
 
 defined('MOODLE_INTERNAL') || die();
 
+use context_system;
+use core_course_category;
+use core_external\external_api;
+use core_external\external_function_parameters;
+use core_external\external_multiple_structure;
+use core_external\external_single_structure;
+use core_external\external_value;
+use local_adminer_api\repository\category_repository;
+use stdClass;
+
+/**
+ * Categories external service class.
+ *
+ * @package    local_adminer_api
+ * @copyright  2026 Hector Teran
+ * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class categories extends external_api {
 
     public static function get_categories_parameters() {
