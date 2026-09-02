@@ -6,6 +6,8 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { Layers, Trash2, Ban, Check, CalendarClock, Users, MessageSquare } from 'lucide-react';
 import { PermissionGate } from '../../components/PermissionGate';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
+import { formatDate } from '../../lib/utils';
 
 export const CourseCohortsTab = ({ 
   cohorts, 
@@ -14,7 +16,7 @@ export const CourseCohortsTab = ({
   handleCohortAction, 
   onOpenSelector 
 }) => {
-  const [selectedCohorts, setSelectedCohorts] = useState([]);
+  const { selectedIds: selectedCohorts, setSelectedIds: setSelectedCohorts, clearSelection: clearSelectedCohorts } = useBulkSelection();
   const [sortCohortKey, setSortCohortKey] = useState('name');
   const [sortCohortDir, setSortCohortDir] = useState('ASC');
 
@@ -35,11 +37,6 @@ export const CourseCohortsTab = ({
   // Cohort Messaging
   const [cohortMessageModalOpen, setCohortMessageModalOpen] = useState(false);
   const [cohortMessageText, setCohortMessageText] = useState('');
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
 
   const handleCohortGroupSubmit = async () => {
     await handleCohortAction('set_group', selectedCohorts.length > 0 ? selectedCohorts : [selectedCohortDetail?.id], {

@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { PermissionGate } from '../../components/PermissionGate';
 import { Users, Trash2, BookOpen } from 'lucide-react';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
 
 export const CohortCoursesTab = ({
   courses,
@@ -14,13 +15,13 @@ export const CohortCoursesTab = ({
   handleBulkUnlinkCourses,
   onNavigateToDetail
 }) => {
-  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
+  const { selectedIds: selectedCourseIds, setSelectedIds: setSelectedCourseIds, clearSelection: clearSelectedCourseIds } = useBulkSelection();
   const [courseDetailModalOpen, setCourseDetailModalOpen] = useState(false);
   const [selectedCourseDetail, setSelectedCourseDetail] = useState(null);
 
   const handleBulkUnlink = async (ids) => {
     await handleBulkUnlinkCourses(ids);
-    setSelectedCourseIds([]);
+    clearSelectedCourseIds();
   };
 
   const coursesCols = [

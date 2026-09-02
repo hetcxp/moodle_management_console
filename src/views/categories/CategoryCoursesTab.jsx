@@ -9,6 +9,7 @@ import { BookOpen, ChevronRight, ExternalLink, Eye, EyeOff, FolderInput, Plus, S
 import { API_CONFIG } from '../../config/api';
 import { AdminerApi } from '../../services/adminer-api';
 import { useToast } from '../../components/ui/Toast';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
 
 export const CategoryCoursesTab = ({
   courses,
@@ -25,7 +26,7 @@ export const CategoryCoursesTab = ({
   const { addToast } = useToast();
   const [courseSearch, setCourseSearch] = useState('');
   const [courseVisibility, setCourseVisibility] = useState('-1');
-  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
+  const { selectedIds: selectedCourseIds, setSelectedIds: setSelectedCourseIds, clearSelection: clearSelectedCourseIds } = useBulkSelection();
   const [courseSort, setCourseSort] = useState('fullname');
   const [courseDir, setCourseDir] = useState('ASC');
 
@@ -52,12 +53,12 @@ export const CategoryCoursesTab = ({
 
   const handleBulkSubmit = async (action, ids) => {
     await handleBulkCourseAction(action, ids);
-    setSelectedCourseIds([]);
+    clearSelectedCourseIds();
   };
 
   const handleMoveSubmit = (ids) => {
     handleOpenMoveModal(ids);
-    setSelectedCourseIds([]);
+    clearSelectedCourseIds();
   };
 
   let filteredCourses = (courses || []).filter(c => {

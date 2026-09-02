@@ -10,6 +10,7 @@ import { formatDate } from '../../lib/utils';
 import { useToast } from '../../components/ui/Toast';
 import { AdminerApi } from '../../services/adminer-api';
 import { exportToCsv } from '../../components/CsvExporter';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
 
 export const UserCoursesTab = ({ 
   courses, 
@@ -23,7 +24,7 @@ export const UserCoursesTab = ({
   userFullname
 }) => {
   const { addToast } = useToast();
-  const [selectedCourseIds, setSelectedCourseIds] = useState([]);
+  const { selectedIds: selectedCourseIds, setSelectedIds: setSelectedCourseIds, clearSelection: clearSelectedCourseIds } = useBulkSelection();
   const [datesModalOpen, setDatesModalOpen] = useState(false);
   const [datesCourseIds, setDatesCourseIds] = useState([]);
   const [datesStartEnabled, setDatesStartEnabled] = useState(false);
@@ -49,13 +50,13 @@ export const UserCoursesTab = ({
     const timestart = datesStartEnabled && datesStartDate ? Math.floor(new Date(datesStartDate).getTime() / 1000) : 0;
     const timeend = datesEndEnabled && datesEndDate ? Math.floor(new Date(datesEndDate).getTime() / 1000) : 0;
     await handleUserCourseAction('update_dates', datesCourseIds, { timestart, timeend });
-    setSelectedCourseIds([]);
+    clearSelectedCourseIds();
     setDatesModalOpen(false);
   };
 
   const handleBulkSubmit = (ids) => {
     handleBulkUnenrollCourses(ids);
-    setSelectedCourseIds([]);
+    clearSelectedCourseIds();
   };
 
   const exportVisibleCSV = () => {

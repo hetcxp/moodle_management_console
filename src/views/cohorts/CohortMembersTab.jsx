@@ -7,6 +7,7 @@ import { PermissionGate } from '../../components/PermissionGate';
 import { Users, Clock, Trash2, User, Download } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { exportToCsv } from '../../components/CsvExporter';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
 
 export const CohortMembersTab = ({
   members,
@@ -18,7 +19,7 @@ export const CohortMembersTab = ({
   handleBulkUnlinkUsers,
   onNavigateToDetail
 }) => {
-  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const { selectedIds: selectedUserIds, setSelectedIds: setSelectedUserIds, clearSelection: clearSelectedUserIds } = useBulkSelection();
   const [userDetailModalOpen, setUserDetailModalOpen] = useState(false);
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
 
@@ -27,7 +28,7 @@ export const CohortMembersTab = ({
 
   const handleBulkUnlink = async (ids) => {
     await handleBulkUnlinkUsers(ids);
-    setSelectedUserIds([]);
+    clearSelectedUserIds();
   };
 
   const handleExport = () => {

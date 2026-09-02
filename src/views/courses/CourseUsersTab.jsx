@@ -8,6 +8,8 @@ import { Input } from '../../components/ui/Input';
 import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers, FileText } from 'lucide-react';
 import { PermissionGate } from '../../components/PermissionGate';
 import { useCourseUserActions } from '../../hooks/useCourseUserActions';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
+import { formatDate } from '../../lib/utils';
 
 export const CourseUsersTab = ({ 
   courseId, 
@@ -19,7 +21,7 @@ export const CourseUsersTab = ({
   onOpenSelector 
 }) => {
   const { addToast } = useToast();
-  const [selectedUsers, setSelectedUsers] = useState([]);
+  const { selectedIds: selectedUsers, setSelectedIds: setSelectedUsers, clearSelection: clearSelectedUsers } = useBulkSelection();
   const [sortUserKey, setSortUserKey] = useState('fullname');
   const [sortUserDir, setSortUserDir] = useState('ASC');
 
@@ -67,11 +69,6 @@ export const CourseUsersTab = ({
   const {
     userGroupModalOpen, setUserGroupModalOpen, userGroupSelection, setUserGroupSelection, userNewGroupName, setUserNewGroupName, handleUserGroupSubmit
   } = groupState;
-
-  const formatDate = (timestamp) => {
-    if (!timestamp) return '-';
-    return new Date(timestamp * 1000).toLocaleDateString();
-  };
 
   const getEnrolmentIcon = (method, index) => {
     switch (method) {

@@ -4,6 +4,7 @@ import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import { PermissionGate } from '../../components/PermissionGate';
+import { useBulkSelection } from '../../hooks/useBulkSelection';
 
 export const UserCohortsTab = ({
   cohorts,
@@ -13,12 +14,12 @@ export const UserCohortsTab = ({
   handleUnlinkCohort,
   handleBulkUnlinkCohorts
 }) => {
-  const [selectedCohortIds, setSelectedCohortIds] = useState([]);
+  const { selectedIds: selectedCohortIds, setSelectedIds: setSelectedCohortIds, clearSelection: clearSelectedCohortIds } = useBulkSelection();
   const [selectedCohortModal, setSelectedCohortModal] = useState(null);
 
   const handleBulkSubmit = (ids) => {
     handleBulkUnlinkCohorts(ids);
-    setSelectedCohortIds([]);
+    clearSelectedCohortIds();
   };
 
   const cohortsCols = [
