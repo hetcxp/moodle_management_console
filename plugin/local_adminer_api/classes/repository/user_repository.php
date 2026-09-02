@@ -40,8 +40,10 @@ class user_repository {
                  GROUP BY cc.userid
             ) cmp ON cmp.userid = enr.userid
         ";
+        $primaryadmin = get_admin();
+        $defaultadminid = $primaryadmin ? (int)$primaryadmin->id : 1;
         $params = array_merge($sqlparams, [
-            'adminid2' => $sqlparams['adminid'] ?? 1,
+            'adminid2' => $sqlparams['adminid'] ?? $defaultadminid,
             'guestid2' => $sqlparams['guestid'] ?? 0,
         ]);
         return $DB->get_field_sql($sql_progress, $params);
@@ -69,9 +71,11 @@ class user_repository {
         $sortfield = $allowed_sorts[$sort];
         $direction = strtoupper($params['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
 
+        $primaryadmin = get_admin();
+        $adminid = $primaryadmin ? (int)$primaryadmin->id : 1;
         $guestid = $CFG->siteguest ?? 0;
         $where = "u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid";
-        $sqlparams = ['adminid' => 1, 'guestid' => $guestid];
+        $sqlparams = ['adminid' => $adminid, 'guestid' => $guestid];
         if (!empty($params['search'])) {
             $searchlike = '%' . $params['search'] . '%';
             $where .= " AND (" . $DB->sql_like('u.firstname', ':search1', false, false) .

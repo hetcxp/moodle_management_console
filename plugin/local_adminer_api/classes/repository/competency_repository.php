@@ -43,6 +43,7 @@ class competency_repository {
         try {
             $pending_reviews = (int)$DB->count_records_select('competency_usercomp', 'status IN (1, 2)');
         } catch (\Exception $e) {
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             $pending_reviews = 0;
         }
 
@@ -360,6 +361,7 @@ class competency_repository {
             try {
                 $activity_name = (string)$DB->get_field($mr->modname, 'name', ['id' => $mr->instance]);
             } catch (\Exception $e) {
+                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
                 $activity_name = '';
             }
             if (empty($activity_name)) {
@@ -452,6 +454,7 @@ class competency_repository {
             try {
                 $activity_name = (string)$DB->get_field($mr->modname, 'name', ['id' => $mr->instance]);
             } catch (\Exception $e) {
+                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
                 $activity_name = '';
             }
             if (empty($activity_name)) {
@@ -535,6 +538,7 @@ class competency_repository {
             try {
                 $name = (string)$DB->get_field($r->modname, 'name', ['id' => $r->instance]);
             } catch (\Exception $e) {
+                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
                 $name = '';
             }
             if (empty($name)) {
@@ -576,6 +580,7 @@ class competency_repository {
         try {
             return (int)$DB->count_records_sql($sql, ['frameworkid' => $frameworkid]);
         } catch (\Exception $e) {
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             return 0;
         }
     }
@@ -597,6 +602,7 @@ class competency_repository {
         try {
             return (int)$DB->count_records_sql($sql, ['competencyid' => $competencyid]);
         } catch (\Exception $e) {
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             return 0;
         }
     }
@@ -618,6 +624,7 @@ class competency_repository {
         try {
             return (int)$DB->count_records_sql($sql, ['courseid' => $courseid]);
         } catch (\Exception $e) {
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             return 0;
         }
     }
@@ -714,6 +721,7 @@ class competency_repository {
                     $latest_evidence = (string)($first_ev->note ?? '');
                 }
             } catch (\Exception $e) {
+                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
                 $latest_evidence = '';
             }
 
@@ -789,7 +797,7 @@ class competency_repository {
             $evidence->usermodified = $rid;
             $DB->insert_record('competency_evidence', $evidence);
         } catch (\Exception $e) {
-            // Continuar si la evidencia es opcional
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
         }
 
         return true;

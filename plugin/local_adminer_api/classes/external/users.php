@@ -25,8 +25,10 @@ class users extends external_api {
         self::validate_context($context);
         require_capability('moodle/user:viewalldetails', $context);
 
+        $primaryadmin = get_admin();
+        $adminid = $primaryadmin ? (int)$primaryadmin->id : 1;
         $guestid = $CFG->siteguest ?? 0;
-        $sqlparams = ['adminid' => 1, 'guestid' => $guestid];
+        $sqlparams = ['adminid' => $adminid, 'guestid' => $guestid];
         
         $recent_threshold = time() - (30 * 86400); // 30 days
         $sqlparams['recent'] = $recent_threshold;
@@ -225,7 +227,7 @@ class users extends external_api {
                             $message->name              = 'instantmessage';
                             $message->userfrom          = $USER;
                             $message->userto            = $recipient;
-                            $clean_msg = clean_text($msg, FORMAT_HTML);
+                            $clean_msg = clean_text(substr($msg, 0, 65535), FORMAT_HTML);
                             $message->subject           = 'Mensaje';
                             $message->fullmessage       = $clean_msg;
                             $message->fullmessageformat = FORMAT_HTML;

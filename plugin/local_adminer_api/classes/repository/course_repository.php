@@ -78,6 +78,30 @@ class course_repository {
             }
         }
 
+        $sql_sub_enr = "
+            SELECT e.courseid, COUNT(DISTINCT ue.userid) AS enrolledcount
+              FROM {enrol} e
+              JOIN {user_enrolments} ue ON ue.enrolid = e.id
+              JOIN {user} u ON u.id = ue.userid
+             WHERE ue.status = 0 AND u.deleted = 0
+          GROUP BY e.courseid
+        ";
+
+        $sql_sub_cmp = "
+            SELECT ccmp.course AS courseid, COUNT(DISTINCT ccmp.userid) AS completedcount
+              FROM {course_completions} ccmp
+              JOIN {user} u ON u.id = ccmp.userid
+             WHERE ccmp.timecompleted IS NOT NULL AND u.deleted = 0
+          GROUP BY ccmp.course
+        ";
+
+        $sql_sub_coh = "
+            SELECT e.courseid, COUNT(DISTINCT e.customint1) AS cohortscount
+              FROM {enrol} e
+             WHERE e.enrol = 'cohort'
+          GROUP BY e.courseid
+        ";
+
         $sql_select = "
             SELECT c.id, c.fullname, c.shortname, c.visible, c.timecreated, c.category, c.startdate, c.enddate,
                    cc.name AS categoryname,
@@ -91,44 +115,12 @@ class course_repository {
                    END AS progress_sort
               FROM {course} c
               JOIN {course_categories} cc ON cc.id = c.category
-         LEFT JOIN (
-                SELECT e.courseid, COUNT(DISTINCT ue.userid) AS enrolledcount
-                  FROM {enrol} e
-                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
-                  JOIN {user} u ON u.id = ue.userid
-                 WHERE ue.status = 0 AND u.deleted = 0
-              GROUP BY e.courseid
-         ) enr ON enr.courseid = c.id
-         LEFT JOIN (
-                SELECT ccmp.course AS courseid, COUNT(DISTINCT ccmp.userid) AS completedcount
-                  FROM {course_completions} ccmp
-                  JOIN {user} u ON u.id = ccmp.userid
-                 WHERE ccmp.timecompleted IS NOT NULL AND u.deleted = 0
-              GROUP BY ccmp.course
-         ) cmp ON cmp.courseid = c.id
-         LEFT JOIN (
-                SELECT e.courseid, COUNT(DISTINCT e.customint1) AS cohortscount
-                  FROM {enrol} e
-                 WHERE e.enrol = 'cohort'
-              GROUP BY e.courseid
-         ) coh ON coh.courseid = c.id
+         LEFT JOIN ($sql_sub_enr) enr ON enr.courseid = c.id
+         LEFT JOIN ($sql_sub_cmp) cmp ON cmp.courseid = c.id
+         LEFT JOIN ($sql_sub_coh) coh ON coh.courseid = c.id
              WHERE $where
           ORDER BY $sortfield $direction, c.id DESC
         ";
-
-        $sql_count = "
-            SELECT COUNT(c.id)
-              FROM {course} c
-              JOIN {course_categories} cc ON cc.id = c.category
-             WHERE $where
-        ";
-
-        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
-
-        $page = (int)($params['page'] ?? 0);
-        $perpage = (int)($params['perpage'] ?? 20);
-        $limitfrom = $page * $perpage;
-        $records = $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $perpage);
 
         $sql_kpis = "
             SELECT 
@@ -144,31 +136,24 @@ class course_repository {
                 SUM(CASE WHEN COALESCE(enr.enrolledcount, 0) = 0 THEN 1 ELSE 0 END) AS empty_courses
             FROM {course} c
             JOIN {course_categories} cc ON cc.id = c.category
-            LEFT JOIN (
-                SELECT e.courseid, COUNT(DISTINCT ue.userid) AS enrolledcount
-                  FROM {enrol} e
-                  JOIN {user_enrolments} ue ON ue.enrolid = e.id
-                  JOIN {user} u ON u.id = ue.userid
-                 WHERE ue.status = 0 AND u.deleted = 0
-              GROUP BY e.courseid
-            ) enr ON enr.courseid = c.id
-            LEFT JOIN (
-                SELECT ccmp.course AS courseid, COUNT(DISTINCT ccmp.userid) AS completedcount
-                  FROM {course_completions} ccmp
-                  JOIN {user} u ON u.id = ccmp.userid
-                 WHERE ccmp.timecompleted IS NOT NULL AND u.deleted = 0
-              GROUP BY ccmp.course
-            ) cmp ON cmp.courseid = c.id
+            LEFT JOIN ($sql_sub_enr) enr ON enr.courseid = c.id
+            LEFT JOIN ($sql_sub_cmp) cmp ON cmp.courseid = c.id
             WHERE $where
         ";
 
         $kpi_data = $DB->get_record_sql($sql_kpis, $sqlparams);
+        $totalcount = (int)($kpi_data->total_courses ?? 0);
         $kpis = [
-            'total_courses'  => (int)($kpi_data->total_courses ?? 0),
+            'total_courses'  => $totalcount,
             'total_enrolled' => (int)($kpi_data->total_enrolled ?? 0),
             'avg_progress'   => (int)round($kpi_data->avg_progress ?? 0),
             'empty_courses'  => (int)($kpi_data->empty_courses ?? 0),
         ];
+
+        $page = (int)($params['page'] ?? 0);
+        $perpage = (int)($params['perpage'] ?? 20);
+        $limitfrom = $page * $perpage;
+        $records = $totalcount > 0 ? $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $perpage) : [];
 
         return [$records, $totalcount, $kpis];
     }
@@ -320,7 +305,7 @@ class course_repository {
                     $firstaccess = (int)$log_data->firstaccess;
                 }
             } catch (\Throwable $e) {
-                // Ignore exception if log table is missing or fails
+                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             }
             if ($firstaccess == 0) {
                 $firstaccess = $lastaccess;
@@ -410,7 +395,7 @@ class course_repository {
                     $names_by_mod_instance[$modname] = $names;
                 }
             } catch (\Exception $e) {
-                // Ignore missing module tables or fields gracefully
+                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             }
         }
 
@@ -442,6 +427,7 @@ class course_repository {
         try {
             $total_enrolled = (int)$DB->count_records_sql($sql_enrolled, ['courseid' => $courseid]);
         } catch (\Exception $e) {
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             $total_enrolled = 0;
         }
 
@@ -459,6 +445,7 @@ class course_repository {
         try {
             $completed_records = $DB->get_records_sql($sql_completed, ['courseid' => $courseid]);
         } catch (\Exception $e) {
+            debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             $completed_records = [];
         }
 

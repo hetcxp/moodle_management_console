@@ -600,7 +600,7 @@ class courses extends external_api {
                                 $message->name              = 'instantmessage';
                                 $message->userfrom          = $USER;
                                 $message->userto            = $recipient;
-                                $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
+                                $clean_msg = clean_text(substr($params['message_text'], 0, 65535), FORMAT_HTML);
                                 $message->subject           = 'Mensaje';
                                 $message->fullmessage       = $clean_msg;
                                 $message->fullmessageformat = FORMAT_HTML;
@@ -664,7 +664,6 @@ class courses extends external_api {
             return ['success' => false, 'message' => 'Manual enrolment plugin disabled'];
         }
         
-        $coursecontext = \context_course::instance($params['courseid']);
         $instances = enrol_get_instances($params['courseid'], true);
         $manualinstance = null;
         foreach ($instances as $instance) {
@@ -724,7 +723,7 @@ class courses extends external_api {
                         $message->name              = 'instantmessage';
                         $message->userfrom          = $USER;
                         $message->userto            = $recipient;
-                        $clean_msg = clean_text($params['message_text'], FORMAT_HTML);
+                        $clean_msg = clean_text(substr($params['message_text'], 0, 65535), FORMAT_HTML);
                         $message->subject           = 'Mensaje';
                         $message->fullmessage       = $clean_msg;
                         $message->fullmessageformat = FORMAT_HTML;
@@ -741,13 +740,18 @@ class courses extends external_api {
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
-        return ['success' => true, 'message' => "Successfully processed $affected enrolments"];
+        return [
+            'success'       => true,
+            'message'       => "Successfully processed $affected enrolments",
+            'affectedcount' => $affected
+        ];
     }
 
     public static function course_user_action_returns() {
         return new external_single_structure([
-            'success' => new external_value(PARAM_BOOL, 'Success'),
-            'message' => new external_value(PARAM_TEXT, 'Message'),
+            'success'       => new external_value(PARAM_BOOL, 'Success'),
+            'message'       => new external_value(PARAM_TEXT, 'Message'),
+            'affectedcount' => new external_value(PARAM_INT, 'Affected count'),
         ]);
     }
 
