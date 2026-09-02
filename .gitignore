@@ -1,10 +1,32 @@
+# Dependencies
 node_modules/
+# Environment Variables
 .env*
 !.env.example
+# Build Outputs
 dist/
-.DS_Store
-scratch/
-coverage/
+# Logs & Debug
 *.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+# Testing & Coverage
+coverage/
+.phpunit.result.cache
+.phpunit.cache/
+# Agent & AI Metadata
 .llm_build/
+scratch/
 .git_diff.tmp
+# Editor & IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+# OS Metadata (macOS / Windows)
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
