@@ -24,17 +24,18 @@ export function getTenantConfig() {
     };
   }
 
-  const params = new URLSearchParams(window.location.search);
-  const tenantKey = params.get('tenant') || import.meta.env.VITE_TENANT || 'default';
+  const search = typeof window !== 'undefined' && window.location ? window.location.search : '';
+  const params = new URLSearchParams(search);
+  const tenantKey = params.get('tenant') || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_TENANT) || 'default';
   return TENANTS[tenantKey] || TENANTS['default'];
 }
 
 export function applyTenantTheme() {
   const config = getTenantConfig();
-  const root = document.documentElement;
-  
-  if (config.colors?.primary) root.style.setProperty('--color-tenant-primary', config.colors.primary);
-  if (config.colors?.accent) root.style.setProperty('--color-tenant-accent', config.colors.accent);
-  
+  if (typeof document !== 'undefined') {
+    const root = document.documentElement;
+    if (config.colors?.primary) root.style.setProperty('--color-tenant-primary', config.colors.primary);
+    if (config.colors?.accent) root.style.setProperty('--color-tenant-accent', config.colors.accent);
+  }
   return config;
 }

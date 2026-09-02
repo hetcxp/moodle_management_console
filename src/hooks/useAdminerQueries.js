@@ -24,7 +24,7 @@ export function useCourses(params) {
   return useQuery({
     queryKey: ['courses', params],
     queryFn: () => AdminerApi.getCourses(params),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -91,7 +91,7 @@ export function useCategories(params) {
   return useQuery({
     queryKey: ['categories', params],
     queryFn: () => AdminerApi.getCategories(params),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -99,7 +99,7 @@ export function useCategoriesFlat() {
   return useQuery({
     queryKey: ['categories_flat'],
     queryFn: () => AdminerApi.getCategoriesFlat(),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -130,14 +130,15 @@ export function useUsers(params) {
   return useQuery({
     queryKey: ['users', params],
     queryFn: () => AdminerApi.getUsers(params),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
-export function useUsersKpis() {
+export function useUsersKpis(options = {}) {
   return useQuery({
     queryKey: ['users_kpis'],
     queryFn: () => AdminerApi.getUsersKpis(),
+    ...options,
   });
 }
 
@@ -203,14 +204,15 @@ export function useCohorts(params) {
   return useQuery({
     queryKey: ['cohorts', params],
     queryFn: () => AdminerApi.getCohorts(params),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
-export function useCohortsKpis() {
+export function useCohortsKpis(options = {}) {
   return useQuery({
     queryKey: ['cohorts_kpis'],
     queryFn: () => AdminerApi.getCohortsKpis(),
+    ...options,
   });
 }
 
@@ -256,7 +258,7 @@ export function useCompetencyFrameworks(params) {
   return useQuery({
     queryKey: ['competency_frameworks', params],
     queryFn: () => AdminerApi.getCompetencyFrameworks(params),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
@@ -355,7 +357,7 @@ export function useCompetencyReviews(params) {
   return useQuery({
     queryKey: ['competency_reviews', params],
     queryFn: () => AdminerApi.getCompetencyReviews(params),
-    staleTime: 0,
+    staleTime: 30 * 1000,
   });
 }
 
