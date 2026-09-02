@@ -4,31 +4,24 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 import { DashboardView } from '../views/DashboardView';
 import { AdminerApi } from '../services/adminer-api';
-import { useDashboardKpis } from '../hooks/useAdminerQueries';
 
 // Mock the API
-vi.mock('../services/adminer-api', () => ({
-  AdminerApi: {
-    getDashboardKpis: vi.fn(),
-    getRecentActivity: vi.fn(),
-  },
-}));
-
-vi.mock('../hooks/useAdminerQueries', async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    useDashboardKpis: vi.fn(),
-  };
-});
+vi.mock('../services/adminer-api', () => import('./__mocks__/adminer-api'));
 
 describe('DashboardView', () => {
-  it('renders correctly', () => {
-    useDashboardKpis.mockReturnValue({
-      data: { total_users: 150, total_courses: 50, active_users: 100, total_cohorts: 10, users_trend: 5, courses_trend: 2, active_trend: 10, cohorts_trend: 0 },
-      isLoading: false
+  it('renders correctly with stats', async () => {
+    AdminerApi.getDashboard.mockResolvedValue({
+      courses_total: 50,
+      courses_active: 40,
+      courses_inactive: 10,
+      users_total: 150,
+      users_active: 100,
+      users_suspended: 50,
+      cohorts_total: 10,
+      categories_total: 5,
+      competencies_total: 20,
+      pending_reviews_total: 3,
     });
-    AdminerApi.getRecentActivity.mockResolvedValue([]);
 
     renderWithProviders(<DashboardView />);
     

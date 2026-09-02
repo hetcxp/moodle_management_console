@@ -10,17 +10,7 @@ import { CohortsView } from '../views/CohortsView';
 import { CoursesView } from '../views/CoursesView';
 import { AdminerApi } from '../services/adminer-api';
 
-vi.mock('../services/adminer-api', () => ({
-  AdminerApi: {
-    getDashboardKpis: vi.fn().mockResolvedValue({ total_users: 0, total_courses: 0, active_users: 0, total_cohorts: 0, users_trend: 0, courses_trend: 0, active_trend: 0, cohorts_trend: 0 }),
-    getRecentActivity: vi.fn().mockResolvedValue([]),
-    getCategories: vi.fn().mockResolvedValue({ categories: [], totalcount: 0 }),
-    getCategoriesFlat: vi.fn().mockResolvedValue({ categories: [] }),
-    getCohorts: vi.fn().mockResolvedValue({ cohorts: [], totalcount: 0 }),
-    getCourses: vi.fn().mockResolvedValue({ courses: [], totalcount: 0 }),
-    getUsers: vi.fn().mockResolvedValue({ users: [], totalcount: 0 }),
-  },
-}));
+vi.mock('../services/adminer-api', () => import('./__mocks__/adminer-api'));
 
 describe('Smoke tests for views', () => {
   it('renders DashboardView correctly', () => {

@@ -4,15 +4,9 @@ import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 import { UsersView } from '../views/UsersView';
 import { AdminerApi } from '../services/adminer-api';
-import { useUsers, useUsersKpis } from '../hooks/useAdminerQueries';
 
 // Mock the API
-vi.mock('../services/adminer-api', () => ({
-  AdminerApi: {
-    getUsers: vi.fn().mockResolvedValue({ users: [], totalcount: 0 }),
-    getUsersKpis: vi.fn().mockResolvedValue({ total_users: 0, active_users: 0, suspended_users: 0, avg_progress: 0 }),
-  },
-}));
+vi.mock('../services/adminer-api', () => import('./__mocks__/adminer-api'));
 
 
 describe('UsersView', () => {
