@@ -42,7 +42,7 @@ export const CategoryCoursesTab = ({
     setCourseModalSearch('');
     try {
       const res = await AdminerApi.getCourseDetail(course.id);
-      setCourseModalData(res);
+      setCourseModalData({ ...course, ...res, id: course.id });
     } catch (err) {
       addToast({ type: 'error', title: 'Error cargando usuarios', description: err.message });
       setCourseModalOpen(false);
@@ -59,6 +59,13 @@ export const CategoryCoursesTab = ({
   const handleMoveSubmit = (ids) => {
     handleOpenMoveModal(ids);
     clearSelectedCourseIds();
+  };
+
+  const handleGoToCourseDetail = (courseId) => {
+    setCourseModalOpen(false);
+    if (onNavigateToDetail && courseId) {
+      onNavigateToDetail('course', courseId);
+    }
   };
 
   let filteredCourses = (courses || []).filter(c => {
@@ -139,7 +146,7 @@ export const CategoryCoursesTab = ({
             size="icon"
             onClick={(e) => {
               e.stopPropagation();
-              onNavigateToDetail('course', row.id);
+              handleGoToCourseDetail(row.id);
             }}
             title="Ir al detalle completo del curso"
             className="h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -257,7 +264,18 @@ export const CategoryCoursesTab = ({
         title="Usuarios Matriculados"
         description={courseModalData ? `Detalle de progreso para el curso: ${courseModalData.fullname}` : ''}
         footer={
-          <Button variant="outline" onClick={() => setCourseModalOpen(false)}>Cerrar</Button>
+          <>
+            <Button variant="outline" onClick={() => setCourseModalOpen(false)}>Cerrar</Button>
+            {onNavigateToDetail && courseModalData?.id && (
+              <Button
+                onClick={() => handleGoToCourseDetail(courseModalData.id)}
+                className="gap-1.5"
+              >
+                <span>Ir al Detalle del Curso</span>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+          </>
         }
       >
         {courseModalLoading ? (
