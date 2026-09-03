@@ -113,18 +113,8 @@ class cohort_repository {
     }
 
     public static function get_cohort_progress($cohortid) {
-        global $DB;
-        $sql_prog = "
-            SELECT ROUND(AVG(
-                CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
-            )) AS avg_progress
-            FROM {cohort_members} cm
-            JOIN {user} u ON u.id = cm.userid
-            LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = cm.userid
-            LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = cm.userid
-            WHERE cm.cohortid = :cohortid AND u.deleted = 0
-        ";
-        return $DB->get_field_sql($sql_prog, ['cohortid' => $cohortid]);
+        $map = self::get_cohorts_progress_map([(int)$cohortid]);
+        return $map[(int)$cohortid] ?? 0;
     }
 
     public static function get_cohorts_progress_map(array $cohortids): array {
@@ -132,20 +122,81 @@ class cohort_repository {
         if (empty($cohortids)) {
             return [];
         }
+
+        $cohortids = array_values(array_unique(array_map('intval', $cohortids)));
         list($in_sql, $in_params) = $DB->get_in_or_equal($cohortids, SQL_PARAMS_NAMED, 'coh');
-        $sql = "
-            SELECT cm.cohortid,
-                   ROUND(AVG(
-                       CASE WHEN enr.enrolled > 0 THEN (cmp.completed * 100.0 / enr.enrolled) ELSE 0 END
-                   )) AS avg_progress
+
+        // Fetch synced courses for all specified cohorts
+        $sql_synced = "
+            SELECT e.id AS enrolid, e.customint1 AS cohortid, c.id AS courseid, c.*
+              FROM {course} c
+              JOIN {enrol} e ON e.courseid = c.id
+             WHERE e.enrol = 'cohort' AND e.customint1 $in_sql
+        ";
+        $synced_records = $DB->get_records_sql($sql_synced, $in_params);
+
+        // Fetch members for all specified cohorts
+        $sql_members = "
+            SELECT cm.id, cm.cohortid, cm.userid
               FROM {cohort_members} cm
               JOIN {user} u ON u.id = cm.userid
-         LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS enrolled FROM {user_enrolments} WHERE status = 0 GROUP BY userid) enr ON enr.userid = cm.userid
-         LEFT JOIN (SELECT userid, COUNT(DISTINCT id) AS completed FROM {course_completions} WHERE timecompleted IS NOT NULL GROUP BY userid) cmp ON cmp.userid = cm.userid
              WHERE cm.cohortid $in_sql AND u.deleted = 0
-          GROUP BY cm.cohortid
         ";
-        return $DB->get_records_sql_menu($sql, $in_params) ?: [];
+        $member_records = $DB->get_records_sql($sql_members, $in_params);
+
+        $cohort_courses = [];
+        $all_courses_records = [];
+        foreach ($synced_records as $r) {
+            $cid = (int)$r->id;
+            $cohort_courses[$r->cohortid][$cid] = $r;
+            $all_courses_records[$cid] = $r;
+        }
+
+        $cohort_members = [];
+        $all_user_ids = [];
+        foreach ($member_records as $m) {
+            $uid = (int)$m->userid;
+            $cohort_members[$m->cohortid][$uid] = $uid;
+            $all_user_ids[$uid] = $uid;
+        }
+
+        // Initialize all cohorts with 0 progress
+        $progress_map = [];
+        foreach ($cohortids as $cid) {
+            $progress_map[$cid] = 0;
+        }
+
+        if (empty($all_user_ids) || empty($all_courses_records)) {
+            return $progress_map;
+        }
+
+        $progress_data = self::get_cohort_members_progress_data(
+            array_values($all_user_ids),
+            array_values($all_courses_records)
+        );
+
+        foreach ($cohortids as $cid) {
+            $courses = $cohort_courses[$cid] ?? [];
+            $members = $cohort_members[$cid] ?? [];
+
+            if (empty($courses) || empty($members)) {
+                $progress_map[$cid] = 0;
+                continue;
+            }
+
+            $total = 0;
+            $pairs = 0;
+            foreach ($members as $uid) {
+                foreach ($courses as $courseid => $crec) {
+                    $total += $progress_data[$uid][$courseid] ?? 0;
+                    $pairs++;
+                }
+            }
+
+            $progress_map[$cid] = $pairs > 0 ? (int)round($total / $pairs) : 0;
+        }
+
+        return $progress_map;
     }
 
     public static function get_cohort_members_progress_data(array $userids, array $courses_records): array {

@@ -285,21 +285,34 @@ class cohorts extends external_api {
         }
 
         $courses = [];
+        $member_count = count($members_records);
         foreach ($courses_records as $c) {
+            $course_total_progress = 0;
+            foreach ($members_records as $u) {
+                $course_total_progress += ($progress_data[$u->id][$c->id] ?? 0);
+            }
+            $course_progress = $member_count > 0 ? (int)round($course_total_progress / $member_count) : 0;
+
             $courses[] = [
                 'id' => (int)$c->id,
                 'fullname' => (string)$c->fullname,
                 'shortname' => (string)$c->shortname,
                 'enrolid' => (int)$c->enrolid,
-                'enrolledcount' => (int)($c->enrolledcount ?? 0)
+                'enrolledcount' => (int)($c->enrolledcount ?? 0),
+                'progress' => $course_progress,
             ];
         }
+
+        $overall_progress = ($course_count > 0 && $member_count > 0)
+            ? (int)round(array_sum(array_column($members, 'progress')) / $member_count)
+            : 0;
 
         return [
             'id' => (int)$cohort->id,
             'name' => (string)$cohort->name,
             'idnumber' => (string)$cohort->idnumber,
             'description' => (string)$cohort->description,
+            'progress' => $overall_progress,
             'members' => $members,
             'courses' => $courses
         ];
@@ -311,6 +324,7 @@ class cohorts extends external_api {
             'name' => new external_value(PARAM_TEXT, 'Cohort name'),
             'idnumber' => new external_value(PARAM_TEXT, 'ID number'),
             'description' => new external_value(PARAM_RAW, 'Description'),
+            'progress' => new external_value(PARAM_INT, 'Average progress percentage', VALUE_OPTIONAL),
             'members' => new external_multiple_structure(
                 new external_single_structure([
                     'id' => new external_value(PARAM_INT, 'User ID'),
@@ -336,6 +350,7 @@ class cohorts extends external_api {
                     'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
                     'enrolid' => new external_value(PARAM_INT, 'Enrol instance ID'),
                     'enrolledcount' => new external_value(PARAM_INT, 'Enrolled users count'),
+                    'progress' => new external_value(PARAM_INT, 'Average course progress for cohort members', VALUE_OPTIONAL),
                 ])
             ),
         ]);
