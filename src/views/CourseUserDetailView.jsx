@@ -167,28 +167,28 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-border/70 pb-6">
+      <div className="border-b border-border/70 pb-6">
+        <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
+          <button 
+            onClick={onBack} 
+            className="flex items-center hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
+          </button>
+          <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+          <span className="text-foreground truncate max-w-[300px]">Detalle de Usuario</span>
+        </nav>
+        
         <div>
-          <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
-            <button 
-              onClick={onBack} 
-              className="flex items-center hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
-            </button>
-            <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
-            <span className="text-foreground truncate max-w-[300px]">Detalle de Usuario</span>
-          </nav>
-          
           <div className="flex items-center gap-4">
-            <div className="p-4 bg-primary/10 text-primary rounded-2xl">
+            <div className="p-4 bg-primary/10 text-primary rounded-2xl shrink-0">
               <User className="h-8 w-8" />
             </div>
             <div>
               <h1 className="text-2xl font-bold tracking-tight text-foreground">{user.fullname}</h1>
               <p className="text-sm text-muted-foreground">{user.email}</p>
               
-              <div className="flex items-center gap-3 mt-3">
+              <div className="flex items-center gap-3 mt-2">
                 <Badge variant={data.status === 0 ? 'success' : 'destructive'}>
                   {data.status === 0 ? 'Activo en Curso' : 'Suspendido en Curso'}
                 </Badge>
@@ -198,56 +198,57 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
               </div>
             </div>
           </div>
-        </div>
 
-        <PermissionGate capability="can_manage_courses">
-          <div className="flex flex-wrap gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setMessageText(''); setMessageModalOpen(true); }}
-            >
-              <Mail className="h-4 w-4 mr-2" /> Mensaje
-            </Button>
-            
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setExpirationEnabled(data.timeend > 0);
-                if (data.timeend > 0) {
-                  setExpirationDate(new Date(data.timeend * 1000).toISOString().split('T')[0]);
-                } else {
-                  setExpirationDate('');
-                }
-                setExpirationModalOpen(true);
-              }}
-            >
-              <CalendarClock className="h-4 w-4 mr-2" /> Expiración
-            </Button>
-            
-            <Button
-              variant={data.status === 0 ? "outline" : "default"}
-              size="sm"
-              className={data.status === 0 ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200" : "bg-emerald-600 hover:bg-emerald-700 text-white"}
-              onClick={() => handleAction(data.status === 0 ? 'suspend' : 'activate')}
-            >
-              {data.status === 0 ? (
-                <><Ban className="h-4 w-4 mr-2" /> Suspender</>
-              ) : (
-                <><Check className="h-4 w-4 mr-2" /> Activar</>
-              )}
-            </Button>
-            
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => setUnenrollConfirmOpen(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" /> Desmatricular
-            </Button>
-          </div>
-        </PermissionGate>
+          {/* Botones de acción colocados debajo del nombre e imagen */}
+          <PermissionGate capability="can_manage_courses">
+            <div className="flex items-center gap-2 flex-wrap mt-4 pt-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setMessageText(''); setMessageModalOpen(true); }}
+              >
+                <Mail className="h-4 w-4 mr-1.5" /> Mensaje
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setExpirationEnabled(data.timeend > 0);
+                  if (data.timeend > 0) {
+                    setExpirationDate(new Date(data.timeend * 1000).toISOString().split('T')[0]);
+                  } else {
+                    setExpirationDate('');
+                  }
+                  setExpirationModalOpen(true);
+                }}
+              >
+                <CalendarClock className="h-4 w-4 mr-1.5" /> Expiración
+              </Button>
+              
+              <Button
+                variant={data.status === 0 ? "outline" : "default"}
+                size="sm"
+                className={data.status === 0 ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200" : "bg-emerald-600 hover:bg-emerald-700 text-white"}
+                onClick={() => handleAction(data.status === 0 ? 'suspend' : 'activate')}
+              >
+                {data.status === 0 ? (
+                  <><Ban className="h-4 w-4 mr-1.5" /> Suspender</>
+                ) : (
+                  <><Check className="h-4 w-4 mr-1.5" /> Activar</>
+                )}
+              </Button>
+              
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setUnenrollConfirmOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" /> Desmatricular
+              </Button>
+            </div>
+          </PermissionGate>
+        </div>
       </div>
 
       {/* Tabs */}

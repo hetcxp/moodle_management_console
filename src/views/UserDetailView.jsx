@@ -5,11 +5,12 @@ import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
-import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX, KeyRound } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX, KeyRound, Shield } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatDate } from '../lib/utils';
 import { API_CONFIG } from '../config/api';
+import { AdminerApi } from '../services/adminer-api';
 import { UserCoursesTab } from './users/UserCoursesTab';
 import { UserCohortsTab } from './users/UserCohortsTab';
 
@@ -36,6 +37,16 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
       onBack();
     }
   }, [error, addToast, onBack]);
+
+  const systemRoles = React.useMemo(() => {
+    if (Array.isArray(data?.system_roles) && data.system_roles.length > 0) {
+      return data.system_roles;
+    }
+    if (data?.is_admin) {
+      return [{ id: 0, name: 'Administrador del sitio', shortname: 'siteadmin' }];
+    }
+    return [];
+  }, [data?.system_roles, data?.is_admin]);
 
   const handleLinkCohorts = async (cohortIds) => {
     try {
@@ -167,22 +178,22 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-6">
+      <div className="border-b border-border/70 pb-6">
+        {/* Breadcrumb */}
+        <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
+          <button 
+            onClick={onBack} 
+            className="flex items-center hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
+          </button>
+          <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+          <span className="text-foreground truncate max-w-[300px]">{data.fullname}</span>
+        </nav>
+        
         <div>
-          {/* Breadcrumb */}
-          <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
-            <button 
-              onClick={onBack} 
-              className="flex items-center hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
-            </button>
-            <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
-            <span className="text-foreground truncate max-w-[300px]">{data.fullname}</span>
-          </nav>
-          
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-100 text-blue-700 dark:bg-blue-900/30 rounded-xl">
+            <div className="p-3 bg-blue-100 text-blue-700 dark:bg-blue-900/30 rounded-xl shrink-0">
               <User className="h-6 w-6" />
             </div>
             <div>
@@ -195,66 +206,91 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
               <p className="text-sm font-mono text-muted-foreground mt-0.5">{data.email}</p>
             </div>
           </div>
-        </div>
 
-        {/* Acciones Header */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap mt-4 sm:mt-0">
-          <PermissionGate capability="can_update_users">
+          {/* Acciones colocadas debajo del nombre y la imagen */}
+          <div className="flex items-center gap-2 flex-wrap mt-4 pt-1">
+            <PermissionGate capability="can_update_users">
+              <Button
+                variant="outline"
+                className={data.is_active ? "text-rose-600 hover:text-rose-700 hover:bg-rose-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}
+                onClick={handleToggleSuspend}
+              >
+                {data.is_active ? <><UserX className="h-4 w-4 mr-2" /> Suspender</> : <><UserCheck className="h-4 w-4 mr-2" /> Activar</>}
+              </Button>
+              <Button variant="outline" onClick={() => setMessageModalOpen(true)}>
+                <MessageSquare className="h-4 w-4 mr-2" /> Mensaje
+              </Button>
+              <Button variant="outline" onClick={() => setTempPassConfirmOpen(true)}>
+                <KeyRound className="h-4 w-4 mr-2" /> Clave Temporal
+              </Button>
+            </PermissionGate>
             <Button
               variant="outline"
-              className={data.is_active ? "text-rose-600 hover:text-rose-700 hover:bg-rose-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}
-              onClick={handleToggleSuspend}
+              onClick={async () => {
+                try {
+                  const res = await AdminerApi.getAutologinUrl(`/user/profile.php?id=${userId}`);
+                  window.open(res?.url || `${API_CONFIG.baseUrl}/user/profile.php?id=${userId}`, '_blank');
+                } catch { window.open(`${API_CONFIG.baseUrl}/user/profile.php?id=${userId}`, '_blank'); }
+              }}
             >
-              {data.is_active ? <><UserX className="h-4 w-4 mr-2" /> Suspender</> : <><UserCheck className="h-4 w-4 mr-2" /> Activar</>}
+              <ExternalLink className="h-4 w-4 mr-2" /> Ver en Moodle
             </Button>
-            <Button variant="outline" onClick={() => setMessageModalOpen(true)}>
-              <MessageSquare className="h-4 w-4 mr-2" /> Mensaje
-            </Button>
-            <Button variant="outline" onClick={() => setTempPassConfirmOpen(true)}>
-              <KeyRound className="h-4 w-4 mr-2" /> Clave Temporal
-            </Button>
-          </PermissionGate>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              try {
-                const res = await AdminerApi.getAutologinUrl(`/user/profile.php?id=${userId}`);
-                window.open(res?.url || `${API_CONFIG.baseUrl}/user/profile.php?id=${userId}`, '_blank');
-              } catch { window.open(`${API_CONFIG.baseUrl}/user/profile.php?id=${userId}`, '_blank'); }
-            }}
-          >
-            <ExternalLink className="h-4 w-4 mr-2" /> Ver en Moodle
-          </Button>
+          </div>
         </div>
       </div>
 
       {/* Grid Estadísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Card 1: Username & Último Acceso combinados */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
-          <div className="p-2.5 bg-muted rounded-xl"><User className="h-5 w-5 text-muted-foreground" /></div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Username</p>
-            <h3 className="text-lg font-bold text-foreground">{data.username}</h3>
+          <div className="p-2.5 bg-muted rounded-xl shrink-0"><User className="h-5 w-5 text-muted-foreground" /></div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Username & Último Acceso</p>
+            <h3 className="text-base font-bold text-foreground truncate mt-0.5">{data.username}</h3>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
+              <Clock className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{data.lastaccess > 0 ? formatDate(data.lastaccess) : 'Nunca'}</span>
+            </div>
           </div>
         </div>
+
+        {/* Card 2: Roles de Sistema */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
-          <div className="p-2.5 bg-muted rounded-xl"><Clock className="h-5 w-5 text-muted-foreground" /></div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Último Acceso</p>
-            <h3 className="text-sm font-bold text-foreground">{data.lastaccess > 0 ? formatDate(data.lastaccess) : 'Nunca'}</h3>
+          <div className="p-2.5 bg-amber-500/10 rounded-xl shrink-0"><Shield className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Roles de Sistema</p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              {systemRoles.length > 0 ? (
+                systemRoles.map((r) => (
+                  <Badge 
+                    key={r.id || r.shortname} 
+                    variant={r.shortname === 'siteadmin' ? 'default' : 'secondary'}
+                    className="text-xs py-0.5 px-2 font-medium"
+                  >
+                    {r.name}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-sm font-semibold text-muted-foreground">Sin roles asignados</span>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Card 3: Cursos */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
-          <div className="p-2.5 bg-primary/10 rounded-xl"><BookOpen className="h-5 w-5 text-primary" /></div>
+          <div className="p-2.5 bg-primary/10 rounded-xl shrink-0"><BookOpen className="h-5 w-5 text-primary" /></div>
           <div>
-            <p className="text-sm font-medium text-muted-foreground">Cursos</p>
-            <h3 className="text-lg font-bold text-foreground">{data.completed_courses} / {data.enrolled_courses} Completados</h3>
+            <p className="text-xs font-medium text-muted-foreground">Cursos</p>
+            <h3 className="text-base font-bold text-foreground">{data.completed_courses} / {data.enrolled_courses} Completados</h3>
           </div>
         </div>
+
+        {/* Card 4: Progreso Global */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
-          <div className="p-2.5 bg-blue-500/10 rounded-xl"><GraduationCap className="h-5 w-5 text-blue-500" /></div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-muted-foreground">Progreso Global</p>
+          <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0"><GraduationCap className="h-5 w-5 text-blue-500" /></div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-muted-foreground">Progreso Global</p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                 <div className="h-full bg-blue-500" style={{ width: `${data.progress}%` }} />
