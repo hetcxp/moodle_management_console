@@ -132,9 +132,11 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
 
   if (!data) return null;
 
-  const averageProgress = data.courses && data.courses.length > 0
-    ? Math.round(data.courses.reduce((acc, curr) => acc + (curr.progress || 0), 0) / data.courses.length)
-    : 0;
+  const averageProgress = data.progress !== undefined
+    ? data.progress
+    : (data.courses && data.courses.length > 0
+        ? Math.round(data.courses.reduce((acc, curr) => acc + (curr.progress || 0), 0) / data.courses.length)
+        : 0);
 
   return (
     <div className="space-y-6 animate-fadeIn">
