@@ -154,6 +154,7 @@ class external_services_test extends advanced_testcase {
         $this->assertArrayHasKey('is_active', $res);
         $this->assertArrayHasKey('lastaccess', $res);
         $this->assertArrayHasKey('progress', $res);
+        $this->assertArrayHasKey('system_roles', $res);
         $this->assertEquals(1, $res['is_active']);
     }
 

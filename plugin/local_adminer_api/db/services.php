@@ -322,6 +322,13 @@ $functions = [
         'type'          => 'write',
         'ajax'          => true,
     ],
+    'local_adminer_get_competency_users' => [
+        'classname'     => 'local_adminer_api\external\competencies',
+        'methodname'    => 'get_competency_users',
+        'description'   => 'Get enrolled and evaluated users for a competency with progress and evidences',
+        'type'          => 'read',
+        'ajax'          => true,
+    ],
 ];
 
 $services = [
@@ -366,6 +373,7 @@ $services = [
             'local_adminer_module_competency_action',
             'local_adminer_get_competency_reviews',
             'local_adminer_competency_review_action',
+            'local_adminer_get_competency_users',
             'core_webservice_get_site_info',
         ],
         'restrictedusers' => 0,

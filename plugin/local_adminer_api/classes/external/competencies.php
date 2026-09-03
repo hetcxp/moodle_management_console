@@ -468,7 +468,7 @@ class competencies extends external_api {
     // ==========================================
     public static function competency_action_parameters() {
         return new external_function_parameters([
-            'action'       => new external_value(PARAM_ALPHA, 'Action: create, edit, delete, update_rule'),
+            'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: create, edit, delete, update_rule'),
             'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete/update_rule)', VALUE_DEFAULT, 0),
             'frameworkid'  => new external_value(PARAM_INT, 'Framework ID (required for create)', VALUE_DEFAULT, 0),
             'parentid'     => new external_value(PARAM_INT, 'Parent competency ID (0 for root/level 1)', VALUE_DEFAULT, 0),
@@ -1370,6 +1370,105 @@ class competencies extends external_api {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'True if operation succeeded'),
             'message' => new external_value(PARAM_TEXT, 'Status description message'),
+        ]);
+    }
+
+    // ==========================================
+    // 13. GET COMPETENCY USERS (ENROLLED & COMPETENCY PROGRESS + EVIDENCES)
+    // ==========================================
+    public static function get_competency_users_parameters() {
+        return new external_function_parameters([
+            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
+            'search'       => new external_value(PARAM_RAW, 'Search by user name or email', VALUE_DEFAULT, ''),
+            'status'       => new external_value(PARAM_ALPHANUMEXT, 'Filter status: all, proficient, not_proficient, in_review, pending_reviews', VALUE_DEFAULT, 'all'),
+            'courseid'     => new external_value(PARAM_INT, 'Filter by specific course ID', VALUE_DEFAULT, 0),
+            'page'         => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
+            'perpage'      => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
+            'sort'         => new external_value(PARAM_ALPHANUMEXT, 'Sort field', VALUE_DEFAULT, 'lastname'),
+            'dir'          => new external_value(PARAM_ALPHA, 'Sort direction: ASC, DESC', VALUE_DEFAULT, 'ASC'),
+        ]);
+    }
+
+    public static function get_competency_users($competencyid, $search = '', $status = 'all', $courseid = 0, $page = 0, $perpage = 20, $sort = 'lastname', $dir = 'ASC') {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_competency_users_parameters(), [
+            'competencyid' => $competencyid,
+            'search'       => $search,
+            'status'       => $status,
+            'courseid'     => $courseid,
+            'page'         => $page,
+            'perpage'      => $perpage,
+            'sort'         => $sort,
+            'dir'          => $dir,
+        ]);
+
+        return competency_repository::get_competency_users(
+            $params['competencyid'],
+            $params['search'],
+            $params['status'],
+            $params['courseid'],
+            $params['page'],
+            $params['perpage'],
+            $params['sort'],
+            $params['dir']
+        );
+    }
+
+    public static function get_competency_users_returns() {
+        return new external_single_structure([
+            'totalcount' => new external_value(PARAM_INT, 'Total count of users matching criteria'),
+            'page'       => new external_value(PARAM_INT, 'Current page'),
+            'perpage'    => new external_value(PARAM_INT, 'Items per page'),
+            'users'      => new external_multiple_structure(
+                new external_single_structure([
+                    'userid'                => new external_value(PARAM_INT, 'User ID'),
+                    'fullname'              => new external_value(PARAM_TEXT, 'User full name'),
+                    'email'                 => new external_value(PARAM_TEXT, 'User email'),
+                    'usercompid'            => new external_value(PARAM_INT, 'User competency record ID'),
+                    'status'                => new external_value(PARAM_INT, 'Competency review status'),
+                    'pendingreviewscount'   => new external_value(PARAM_INT, 'Pending reviews count for user', VALUE_DEFAULT, 0),
+                    'proficiency'           => new external_value(PARAM_INT, 'Is proficient (1=yes, 0=no)'),
+                    'grade'                 => new external_value(PARAM_INT, 'Competency grade/scale value'),
+                    'gradename'             => new external_value(PARAM_TEXT, 'Grade name in scale'),
+                    'coursescount'          => new external_value(PARAM_INT, 'Count of enrolled courses linked'),
+                    'completedcoursescount' => new external_value(PARAM_INT, 'Count of completed courses'),
+                    'progress'              => new external_value(PARAM_INT, 'Overall average course completion percentage'),
+                    'courses'               => new external_multiple_structure(
+                        new external_single_structure([
+                            'courseid'    => new external_value(PARAM_INT, 'Course ID'),
+                            'fullname'    => new external_value(PARAM_TEXT, 'Course full name'),
+                            'shortname'   => new external_value(PARAM_TEXT, 'Course short name'),
+                            'completed'   => new external_value(PARAM_INT, 'Is course completed'),
+                            'progress'    => new external_value(PARAM_INT, 'Course completion percentage'),
+                            'proficiency' => new external_value(PARAM_INT, 'Course-level competency proficiency'),
+                            'grade'       => new external_value(PARAM_INT, 'Course-level competency grade'),
+                        ])
+                    ),
+                    'evidencescount'        => new external_value(PARAM_INT, 'Number of registered evidences'),
+                    'evidences'             => new external_multiple_structure(
+                        new external_single_structure([
+                            'id'                 => new external_value(PARAM_INT, 'Evidence ID'),
+                            'action'             => new external_value(PARAM_INT, 'Evidence action type'),
+                            'actionname'         => new external_value(PARAM_TEXT, 'Evidence action name'),
+                            'actionuserfullname' => new external_value(PARAM_TEXT, 'Action user full name'),
+                            'descidentifier'     => new external_value(PARAM_TEXT, 'Description identifier'),
+                            'note'               => new external_value(PARAM_RAW, 'Evidence note / feedback'),
+                            'grade'              => new external_value(PARAM_INT, 'Evidence grade'),
+                            'gradename'          => new external_value(PARAM_TEXT, 'Evidence grade name'),
+                            'url'                => new external_value(PARAM_RAW, 'Evidence URL'),
+                            'timecreated'        => new external_value(PARAM_INT, 'Evidence timestamp'),
+                        ])
+                    ),
+                ])
+            ),
+            'scale'      => new external_single_structure([
+                'id'    => new external_value(PARAM_INT, 'Scale ID'),
+                'name'  => new external_value(PARAM_TEXT, 'Scale name'),
+                'items' => new external_multiple_structure(new external_value(PARAM_TEXT, 'Scale item name')),
+            ]),
         ]);
     }
 }
