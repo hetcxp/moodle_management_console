@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { CompetencyDetailView } from '../views/CompetencyDetailView';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -201,6 +201,53 @@ vi.mock('../services/adminer-api', () => ({
         },
       ],
     }),
+    getCompetencyUsers: vi.fn().mockResolvedValue({
+      totalcount: 1,
+      page: 0,
+      perpage: 20,
+      users: [
+        {
+          userid: 50,
+          fullname: 'Ana Martínez',
+          email: 'ana@example.com',
+          usercompid: 12,
+          status: 0,
+          proficiency: 1,
+          grade: 2,
+          gradename: 'Competente',
+          coursescount: 1,
+          completedcoursescount: 1,
+          progress: 100,
+          courses: [
+            {
+              courseid: 10,
+              fullname: 'Curso de Big Data',
+              shortname: 'BD-101',
+              completed: 1,
+              progress: 100,
+              proficiency: 1,
+              grade: 2,
+            },
+          ],
+          evidencescount: 1,
+          evidences: [
+            {
+              id: 1,
+              action: 0,
+              actionname: 'Evidencia manual',
+              actionuserfullname: 'Profesor Carlos',
+              descidentifier: 'evidence_manual',
+              note: 'Aprobó el proyecto final con distinción máxima.',
+              grade: 2,
+              gradename: 'Competente',
+              url: '',
+              timecreated: 1725148800,
+            },
+          ],
+        },
+      ],
+      scale: { id: 1, name: 'Escala Estándar', items: ['No competente', 'Competente'] },
+    }),
   },
 }));
 
@@ -248,6 +295,13 @@ describe('CompetencyDetailView', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
       expect(screen.getByText('DAT-01')).toBeDefined();
+    });
+
+    // Switch to Subcompetencias tab
+    const subcompTabBtn = screen.getByRole('button', { name: /^Subcompetencias/i });
+    fireEvent.click(subcompTabBtn);
+
+    await waitFor(() => {
       expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
       expect(screen.getByText('Subcompetencia Modelado SQL')).toBeDefined();
       expect(screen.getByText('DAT-01-A')).toBeDefined();
@@ -255,15 +309,17 @@ describe('CompetencyDetailView', () => {
     });
   });
 
-  it('navigates between Subcompetencias, Regla de Completado and Cursos tabs', async () => {
+  it('navigates between Cursos, Reglas de Completado, Subcompetencias and Usuarios tabs', async () => {
     renderComponent();
 
+    // Default tab is Cursos y Actividades
     await waitFor(() => {
-      expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
+      expect(screen.getByText('Curso de Big Data')).toBeDefined();
+      expect(screen.getByText('Machine Learning Básico')).toBeDefined();
     });
 
-    // Switch to Regla de Completado tab
-    const ruleTabBtn = screen.getByRole('button', { name: /Regla de Completado/i });
+    // Switch to Reglas de Completado tab
+    const ruleTabBtn = screen.getByRole('button', { name: /Reglas de Completado/i });
     fireEvent.click(ruleTabBtn);
 
     await waitFor(() => {
@@ -271,21 +327,51 @@ describe('CompetencyDetailView', () => {
       expect(screen.getByText(/competency_rule_all_children/i)).toBeDefined();
     });
 
-    // Switch to Cursos y Actividades tab
-    const coursesTabBtn = screen.getByRole('button', { name: /Cursos y Actividades/i });
-    fireEvent.click(coursesTabBtn);
+    // Switch to Subcompetencias tab
+    const subcompTabBtn = screen.getByRole('button', { name: /^Subcompetencias/i });
+    fireEvent.click(subcompTabBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('Curso de Big Data')).toBeDefined();
-      expect(screen.getByText('Machine Learning Básico')).toBeDefined();
+      expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
+    });
+
+    // Switch to Usuarios tab
+    const usersTabBtn = screen.getByRole('button', { name: /Usuarios/i });
+    fireEvent.click(usersTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ana Martínez')).toBeDefined();
+      expect(screen.getByText(/ana@example.com/i)).toBeDefined();
     });
   });
 
-  it('saves updated completion rule in Regla de Completado tab', async () => {
+  it('renders Usuarios tab and opens evidence modal', async () => {
+    renderComponent();
+
+    const usersTabBtn = await screen.findByRole('button', { name: /Usuarios/i });
+    fireEvent.click(usersTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Ana Martínez')).toBeDefined();
+      expect(screen.getByText(/ana@example.com/i)).toBeDefined();
+      expect(screen.getByText('100%')).toBeDefined();
+    });
+
+    const evidencesBtn = screen.getByRole('button', { name: /Evidencias/i });
+    fireEvent.click(evidencesBtn);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Evidencias de Competencia' })).toBeDefined();
+      expect(screen.getByText('Aprobó el proyecto final con distinción máxima.')).toBeDefined();
+      expect(screen.getByText(/Profesor Carlos/i)).toBeDefined();
+    });
+  });
+
+  it('saves updated completion rule in Reglas de Completado tab', async () => {
     const { AdminerApi } = await import('../services/adminer-api');
     renderComponent();
 
-    const ruleTabBtn = await screen.findByRole('button', { name: /Regla de Completado/i });
+    const ruleTabBtn = await screen.findByRole('button', { name: /Reglas de Completado/i });
     fireEvent.click(ruleTabBtn);
 
     await waitFor(() => {
@@ -318,8 +404,8 @@ describe('CompetencyDetailView', () => {
       expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
     });
 
-    const reviewsBtn = screen.getByTitle('Ver revisiones pendientes');
-    fireEvent.click(reviewsBtn);
+    const reviewsBtns = screen.getAllByTitle('Ver revisiones pendientes');
+    fireEvent.click(reviewsBtns[0]);
 
     await waitFor(() => {
       expect(screen.getByText('Estudiante Ejemplo')).toBeDefined();
@@ -358,11 +444,18 @@ describe('CompetencyDetailView', () => {
     renderComponent();
 
     await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
+    });
+
+    const subcompTabBtn = screen.getByRole('button', { name: /^Subcompetencias/i });
+    fireEvent.click(subcompTabBtn);
+
+    await waitFor(() => {
       expect(screen.getByText('Subcompetencia Limpieza de Datos')).toBeDefined();
     });
 
     const newSubcompBtns = screen.getAllByRole('button', { name: /Nueva Subcompetencia/i });
-    // Click the first "Nueva Subcompetencia" button
+    // Click the "Nueva Subcompetencia" button in subcompetencies tab
     fireEvent.click(newSubcompBtns[0]);
 
     await waitFor(() => {
@@ -420,6 +513,192 @@ describe('CompetencyDetailView', () => {
     expect(mockNavigateToDetail).toHaveBeenCalledWith('competency', {
       frameworkId: 1,
       competencyId: 201,
+    });
+  });
+
+  it('does not render "Ver" button in KPI card and moves "Revisiones Pendientes" button to Users tab with pending reviews column', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    AdminerApi.getCompetencyUsers.mockResolvedValueOnce({
+      totalcount: 2,
+      page: 0,
+      perpage: 20,
+      users: [
+        {
+          userid: 50,
+          fullname: 'Ana Martínez',
+          email: 'ana@example.com',
+          usercompid: 12,
+          status: 0,
+          pendingreviewscount: 0,
+          proficiency: 1,
+          grade: 2,
+          gradename: 'Competente',
+          coursescount: 1,
+          completedcoursescount: 1,
+          progress: 100,
+          evidencescount: 1,
+          evidences: []
+        },
+        {
+          userid: 51,
+          fullname: 'Carlos Gómez',
+          email: 'carlos@example.com',
+          usercompid: 13,
+          status: 1,
+          pendingreviewscount: 2,
+          proficiency: 0,
+          grade: 1,
+          gradename: 'Aún no competente',
+          coursescount: 1,
+          completedcoursescount: 0,
+          progress: 50,
+          evidencescount: 0,
+          evidences: []
+        }
+      ]
+    });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
+    });
+
+    // 1. KPI Card should NOT have "Ver" or "Revisar" button
+    const kpiTitle = screen.getByText('Revisiones Pendientes');
+    const kpiCard = kpiTitle.closest('div');
+    expect(kpiCard.querySelector('button')).toBeNull();
+
+    // In courses tab (default), Revisiones Pendientes button should not exist in the courses toolbar
+    const vincularCursosBtn = screen.getByRole('button', { name: /Vincular Cursos/i });
+    expect(vincularCursosBtn).toBeDefined();
+    const toolbar = vincularCursosBtn.closest('div');
+    expect(within(toolbar).queryByRole('button', { name: /Revisiones Pendientes/i })).toBeNull();
+
+    // 2. Switch to Users tab
+    const usersTabBtn = screen.getByRole('button', { name: /^Usuarios/i });
+    fireEvent.click(usersTabBtn);
+
+    // Revisiones Pendientes button should be in the Users tab
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Revisiones Pendientes/i })).toBeDefined();
+    });
+
+    // 3. Check for Revisiones Pendientes column in Users table
+    await waitFor(() => {
+      expect(screen.getByRole('columnheader', { name: /Revisiones Pendientes/i })).toBeDefined();
+    });
+
+    // Check user Carlos has pending badge
+    await waitFor(() => {
+      expect(screen.getByText(/2 pendientes/i)).toBeDefined();
+    });
+  });
+
+  it('supports sortings and filters in the students table', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    AdminerApi.getCompetencyUsers.mockResolvedValue({
+      totalcount: 3,
+      page: 0,
+      perpage: 20,
+      users: [
+        {
+          userid: 1,
+          fullname: 'Beatriz Morales',
+          email: 'beatriz@test.com',
+          usercompid: 101,
+          status: 0,
+          pendingreviewscount: 0,
+          proficiency: 1,
+          grade: 2,
+          gradename: 'Competente',
+          coursescount: 2,
+          completedcoursescount: 2,
+          progress: 100,
+          evidencescount: 3,
+          evidences: []
+        },
+        {
+          userid: 2,
+          fullname: 'Alejandro Castro',
+          email: 'alejandro@test.com',
+          usercompid: 102,
+          status: 1,
+          pendingreviewscount: 1,
+          proficiency: 0,
+          grade: 1,
+          gradename: 'Aún no competente',
+          coursescount: 1,
+          completedcoursescount: 0,
+          progress: 25,
+          evidencescount: 0,
+          evidences: []
+        },
+        {
+          userid: 3,
+          fullname: 'Carlos Delgado',
+          email: 'carlos@test.com',
+          usercompid: 103,
+          status: 0,
+          pendingreviewscount: 0,
+          proficiency: 0,
+          grade: 1,
+          gradename: 'Aún no competente',
+          coursescount: 1,
+          completedcoursescount: 0,
+          progress: 0,
+          evidencescount: 1,
+          evidences: []
+        }
+      ]
+    });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: /Competencia en Análisis de Datos/i })).toBeDefined();
+    });
+
+    const usersTabBtn = screen.getByRole('button', { name: /^Usuarios/i });
+    fireEvent.click(usersTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Beatriz Morales')).toBeDefined();
+      expect(screen.getByText('Alejandro Castro')).toBeDefined();
+      expect(screen.getByText('Carlos Delgado')).toBeDefined();
+    });
+
+    // Verify sortable column headers
+    const studentHeader = screen.getByRole('columnheader', { name: /Estudiante/i });
+    expect(studentHeader).toBeDefined();
+
+    const progressHeader = screen.getByRole('columnheader', { name: /Progreso en Cursos/i });
+    expect(progressHeader).toBeDefined();
+
+    const pendingHeader = screen.getByRole('columnheader', { name: /Revisiones Pendientes/i });
+    expect(pendingHeader).toBeDefined();
+
+    // Click sort by progress
+    fireEvent.click(within(progressHeader).getByText(/Progreso en Cursos/i));
+
+    // Filter by pending reviews
+    const pendingSelect = screen.getByDisplayValue('Revisiones: Todas');
+    fireEvent.change(pendingSelect, { target: { value: 'pending' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Alejandro Castro')).toBeDefined();
+      expect(screen.queryByText('Beatriz Morales')).toBeNull();
+      expect(screen.queryByText('Carlos Delgado')).toBeNull();
+    });
+
+    // Reset filters
+    const resetBtn = screen.getByRole('button', { name: /Limpiar filtros/i });
+    fireEvent.click(resetBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Beatriz Morales')).toBeDefined();
+      expect(screen.getByText('Alejandro Castro')).toBeDefined();
+      expect(screen.getByText('Carlos Delgado')).toBeDefined();
     });
   });
 });

@@ -24,6 +24,9 @@ vi.mock('../services/adminer-api', () => ({
       completed_courses: 1,
       cohorts_count: 1,
       progress: 50,
+      system_roles: [
+        { id: 3, name: 'Teacher', shortname: 'editingteacher' }
+      ],
       courses: [
         {
           id: 101,
@@ -55,11 +58,12 @@ vi.mock('../services/adminer-api', () => ({
       name: 'Data Science 2026',
       idnumber: 'DS-2026',
       description: 'All students in Data Science track',
+      progress: 80,
       members: [
-        { id: 42, fullname: 'John Doe', email: 'jdoe@example.com', lastaccess: 1725148800, suspended: 0, progress: 80, course_progresses: [] }
+        { id: 42, fullname: 'John Doe', email: 'jdoe@example.com', lastaccess: 1725148800, suspended: 0, progress: 80, course_progresses: [{ courseid: 301, progress: 80 }] }
       ],
       courses: [
-        { id: 301, fullname: 'Python for Data Science', shortname: 'PY-DS', enrolid: 99, enrolledcount: 25 }
+        { id: 301, fullname: 'Python for Data Science', shortname: 'PY-DS', enrolid: 99, enrolledcount: 25, progress: 80 }
       ]
     }),
     getCourseDetail: vi.fn().mockResolvedValue({
@@ -165,6 +169,39 @@ describe('Detail Views Integration (TD-012)', () => {
     expect(screen.getByText('jdoe@example.com')).toBeDefined();
     expect(screen.getByText('React Fundamentals')).toBeDefined();
     expect(screen.getByText('Clave Temporal')).toBeDefined();
+    expect(screen.getByText('Username & Último Acceso')).toBeDefined();
+    expect(screen.getByText('Roles de Sistema')).toBeDefined();
+    expect(screen.getByText('Teacher')).toBeDefined();
+    expect(screen.getByText('Ver en Moodle')).toBeDefined();
+  });
+
+  it('renders UserDetailView with no system roles and fallback when is_admin is 1', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    AdminerApi.getUserDetail.mockResolvedValueOnce({
+      id: 99,
+      username: 'adminuser',
+      fullname: 'Admin Master',
+      email: 'admin@example.com',
+      suspended: 0,
+      is_active: 1,
+      is_admin: 1,
+      lastaccess: 0,
+      enrolled_courses: 0,
+      completed_courses: 0,
+      cohorts_count: 0,
+      progress: 0,
+      system_roles: [],
+      courses: [],
+      cohorts: []
+    });
+
+    renderWithProviders(<UserDetailView userId={99} onBack={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Admin Master').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.getByText('Administrador del sitio')).toBeDefined();
   });
 
   it('renders CategoryDetailView with category details and courses, and opens Traer Curso modal', async () => {
@@ -184,6 +221,27 @@ describe('Detail Views Integration (TD-012)', () => {
     });
   });
 
+  it('opens Usuarios Matriculados modal on course row click and navigates to course detail', async () => {
+    const onNavigateToDetail = vi.fn();
+    renderWithProviders(<CategoryDetailView categoryId={7} onBack={vi.fn()} onNavigateToDetail={onNavigateToDetail} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Node.js Mastery')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Node.js Mastery'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Usuarios Matriculados')).toBeDefined();
+    });
+
+    const goToDetailBtn = screen.getByRole('button', { name: /ir al detalle del curso/i });
+    expect(goToDetailBtn).toBeDefined();
+
+    fireEvent.click(goToDetailBtn);
+    expect(onNavigateToDetail).toHaveBeenCalledWith('course', 201);
+  });
+
   it('renders CohortDetailView with cohort details and members', async () => {
     renderWithProviders(<CohortDetailView cohortId={8} onBack={vi.fn()} />);
 
@@ -193,6 +251,7 @@ describe('Detail Views Integration (TD-012)', () => {
 
     expect(screen.getByText('All students in Data Science track')).toBeDefined();
     expect(screen.getByText('John Doe')).toBeDefined();
+    expect(screen.getAllByText('80%').length).toBeGreaterThan(0);
   });
 
   it('renders CourseUserDetailView with course progress and user details', async () => {
