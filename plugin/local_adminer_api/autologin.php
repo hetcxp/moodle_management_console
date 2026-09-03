@@ -22,7 +22,19 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once('../../config.php');
+if (file_exists(__DIR__ . '/../../config.php')) {
+    require_once(__DIR__ . '/../../config.php');
+} else if (isset($_SERVER['SCRIPT_FILENAME']) && file_exists(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php')) {
+    require_once(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php');
+} else if (isset($_SERVER['DOCUMENT_ROOT']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/config.php')) {
+    require_once($_SERVER['DOCUMENT_ROOT'] . '/config.php');
+} else if (file_exists(__DIR__ . '/../../../../Dev/moodle-dev/config.php')) {
+    require_once(__DIR__ . '/../../../../Dev/moodle-dev/config.php');
+} else if (file_exists('/Users/hectorteran/Dev/moodle-dev/config.php')) {
+    require_once('/Users/hectorteran/Dev/moodle-dev/config.php');
+} else {
+    require_once('../../config.php');
+}
 require_once($CFG->dirroot . '/user/lib.php');
 
 $token = required_param('token', PARAM_ALPHANUM);
@@ -52,21 +64,21 @@ if (isset($parsed['host'])) {
 }
 
 if (empty($redirect) || !$is_valid_dest) {
-    print_error('invalidurl');
+    throw new \moodle_exception('invalidurl');
 }
 
 global $DB;
 $keyrecord = $DB->get_record('user_private_key', ['value' => $token, 'script' => 'core_message']);
 
 if (!$keyrecord) {
-    print_error('invalidtoken');
+    throw new \moodle_exception('invalidtoken');
 }
 $userid = $keyrecord->userid;
 
 $user = $DB->get_record('user', array('id' => $userid, 'deleted' => 0, 'suspended' => 0));
 
 if (!$user) {
-    print_error('invaliduser');
+    throw new \moodle_exception('invaliduser');
 }
 
 // Ensure the user is logged in

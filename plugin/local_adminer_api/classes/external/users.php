@@ -381,6 +381,8 @@ class users extends external_api {
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
         $is_admin = in_array($user->id, $siteadmins) ? 1 : 0;
 
+        $system_roles = user_repository::get_user_system_roles($user->id);
+
         return [
             'id' => (int)$user->id,
             'username' => (string)$user->username,
@@ -395,7 +397,8 @@ class users extends external_api {
             'cohorts_count' => count($cohorts),
             'progress' => (int)$progress,
             'courses' => $courses,
-            'cohorts' => $cohorts
+            'cohorts' => $cohorts,
+            'system_roles' => $system_roles,
         ];
     }
 
@@ -438,6 +441,14 @@ class users extends external_api {
                     'name' => new external_value(PARAM_TEXT, 'Cohort name'),
                     'idnumber' => new external_value(PARAM_TEXT, 'ID number'),
                 ])
+            ),
+            'system_roles' => new external_multiple_structure(
+                new external_single_structure([
+                    'id' => new external_value(PARAM_INT, 'Role ID'),
+                    'name' => new external_value(PARAM_TEXT, 'Role display name'),
+                    'shortname' => new external_value(PARAM_TEXT, 'Role shortname'),
+                ]),
+                'System roles assigned to user', VALUE_OPTIONAL
             ),
         ]);
     }

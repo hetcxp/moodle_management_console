@@ -313,4 +313,46 @@ class user_repository {
 
         return $progress_map;
     }
+
+    public static function get_user_system_roles($userid) {
+        global $DB;
+        $syscontext = \context_system::instance();
+
+        $sql = "
+            SELECT r.id, r.name, r.shortname
+              FROM {role_assignments} ra
+              JOIN {role} r ON r.id = ra.roleid
+             WHERE ra.contextid = :contextid AND ra.userid = :userid
+          ORDER BY r.sortorder ASC, r.id ASC
+        ";
+        $roles = $DB->get_records_sql($sql, ['contextid' => $syscontext->id, 'userid' => $userid]);
+
+        $result = [];
+        $has_admin_role = false;
+
+        foreach ($roles as $r) {
+            $rolename = role_get_name($r, $syscontext, ROLENAME_BOTH);
+            if (empty($rolename)) {
+                $rolename = !empty($r->name) ? $r->name : $r->shortname;
+            }
+            $result[] = [
+                'id' => (int)$r->id,
+                'name' => (string)$rolename,
+                'shortname' => (string)$r->shortname,
+            ];
+            if ($r->shortname === 'admin' || $r->shortname === 'siteadmin') {
+                $has_admin_role = true;
+            }
+        }
+
+        if (is_siteadmin($userid) && !$has_admin_role) {
+            array_unshift($result, [
+                'id' => 0,
+                'name' => 'Administrador del sitio',
+                'shortname' => 'siteadmin',
+            ]);
+        }
+
+        return $result;
+    }
 }
