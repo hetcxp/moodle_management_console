@@ -370,8 +370,19 @@ export function useCompetencyReviewAction() {
       queryClient.invalidateQueries({ queryKey: ['competency_detail'] });
       queryClient.invalidateQueries({ queryKey: ['competency_framework'] });
       queryClient.invalidateQueries({ queryKey: ['competency_kpis'] });
+      queryClient.invalidateQueries({ queryKey: ['competency_users'] });
     },
   });
 }
+
+export function useCompetencyUsers(competencyId, params = {}) {
+  return useQuery({
+    queryKey: ['competency_users', competencyId, params],
+    queryFn: () => AdminerApi.getCompetencyUsers(competencyId, params),
+    enabled: !!competencyId,
+    staleTime: 30 * 1000,
+  });
+}
+
 
 

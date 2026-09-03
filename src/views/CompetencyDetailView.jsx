@@ -17,6 +17,7 @@ import { CompetencyCourseCard } from './competencies/CompetencyCourseCard';
 import { AddActivityToCompetencyModal } from './competencies/AddActivityToCompetencyModal';
 import { CompetencySubcompetenciesTab } from './competencies/CompetencySubcompetenciesTab';
 import { CompetencyRuleCard } from './competencies/CompetencyRuleCard';
+import { CompetencyUsersTab } from './competencies/CompetencyUsersTab';
 import {
   Search,
   Loader2,
@@ -26,7 +27,9 @@ import {
   BookOpen,
   Sparkles,
   Sliders,
-  ExternalLink
+  ExternalLink,
+  Users,
+  Clock
 } from 'lucide-react';
 import { COMPETENCY_RULE_ALL_CHILDREN } from './competencies/competencyConstants';
 
@@ -63,15 +66,21 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
     handleAddActivity
   } = useCompetencyDetailActions(compIdNum);
 
-  const [activeTab, setActiveTab] = useState('subcompetencies');
+  const [activeTab, setActiveTab] = useState('courses');
   const [search, setSearch] = useState('');
   const [filterRule, setFilterRule] = useState('all');
   const [createSubcompModalOpen, setCreateSubcompModalOpen] = useState(false);
+  const [reviewsModalUser, setReviewsModalUser] = useState(null);
+
+  const handleOpenReviews = (user = null) => {
+    setReviewsModalUser(user);
+    setReviewsModalOpen(true);
+  };
 
   const hasParent = (competency?.parentid || 0) > 0;
 
   useEffect(() => {
-    if (competency && (competency.parentid || 0) > 0 && activeTab !== 'courses') {
+    if (competency && (competency.parentid || 0) > 0 && !['courses', 'users'].includes(activeTab)) {
       setActiveTab('courses');
     }
   }, [competency, activeTab]);
@@ -208,17 +217,46 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
         subcompetenciesCount={competency?.childrencount || subcompetencies.length}
         onBack={onBack}
         onNavigateToDetail={onNavigateToDetail}
-        onOpenReviews={() => setReviewsModalOpen(true)}
-        onOpenLinkCourses={() => setSelectorOpen(true)}
-        onOpenCreateSubcompetency={() => {
-          setActiveTab('subcompetencies');
-          setCreateSubcompModalOpen(true);
-        }}
+        onOpenReviews={() => handleOpenReviews(null)}
       />
 
       {/* Tabs Navigation */}
       {!hasParent ? (
         <div className="flex items-center gap-2 border-b border-border/80 pb-px overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => setActiveTab('courses')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'courses'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            <BookOpen className="h-4 w-4" />
+            <span>Cursos y Actividades</span>
+            <span className={`px-2 py-0.5 text-xs rounded-full ${
+              activeTab === 'courses' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
+            }`}>
+              {totalCoursesCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('rule')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'rule'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+            <span>Reglas de Completado</span>
+            {isRuleActive && (
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            )}
+          </button>
+
           <button
             type="button"
             onClick={() => setActiveTab('subcompetencies')}
@@ -239,20 +277,19 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
 
           <button
             type="button"
-            onClick={() => setActiveTab('rule')}
+            onClick={() => setActiveTab('users')}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-              activeTab === 'rule'
+              activeTab === 'users'
                 ? 'border-primary text-primary font-semibold'
                 : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
             }`}
           >
-            <Sparkles className="h-4 w-4" />
-            <span>Regla de Completado</span>
-            {isRuleActive && (
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            )}
+            <Users className="h-4 w-4" />
+            <span>Usuarios</span>
           </button>
-
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 border-b border-border/80 pb-px overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('courses')}
@@ -267,19 +304,22 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
             <span className={`px-2 py-0.5 text-xs rounded-full ${
               activeTab === 'courses' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
             }`}>
-              {totalCoursesCount}
-            </span>
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 border-b border-border/80 pb-px overflow-x-auto">
-          <div className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 border-primary text-primary whitespace-nowrap">
-            <BookOpen className="h-4 w-4" />
-            <span>Cursos y Actividades</span>
-            <span className="px-2 py-0.5 text-xs rounded-full bg-primary/15 text-primary">
               {courses.length}
             </span>
-          </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('users')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'users'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            <span>Usuarios</span>
+          </button>
         </div>
       )}
 
@@ -320,7 +360,7 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
               />
             </div>
 
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Filtrar por regla:</span>
                 <select
@@ -335,6 +375,18 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
                   <option value="0">Solo vincular (0)</option>
                 </select>
               </div>
+
+              <PermissionGate capability="can_manage_competencies">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => setSelectorOpen(true)}
+                  className="h-9 gap-1.5 shadow-sm text-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Vincular Cursos</span>
+                </Button>
+              </PermissionGate>
             </div>
           </div>
 
@@ -571,13 +623,30 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
         </div>
       )}
 
+      {/* Tab: Usuarios */}
+      {activeTab === 'users' && (
+        <CompetencyUsersTab
+          competencyId={compIdNum}
+          competencyName={competency?.shortname || ''}
+          courses={courses}
+          onNavigateToDetail={onNavigateToDetail}
+          onOpenReviews={handleOpenReviews}
+          pendingReviewsCount={pendingReviewsCount}
+        />
+      )}
+
       {/* Modals */}
       <CompetencyReviewsModal
         open={reviewsModalOpen}
-        onClose={() => setReviewsModalOpen(false)}
+        onClose={() => {
+          setReviewsModalOpen(false);
+          setReviewsModalUser(null);
+        }}
         frameworkId={frameIdNum}
         competencyId={compIdNum}
-        title={`Revisiones: ${competency?.shortname || 'Competencia'}`}
+        userId={reviewsModalUser?.userid || 0}
+        initialSearch={reviewsModalUser?.fullname || ''}
+        title={reviewsModalUser ? `Revisiones: ${reviewsModalUser.fullname}` : `Revisiones: ${competency?.shortname || 'Competencia'}`}
       />
 
       <SelectorModal

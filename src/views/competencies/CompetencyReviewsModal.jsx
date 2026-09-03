@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -27,15 +27,23 @@ export const CompetencyReviewsModal = ({
   onClose,
   frameworkId = 0,
   competencyId = 0,
+  userId = 0,
+  initialSearch = '',
   title = 'Revisiones de Competencias Pendientes'
 }) => {
   const { addToast } = useToast();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch || '');
   const [activeReview, setActiveReview] = useState(null);
   const [grade, setGrade] = useState(1);
   const [proficiency, setProficiency] = useState(1);
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setSearch(initialSearch || '');
+    }
+  }, [open, initialSearch]);
 
   const {
     data: reviewsData,
@@ -44,6 +52,7 @@ export const CompetencyReviewsModal = ({
   } = useCompetencyReviews({
     frameworkid: frameworkId || 0,
     competencyid: competencyId || 0,
+    userid: userId || 0,
     search: search.trim()
   });
 

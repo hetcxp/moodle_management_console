@@ -1,13 +1,10 @@
 import React from 'react';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { PermissionGate } from '../../components/PermissionGate';
 import {
   Award,
   ChevronLeft,
   ChevronRight,
   BookOpen,
-  Plus,
   Clock,
   Layers,
   CheckCircle2
@@ -118,45 +115,6 @@ export const CompetencyDetailHeader = ({
             </div>
           </div>
         </div>
-
-        {/* Acciones Header */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap mt-4 sm:mt-0">
-          <Button
-            variant="outline"
-            onClick={onOpenReviews}
-            title="Ver revisiones pendientes"
-            className="gap-2 shadow-sm border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10"
-          >
-            <Clock className="h-4 w-4 text-amber-500" />
-            <span>Revisiones Pendientes</span>
-            {pendingReviewsCount > 0 && (
-              <Badge variant="warning" className="ml-1 px-1.5 py-0.5 text-[10px] font-bold">
-                {pendingReviewsCount}
-              </Badge>
-            )}
-          </Button>
-
-          <PermissionGate capability="can_manage_competencies">
-            {!hasParent && (
-              <Button
-                variant="outline"
-                onClick={onOpenCreateSubcompetency}
-                className="gap-1.5 shadow-sm text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Nueva Subcompetencia</span>
-              </Button>
-            )}
-            <Button
-              variant="default"
-              onClick={onOpenLinkCourses}
-              className="gap-2 shadow-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Vincular Cursos
-            </Button>
-          </PermissionGate>
-        </div>
       </div>
 
       {/* Description if present */}
@@ -213,28 +171,16 @@ export const CompetencyDetailHeader = ({
 
         <div
           onClick={onOpenReviews}
-          className={`bg-card/60 backdrop-blur-md rounded-2xl border p-5 shadow-sm flex items-center justify-between gap-3 transition-all cursor-pointer hover:border-amber-500/50 ${pendingReviewsCount > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
+          title={pendingReviewsCount > 0 ? `Ver ${pendingReviewsCount} revisión(es) pendiente(s)` : 'Ver revisiones pendientes'}
+          className={`bg-card/60 backdrop-blur-md rounded-2xl border p-5 shadow-sm flex items-center gap-3.5 transition-all cursor-pointer hover:border-amber-500/50 ${pendingReviewsCount > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
         >
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className={`p-2.5 rounded-xl shrink-0 ${pendingReviewsCount > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
-              <Clock className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-muted-foreground truncate">Revisiones Pendientes</p>
-              <h3 className="text-xl font-bold text-foreground">{pendingReviewsCount}</h3>
-            </div>
+          <div className={`p-2.5 rounded-xl shrink-0 ${pendingReviewsCount > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
+            <Clock className="h-5 w-5" />
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={(e) => {
-              e.stopPropagation();
-              onOpenReviews();
-            }}
-            className="text-xs text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 shrink-0"
-          >
-            {pendingReviewsCount > 0 ? 'Revisar' : 'Ver'}
-          </Button>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground truncate">Revisiones Pendientes</p>
+            <h3 className="text-xl font-bold text-foreground">{pendingReviewsCount}</h3>
+          </div>
         </div>
       </div>
     </>

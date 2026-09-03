@@ -278,6 +278,19 @@ export const AdminerApi = {
       proficiency,
       note
     });
+  },
+
+  async getCompetencyUsers(competencyid, { search = '', status = 'all', courseid = 0, page = 0, perpage = 20, sort = 'lastname', dir = 'ASC' } = {}) {
+    return await MoodleApi.call('local_adminer_get_competency_users', {
+      competencyid,
+      search,
+      status,
+      courseid,
+      page,
+      perpage,
+      sort,
+      dir
+    });
   }
 };
 
