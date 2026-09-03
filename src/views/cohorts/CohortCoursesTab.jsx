@@ -136,7 +136,8 @@ export const CohortCoursesTab = ({
                 </thead>
                 <tbody className="divide-y divide-border/70">
                   {members.map(u => {
-                    const progress = u.progress || 0; 
+                    const courseProgressObj = u.course_progresses?.find(cp => cp.courseid === selectedCourseDetail?.id);
+                    const progress = courseProgressObj ? courseProgressObj.progress : 0; 
                     return (
                       <tr key={u.id} className="hover:bg-muted/50 transition-colors">
                         <td className="px-4 py-3">
