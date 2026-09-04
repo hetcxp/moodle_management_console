@@ -208,6 +208,7 @@ class cohorts extends external_api {
                     return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
             }
             $transaction->allow_commit();
+            \local_adminer_api\cache_manager::invalidate_kpis('cohort_kpis');
         } catch (\Exception $e) {
             $transaction->rollback($e);
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];

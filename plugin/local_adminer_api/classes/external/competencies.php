@@ -267,6 +267,7 @@ class competencies extends external_api {
                 $record->usermodified       = $USER->id;
 
                 $newid = $DB->insert_record('competency_framework', $record);
+                \local_adminer_api\cache_manager::invalidate_kpis('competency_kpis');
 
                 return [
                     'success'       => true,
@@ -313,6 +314,7 @@ class competencies extends external_api {
                 }
 
                 $DB->update_record('competency_framework', $existing);
+                \local_adminer_api\cache_manager::invalidate_kpis('competency_kpis');
 
                 return [
                     'success'       => true,
@@ -329,6 +331,7 @@ class competencies extends external_api {
                 $existing->timemodified = $now;
                 $existing->usermodified = $USER->id;
                 $DB->update_record('competency_framework', $existing);
+                \local_adminer_api\cache_manager::invalidate_kpis('competency_kpis');
 
                 return [
                     'success'       => true,
@@ -345,6 +348,7 @@ class competencies extends external_api {
                 $existing->timemodified = $now;
                 $existing->usermodified = $USER->id;
                 $DB->update_record('competency_framework', $existing);
+                \local_adminer_api\cache_manager::invalidate_kpis('competency_kpis');
 
                 return [
                     'success'       => true,
@@ -361,6 +365,7 @@ class competencies extends external_api {
                 $existing->timemodified = $now;
                 $existing->usermodified = $USER->id;
                 $DB->update_record('competency_framework', $existing);
+                \local_adminer_api\cache_manager::invalidate_kpis('competency_kpis');
 
                 return [
                     'success'       => true,
@@ -377,6 +382,7 @@ class competencies extends external_api {
                 $DB->delete_records('competency', ['competencyframeworkid' => $params['frameworkid']]);
                 // Eliminar el marco
                 $DB->delete_records('competency_framework', ['id' => $params['frameworkid']]);
+                \local_adminer_api\cache_manager::invalidate_kpis('competency_kpis');
 
                 return [
                     'success'       => true,

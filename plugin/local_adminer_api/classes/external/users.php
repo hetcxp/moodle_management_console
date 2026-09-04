@@ -54,6 +54,11 @@ class users extends external_api {
         self::validate_context($context);
         require_capability('moodle/user:viewalldetails', $context);
 
+        $cached = \local_adminer_api\cache_manager::get_kpi('user_kpis');
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $primaryadmin = get_admin();
         $adminid = $primaryadmin ? (int)$primaryadmin->id : 1;
         $guestid = $CFG->siteguest ?? 0;
@@ -65,13 +70,16 @@ class users extends external_api {
         $stats = user_repository::get_users_kpi_stats($sqlparams);
         $progress = user_repository::get_users_kpi_avg_progress($sqlparams);
 
-        return [
+        $result = [
             'total_users'     => (int)($stats->total_users ?? 0),
             'active_users'    => (int)($stats->active_users ?? 0),
             'suspended_users' => (int)($stats->suspended_users ?? 0),
             'recent_active'   => (int)($stats->recent_active ?? 0),
             'avg_progress'    => (float)($progress ?? 0)
         ];
+
+        \local_adminer_api\cache_manager::set_kpi('user_kpis', $result);
+        return $result;
     }
 
     public static function get_users_kpis_returns() {
@@ -289,6 +297,9 @@ class users extends external_api {
                     return ['success' => false, 'message' => 'Invalid action: ' . $act, 'affectedcount' => 0];
             }
             $transaction->allow_commit();
+            if ($act !== 'send_temp_password' && $act !== 'reset_password') {
+                \local_adminer_api\cache_manager::invalidate_kpis('user_kpis');
+            }
         } catch (\Exception $e) {
             $transaction->rollback($e);
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
@@ -560,6 +571,7 @@ class users extends external_api {
         
         try {
             $userid = user_create_user($user, true, false);
+            \local_adminer_api\cache_manager::invalidate_kpis('user_kpis');
             
             if (!empty($params['createpassword'])) {
                 $created_user = user_repository::get_user($userid);
@@ -650,6 +662,10 @@ class users extends external_api {
             }
         }
         
+        if ($created > 0) {
+            \local_adminer_api\cache_manager::invalidate_kpis('user_kpis');
+        }
+
         $msg = "Created $created users.";
         if (count($errors) > 0) {
             $msg .= " " . count($errors) . " errors. " . implode("; ", array_slice($errors, 0, 3)) . (count($errors) > 3 ? "..." : "");

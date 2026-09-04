@@ -306,6 +306,11 @@ class cohort_repository {
     }
 
     public static function get_kpis() {
+        $cached = \local_adminer_api\cache_manager::get_kpi('cohort_kpis');
+        if ($cached !== null) {
+            return $cached;
+        }
+
         global $DB;
         $sql_cohorts = "SELECT COUNT(id) FROM {cohort}";
         $total_cohorts = (int)$DB->count_records_sql($sql_cohorts);
@@ -329,12 +334,15 @@ class cohort_repository {
         ";
         $synced_courses = (int)$DB->count_records_sql($sql_synced);
 
-        return [
+        $result = [
             'total_cohorts' => $total_cohorts,
             'total_members' => $total_members,
             'avg_members' => $avg_members,
             'empty_cohorts' => $empty_cohorts,
             'synced_courses' => $synced_courses,
         ];
+
+        \local_adminer_api\cache_manager::set_kpi('cohort_kpis', $result);
+        return $result;
     }
 }

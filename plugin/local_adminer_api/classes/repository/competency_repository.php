@@ -64,6 +64,11 @@ class competency_repository {
      * @return array
      */
     public static function get_kpis() {
+        $cached = \local_adminer_api\cache_manager::get_kpi('competency_kpis');
+        if ($cached !== null) {
+            return $cached;
+        }
+
         global $DB;
         $total_frameworks = (int)$DB->count_records('competency_framework');
         $visible_frameworks = (int)$DB->count_records('competency_framework', ['visible' => 1]);
@@ -77,13 +82,16 @@ class competency_repository {
             $pending_reviews = 0;
         }
 
-        return [
+        $result = [
             'total_frameworks'   => $total_frameworks,
             'visible_frameworks' => $visible_frameworks,
             'hidden_frameworks'  => $hidden_frameworks,
             'total_competencies' => $total_competencies,
             'pending_reviews'    => $pending_reviews,
         ];
+
+        \local_adminer_api\cache_manager::set_kpi('competency_kpis', $result);
+        return $result;
     }
 
     /**
@@ -386,14 +394,9 @@ class competency_repository {
         $module_records = $DB->get_records_sql($sql_modules, ['competencyid' => $competencyid]);
 
         $modules_by_course = [];
+        $activity_names = self::resolve_module_activity_names($module_records);
         foreach ($module_records as $mr) {
-            $activity_name = '';
-            try {
-                $activity_name = (string)$DB->get_field($mr->modname, 'name', ['id' => $mr->instance]);
-            } catch (\Exception $e) {
-                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-                $activity_name = '';
-            }
+            $activity_name = $activity_names[$mr->modname][$mr->instance] ?? '';
             if (empty($activity_name)) {
                 $activity_name = ucfirst($mr->modname) . ' #' . $mr->instance;
             }
@@ -479,14 +482,9 @@ class competency_repository {
         $module_records = $DB->get_records_sql($sql_modules, $params);
 
         $modules_by_subcomp_course = [];
+        $activity_names = self::resolve_module_activity_names($module_records);
         foreach ($module_records as $mr) {
-            $activity_name = '';
-            try {
-                $activity_name = (string)$DB->get_field($mr->modname, 'name', ['id' => $mr->instance]);
-            } catch (\Exception $e) {
-                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-                $activity_name = '';
-            }
+            $activity_name = $activity_names[$mr->modname][$mr->instance] ?? '';
             if (empty($activity_name)) {
                 $activity_name = ucfirst($mr->modname) . ' #' . $mr->instance;
             }
@@ -563,14 +561,9 @@ class competency_repository {
         }
 
         $activities = [];
+        $activity_names = self::resolve_module_activity_names($records);
         foreach ($records as $r) {
-            $name = '';
-            try {
-                $name = (string)$DB->get_field($r->modname, 'name', ['id' => $r->instance]);
-            } catch (\Exception $e) {
-                debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-                $name = '';
-            }
+            $name = $activity_names[$r->modname][$r->instance] ?? '';
             if (empty($name)) {
                 $name = ucfirst($r->modname) . ' #' . $r->instance;
             }
@@ -590,6 +583,42 @@ class competency_repository {
         }
 
         return $activities;
+    }
+
+    /**
+     * Resuelve en lote los nombres de actividades por módulo e instancia para evitar N+1 queries.
+     *
+     * @param array $records Objetos que contienen propiedades modname e instance.
+     * @return array Mapa asociativo [modname => [instance_id => name]]
+     */
+    private static function resolve_module_activity_names(array $records): array {
+        global $DB;
+        $instances_by_mod = [];
+        foreach ($records as $r) {
+            if (!empty($r->modname) && !empty($r->instance)) {
+                $instances_by_mod[$r->modname][] = (int)$r->instance;
+            }
+        }
+
+        $names = [];
+        foreach ($instances_by_mod as $modname => $instances) {
+            $unique_instances = array_values(array_unique($instances));
+            if (empty($unique_instances)) {
+                continue;
+            }
+            try {
+                list($insql, $inparams) = $DB->get_in_or_equal($unique_instances, SQL_PARAMS_NAMED, 'inst');
+                $items = $DB->get_records_select_menu($modname, "id $insql", $inparams, '', 'id, name');
+                if (!empty($items)) {
+                    foreach ($items as $instid => $name) {
+                        $names[$modname][$instid] = (string)$name;
+                    }
+                }
+            } catch (\Exception $e) {
+                debugging("AdminerApi batch module name error for $modname: " . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+        }
+        return $names;
     }
 
     /**
