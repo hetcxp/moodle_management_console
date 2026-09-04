@@ -30,7 +30,7 @@ export function usePaginatedExport() {
       exportToCsv(filename, finalData, columns);
       addToast({ title: 'Éxito', description: `Reporte generado con ${finalData.length} registros`, type: 'success' });
     } catch (err) {
-      console.error("Export error", err);
+      if (import.meta.env.DEV) console.error("Export error", err);
       addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
     } finally {
       setExportLoading(false);

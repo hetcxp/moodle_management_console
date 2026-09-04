@@ -64,7 +64,7 @@ export const MoodleApi = {
 
       return data;
     } catch (err) {
-      console.error(`[MoodleApi Error in ${wsfunction}]:`, err);
+      if (import.meta.env.DEV) console.error(`[MoodleApi Error in ${wsfunction}]:`, err);
       throw err;
     }
   }

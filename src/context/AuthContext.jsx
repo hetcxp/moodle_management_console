@@ -27,7 +27,7 @@ export const AuthProvider = ({ children }) => {
       setPermissionsError(false);
     } catch (err) {
       if (retry) {
-        console.warn('Could not fetch permissions, retrying in 3s...', err);
+        if (import.meta.env.DEV) console.warn('Could not fetch permissions, retrying in 3s...', err);
         return new Promise(resolve => {
           setTimeout(async () => {
             if (!isMounted.current) return resolve();
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
         });
       }
       if (!isMounted.current) return;
-      console.warn('Could not fetch permissions after retry, setting default fallback permissions:', err);
+      if (import.meta.env.DEV) console.warn('Could not fetch permissions after retry, setting default fallback permissions:', err);
       setPermissionsError(true);
       // Fallback if permissions service fails
       setPermissions({
@@ -72,7 +72,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const handleAuthError = (e) => {
-      console.warn('Moodle Auth Error:', e.detail);
+      if (import.meta.env.DEV) console.warn('Moodle Auth Error:', e.detail);
       logout();
     };
     window.addEventListener('moodle-auth-error', handleAuthError);

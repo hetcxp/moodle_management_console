@@ -195,7 +195,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
               });
             }
           } catch (e) {
-            console.error('Error fetching detail for category', cat.id, e);
+            if (import.meta.env.DEV) console.error('Error fetching detail for category', cat.id, e);
           }
         }
         

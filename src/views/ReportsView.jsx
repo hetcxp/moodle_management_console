@@ -150,7 +150,7 @@ export function ReportsView() {
       exportToCsv(`reporte_${report.id}`, data, report.columns);
       addToast({ title: I18N.reports.dashboard.messages.success, type: 'success' });
     } catch (error) {
-      console.error(`Error descargando reporte ${report.id}:`, error);
+      if (import.meta.env.DEV) console.error(`Error descargando reporte ${report.id}:`, error);
       addToast({ title: I18N.reports.dashboard.messages.error, type: 'error' });
     } finally {
       setDownloading(null);
