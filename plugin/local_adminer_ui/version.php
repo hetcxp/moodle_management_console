@@ -25,10 +25,10 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component    = 'local_adminer_ui';
-$plugin->version      = 2026083103;
+$plugin->version      = 2026090400;
 $plugin->requires     = 2024100700;
 $plugin->maturity     = MATURITY_STABLE;
-$plugin->release      = '1.1.2';
+$plugin->release      = '1.1.3';
 $plugin->dependencies = [
-    'local_adminer_api' => 2026083103,
+    'local_adminer_api' => 2026090400,
 ];
