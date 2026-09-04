@@ -30,6 +30,9 @@ jobs:
       - name: Run Vitest Suite
         run: npm test -- --run
 
+      - name: Verify API Contract Parity
+        run: python3 scripts/test_api_contract.py
+
       - name: Build Moodle UI Bundle
         run: npm run build:moodle
 
