@@ -10,9 +10,9 @@ export default defineConfig(({ mode }) => {
   const proxyTarget = env.VITE_PROXY_TARGET || (mode === 'lts' ? 'https://lts.academyfactory.online' : 'http://localhost:8000');
 
   return {
-    base: mode === 'production' ? '/adminer/' : mode === 'moodle' ? '/local/adminer_ui/app/' : '/',
+    base: mode === 'production' ? '/management_console/' : mode === 'moodle' ? '/admin/tool/management_console/app/' : '/',
     build: {
-      outDir: mode === 'moodle' ? 'plugin/local_adminer_ui/app' : 'dist',
+      outDir: mode === 'moodle' ? 'plugin/management_console/app' : 'dist',
       emptyOutDir: true,
     },
     plugins: [react()],

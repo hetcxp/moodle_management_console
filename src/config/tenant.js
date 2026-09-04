@@ -1,9 +1,9 @@
 export const TENANTS = {
   default: {
-    name: 'Moodle Adminer',
+    name: 'Moodle Management Console',
     subtitle: 'Management Studio',
     moodleUrl: import.meta.env.VITE_MOODLE_URL || '/moodle',
-    serviceName: import.meta.env.VITE_SERVICE_NAME || 'adminer_service',
+    serviceName: import.meta.env.VITE_SERVICE_NAME || 'management_console_service',
     colors: {
       primary: '#2563eb', // Modern royal blue
       accent: '#3b82f6',
@@ -15,12 +15,13 @@ export const TENANTS = {
 };
 
 export function getTenantConfig() {
-  if (typeof window !== 'undefined' && window.ADMINER_CONFIG) {
+  const globalConfig = typeof window !== 'undefined' && (window.MANAGEMENT_CONSOLE_CONFIG || window.ADMINER_CONFIG);
+  if (globalConfig) {
     return {
       ...TENANTS['default'],
-      moodleUrl: window.ADMINER_CONFIG.moodleUrl,
-      serviceName: window.ADMINER_CONFIG.serviceName,
-      embedded: window.ADMINER_CONFIG.embedded || false,
+      moodleUrl: globalConfig.moodleUrl,
+      serviceName: globalConfig.serviceName || 'management_console_service',
+      embedded: globalConfig.embedded || false,
     };
   }
 
