@@ -4,14 +4,16 @@ export async function runWithConcurrency(items, concurrency, fn) {
 
   for (const item of items) {
     const p = Promise.resolve().then(() => fn(item));
+    p.catch(() => {}); // Prevent unhandled rejection in event loop before Promise.all
     results.push(p);
 
     if (items.length > concurrency) {
       executing.add(p);
-      p.finally(() => executing.delete(p));
+      const clean = () => executing.delete(p);
+      p.then(clean, clean);
 
       if (executing.size >= concurrency) {
-        await Promise.race(executing);
+        await Promise.race(executing).catch(() => {});
       }
     }
   }
