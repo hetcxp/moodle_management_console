@@ -122,7 +122,7 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
             <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
             <div className="truncate">
               <div className="font-semibold text-sidebar-foreground">API Moodle 5.x</div>
-              <div className="text-[10px] text-sidebar-foreground/60 truncate">adminer_service activo</div>
+              <div className="text-[10px] text-sidebar-foreground/60 truncate">management_console_service activo</div>
             </div>
           </div>
         </div>

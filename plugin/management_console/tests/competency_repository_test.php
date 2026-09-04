@@ -30,7 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 use advanced_testcase;
 
 global $CFG;
-require_once($CFG->dirroot . '/local/adminer_api/classes/repository/competency_repository.php');
+require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/competency_repository.php');
 
 /**
  * Competency repository test cases.

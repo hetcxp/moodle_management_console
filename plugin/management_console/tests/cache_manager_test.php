@@ -30,7 +30,7 @@ defined('MOODLE_INTERNAL') || die();
 use advanced_testcase;
 
 global $CFG;
-require_once($CFG->dirroot . '/local/adminer_api/classes/cache_manager.php');
+require_once($CFG->dirroot . '/admin/tool/management_console/classes/cache_manager.php');
 
 /**
  * Cache manager test cases.

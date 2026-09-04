@@ -59,8 +59,8 @@ class autologin extends external_api {
             $key = create_user_key('core_message', $USER->id, null, $CFG->sessiontimeout);
         }
 
-        // We will create an autologin script at plugin root: local/adminer_api/autologin.php
-        $autologin_url = new \moodle_url('/local/adminer_api/autologin.php', [
+        // Endpoint de autologin en plugin root: admin/tool/management_console/autologin.php
+        $autologin_url = new \moodle_url('/admin/tool/management_console/autologin.php', [
             'token' => $key,
             'redirect' => $params['destination']
         ]);

@@ -68,7 +68,7 @@ const AdminerApp = () => {
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20">
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
-          <span className="text-sm font-semibold text-muted-foreground">Iniciando Moodle Adminer...</span>
+          <span className="text-sm font-semibold text-muted-foreground">Iniciando Management Console...</span>
         </div>
       </div>
     );
@@ -213,8 +213,10 @@ const AdminerApp = () => {
 };
 
 export default function App() {
-  const isEmbedded = typeof window !== 'undefined' && !!window.ADMINER_CONFIG?.embedded;
-  const base = isEmbedded ? '/local/adminer_ui/index.php' : import.meta.env.BASE_URL;
+  const isEmbedded = typeof window !== 'undefined' && !!(window.MANAGEMENT_CONSOLE_CONFIG?.embedded || window.ADMINER_CONFIG?.embedded);
+  const base = isEmbedded
+    ? (window.MANAGEMENT_CONSOLE_CONFIG?.basePath || window.ADMINER_CONFIG?.basePath || '/admin/tool/management_console/index.php')
+    : import.meta.env.BASE_URL;
 
   return (
     <Router base={base}>

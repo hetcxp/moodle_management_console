@@ -101,6 +101,7 @@ window.MANAGEMENT_CONSOLE_CONFIG = {
     token: ' . json_encode($token) . ',
     moodleUrl: ' . json_encode($CFG->wwwroot) . ',
     serviceName: "management_console_service",
+    basePath: ' . json_encode((new moodle_url('/admin/tool/management_console/index.php'))->out_as_local_url(false)) . ',
     embedded: true
 };
 window.ADMINER_CONFIG = window.MANAGEMENT_CONSOLE_CONFIG;

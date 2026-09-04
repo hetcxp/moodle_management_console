@@ -1,0 +1,1 @@
+import{r as n}from"./index-Bv_NoHBz.js";function l(c=[]){const[e,t]=n.useState(c);return{selectedIds:e,setSelectedIds:t,clearSelection:()=>t([]),hasSelection:e.length>0,selectionCount:e.length}}export{l as u};
