@@ -5,7 +5,7 @@ import os
 def check_api_contract():
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     js_file = os.path.join(base_dir, 'src', 'services', 'adminer-api.js')
-    php_file = os.path.join(base_dir, 'plugin', 'local_adminer_api', 'db', 'services.php')
+    php_file = os.path.join(base_dir, 'plugin', 'management_console', 'db', 'services.php')
 
     with open(js_file, 'r') as f:
         js_content = f.read()
@@ -30,7 +30,7 @@ def check_api_contract():
     for ep in js_endpoints:
         if ep not in php_defined:
             # Maybe it's a core WS function like core_webservice_get_site_info
-            if not ep.startswith('local_adminer_'):
+            if not ep.startswith('tool_management_console_'):
                 continue
             errors.append(f"JS calls endpoint '{ep}' which is not defined in services.php ($functions array).")
         if ep not in php_registered:
