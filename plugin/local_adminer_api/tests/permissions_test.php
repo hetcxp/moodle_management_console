@@ -88,6 +88,15 @@ class permissions_test extends advanced_testcase {
         \local_adminer_api\external\cohorts::cohort_action('delete', $cohort->id);
     }
 
+    public function test_competency_action_requires_capability() {
+        $this->resetAfterTest(true);
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $this->expectException(\required_capability_exception::class);
+        \local_adminer_api\external\competencies::competency_framework_action('create', 0, 'Test Framework');
+    }
+
     public function test_action_with_nonexistent_ids() {
         $this->resetAfterTest(true);
         $this->setAdminUser();
