@@ -6,6 +6,7 @@ import {
   useScales
 } from '../hooks/useAdminerQueries';
 import { AdminerApi } from '../services/adminer-api';
+import { useBulkSelection } from '../hooks/useBulkSelection';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { useToast } from '../components/ui/Toast';
@@ -58,7 +59,7 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
 
   const { mutateAsync: performFrameworkAction } = useCompetencyFrameworkAction();
 
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
@@ -183,7 +184,7 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
       }
       addToast({ type: 'success', title: 'Marco(s) eliminado(s)' });
       setDeleteConfirmOpen(false);
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
     } finally {

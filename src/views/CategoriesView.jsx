@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useCategoriesFlat, useCategoryAction } from '../hooks/useAdminerQueries';
+import { useBulkSelection } from '../hooks/useBulkSelection';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -26,7 +27,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
 
   const [page, setPage] = useState(0);
   const [perPage] = useState(50);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
 
   // Filtering & Sorting
   const [search, setSearch] = useState('');
@@ -117,7 +118,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
     try {
       await categoryAction.mutateAsync({ action, categoryids: ids.map(Number) });
       addToast({ type: 'success', title: `Categorías ${action === 'hide' ? 'ocultadas' : action === 'delete' ? 'eliminadas' : 'visibles'}` });
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }

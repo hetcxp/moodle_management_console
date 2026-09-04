@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useCourses, useCategoriesFlat, useCourseAction } from '../hooks/useAdminerQueries';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { usePaginatedExport } from '../hooks/usePaginatedExport';
+import { runWithConcurrency } from '../lib/concurrency';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -194,29 +195,26 @@ export const CoursesView = ({ onNavigateToDetail }) => {
     ];
 
     const processDetail = async (coursesData) => {
-      let detailedData = [];
-      for (const course of coursesData) {
+      const detailedRowsArrays = await runWithConcurrency(coursesData, 5, async (course) => {
         try {
           const detail = await AdminerApi.getCourseDetail(course.id);
-          if (detail.users && detail.users.length > 0) {
-            for (const user of detail.users) {
-              detailedData.push({
-                course_id: course.id,
-                course_fullname: course.fullname,
-                course_shortname: course.shortname,
-                course_category: course.categoryname,
-                course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
-                course_progress: course.progress_percent,
-                user_id: user.id,
-                user_fullname: user.fullname,
-                user_email: user.email,
-                user_progress: user.progress || 0,
-                user_status: user.status === 0 ? 'Activo' : 'Suspendido',
-                user_roles: user.roles || 'student'
-              });
-            }
+          if (detail?.users && detail.users.length > 0) {
+            return detail.users.map(user => ({
+              course_id: course.id,
+              course_fullname: course.fullname,
+              course_shortname: course.shortname,
+              course_category: course.categoryname,
+              course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
+              course_progress: course.progress_percent,
+              user_id: user.id,
+              user_fullname: user.fullname,
+              user_email: user.email,
+              user_progress: user.progress || 0,
+              user_status: user.status === 0 ? 'Activo' : 'Suspendido',
+              user_roles: user.roles || 'student'
+            }));
           } else {
-            detailedData.push({
+            return [{
               course_id: course.id,
               course_fullname: course.fullname,
               course_shortname: course.shortname,
@@ -229,11 +227,11 @@ export const CoursesView = ({ onNavigateToDetail }) => {
               user_progress: '',
               user_status: '',
               user_roles: ''
-            });
+            }];
           }
         } catch (e) {
           console.warn('[Export Detail Error] Course ID:', course.id, e);
-          detailedData.push({
+          return [{
             course_id: course.id,
             course_fullname: course.fullname,
             course_shortname: course.shortname,
@@ -246,10 +244,10 @@ export const CoursesView = ({ onNavigateToDetail }) => {
             user_progress: '',
             user_status: '',
             user_roles: ''
-          });
+          }];
         }
-      }
-      return detailedData;
+      });
+      return detailedRowsArrays.flat();
     };
 
     executeExport({

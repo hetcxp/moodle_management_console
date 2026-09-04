@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCohorts, useCohortsKpis, useCohortAction } from '../hooks/useAdminerQueries';
+import { useBulkSelection } from '../hooks/useBulkSelection';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
@@ -44,7 +45,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
 
   const { mutateAsync: performCohortAction } = useCohortAction();
   
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
@@ -120,7 +121,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
       }
       addToast({ type: 'success', title: 'Cohorte(s) eliminada(s)' });
       setDeleteConfirmOpen(false);
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error al eliminar', description: err.message });
     } finally {
