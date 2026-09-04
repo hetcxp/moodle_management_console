@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, User, Layers, UserCheck, UserX, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, Download } from 'lucide-react';
+import { BookOpen, User, Users, Layers, UserCheck, UserX, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, Download } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';

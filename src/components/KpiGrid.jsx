@@ -15,11 +15,11 @@ export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
 
   return (
     <div className={`grid ${getGridColsClass()}`}>
-      {items.map((item, idx) => {
+      {items.map((item) => {
         const Icon = item.icon;
         return (
           <Card
-            key={idx}
+            key={item.title}
             className={`relative overflow-hidden group hover:border-primary/50 transition-colors flex flex-col justify-between ${item.onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
             onClick={item.onClick}
           >

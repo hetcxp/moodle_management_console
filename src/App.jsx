@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { Route, Switch, useLocation, Router } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './components/ui/Toast';
@@ -37,7 +37,7 @@ const AdminerApp = () => {
   });
 
   // Derived active tab from URL for Sidebar highlighting
-  const getActiveTab = () => {
+  const activeTab = useMemo(() => {
     if (location.startsWith('/courses')) return 'courses';
     if (location.startsWith('/categories')) return 'categories';
     if (location.startsWith('/users')) return 'users';
@@ -45,8 +45,7 @@ const AdminerApp = () => {
     if (location.startsWith('/competencies')) return 'competencies';
     if (location.startsWith('/reports')) return 'reports';
     return 'dashboard';
-  };
-  const activeTab = getActiveTab();
+  }, [location]);
 
   useEffect(() => {
     if (isDark) {
