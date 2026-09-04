@@ -177,5 +177,37 @@ export const I18N = {
         }
       }
     }
+  },
+  common: {
+    save: "Guardar",
+    cancel: "Cancelar",
+    delete: "Eliminar",
+    edit: "Editar",
+    search: "Buscar",
+    export: "Exportar",
+    loading: "Cargando...",
+    actions: "Acciones",
+    status: "Estado",
+    error: "Error",
+    success: "Éxito"
   }
 };
+
+/**
+ * Helper to resolve nested i18n keys with fallback.
+ * Example: t('common.save', 'Guardar')
+ */
+export function t(path, fallback = '') {
+  if (!path) return fallback;
+  const parts = path.split('.');
+  let current = I18N;
+  for (const part of parts) {
+    if (current && typeof current === 'object' && part in current) {
+      current = current[part];
+    } else {
+      return fallback;
+    }
+  }
+  return typeof current === 'string' ? current : fallback;
+}
+
