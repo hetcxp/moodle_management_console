@@ -22,18 +22,26 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$configpath = null;
 if (file_exists(__DIR__ . '/../../config.php')) {
-    require_once(__DIR__ . '/../../config.php');
+    $configpath = __DIR__ . '/../../config.php';
 } else if (isset($_SERVER['SCRIPT_FILENAME']) && file_exists(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php')) {
-    require_once(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php');
+    $configpath = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
 } else if (isset($_SERVER['DOCUMENT_ROOT']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/config.php')) {
-    require_once($_SERVER['DOCUMENT_ROOT'] . '/config.php');
-} else if (file_exists(__DIR__ . '/../../../../Dev/moodle-dev/config.php')) {
-    require_once(__DIR__ . '/../../../../Dev/moodle-dev/config.php');
-} else if (file_exists('/Users/hectorteran/Dev/moodle-dev/config.php')) {
-    require_once('/Users/hectorteran/Dev/moodle-dev/config.php');
+    $configpath = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+} else if (getenv('MOODLE_DIR') && file_exists(getenv('MOODLE_DIR') . '/config.php')) {
+    $configpath = getenv('MOODLE_DIR') . '/config.php';
+} else if (file_exists('../../config.php')) {
+    $configpath = '../../config.php';
+}
+
+if ($configpath) {
+    require_once($configpath);
 } else {
-    require_once('../../config.php');
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => 'Moodle config.php could not be located.']);
+    exit(1);
 }
 require_once($CFG->dirroot . '/user/lib.php');
 
@@ -41,10 +49,15 @@ $token = required_param('token', PARAM_ALPHANUM);
 $redirect = required_param('redirect', PARAM_URL); // Use PARAM_URL for basic sanitization
 
 // Validate redirect destination
-$allowed_external_hosts = [
-    'admin.academyfactory.online',
-    'reports.academyfactory.online'
-];
+$configured_hosts = get_config('local_adminer_api', 'allowed_hosts');
+if (!empty($configured_hosts)) {
+    $allowed_external_hosts = array_filter(array_map('trim', explode(',', $configured_hosts)));
+} else {
+    $allowed_external_hosts = [
+        'admin.academyfactory.online',
+        'reports.academyfactory.online'
+    ];
+}
 
 $parsed = parse_url($redirect);
 $is_valid_dest = false;

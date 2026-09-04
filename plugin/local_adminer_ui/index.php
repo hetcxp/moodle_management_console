@@ -22,12 +22,22 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+$configpath = null;
 if (file_exists('../../config.php')) {
-    require_once('../../config.php');
-} else if (file_exists(__DIR__ . '/../../../../Dev/moodle-dev/config.php')) {
-    require_once(__DIR__ . '/../../../../Dev/moodle-dev/config.php');
+    $configpath = '../../config.php';
+} else if (file_exists(__DIR__ . '/../../config.php')) {
+    $configpath = __DIR__ . '/../../config.php';
+} else if (isset($_SERVER['DOCUMENT_ROOT']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/config.php')) {
+    $configpath = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+} else if (getenv('MOODLE_DIR') && file_exists(getenv('MOODLE_DIR') . '/config.php')) {
+    $configpath = getenv('MOODLE_DIR') . '/config.php';
+}
+
+if ($configpath) {
+    require_once($configpath);
 } else {
-    require_once('/Users/hectorteran/Dev/moodle-dev/config.php');
+    http_response_code(500);
+    die('Moodle config.php could not be located.');
 }
 
 // 1. Auth + capability check
