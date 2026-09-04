@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useUsers, useUsersKpis, useUserAction, useAddUser } from '../hooks/useAdminerQueries';
+import { useUsers, useUsersKpis, useUserAction } from '../hooks/useAdminerQueries';
+import { useBulkSelection } from '../hooks/useBulkSelection';
 import { AdminerApi } from '../services/adminer-api';
 import { DataTable } from '../components/DataTable';
 import { FilterBar } from '../components/FilterBar';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
-import { Dialog } from '../components/ui/Dialog';
 import { useToast } from '../components/ui/Toast';
 import { exportToCsv } from '../components/CsvExporter';
 import { formatDate } from '../lib/utils';
 import { PermissionGate } from '../components/PermissionGate';
 import { usePermission } from '../hooks/usePermission';
+import { runWithConcurrency } from '../lib/concurrency';
 import { API_CONFIG } from '../config/api';
 import { UserCheck, UserX, Trash2, Mail, Layers, BookOpen, ShieldAlert, UserPlus, Upload, ExternalLink, Activity, Users, KeyRound } from 'lucide-react';
-import { Input } from '../components/ui/Input';
 import { KpiGrid } from '../components/KpiGrid';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Select } from '../components/ui/Select';
-import { Checkbox } from '../components/ui/Checkbox';
+import { UserCreateModal } from './users/UserCreateModal';
+import { UserCsvModal } from './users/UserCsvModal';
+import { UserExportModal } from './users/UserExportModal';
 
 export const UsersView = ({ onNavigateToDetail }) => {
   const { addToast } = useToast();
@@ -54,16 +55,10 @@ export const UsersView = ({ onNavigateToDetail }) => {
   const users = usersData?.users || [];
   const totalCount = usersData?.totalcount || 0;
   const { mutateAsync: performUserAction } = useUserAction();
-  const { mutateAsync: performAddUser } = useAddUser();
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
   
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [uploadCsvOpen, setUploadCsvOpen] = useState(false);
-  const [csvFile, setCsvFile] = useState(null);
-  const [userForm, setUserForm] = useState({ firstname: '', lastname: '', email: '', username: '', password: '' });
-  const [useEmailAsUsername, setUseEmailAsUsername] = useState(false);
-  const [createAndSendPassword, setCreateAndSendPassword] = useState(false);
-  const [userErrors, setUserErrors] = useState({});
 
   // Confirm delete modal
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -92,7 +87,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         title: 'Usuarios suspendidos',
         description: `Se suspendió el acceso a ${ids.length} usuario(s).`
       });
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -106,7 +101,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         title: 'Usuarios activados',
         description: `Se reactivaron ${ids.length} usuario(s).`
       });
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -127,7 +122,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         description: `Se eliminaron ${usersToDelete.length} usuario(s) de la plataforma.`
       });
       setDeleteConfirmOpen(false);
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -150,7 +145,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
         description: `Se envió el correo con la contraseña temporal e instrucciones a ${usersForTempPass.length} usuario(s).`
       });
       setTempPassConfirmOpen(false);
-      setSelectedIds([]);
+      clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     } finally {
@@ -194,28 +189,25 @@ export const UsersView = ({ onNavigateToDetail }) => {
         ];
         exportToCsv('usuarios_moodle', exportData, cols);
       } else {
-        let detailedData = [];
         const usersFailed = [];
-        for (const user of exportData) {
+        const detailedRowsArrays = await runWithConcurrency(exportData, 5, async (user) => {
           try {
             const detail = await AdminerApi.getUserDetail(user.id);
-            if (detail.courses && detail.courses.length > 0) {
-              for (const course of detail.courses) {
-                detailedData.push({
-                  user_id: user.id,
-                  user_fullname: user.fullname,
-                  user_email: user.email,
-                  user_status: user.is_active === 1 ? 'Activo' : 'Suspendido',
-                  user_progress: user.progress || 0,
-                  course_id: course.id,
-                  course_fullname: course.fullname,
-                  course_shortname: course.shortname,
-                  course_progress: course.progress || 0,
-                  course_enrollment_status: course.enrolstatus === 0 ? 'Activa' : 'Suspendida'
-                });
-              }
+            if (detail?.courses && detail.courses.length > 0) {
+              return detail.courses.map(course => ({
+                user_id: user.id,
+                user_fullname: user.fullname,
+                user_email: user.email,
+                user_status: user.is_active === 1 ? 'Activo' : 'Suspendido',
+                user_progress: user.progress || 0,
+                course_id: course.id,
+                course_fullname: course.fullname,
+                course_shortname: course.shortname,
+                course_progress: course.progress || 0,
+                course_enrollment_status: course.enrolstatus === 0 ? 'Activa' : 'Suspendida'
+              }));
             } else {
-              detailedData.push({
+              return [{
                 user_id: user.id,
                 user_fullname: user.fullname,
                 user_email: user.email,
@@ -226,12 +218,12 @@ export const UsersView = ({ onNavigateToDetail }) => {
                 course_shortname: '',
                 course_progress: '',
                 course_enrollment_status: ''
-              });
+              }];
             }
           } catch (e) {
             console.error('Error fetching detail for user', user.id, e);
             usersFailed.push(user.id);
-            detailedData.push({
+            return [{
               user_id: user.id,
               user_fullname: user.fullname,
               user_email: user.email,
@@ -242,9 +234,10 @@ export const UsersView = ({ onNavigateToDetail }) => {
               course_shortname: '',
               course_progress: '',
               course_enrollment_status: ''
-            });
+            }];
           }
-        }
+        });
+        const detailedData = detailedRowsArrays.flat();
         if (usersFailed.length > 0) {
           addToast({
             type: 'warning',
@@ -577,303 +570,26 @@ export const UsersView = ({ onNavigateToDetail }) => {
         confirmText={`Sí, eliminar ${usersToDelete.length} usuario(s)`}
       />
 
-      {/* Modal: Añadir Usuario */}
-      <Dialog
-        open={addUserOpen}
-        onClose={() => {
-          setAddUserOpen(false);
-          setUserErrors({});
-          setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
-          setUseEmailAsUsername(false);
-          setCreateAndSendPassword(false);
-        }}
-        title="Añadir Nuevo Usuario"
-        description="Completa los datos para crear un nuevo usuario en la plataforma."
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setAddUserOpen(false);
-                setUserErrors({});
-                setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
-                setUseEmailAsUsername(false);
-                setCreateAndSendPassword(false);
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button
-              disabled={isActionLoading}
-              onClick={async () => {
-                const newErrors = {};
-                if (!userForm.firstname || userForm.firstname.trim().length < 2) {
-                  newErrors.firstname = 'El nombre debe tener al menos 2 caracteres.';
-                }
-                if (!userForm.lastname || userForm.lastname.trim().length < 2) {
-                  newErrors.lastname = 'El apellido debe tener al menos 2 caracteres.';
-                }
-                if (!userForm.email || !/^\S+@\S+\.\S+$/.test(userForm.email)) {
-                  newErrors.email = 'Debe ser un email válido.';
-                }
+      <UserCreateModal 
+        open={addUserOpen} 
+        onClose={() => setAddUserOpen(false)} 
+        onSuccess={() => refetch()} 
+      />
 
-                const effectiveUsername = useEmailAsUsername ? userForm.email : userForm.username;
-                if (!effectiveUsername || effectiveUsername.trim().length < 3) {
-                  newErrors.username = 'El usuario debe tener al menos 3 caracteres.';
-                }
+      <UserCsvModal 
+        open={uploadCsvOpen} 
+        onClose={() => setUploadCsvOpen(false)} 
+        onSuccess={() => refetch()} 
+      />
 
-                if (!createAndSendPassword) {
-                  if (!userForm.password || userForm.password.length < 6) {
-                    newErrors.password = 'La contraseña debe tener al menos 6 caracteres.';
-                  }
-                }
-                
-                setUserErrors(newErrors);
-                if (Object.keys(newErrors).length === 0) {
-                  setIsActionLoading(true);
-                  try {
-                    const result = await performAddUser({
-                      firstname: userForm.firstname.trim(),
-                      lastname: userForm.lastname.trim(),
-                      email: userForm.email.trim(),
-                      username: effectiveUsername.trim().toLowerCase(),
-                      password: createAndSendPassword ? '' : userForm.password,
-                      createpassword: createAndSendPassword ? 1 : 0
-                    });
-                    if (result.success) {
-                      addToast({
-                        title: 'Usuario Creado',
-                        description: createAndSendPassword
-                          ? `Usuario creado con ID: ${result.userid}. Se ha enviado la contraseña por correo.`
-                          : `ID: ${result.userid}`,
-                        type: 'success'
-                      });
-                      setAddUserOpen(false);
-                      setUserForm({ firstname: '', lastname: '', email: '', username: '', password: '' });
-                      setUseEmailAsUsername(false);
-                      setCreateAndSendPassword(false);
-                    } else {
-                      addToast({ title: 'Error', description: result.message, type: 'error' });
-                    }
-                  } catch (err) {
-                    addToast({ title: 'Error', description: err.message, type: 'error' });
-                  } finally {
-                    setIsActionLoading(false);
-                  }
-                }
-              }}
-            >
-              {isActionLoading ? 'Guardando...' : 'Guardar Usuario'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4 pt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Nombre *</label>
-              <Input 
-                placeholder="Ej. Juan" 
-                value={userForm.firstname} 
-                onChange={(e) => setUserForm({...userForm, firstname: e.target.value})}
-                className={userErrors.firstname ? 'border-destructive' : ''}
-              />
-              {userErrors.firstname && <p className="text-xs text-destructive">{userErrors.firstname}</p>}
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Apellidos *</label>
-              <Input 
-                placeholder="Ej. Pérez" 
-                value={userForm.lastname} 
-                onChange={(e) => setUserForm({...userForm, lastname: e.target.value})}
-                className={userErrors.lastname ? 'border-destructive' : ''}
-              />
-              {userErrors.lastname && <p className="text-xs text-destructive">{userErrors.lastname}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-foreground">Email *</label>
-            <Input 
-              type="email" 
-              placeholder="juan.perez@ejemplo.com" 
-              value={userForm.email} 
-              onChange={(e) => {
-                const val = e.target.value;
-                setUserForm(prev => ({
-                  ...prev,
-                  email: val,
-                  ...(useEmailAsUsername ? { username: val } : {})
-                }));
-              }}
-              className={userErrors.email ? 'border-destructive' : ''}
-            />
-            {userErrors.email && <p className="text-xs text-destructive">{userErrors.email}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-foreground">Nombre de usuario *</label>
-            <Input 
-              placeholder="juanperez" 
-              value={useEmailAsUsername ? userForm.email : userForm.username} 
-              disabled={useEmailAsUsername}
-              onChange={(e) => setUserForm({...userForm, username: e.target.value})}
-              className={`${userErrors.username && !useEmailAsUsername ? 'border-destructive' : ''} ${useEmailAsUsername ? 'bg-muted/60 text-muted-foreground cursor-not-allowed' : ''}`}
-            />
-            {userErrors.username && !useEmailAsUsername && (
-              <p className="text-xs text-destructive">{userErrors.username}</p>
-            )}
-
-            <div className="flex items-center gap-2 pt-0.5">
-              <Checkbox 
-                id="use-email-as-username"
-                checked={useEmailAsUsername}
-                onChange={(e) => {
-                  const isChecked = e.target.checked;
-                  setUseEmailAsUsername(isChecked);
-                  if (isChecked) {
-                    setUserForm(prev => ({ ...prev, username: prev.email }));
-                    if (userErrors.username) {
-                      setUserErrors(prev => ({ ...prev, username: null }));
-                    }
-                  }
-                }}
-              />
-              <label htmlFor="use-email-as-username" className="text-xs text-muted-foreground cursor-pointer select-none">
-                Usar el email como nombre de usuario
-              </label>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-foreground">
-              Contraseña {!createAndSendPassword && '*'}
-            </label>
-            {!createAndSendPassword ? (
-              <Input 
-                type="password" 
-                placeholder="Contraseña segura" 
-                value={userForm.password} 
-                onChange={(e) => setUserForm({...userForm, password: e.target.value})}
-                className={userErrors.password ? 'border-destructive' : ''}
-              />
-            ) : (
-              <div className="p-3 bg-muted/40 rounded-lg border border-border/60 text-xs text-muted-foreground flex items-start gap-2.5">
-                <Mail className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                <span>Se generará una contraseña segura automáticamente y se enviará por correo electrónico con las instrucciones de acceso.</span>
-              </div>
-            )}
-            {userErrors.password && !createAndSendPassword && (
-              <p className="text-xs text-destructive">{userErrors.password}</p>
-            )}
-
-            <div className="flex items-center gap-2 pt-0.5">
-              <Checkbox 
-                id="create-and-send-password"
-                checked={createAndSendPassword}
-                onChange={(e) => {
-                  const isChecked = e.target.checked;
-                  setCreateAndSendPassword(isChecked);
-                  if (isChecked && userErrors.password) {
-                    setUserErrors(prev => ({ ...prev, password: null }));
-                  }
-                }}
-              />
-              <label htmlFor="create-and-send-password" className="text-xs text-muted-foreground cursor-pointer select-none">
-                Crear y enviar la contraseña al usuario por correo
-              </label>
-            </div>
-          </div>
-        </div>
-      </Dialog>
-
-      {/* Modal: Cargar CSV */}
-      <Dialog
-        open={uploadCsvOpen}
-        onClose={() => { setUploadCsvOpen(false); setCsvFile(null); }}
-        title="Cargar Usuarios desde CSV"
-        description="Sube un archivo CSV con la lista de usuarios. El archivo debe contener cabeceras como username, firstname, lastname, email."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => { setUploadCsvOpen(false); setCsvFile(null); }}>Cancelar</Button>
-            <Button 
-              disabled={!csvFile || loading}
-              onClick={() => {
-                if (!csvFile) return;
-                const reader = new FileReader();
-                reader.onload = async (e) => {
-                  try {
-                    setIsActionLoading(true);
-                    const base64Content = btoa(e.target.result);
-                    const res = await AdminerApi.uploadUsersCsv(base64Content);
-                    if (res.success) {
-                      addToast({ title: 'Archivo subido', description: res.message, type: 'success' });
-                      setUploadCsvOpen(false);
-                      setCsvFile(null);
-                      queryClient.invalidateQueries({ queryKey: ['users'] });
-                      queryClient.invalidateQueries({ queryKey: ['users_kpis'] });
-                      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-                      refetch();
-                    } else {
-                      addToast({ title: 'Error', description: res.message, type: 'error' });
-                    }
-                  } catch (err) {
-                    addToast({ title: 'Error al procesar archivo', description: err.message, type: 'error' });
-                  } finally {
-                    setIsActionLoading(false);
-                  }
-                };
-                reader.readAsText(csvFile);
-            }}>Cargar Archivo</Button>
-          </>
-        }
-      >
-        <div className="pt-4">
-          <div className="border-2 border-dashed border-border/60 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-muted/20 relative overflow-hidden">
-            <Upload className="h-10 w-10 text-muted-foreground/60" />
-            <div className="text-sm font-medium">{csvFile ? csvFile.name : 'Arrastra tu archivo CSV aquí'}</div>
-            {!csvFile && <div className="text-xs text-muted-foreground">o</div>}
-            <input 
-              type="file" 
-              accept=".csv"
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              onChange={(e) => setCsvFile(e.target.files[0])}
-            />
-            {!csvFile && <Button variant="secondary" size="sm" className="pointer-events-none">Seleccionar Archivo</Button>}
-          </div>
-        </div>
-      </Dialog>
-
-      {/* Modal: Opciones de Exportación */}
-      <Dialog
-        open={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        title="Opciones de Exportación"
-        description="Selecciona el formato de exportación."
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setExportModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleExport} disabled={exportLoading}>
-              {exportLoading ? 'Exportando...' : 'Exportar CSV'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Tipo de Exportación</label>
-            <Select
-              value={exportOption}
-              onChange={(e) => setExportOption(e.target.value)}
-            >
-              <option value="visible">Exportar Resumen (solo información de los usuarios)</option>
-              <option value="with_courses">Exportar con Detalles (usuarios con detalle de cursos)</option>
-            </Select>
-          </div>
-        </div>
-      </Dialog>
+      <UserExportModal 
+        open={exportModalOpen} 
+        onClose={() => setExportModalOpen(false)} 
+        exportOption={exportOption} 
+        setExportOption={setExportOption} 
+        onExport={handleExport} 
+        loading={exportLoading} 
+      />
     </div>
   );
 };
