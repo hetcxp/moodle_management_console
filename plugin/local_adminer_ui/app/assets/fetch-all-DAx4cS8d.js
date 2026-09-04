@@ -1,0 +1,1 @@
+async function o(l,{perpage:r=100}={}){const a=[];let n=0;const i=100;for(;n<i;){const t=await l({page:n,perpage:r}),e=Array.isArray(t)?t:Object.values(t).find(c=>Array.isArray(c))||[];if(e.length===0||(a.push(...e),(t==null?void 0:t.totalcount)!==void 0&&a.length>=t.totalcount)||e.length<r)break;n++}return a}export{o as f};

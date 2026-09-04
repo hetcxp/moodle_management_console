@@ -1,0 +1,1 @@
+async function a(n,s,r){const o=[],e=new Set;for(const i of n){const t=Promise.resolve().then(()=>r(i));o.push(t),n.length>s&&(e.add(t),t.finally(()=>e.delete(t)),e.size>=s&&await Promise.race(e))}return Promise.all(o)}export{a as r};
