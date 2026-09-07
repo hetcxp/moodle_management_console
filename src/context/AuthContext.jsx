@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { AuthService } from '../services/auth.js';
 import { AdminerApi } from '../services/adminer-api.js';
