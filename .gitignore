@@ -18,6 +18,8 @@ coverage/
 .llm_build/
 scratch/
 .git_diff.tmp
+test-moodle.js
+users_test.csv
 # Editor & IDEs
 .vscode/
 .idea/
