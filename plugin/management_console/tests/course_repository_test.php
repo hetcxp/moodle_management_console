@@ -48,7 +48,6 @@ class course_repository_test extends advanced_testcase {
     }
 
     public function test_course_repository_operations() {
-        $this->resetAfterTest();
         $this->setAdminUser();
 
         // 1. Crear categoría, curso y usuario
@@ -69,6 +68,18 @@ class course_repository_test extends advanced_testcase {
         $strict = \tool_management_console\repository\course_repository::get_course_strict($course->id);
         $this->assertEquals($course->id, $strict->id);
 
+        // 2b. Vincular una competencia al curso
+        global $DB;
+        $DB->insert_record('competency_coursecomp', (object)[
+            'courseid' => $course->id,
+            'competencyid' => 101,
+            'ruleoutcome' => 1,
+            'sortorder' => 0,
+            'timecreated' => time(),
+            'timemodified' => time(),
+            'usermodified' => 2
+        ]);
+
         // 3. Probar get_courses_filtered
         list($records, $totalcount, $kpis) = \tool_management_console\repository\course_repository::get_courses_filtered([
             'search' => 'CourseRepo',
@@ -81,6 +92,8 @@ class course_repository_test extends advanced_testcase {
         ]);
         $this->assertGreaterThanOrEqual(1, $totalcount);
         $this->assertNotEmpty($records);
+        $first_record = reset($records);
+        $this->assertEquals(1, (int)$first_record->competenciescount);
 
         // 4. Probar usuarios matriculados
         $enrolled = \tool_management_console\repository\course_repository::get_enrolled_users($course->id);

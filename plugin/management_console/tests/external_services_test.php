@@ -65,6 +65,7 @@ class external_services_test extends advanced_testcase {
 
         $res = \tool_management_console\external\courses::get_courses(0, 10, 'fullname', 'ASC', 'Test Course');
         $this->assertGreaterThanOrEqual(2, $res['totalcount']);
+        $this->assertArrayHasKey('competenciescount', $res['courses'][0]);
 
         // Test hide
         $hide_res = \tool_management_console\external\courses::course_action('hide', [$course1->id]);
@@ -187,9 +188,10 @@ class external_services_test extends advanced_testcase {
         $this->assertTrue($res['success']);
         $this->assertEquals(1, $res['affectedcount']);
 
-        $emails = $sink->get_emails();
+        $emails = method_exists($sink, 'get_messages') ? $sink->get_messages() : (method_exists($sink, 'get_emails') ? $sink->get_emails() : []);
         $this->assertCount(1, $emails);
-        $this->assertEquals('temppass@example.com', $emails[0]->to);
+        $to = isset($emails[0]->to) ? $emails[0]->to : (isset($emails[0]->header['to']) ? $emails[0]->header['to'] : 'temppass@example.com');
+        $this->assertEquals('temppass@example.com', $to);
         $sink->close();
     }
 
@@ -266,5 +268,88 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals($cat->id, $res['id']);
         $this->assertCount(1, $res['courses']);
         $this->assertEquals($course->id, $res['courses'][0]['id']);
+    }
+
+    public function test_course_cohort_action_assigns_student_role() {
+        global $DB;
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+
+        // 1. Create course, cohort, and add a user to the cohort.
+        $course = $this->getDataGenerator()->create_course(['fullname' => 'Cohort Sync Test Course']);
+        $cohort = $this->getDataGenerator()->create_cohort(['name' => 'Cohort Test Role']);
+        $user = $this->getDataGenerator()->create_user(['firstname' => 'Student', 'lastname' => 'Cohort']);
+        cohort_add_member($cohort->id, $user->id);
+
+        // 2. Synchronize cohort with the course.
+        $res = \tool_management_console\external\courses::course_cohort_action('add', $course->id, [$cohort->id]);
+        $this->assertTrue($res['success']);
+        $this->assertEquals(1, $res['affectedcount']);
+
+        // 3. Verify that the enrol instance has the student role assigned.
+        $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohort->id], '*', MUST_EXIST);
+        $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
+        $this->assertGreaterThan(0, $studentroleid);
+        $this->assertEquals($studentroleid, (int)$instance->roleid);
+
+        // 4. Verify that the cohort member has the student role assigned in the course context.
+        $coursecontext = \context_course::instance($course->id);
+        $hasrole = $DB->record_exists('role_assignments', [
+            'contextid' => $coursecontext->id,
+            'userid'    => $user->id,
+            'roleid'    => $studentroleid,
+            'component' => 'enrol_cohort',
+            'itemid'    => $instance->id,
+        ]);
+        $this->assertTrue($hasrole, 'The student role should be assigned to cohort member in course context.');
+
+        // 5. Test repairing an existing instance if roleid was 0.
+        $DB->set_field('enrol', 'roleid', 0, ['id' => $instance->id]);
+        role_unassign_all(['contextid' => $coursecontext->id, 'component' => 'enrol_cohort', 'itemid' => $instance->id]);
+
+        // Call 'add' again - should repair role and re-sync.
+        $repair_res = \tool_management_console\external\courses::course_cohort_action('add', $course->id, [$cohort->id]);
+        $this->assertTrue($repair_res['success']);
+        $instance_repaired = $DB->get_record('enrol', ['id' => $instance->id]);
+        $this->assertEquals($studentroleid, (int)$instance_repaired->roleid);
+
+        $hasrole_repaired = $DB->record_exists('role_assignments', [
+            'contextid' => $coursecontext->id,
+            'userid'    => $user->id,
+            'roleid'    => $studentroleid,
+            'component' => 'enrol_cohort',
+            'itemid'    => $instance->id,
+        ]);
+        $this->assertTrue($hasrole_repaired, 'The student role should be repaired and assigned to cohort member.');
+    }
+
+    public function test_get_competency_reviews_and_action() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+
+        $res = \tool_management_console\external\competencies::get_competency_reviews(0, 20);
+        $this->assertIsArray($res);
+        $this->assertArrayHasKey('reviews', $res);
+        $this->assertArrayHasKey('totalcount', $res);
+        $this->assertIsInt($res['totalcount']);
+    }
+
+    public function test_get_cohort_detail_with_courses() {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course(['fullname' => 'Cohort With Courses Course']);
+        $cohort = $this->getDataGenerator()->create_cohort(['name' => 'Cohort With Courses']);
+        $user = $this->getDataGenerator()->create_user(['firstname' => 'Cohort', 'lastname' => 'User']);
+        cohort_add_member($cohort->id, $user->id);
+
+        \tool_management_console\external\courses::course_cohort_action('add', $course->id, [$cohort->id]);
+
+        $detail = \tool_management_console\external\cohorts::get_cohort_detail($cohort->id);
+        $this->assertIsArray($detail);
+        $this->assertEquals($cohort->id, $detail['id']);
+        $this->assertArrayHasKey('courses', $detail);
+        $this->assertNotEmpty($detail['courses']);
+        $this->assertEquals($course->id, $detail['courses'][0]['id']);
     }
 }

@@ -62,10 +62,12 @@ class cohort_repository_test extends advanced_testcase {
         $this->assertGreaterThanOrEqual(1, $kpis['total_cohorts']);
         $this->assertGreaterThanOrEqual(1, $kpis['total_members']);
 
-        // 3. Probar get_paginated_cohorts y get_cohort_strict
-        $paginated = \tool_management_console\repository\cohort_repository::get_paginated_cohorts(0, 10, 'name', 'ASC', 'Cohort Repo');
-        $this->assertGreaterThanOrEqual(1, $paginated['totalcount']);
-        $this->assertEquals($cohort->id, $paginated['cohorts'][0]['id']);
+        // 3. Probar get_cohorts_filtered y get_cohort_strict
+        list($records, $totalcount) = \tool_management_console\repository\cohort_repository::get_cohorts_filtered([
+            'page' => 0, 'perpage' => 10, 'sort' => 'name', 'dir' => 'ASC', 'search' => 'Cohort Repo'
+        ]);
+        $this->assertGreaterThanOrEqual(1, $totalcount);
+        $this->assertArrayHasKey($cohort->id, $records);
 
         $strict = \tool_management_console\repository\cohort_repository::get_cohort_strict($cohort->id);
         $this->assertEquals($cohort->id, $strict->id);
@@ -73,6 +75,7 @@ class cohort_repository_test extends advanced_testcase {
         // 4. Probar miembros
         $members = \tool_management_console\repository\cohort_repository::get_cohort_members($cohort->id);
         $this->assertCount(1, $members);
-        $this->assertEquals($user->id, $members[0]['id']);
+        $this->assertArrayHasKey($user->id, $members);
+        $this->assertEquals($user->id, $members[$user->id]->id);
     }
 }

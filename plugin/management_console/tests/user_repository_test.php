@@ -78,5 +78,9 @@ class user_repository_test extends advanced_testcase {
         $stats = \tool_management_console\repository\user_repository::get_users_kpi_stats();
         $this->assertIsObject($stats);
         $this->assertGreaterThanOrEqual(1, (int)$stats->total_users);
+
+        // 6. Probar get_user_competencies
+        $user_comps = \tool_management_console\repository\user_repository::get_user_competencies($user->id);
+        $this->assertIsArray($user_comps);
     }
 }
