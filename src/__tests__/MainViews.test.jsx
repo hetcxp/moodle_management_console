@@ -17,11 +17,18 @@ describe('Smoke tests for views', () => {
     expect(screen.getByRole('button', { name: /Actualizar/i })).toBeDefined();
   });
 
-  it('renders ReportsView correctly', () => {
+  it('renders ReportsView correctly with all report cards and download buttons', () => {
     renderWithProviders(<ReportsView />);
     expect(screen.getByText('Dashboard de Reportería')).toBeDefined();
     expect(screen.getByText('Descarga la información de la plataforma en formato CSV.')).toBeDefined();
     expect(screen.getByText('Directorio de Cursos')).toBeDefined();
+    expect(screen.getByText('Directorio de Categorías')).toBeDefined();
+    expect(screen.getByText('Listado de Usuarios')).toBeDefined();
+    expect(screen.getByText('Listado de Cohortes')).toBeDefined();
+
+    const summaryButtons = screen.getAllByRole('button', { name: /Resumen/i });
+    expect(summaryButtons.length).toBeGreaterThanOrEqual(4);
+    expect(screen.getByRole('button', { name: /Detalle de Curso/i })).toBeDefined();
   });
 
   it('renders CategoriesView correctly', () => {
