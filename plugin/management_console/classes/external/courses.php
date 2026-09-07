@@ -98,6 +98,7 @@ class courses extends external_api {
                 'enrolledcount'    => $enrolled,
                 'completedcount'   => $completed,
                 'cohortscount'     => (int)$r->cohortscount,
+                'competenciescount'=> (int)($r->competenciescount ?? 0),
                 'progress_percent' => (int)$progress,
             ];
         }
@@ -130,6 +131,7 @@ class courses extends external_api {
                     'enrolledcount'    => new external_value(PARAM_INT, 'Number of enrolled active users'),
                     'completedcount'   => new external_value(PARAM_INT, 'Number of users who completed the course'),
                     'cohortscount'     => new external_value(PARAM_INT, 'Number of cohort enrolments'),
+                    'competenciescount'=> new external_value(PARAM_INT, 'Number of competencies linked to the course', VALUE_DEFAULT, 0),
                     'progress_percent' => new external_value(PARAM_INT, 'Average completion percentage'),
                 ])
             ),
@@ -528,17 +530,18 @@ class courses extends external_api {
 
     public static function course_cohort_action_parameters() {
         return new external_function_parameters([
-            'action' => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, set_group, set_expiration, message'),
+            'action' => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, set_group, set_expiration, message, sync'),
             'courseid' => new external_value(PARAM_INT, 'Course ID'),
             'cohortids' => new external_multiple_structure(new external_value(PARAM_INT, 'Cohort ID'), 'Array of cohort IDs'),
             'groupid' => new external_value(PARAM_INT, 'Group ID', VALUE_DEFAULT, 0),
             'newgroupname' => new external_value(PARAM_TEXT, 'New group name if creating', VALUE_DEFAULT, ''),
             'timeend' => new external_value(PARAM_INT, 'Expiration time', VALUE_DEFAULT, 0),
             'message_text' => new external_value(PARAM_RAW, 'Message text', VALUE_DEFAULT, ''),
+            'roleid' => new external_value(PARAM_INT, 'Role ID to assign (defaults to student)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function course_cohort_action($action, $courseid, $cohortids, $groupid = 0, $newgroupname = '', $timeend = 0, $message_text = '') {
+    public static function course_cohort_action($action, $courseid, $cohortids, $groupid = 0, $newgroupname = '', $timeend = 0, $message_text = '', $roleid = 0) {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
         require_once($CFG->dirroot . '/group/lib.php');
@@ -554,6 +557,7 @@ class courses extends external_api {
             'newgroupname' => $newgroupname,
             'timeend' => $timeend,
             'message_text' => $message_text,
+            'roleid' => $roleid,
         ]);
 
         $coursecontext = \context_course::instance($params['courseid']);
@@ -568,6 +572,12 @@ class courses extends external_api {
         $affected = 0;
         $finalgroupid = $params['groupid'];
 
+        $studentroleid = (int)\tool_management_console\repository\user_repository::get_role_id_by_shortname('student');
+        if (!$studentroleid) {
+            $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
+        }
+        $assignedroleid = !empty($params['roleid']) ? (int)$params['roleid'] : ($studentroleid ?: 5);
+
         $transaction = $DB->start_delegated_transaction();
         try {
             if (($params['action'] === 'add' || $params['action'] === 'set_group') && !empty($params['newgroupname'])) {
@@ -580,12 +590,38 @@ class courses extends external_api {
 
             foreach ($params['cohortids'] as $cohortid) {
                 if ($params['action'] === 'add') {
-                    if (!$DB->record_exists('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid])) {
-                        $enrolplugin->add_instance($course, ['customint1' => $cohortid, 'customint2' => $finalgroupid]);
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if (!$instance) {
+                        $enrolplugin->add_instance($course, [
+                            'customint1' => $cohortid,
+                            'customint2' => $finalgroupid,
+                            'roleid'     => $assignedroleid,
+                        ]);
                         
                         $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
                         if ($instance && $params['timeend'] > 0) {
                             $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
+                        }
+                        $affected++;
+                    } else {
+                        // Existing instance: repair missing role or update configuration.
+                        $needs_sync = false;
+                        if (empty($instance->roleid) || (int)$instance->roleid === 0) {
+                            $DB->set_field('enrol', 'roleid', $assignedroleid, ['id' => $instance->id]);
+                            $instance->roleid = $assignedroleid;
+                            $needs_sync = true;
+                        }
+                        if ($finalgroupid > 0 && empty($instance->customint2)) {
+                            $DB->set_field('enrol', 'customint2', $finalgroupid, ['id' => $instance->id]);
+                        }
+                        if ($params['timeend'] > 0) {
+                            $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
+                            $DB->execute("UPDATE {user_enrolments} SET timeend = ? WHERE enrolid = ?", [$params['timeend'], $instance->id]);
+                        }
+                        if ($needs_sync) {
+                            $trace = new \null_progress_trace();
+                            enrol_cohort_sync($trace, $course->id);
+                            $trace->finished();
                         }
                         $affected++;
                     }
@@ -600,6 +636,23 @@ class courses extends external_api {
                     if ($instance) {
                         $status = ($params['action'] === 'suspend') ? ENROL_INSTANCE_SUSPENDED : ENROL_INSTANCE_ENABLED;
                         $enrolplugin->update_status($instance, $status);
+                        if ($params['action'] === 'activate' && (empty($instance->roleid) || (int)$instance->roleid === 0)) {
+                            $DB->set_field('enrol', 'roleid', $assignedroleid, ['id' => $instance->id]);
+                            $trace = new \null_progress_trace();
+                            enrol_cohort_sync($trace, $course->id);
+                            $trace->finished();
+                        }
+                        $affected++;
+                    }
+                } else if ($params['action'] === 'sync') {
+                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
+                    if ($instance) {
+                        if (empty($instance->roleid) || (int)$instance->roleid === 0) {
+                            $DB->set_field('enrol', 'roleid', $assignedroleid, ['id' => $instance->id]);
+                        }
+                        $trace = new \null_progress_trace();
+                        enrol_cohort_sync($trace, $course->id);
+                        $trace->finished();
                         $affected++;
                     }
                 } else if ($params['action'] === 'set_group') {

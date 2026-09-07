@@ -393,6 +393,7 @@ class users extends external_api {
         $is_admin = in_array($user->id, $siteadmins) ? 1 : 0;
 
         $system_roles = user_repository::get_user_system_roles($user->id);
+        $competencies = user_repository::get_user_competencies($user->id);
 
         return [
             'id' => (int)$user->id,
@@ -410,6 +411,7 @@ class users extends external_api {
             'courses' => $courses,
             'cohorts' => $cohorts,
             'system_roles' => $system_roles,
+            'competencies' => $competencies,
         ];
     }
 
@@ -460,6 +462,47 @@ class users extends external_api {
                     'shortname' => new external_value(PARAM_TEXT, 'Role shortname'),
                 ]),
                 'System roles assigned to user', VALUE_OPTIONAL
+            ),
+            'competencies' => new external_multiple_structure(
+                new external_single_structure([
+                    'id' => new external_value(PARAM_INT, 'Competency ID'),
+                    'shortname' => new external_value(PARAM_TEXT, 'Competency shortname'),
+                    'idnumber' => new external_value(PARAM_RAW, 'Competency idnumber', VALUE_OPTIONAL),
+                    'description' => new external_value(PARAM_RAW, 'Competency description', VALUE_OPTIONAL),
+                    'frameworkid' => new external_value(PARAM_INT, 'Framework ID'),
+                    'frameworkname' => new external_value(PARAM_TEXT, 'Framework name'),
+                    'proficiency' => new external_value(PARAM_INT, 'Proficiency (1 proficient, 0 not)'),
+                    'status' => new external_value(PARAM_INT, 'Status code'),
+                    'statusname' => new external_value(PARAM_TEXT, 'Status display name'),
+                    'grade' => new external_value(PARAM_INT, 'Grade value', VALUE_OPTIONAL),
+                    'gradename' => new external_value(PARAM_TEXT, 'Grade display name', VALUE_OPTIONAL),
+                    'courses' => new external_multiple_structure(
+                        new external_single_structure([
+                            'id' => new external_value(PARAM_INT, 'Course ID'),
+                            'fullname' => new external_value(PARAM_TEXT, 'Course fullname'),
+                            'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
+                            'is_enrolled' => new external_value(PARAM_INT, '1 if enrolled, 0 otherwise'),
+                        ]),
+                        'Linked courses', VALUE_OPTIONAL
+                    ),
+                    'evidences_count' => new external_value(PARAM_INT, 'Evidences count'),
+                    'evidences' => new external_multiple_structure(
+                        new external_single_structure([
+                            'id' => new external_value(PARAM_INT, 'Evidence ID'),
+                            'action' => new external_value(PARAM_INT, 'Action code'),
+                            'actionname' => new external_value(PARAM_TEXT, 'Action display name'),
+                            'actionuserfullname' => new external_value(PARAM_TEXT, 'Author or action user fullname'),
+                            'descidentifier' => new external_value(PARAM_TEXT, 'Description identifier', VALUE_OPTIONAL),
+                            'note' => new external_value(PARAM_RAW, 'Evidence note', VALUE_OPTIONAL),
+                            'url' => new external_value(PARAM_RAW, 'Evidence URL', VALUE_OPTIONAL),
+                            'grade' => new external_value(PARAM_INT, 'Grade value', VALUE_OPTIONAL),
+                            'timecreated' => new external_value(PARAM_INT, 'Timestamp created'),
+                            'timecreated_str' => new external_value(PARAM_TEXT, 'Formatted creation date', VALUE_OPTIONAL),
+                        ]),
+                        'Evidences list', VALUE_OPTIONAL
+                    ),
+                ]),
+                'User assigned competencies', VALUE_OPTIONAL
             ),
         ]);
     }

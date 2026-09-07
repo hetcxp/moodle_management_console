@@ -355,4 +355,277 @@ class user_repository {
 
         return $result;
     }
+
+    /**
+     * Obtiene las competencias asignadas a un usuario con sus cursos vinculados, estado y evidencias.
+     *
+     * @param int $userid
+     * @return array
+     */
+    public static function get_user_competencies(int $userid): array {
+        global $DB;
+
+        $dbman = $DB->get_manager();
+        if (!$dbman->table_exists('competency') || !$dbman->table_exists('competency_usercomp')) {
+            return [];
+        }
+
+        $scales_map = [];
+        try {
+            $scales_records = $DB->get_records('scale', null, '', 'id, name, scale');
+            foreach ($scales_records as $sc) {
+                $scales_map[$sc->id] = array_map('trim', explode(',', $sc->scale));
+            }
+        } catch (\Exception $e) {
+            // Silencioso si falla la lectura de escalas.
+        }
+
+        $enrolled_courses = self::get_user_enrolled_courses($userid);
+        $enrolled_course_ids = array_map('intval', array_keys($enrolled_courses));
+
+        // 1. Obtener competencias asignadas al usuario desde competency_usercomp
+        $sql_usercomp = "
+            SELECT uc.id AS usercompid, uc.status, uc.proficiency, uc.grade, uc.timemodified,
+                   c.id AS competencyid, c.shortname, c.idnumber, c.description, c.competencyframeworkid,
+                   c.scaleid AS comp_scaleid, c.scaleconfiguration,
+                   f.shortname AS frameworkname, f.scaleid AS framework_scaleid
+              FROM {competency_usercomp} uc
+              JOIN {competency} c ON c.id = uc.competencyid
+              JOIN {competency_framework} f ON f.id = c.competencyframeworkid
+             WHERE uc.userid = :userid
+          ORDER BY f.shortname ASC, c.shortname ASC
+        ";
+
+        $records = $DB->get_records_sql($sql_usercomp, ['userid' => $userid]);
+
+        // Verificar si además hay competencias en planes de aprendizaje que no tengan registro en usercomp
+        if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
+            $sql_plancomp = "
+                SELECT pc.competencyid,
+                       c.id, c.shortname, c.idnumber, c.description, c.competencyframeworkid,
+                       c.scaleid AS comp_scaleid, c.scaleconfiguration,
+                       f.shortname AS frameworkname, f.scaleid AS framework_scaleid
+                  FROM {competency_plancomp} pc
+                  JOIN {competency_plan} p ON p.id = pc.planid
+                  JOIN {competency} c ON c.id = pc.competencyid
+                  JOIN {competency_framework} f ON f.id = c.competencyframeworkid
+                 WHERE p.userid = :userid
+            ";
+            $plan_records = $DB->get_records_sql($sql_plancomp, ['userid' => $userid]);
+            foreach ($plan_records as $pr) {
+                $exists = false;
+                foreach ($records as $r) {
+                    if ((int)$r->competencyid === (int)$pr->competencyid) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if (!$exists) {
+                    $obj = new \stdClass();
+                    $obj->usercompid = 0;
+                    $obj->status = 0;
+                    $obj->proficiency = 0;
+                    $obj->grade = 0;
+                    $obj->timemodified = 0;
+                    $obj->competencyid = (int)$pr->competencyid;
+                    $obj->shortname = (string)$pr->shortname;
+                    $obj->idnumber = (string)($pr->idnumber ?? '');
+                    $obj->description = (string)($pr->description ?? '');
+                    $obj->competencyframeworkid = (int)$pr->competencyframeworkid;
+                    $obj->comp_scaleid = $pr->comp_scaleid;
+                    $obj->scaleconfiguration = $pr->scaleconfiguration;
+                    $obj->frameworkname = (string)$pr->frameworkname;
+                    $obj->framework_scaleid = $pr->framework_scaleid;
+                    $records['plan_' . $pr->competencyid] = $obj;
+                }
+            }
+        }
+
+        // Obtener competencias vinculadas a los cursos en los que el usuario está matriculado
+        if (!empty($enrolled_course_ids) && $dbman->table_exists('competency_coursecomp')) {
+            list($in_ecids, $in_ecparams) = $DB->get_in_or_equal($enrolled_course_ids, SQL_PARAMS_NAMED, 'ecid');
+            $sql_coursecomp = "
+                SELECT DISTINCT c.id AS competencyid,
+                       c.shortname, c.idnumber, c.description, c.competencyframeworkid,
+                       c.scaleid AS comp_scaleid, c.scaleconfiguration,
+                       f.shortname AS frameworkname, f.scaleid AS framework_scaleid
+                  FROM {competency_coursecomp} cc
+                  JOIN {competency} c ON c.id = cc.competencyid
+                  JOIN {competency_framework} f ON f.id = c.competencyframeworkid
+                 WHERE cc.courseid $in_ecids
+            ";
+            $coursecomp_records = $DB->get_records_sql($sql_coursecomp, $in_ecparams);
+            foreach ($coursecomp_records as $ccr) {
+                $exists = false;
+                foreach ($records as $r) {
+                    if ((int)$r->competencyid === (int)$ccr->competencyid) {
+                        $exists = true;
+                        break;
+                    }
+                }
+                if (!$exists) {
+                    $obj = new \stdClass();
+                    $obj->usercompid = 0;
+                    $obj->status = 0;
+                    $obj->proficiency = 0;
+                    $obj->grade = 0;
+                    $obj->timemodified = 0;
+                    $obj->competencyid = (int)$ccr->competencyid;
+                    $obj->shortname = (string)$ccr->shortname;
+                    $obj->idnumber = (string)($ccr->idnumber ?? '');
+                    $obj->description = (string)($ccr->description ?? '');
+                    $obj->competencyframeworkid = (int)$ccr->competencyframeworkid;
+                    $obj->comp_scaleid = $ccr->comp_scaleid;
+                    $obj->scaleconfiguration = $ccr->scaleconfiguration;
+                    $obj->frameworkname = (string)$ccr->frameworkname;
+                    $obj->framework_scaleid = $ccr->framework_scaleid;
+                    $records['course_' . $ccr->competencyid] = $obj;
+                }
+            }
+        }
+
+        if (empty($records)) {
+            return [];
+        }
+
+        $competency_ids = [];
+        $usercomp_ids = [];
+        foreach ($records as $r) {
+            $competency_ids[] = (int)$r->competencyid;
+            if (!empty($r->usercompid)) {
+                $usercomp_ids[] = (int)$r->usercompid;
+            }
+        }
+        $competency_ids = array_values(array_unique($competency_ids));
+        $usercomp_ids = array_values(array_unique($usercomp_ids));
+
+        // Enriquecer con evaluaciones a nivel de curso (competency_usercompcourse) si existen
+        if ($dbman->table_exists('competency_usercompcourse') && !empty($competency_ids)) {
+            list($in_ucc_cids, $ucc_params) = $DB->get_in_or_equal($competency_ids, SQL_PARAMS_NAMED, 'ucccid');
+            $ucc_params['ucc_userid'] = $userid;
+            $ucc_records = $DB->get_records_select(
+                'competency_usercompcourse',
+                "competencyid $in_ucc_cids AND userid = :ucc_userid",
+                $ucc_params,
+                'timemodified DESC',
+                'id, competencyid, courseid, proficiency, grade, timemodified'
+            );
+            foreach ($ucc_records as $ucc) {
+                foreach ($records as &$r) {
+                    if ((int)$r->competencyid === (int)$ucc->competencyid) {
+                        if (empty($r->proficiency) && !empty($ucc->proficiency)) {
+                            $r->proficiency = (int)$ucc->proficiency;
+                        }
+                        if (empty($r->grade) && !empty($ucc->grade)) {
+                            $r->grade = (int)$ucc->grade;
+                        }
+                    }
+                }
+                unset($r);
+            }
+        }
+
+        // 2. Cursos vinculados a cada competencia
+        $courses_by_comp = [];
+        if (!empty($competency_ids) && $dbman->table_exists('competency_coursecomp')) {
+            list($in_csql, $in_cparams) = $DB->get_in_or_equal($competency_ids, SQL_PARAMS_NAMED, 'cid');
+            $sql_cc = "
+                SELECT cc.id, cc.competencyid, c.id AS courseid, c.fullname, c.shortname
+                  FROM {competency_coursecomp} cc
+                  JOIN {course} c ON c.id = cc.courseid
+                 WHERE cc.competencyid $in_csql
+              ORDER BY c.fullname ASC
+            ";
+            $cc_records = $DB->get_records_sql($sql_cc, $in_cparams);
+            foreach ($cc_records as $cc) {
+                $cid = (int)$cc->competencyid;
+                $courses_by_comp[$cid][] = [
+                    'id'          => (int)$cc->courseid,
+                    'fullname'    => (string)$cc->fullname,
+                    'shortname'   => (string)$cc->shortname,
+                    'is_enrolled' => in_array((int)$cc->courseid, $enrolled_course_ids) ? 1 : 0,
+                ];
+            }
+        }
+
+        // 3. Evidencias para las competencias del usuario
+        $evidences_by_usercomp = [];
+        if (!empty($usercomp_ids) && $dbman->table_exists('competency_evidence')) {
+            list($in_esql, $in_eparams) = $DB->get_in_or_equal($usercomp_ids, SQL_PARAMS_NAMED, 'evid');
+            $sql_ev = "
+                SELECT e.id, e.usercompetencyid, e.action, e.actionuserid, e.descidentifier,
+                       e.note, e.grade, e.url, e.timecreated,
+                       u.firstname, u.lastname
+                  FROM {competency_evidence} e
+             LEFT JOIN {user} u ON u.id = e.actionuserid
+                 WHERE e.usercompetencyid $in_esql
+              ORDER BY e.timecreated DESC
+            ";
+            $ev_records = $DB->get_records_sql($sql_ev, $in_eparams);
+            foreach ($ev_records as $ev) {
+                $action_name = 'Evidencia registrada';
+                switch ((int)$ev->action) {
+                    case 0: $action_name = 'Evidencia manual'; break;
+                    case 1: $action_name = 'Evidencia adjuntada'; break;
+                    case 2: $action_name = 'Completado en curso'; break;
+                    case 3: $action_name = 'Revisión / Calificación'; break;
+                    default: $action_name = 'Registro de competencia'; break;
+                }
+                $author_name = !empty($ev->firstname) ? fullname($ev) : 'Sistema';
+
+                $evidences_by_usercomp[$ev->usercompetencyid][] = [
+                    'id'                 => (int)$ev->id,
+                    'action'             => (int)$ev->action,
+                    'actionname'         => $action_name,
+                    'actionuserfullname' => $author_name,
+                    'descidentifier'     => (string)($ev->descidentifier ?? ''),
+                    'note'               => (string)($ev->note ?? ''),
+                    'url'                => (string)($ev->url ?? ''),
+                    'grade'              => (int)($ev->grade ?? 0),
+                    'timecreated'        => (int)$ev->timecreated,
+                    'timecreated_str'    => userdate($ev->timecreated),
+                ];
+            }
+        }
+
+        // 4. Armar resultado
+        $result = [];
+        foreach ($records as $r) {
+            $comp_id = (int)$r->competencyid;
+            $usercomp_id = (int)$r->usercompid;
+
+            $scale_id = !empty($r->comp_scaleid) ? $r->comp_scaleid : $r->framework_scaleid;
+            $scale_items = $scales_map[$scale_id] ?? [];
+            $grade_val = (int)$r->grade;
+            $grade_name = ($grade_val > 0 && isset($scale_items[$grade_val - 1])) ? $scale_items[$grade_val - 1] : '';
+
+            $status_name = 'En progreso';
+            if ((int)$r->proficiency === 1) {
+                $status_name = 'Competente';
+            } else if ((int)$r->status === 1 || (int)$r->status === 2) {
+                $status_name = 'En revisión';
+            }
+
+            $evs = $usercomp_id > 0 ? ($evidences_by_usercomp[$usercomp_id] ?? []) : [];
+
+            $result[] = [
+                'id'              => $comp_id,
+                'shortname'       => (string)$r->shortname,
+                'idnumber'        => (string)($r->idnumber ?? ''),
+                'description'     => (string)($r->description ?? ''),
+                'frameworkid'     => (int)$r->competencyframeworkid,
+                'frameworkname'   => (string)$r->frameworkname,
+                'proficiency'     => (int)$r->proficiency,
+                'status'          => (int)$r->status,
+                'statusname'      => $status_name,
+                'grade'           => $grade_val,
+                'gradename'       => $grade_name,
+                'courses'         => $courses_by_comp[$comp_id] ?? [],
+                'evidences_count' => count($evs),
+                'evidences'       => $evs,
+            ];
+        }
+
+        return $result;
+    }
 }

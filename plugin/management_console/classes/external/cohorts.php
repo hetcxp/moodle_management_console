@@ -129,7 +129,7 @@ class cohorts extends external_api {
     }
 
     public static function cohort_action($action, $cohortid = 0, $name = '', $idnumber = '', $description = '') {
-        global $CFG;
+        global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');
         
         $context = context_system::instance();

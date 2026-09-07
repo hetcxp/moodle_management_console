@@ -47,6 +47,7 @@ class course_repository {
             'enrolledcount' => 'enr.enrolledcount',
             'completedcount'=> 'cmp.completedcount',
             'cohortscount'  => 'coh.cohortscount',
+            'competenciescount' => 'comp.competenciescount',
             'progress'      => 'progress_sort',
             'timecreated'   => 'c.timecreated',
             'startdate'     => 'c.startdate',
@@ -132,12 +133,19 @@ class course_repository {
           GROUP BY e.courseid
         ";
 
+        $sql_sub_comp = "
+            SELECT ccomp.courseid, COUNT(DISTINCT ccomp.competencyid) AS competenciescount
+              FROM {competency_coursecomp} ccomp
+          GROUP BY ccomp.courseid
+        ";
+
         $sql_select = "
             SELECT c.id, c.fullname, c.shortname, c.visible, c.timecreated, c.category, c.startdate, c.enddate,
                    cc.name AS categoryname,
                    COALESCE(enr.enrolledcount, 0) AS enrolledcount,
                    COALESCE(cmp.completedcount, 0) AS completedcount,
                    COALESCE(coh.cohortscount, 0) AS cohortscount,
+                   COALESCE(comp.competenciescount, 0) AS competenciescount,
                    CASE 
                        WHEN COALESCE(enr.enrolledcount, 0) > 0 
                        THEN ROUND((COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount) 
@@ -148,6 +156,7 @@ class course_repository {
          LEFT JOIN ($sql_sub_enr) enr ON enr.courseid = c.id
          LEFT JOIN ($sql_sub_cmp) cmp ON cmp.courseid = c.id
          LEFT JOIN ($sql_sub_coh) coh ON coh.courseid = c.id
+         LEFT JOIN ($sql_sub_comp) comp ON comp.courseid = c.id
              WHERE $where
           ORDER BY $sortfield $direction, c.id DESC
         ";
@@ -272,7 +281,7 @@ class course_repository {
         global $DB;
         $sql = "
             SELECT c.id, c.name, c.idnumber, e.id as enrolid, e.status as enrolstatus,
-                   e.timecreated, e.enrolenddate, e.customint2 as groupid,
+                   e.timecreated, e.enrolenddate, e.customint2 as groupid, e.roleid,
                    COUNT(DISTINCT ue.userid) as enrolledcount,
                    COUNT(DISTINCT ccmp.userid) as completedcount
               FROM {cohort} c
@@ -280,7 +289,7 @@ class course_repository {
          LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
          LEFT JOIN {course_completions} ccmp ON ccmp.userid = ue.userid AND ccmp.course = e.courseid AND ccmp.timecompleted IS NOT NULL
              WHERE e.courseid = :courseid AND e.enrol = 'cohort'
-          GROUP BY c.id, c.name, c.idnumber, e.id, e.status, e.timecreated, e.enrolenddate, e.customint2
+          GROUP BY c.id, c.name, c.idnumber, e.id, e.status, e.timecreated, e.enrolenddate, e.customint2, e.roleid
         ";
         return $DB->get_records_sql($sql, ['courseid' => $courseid]);
     }
