@@ -19,6 +19,7 @@ describe('CoursesView behavior tests', () => {
       enrolledcount: 25,
       completedcount: 10,
       cohortscount: 2,
+      competenciescount: 4,
       progress: 40,
       timecreated: 1725148800,
     },
@@ -32,6 +33,7 @@ describe('CoursesView behavior tests', () => {
       enrolledcount: 15,
       completedcount: 5,
       cohortscount: 1,
+      competenciescount: 0,
       progress: 33,
       timecreated: 1725149900,
     }
@@ -60,6 +62,8 @@ describe('CoursesView behavior tests', () => {
     await waitFor(() => {
       expect(screen.getByText('Matemáticas Avanzadas')).toBeDefined();
       expect(screen.getByText('Física Cuántica')).toBeDefined();
+      expect(screen.getByText('Competencias')).toBeDefined();
+      expect(screen.getByText('4')).toBeDefined();
     });
   });
 

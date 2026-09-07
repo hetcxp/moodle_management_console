@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CompetenciesView } from '../views/CompetenciesView';
 import { ToastProvider } from '../components/ui/Toast';
-import { AuthProvider } from '../context/AuthContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // Mock AdminerApi

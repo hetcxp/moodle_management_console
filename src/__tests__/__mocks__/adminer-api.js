@@ -119,6 +119,7 @@ export const mockAdminerApi = {
   moduleCompetencyAction: vi.fn().mockResolvedValue({ success: true }),
   getCompetencyReviews: vi.fn().mockResolvedValue({ reviews: [], totalcount: 0 }),
   competencyReviewAction: vi.fn().mockResolvedValue({ success: true }),
+  getCompetencyUsers: vi.fn().mockResolvedValue({ users: [], totalcount: 0, page: 0, perpage: 20, scale: null }),
 
   // Auth / Autologin
   getAutologinUrl: vi.fn().mockResolvedValue({ url: 'http://localhost/moodle' }),

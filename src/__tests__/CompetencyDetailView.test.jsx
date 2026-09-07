@@ -5,251 +5,233 @@ import { CompetencyDetailView } from '../views/CompetencyDetailView';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
-// Mock AdminerApi
-vi.mock('../services/adminer-api', () => ({
-  AdminerApi: {
-    getCompetencyDetail: vi.fn().mockResolvedValue({
-      id: 101,
-      shortname: 'Competencia en Análisis de Datos',
-      idnumber: 'DAT-01',
-      description: 'Capacidad para estructurar y modelar datos.',
-      parentid: 0,
-      path: '/0/101/',
+import { AdminerApi } from '../services/adminer-api';
+
+vi.mock('../services/adminer-api', () => import('./__mocks__/adminer-api'));
+
+const mockCompetencyDetail = {
+  id: 101,
+  shortname: 'Competencia en Análisis de Datos',
+  idnumber: 'DAT-01',
+  description: 'Capacidad para estructurar y modelar datos.',
+  parentid: 0,
+  path: '/0/101/',
+  sortorder: 1,
+  competencyframeworkid: 1,
+  frameworkname: 'Marco de Habilidades 2026',
+  frameworkidnumber: 'HAB-2026',
+  frameworkvisible: 1,
+  scaleid: 1,
+  scalename: 'Escala Estándar',
+  ruletype: 'core_competency\\competency_rule_all_children',
+  ruleoutcome: 2,
+  childrencount: 2,
+  timecreated: 1725148800,
+  timemodified: 1725148800,
+  children: [
+    {
+      id: 201,
+      shortname: 'Subcompetencia Limpieza de Datos',
+      idnumber: 'DAT-01-A',
+      description: 'Manejo de valores nulos y outliers',
+      parentid: 101,
+      path: '/0/101/201/',
       sortorder: 1,
-      competencyframeworkid: 1,
-      frameworkname: 'Marco de Habilidades 2026',
-      frameworkidnumber: 'HAB-2026',
-      frameworkvisible: 1,
-      scaleid: 1,
-      scalename: 'Escala Estándar',
-      ruletype: 'core_competency\\competency_rule_all_children',
-      ruleoutcome: 2,
-      childrencount: 2,
+      coursescount: 1,
+      childrencount: 0,
+      ruletype: '',
+      ruleoutcome: 1,
+      pendingreviewscount: 0,
       timecreated: 1725148800,
       timemodified: 1725148800,
-      children: [
+    },
+    {
+      id: 202,
+      shortname: 'Subcompetencia Modelado SQL',
+      idnumber: 'DAT-01-B',
+      description: 'Consultas avanzadas y optimización',
+      parentid: 101,
+      path: '/0/101/202/',
+      sortorder: 2,
+      coursescount: 2,
+      childrencount: 0,
+      ruletype: '',
+      ruleoutcome: 1,
+      pendingreviewscount: 0,
+      timecreated: 1725148800,
+      timemodified: 1725148800,
+    }
+  ]
+};
+
+const mockCompetencyCourses = {
+  courses: [
+    {
+      id: 10,
+      fullname: 'Curso de Big Data',
+      shortname: 'BD-101',
+      idnumber: 'DATA-BD',
+      visible: 1,
+      category: 1,
+      categoryname: 'Tecnología',
+      ruleoutcome: 3,
+      sortorder: 1,
+      timecreated: 1725148800,
+      activities: [
         {
-          id: 201,
-          shortname: 'Subcompetencia Limpieza de Datos',
-          idnumber: 'DAT-01-A',
-          description: 'Manejo de valores nulos y outliers',
-          parentid: 101,
-          path: '/0/101/201/',
+          id: 501,
+          cmid: 1001,
+          modname: 'quiz',
+          name: 'Examen Final Big Data',
+          ruleoutcome: 3,
           sortorder: 1,
-          coursescount: 1,
-          childrencount: 0,
-          ruletype: '',
-          ruleoutcome: 1,
-          pendingreviewscount: 0,
           timecreated: 1725148800,
-          timemodified: 1725148800,
         },
         {
-          id: 202,
-          shortname: 'Subcompetencia Modelado SQL',
-          idnumber: 'DAT-01-B',
-          description: 'Consultas avanzadas y optimización',
-          parentid: 101,
-          path: '/0/101/202/',
-          sortorder: 2,
-          coursescount: 2,
-          childrencount: 0,
-          ruletype: '',
+          id: 502,
+          cmid: 1002,
+          modname: 'assign',
+          name: 'Proyecto Práctico Hadoop',
           ruleoutcome: 1,
-          pendingreviewscount: 0,
+          sortorder: 2,
           timecreated: 1725148800,
-          timemodified: 1725148800,
         }
       ]
-    }),
-    getCompetencyCourses: vi.fn().mockResolvedValue({
+    },
+    {
+      id: 20,
+      fullname: 'Machine Learning Básico',
+      shortname: 'ML-101',
+      idnumber: 'DATA-ML',
+      visible: 1,
+      category: 1,
+      categoryname: 'Tecnología',
+      ruleoutcome: 1,
+      sortorder: 2,
+      timecreated: 1725148800,
+      activities: []
+    },
+  ],
+  subcompetencycourses: [
+    {
+      competencyid: 201,
+      competencyname: 'Subcompetencia Limpieza de Datos',
+      competencyidnumber: 'DAT-01-A',
       courses: [
         {
-          id: 10,
-          fullname: 'Curso de Big Data',
-          shortname: 'BD-101',
-          idnumber: 'DATA-BD',
+          id: 40,
+          fullname: 'Curso de Python para Data Science',
+          shortname: 'PY-DATA',
+          idnumber: 'PY-100',
           visible: 1,
           category: 1,
           categoryname: 'Tecnología',
-          ruleoutcome: 3, // Completar competencia
+          ruleoutcome: 3,
           sortorder: 1,
           timecreated: 1725148800,
           activities: [
             {
-              id: 501,
-              cmid: 1001,
+              id: 601,
+              cmid: 1101,
               modname: 'quiz',
-              name: 'Examen Final Big Data',
+              name: 'Quiz Limpieza Pandas',
               ruleoutcome: 3,
               sortorder: 1,
               timecreated: 1725148800,
-            },
-            {
-              id: 502,
-              cmid: 1002,
-              modname: 'assign',
-              name: 'Proyecto Práctico Hadoop',
-              ruleoutcome: 1,
-              sortorder: 2,
-              timecreated: 1725148800,
-            }
-          ]
-        },
-        {
-          id: 20,
-          fullname: 'Machine Learning Básico',
-          shortname: 'ML-101',
-          idnumber: 'DATA-ML',
-          visible: 1,
-          category: 1,
-          categoryname: 'Tecnología',
-          ruleoutcome: 1, // Adjuntar evidencia
-          sortorder: 2,
-          timecreated: 1725148800,
-          activities: []
-        },
-      ],
-      subcompetencycourses: [
-        {
-          competencyid: 201,
-          competencyname: 'Subcompetencia Limpieza de Datos',
-          competencyidnumber: 'DAT-01-A',
-          courses: [
-            {
-              id: 40,
-              fullname: 'Curso de Python para Data Science',
-              shortname: 'PY-DATA',
-              idnumber: 'PY-100',
-              visible: 1,
-              category: 1,
-              categoryname: 'Tecnología',
-              ruleoutcome: 3,
-              sortorder: 1,
-              timecreated: 1725148800,
-              activities: [
-                {
-                  id: 601,
-                  cmid: 1101,
-                  modname: 'quiz',
-                  name: 'Quiz Limpieza Pandas',
-                  ruleoutcome: 3,
-                  sortorder: 1,
-                  timecreated: 1725148800,
-                }
-              ]
             }
           ]
         }
       ]
-    }),
-    competencyAction: vi.fn().mockResolvedValue({
-      success: true,
-      message: 'Operación de competencia completada',
-      affectedcount: 1,
-    }),
-    competencyCourseAction: vi.fn().mockResolvedValue({
-      success: true,
-      message: 'Operación de curso completada',
-      affectedcount: 1,
-    }),
-    getCourseAvailableActivities: vi.fn().mockResolvedValue({
-      activities: [
-        {
-          cmid: 1003,
-          courseid: 10,
-          modname: 'quiz',
-          name: 'Quiz Parcial 1',
-          visible: 1,
-          section: 1,
-          islinked: 0,
-          linkid: 0,
-          ruleoutcome: 0,
-        }
-      ]
-    }),
-    moduleCompetencyAction: vi.fn().mockResolvedValue({
-      success: true,
-      message: 'Operación de actividad completada',
-      affectedcount: 1,
-    }),
-    getCourses: vi.fn().mockResolvedValue({
+    }
+  ]
+};
+
+const mockAvailableActivities = {
+  activities: [
+    {
+      cmid: 1003,
+      courseid: 10,
+      modname: 'quiz',
+      name: 'Quiz Parcial 1',
+      visible: 1,
+      section: 1,
+      islinked: 0,
+      linkid: 0,
+      ruleoutcome: 0,
+    }
+  ]
+};
+
+const mockReviews = {
+  totalcount: 1,
+  reviews: [
+    {
+      usercompid: 99,
+      userid: 5,
+      userfullname: 'Estudiante Ejemplo',
+      useremail: 'estudiante@test.com',
+      competencyid: 101,
+      competencyname: 'Competencia en Análisis de Datos',
+      competencyidnumber: 'DAT-01',
+      frameworkid: 1,
+      frameworkname: 'Marco de Habilidades 2026',
+      status: 1,
+      proficiency: 0,
+      currentgrade: 1,
+      scalename: 'Escala Estándar',
+      scaleoptions: [{ name: 'No competente', value: 1 }, { name: 'Competente', value: 2 }],
+      timemodified: 1725148800,
+    },
+  ],
+};
+
+const mockCompetencyUsers = {
+  totalcount: 1,
+  page: 0,
+  perpage: 20,
+  users: [
+    {
+      userid: 50,
+      fullname: 'Ana Martínez',
+      email: 'ana@example.com',
+      usercompid: 12,
+      status: 0,
+      proficiency: 1,
+      grade: 2,
+      gradename: 'Competente',
+      coursescount: 1,
+      completedcoursescount: 1,
+      progress: 100,
       courses: [
-        { id: 30, fullname: 'Deep Learning Avanzado', shortname: 'DL-201', categoryname: 'IA' },
-      ],
-      totalcount: 1,
-    }),
-    getCompetencyReviews: vi.fn().mockResolvedValue({
-      totalcount: 1,
-      reviews: [
         {
-          usercompid: 99,
-          userid: 5,
-          userfullname: 'Estudiante Ejemplo',
-          useremail: 'estudiante@test.com',
-          competencyid: 101,
-          competencyname: 'Competencia en Análisis de Datos',
-          competencyidnumber: 'DAT-01',
-          frameworkid: 1,
-          frameworkname: 'Marco de Habilidades 2026',
-          status: 1,
-          proficiency: 0,
-          currentgrade: 1,
-          scalename: 'Escala Estándar',
-          scaleoptions: [{ name: 'No competente', value: 1 }, { name: 'Competente', value: 2 }],
-          timemodified: 1725148800,
-        },
-      ],
-    }),
-    getCompetencyUsers: vi.fn().mockResolvedValue({
-      totalcount: 1,
-      page: 0,
-      perpage: 20,
-      users: [
-        {
-          userid: 50,
-          fullname: 'Ana Martínez',
-          email: 'ana@example.com',
-          usercompid: 12,
-          status: 0,
+          courseid: 10,
+          fullname: 'Curso de Big Data',
+          shortname: 'BD-101',
+          completed: 1,
+          progress: 100,
           proficiency: 1,
           grade: 2,
-          gradename: 'Competente',
-          coursescount: 1,
-          completedcoursescount: 1,
-          progress: 100,
-          courses: [
-            {
-              courseid: 10,
-              fullname: 'Curso de Big Data',
-              shortname: 'BD-101',
-              completed: 1,
-              progress: 100,
-              proficiency: 1,
-              grade: 2,
-            },
-          ],
-          evidencescount: 1,
-          evidences: [
-            {
-              id: 1,
-              action: 0,
-              actionname: 'Evidencia manual',
-              actionuserfullname: 'Profesor Carlos',
-              descidentifier: 'evidence_manual',
-              note: 'Aprobó el proyecto final con distinción máxima.',
-              grade: 2,
-              gradename: 'Competente',
-              url: '',
-              timecreated: 1725148800,
-            },
-          ],
         },
       ],
-      scale: { id: 1, name: 'Escala Estándar', items: ['No competente', 'Competente'] },
-    }),
-  },
-}));
+      evidencescount: 1,
+      evidences: [
+        {
+          id: 1,
+          action: 0,
+          actionname: 'Evidencia manual',
+          actionuserfullname: 'Profesor Carlos',
+          descidentifier: 'evidence_manual',
+          note: 'Aprobó el proyecto final con distinción máxima.',
+          grade: 2,
+          gradename: 'Competente',
+          url: '',
+          timecreated: 1725148800,
+        },
+      ],
+    },
+  ],
+  scale: { id: 1, name: 'Escala Estándar', items: ['No competente', 'Competente'] },
+};
 
 // Mock AuthContext
 vi.mock('../context/AuthContext', () => ({
@@ -268,6 +250,33 @@ describe('CompetencyDetailView', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    AdminerApi.getCompetencyDetail.mockResolvedValue(mockCompetencyDetail);
+    AdminerApi.getCompetencyCourses.mockResolvedValue(mockCompetencyCourses);
+    AdminerApi.competencyAction.mockResolvedValue({
+      success: true,
+      message: 'Operación de competencia completada',
+      affectedcount: 1,
+    });
+    AdminerApi.competencyCourseAction.mockResolvedValue({
+      success: true,
+      message: 'Operación de curso completada',
+      affectedcount: 1,
+    });
+    AdminerApi.getCourseAvailableActivities.mockResolvedValue(mockAvailableActivities);
+    AdminerApi.moduleCompetencyAction.mockResolvedValue({
+      success: true,
+      message: 'Operación de actividad completada',
+      affectedcount: 1,
+    });
+    AdminerApi.getCourses.mockResolvedValue({
+      courses: [
+        { id: 30, fullname: 'Deep Learning Avanzado', shortname: 'DL-201', categoryname: 'IA' },
+      ],
+      totalcount: 1,
+    });
+    AdminerApi.getCompetencyReviews.mockResolvedValue(mockReviews);
+    AdminerApi.getCompetencyUsers.mockResolvedValue(mockCompetencyUsers);
+
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -337,6 +346,9 @@ describe('CompetencyDetailView', () => {
 
     // Switch to Usuarios tab
     const usersTabBtn = screen.getByRole('button', { name: /Usuarios/i });
+    await waitFor(() => {
+      expect(within(usersTabBtn).getByText('1')).toBeDefined();
+    });
     fireEvent.click(usersTabBtn);
 
     await waitFor(() => {

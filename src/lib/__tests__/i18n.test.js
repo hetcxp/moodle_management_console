@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { I18N, t } from '../../config/i18n';
+import { t } from '../../config/i18n';
 
 describe('i18n helper and dictionary', () => {
   it('returns exact translation when key exists', () => {
