@@ -35,14 +35,13 @@ Moodle Adminer está compuesto por dos grandes piezas: una moderna Single Page A
 - **Testing:** `vitest` + `@testing-library/react` + `jsdom`
 - **Iconografía:** `lucide-react`
 
-**Backend (Moodle Plugins)**
-- **`local_adminer_api`**: Plugin Moodle (PHP) que expone servicios web externos (`external_api`) bajo arquitectura de repositorios (`category_repository`, `cohort_repository`, `competency_repository`, `course_repository`, `user_repository`) para consultas de alta velocidad y control granular de capacidades RBAC.
-- **`local_adminer_ui`**: Plugin Moodle (PHP/JS) encargado de embeber y servir la aplicación React compilada directamente dentro del entorno Moodle.
+**Backend (Moodle Plugin)**
+- **`tool_management_console`**: Plugin de administración de Moodle (`admin/tool/management_console`, PHP) que consolida la API de servicios web externos (`external_api`), la arquitectura de repositorios (`category_repository`, `cohort_repository`, `competency_repository`, `course_repository`, `user_repository`) para consultas de alta velocidad y control granular de capacidades RBAC, integrando además la SPA React compilada en `app/`.
 
 ### Estructura del Workspace
 
 ```text
-moodle_adminer/
+moodle_management_console/
 ├── src/                      # Código fuente de la aplicación React (Vite + Tailwind)
 │   ├── __tests__/            # Suite de pruebas unitarias e integración (Vitest)
 │   ├── components/           # Componentes UI reutilizables (Botones, Tablas, Modales, PermissionGate)
@@ -58,8 +57,7 @@ moodle_adminer/
 │       ├── courses/          # Pestañas, modales de creación, CSV y traslado de cursos
 │       └── users/            # Pestañas y gestión de usuarios
 ├── plugin/                   
-│   ├── local_adminer_api/    # Plugin backend Moodle (Web Services + Repositorios PHP)
-│   └── local_adminer_ui/     # Plugin backend Moodle (Inyector de la SPA)
+│   └── management_console/   # Plugin de administración Moodle (admin/tool/management_console)
 ├── scripts/                  # Scripts de utilidades y pruebas headless
 ├── package.json              # Dependencias y scripts del frontend
 └── vite.config.js            # Configuración de compilación de Vite
@@ -70,12 +68,16 @@ moodle_adminer/
 ## 🚀 Guía de Instalación y Desarrollo
 
 ### 1. Requisitos Previos
-- Node.js (v18+)
+- Node.js (v22+)
 - Moodle (Instancia local o remota de desarrollo con PHP 8.1+) con acceso a instalación de plugins.
 
-### 2. Instalación de los Plugins en Moodle
-Copia las carpetas `local_adminer_api` y `local_adminer_ui` dentro del directorio `local/` de tu instalación de Moodle y ejecuta el proceso de actualización de la base de datos de Moodle. 
-Asegúrate de habilitar los servicios web necesarios desde la administración de Moodle.
+### 2. Instalación del Plugin en Moodle
+Copia o vincula simbólicamente la carpeta `plugin/management_console` dentro de `admin/tool/management_console` de tu instalación de Moodle y ejecuta la actualización de la base de datos:
+
+```bash
+php admin/cli/upgrade.php --non-interactive
+php admin/cli/purge_caches.php
+```
 
 ### 3. Desarrollo Local (Frontend)
 Para correr la interfaz de React de forma local, independientemente de Moodle:
@@ -98,16 +100,22 @@ Cuando estés listo para integrar el frontend en el plugin de interfaz de Moodle
 ```bash
 npm run build:moodle
 ```
-*(El output generado en `dist/` se empaqueta e inyecta directamente en los assets de `local_adminer_ui`).*
+*(El output generado se compila e inyecta directamente en `plugin/management_console/app/`).*
 
 ---
 
-## 🧪 Testing
+## 🧪 Testing y Cobertura
 
-Para ejecutar la batería de pruebas unitarias y de integración del frontend:
+Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (180 tests):
 
 ```bash
 npm run test
+```
+
+Para generar el reporte de cobertura de código (Vitest V8):
+
+```bash
+npm run test:coverage
 ```
 
 Los scripts automatizados para el API (headless) se encuentran en la carpeta `scripts/` (ej. `node scripts/headless_test_move.js`).
