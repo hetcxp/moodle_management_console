@@ -141,22 +141,22 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/70 pb-6">
+      <div className="border-b border-border/70 pb-6">
+        {/* Breadcrumb */}
+        <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
+          <button 
+            onClick={onBack} 
+            className="flex items-center hover:text-foreground transition-colors"
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
+          </button>
+          <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+          <span className="text-foreground truncate max-w-[300px]">{data.name}</span>
+        </nav>
+        
         <div>
-          {/* Breadcrumb */}
-          <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
-            <button 
-              onClick={onBack} 
-              className="flex items-center hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
-            </button>
-            <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
-            <span className="text-foreground truncate max-w-[300px]">{data.name}</span>
-          </nav>
-          
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl">
+            <div className="p-3 bg-emerald-500/10 text-emerald-600 rounded-xl shrink-0">
               <Layers className="h-6 w-6" />
             </div>
             <div>
@@ -164,28 +164,28 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
               <p className="text-sm text-muted-foreground mt-0.5 line-clamp-1 max-w-2xl">{data.description || 'Sin descripción'}</p>
             </div>
           </div>
-        </div>
 
-        {/* Acciones Header */}
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap mt-4 sm:mt-0">
-          <PermissionGate capability="can_manage_cohorts">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setFormData({ name: data.name, idnumber: data.idnumber, description: data.description });
-                setEditModalOpen(true);
-              }}
-            >
-              <Edit className="h-4 w-4 mr-2" /> Editar
-            </Button>
-            <Button
-              variant="outline"
-              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
-              onClick={() => setDeleteConfirmOpen(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" /> Eliminar
-            </Button>
-          </PermissionGate>
+          {/* Acciones Header debajo del nombre */}
+          <div className="flex items-center gap-2 flex-wrap mt-4 pt-1">
+            <PermissionGate capability="can_manage_cohorts">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setFormData({ name: data.name, idnumber: data.idnumber, description: data.description });
+                  setEditModalOpen(true);
+                }}
+              >
+                <Edit className="h-4 w-4 mr-2" /> Editar
+              </Button>
+              <Button
+                variant="outline"
+                className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                onClick={() => setDeleteConfirmOpen(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" /> Eliminar
+              </Button>
+            </PermissionGate>
+          </div>
         </div>
       </div>
 

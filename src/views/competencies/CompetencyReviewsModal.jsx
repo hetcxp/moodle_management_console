@@ -17,7 +17,6 @@ import {
   Award,
   Loader2,
   FileText,
-  AlertCircle,
   Calendar
 } from 'lucide-react';
 import { formatDate } from '../../lib/utils';

@@ -13,7 +13,6 @@ import {
   CheckCircle2,
   Sliders,
   Info,
-  Layers,
   AlertCircle,
   Save,
   Check
@@ -24,7 +23,7 @@ export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
   const { mutateAsync: performCompetencyAction, isLoading: isSaving } = useCompetencyAction();
 
   const isRuleActive = competency?.ruletype === COMPETENCY_RULE_ALL_CHILDREN;
-  const currentOutcome = isRuleActive ? (competency?.ruleoutcome ?? 2) : 0;
+  const _currentOutcome = isRuleActive ? (competency?.ruleoutcome ?? 2) : 0;
 
   const [selectedOutcome, setSelectedOutcome] = useState(
     isRuleActive ? (competency?.ruleoutcome ?? 2) : 0

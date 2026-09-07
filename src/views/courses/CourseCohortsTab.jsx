@@ -16,7 +16,7 @@ export const CourseCohortsTab = ({
   handleCohortAction, 
   onOpenSelector 
 }) => {
-  const { selectedIds: selectedCohorts, setSelectedIds: setSelectedCohorts, clearSelection: clearSelectedCohorts } = useBulkSelection();
+  const { selectedIds: selectedCohorts, setSelectedIds: setSelectedCohorts, clearSelection: _clearSelectedCohorts } = useBulkSelection();
   const [sortCohortKey, setSortCohortKey] = useState('name');
   const [sortCohortDir, setSortCohortDir] = useState('ASC');
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   useCompetencyFrameworks,
   useCompetencyKpis,
@@ -41,7 +41,7 @@ export function useCompetenciesState() {
 
   const { data: kpis } = useCompetencyKpis();
   const { data: scalesData } = useScales();
-  const scales = scalesData?.scales || [];
+  const scales = useMemo(() => scalesData?.scales || [], [scalesData?.scales]);
 
   const frameworks = frameworksData?.frameworks || [];
   const totalCount = frameworksData?.totalcount || 0;
@@ -212,6 +212,7 @@ export function useCompetenciesState() {
       exportToCsv('marcos_competencias_moodle', exportData, cols);
       setExportModalOpen(false);
     } catch (err) {
+      // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.error('Export error', err);
       addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
     } finally {

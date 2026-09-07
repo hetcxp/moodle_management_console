@@ -47,7 +47,7 @@ export const SelectorModal = ({
     } finally {
       setLoading(false);
     }
-  }, [entityType, page, perPage, search, addToast]);
+  }, [entityType, page, perPage, search, extraFilters, addToast]);
 
   useEffect(() => {
     // Basic debounce

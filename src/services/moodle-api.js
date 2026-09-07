@@ -64,6 +64,7 @@ export const MoodleApi = {
 
       return data;
     } catch (err) {
+      // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.error(`[MoodleApi Error in ${wsfunction}]:`, err);
       throw err;
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCourseUserDetail, useCourseUserAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';

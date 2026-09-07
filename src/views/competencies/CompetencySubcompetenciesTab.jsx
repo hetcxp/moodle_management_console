@@ -15,10 +15,7 @@ import {
   Edit,
   Trash2,
   Inbox,
-  Sparkles,
   CheckCircle2,
-  Clock,
-  ArrowRight,
   ShieldAlert
 } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
@@ -28,7 +25,7 @@ export const CompetencySubcompetenciesTab = ({
   parentCompetency,
   subcompetencies = [],
   frameworkId,
-  hasManagePermission,
+  _hasManagePermission,
   onNavigateToDetail,
   onRefetchParent,
   isCreateModalOpen,
@@ -241,7 +238,7 @@ export const CompetencySubcompetenciesTab = ({
       ) : (
         <div className="grid grid-cols-1 gap-3">
           {filteredSubcompetencies.map((subcomp) => {
-            const hasChildren = (subcomp.childrencount || 0) > 0;
+            const _hasChildren = (subcomp.childrencount || 0) > 0;
             const hasRule = subcomp.ruletype === COMPETENCY_RULE_ALL_CHILDREN;
 
             return (

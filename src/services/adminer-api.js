@@ -135,7 +135,8 @@ export const AdminerApi = {
       groupid: options.groupid || 0,
       newgroupname: options.newgroupname || '',
       timeend: options.timeend || 0,
-      message_text: options.message_text || ''
+      message_text: options.message_text || '',
+      roleid: options.roleid || 0
     });
   },
 

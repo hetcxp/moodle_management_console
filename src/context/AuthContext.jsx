@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { AuthService } from '../services/auth.js';
 import { AdminerApi } from '../services/adminer-api.js';
 
@@ -19,7 +19,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const fetchPermissions = async (retry = true) => {
+  const fetchPermissions = useCallback(async (retry = true) => {
     try {
       const perms = await AdminerApi.getPermissions();
       if (!isMounted.current) return;
@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
       setPermissionsError(false);
     } catch (err) {
       if (retry) {
+        // eslint-disable-next-line no-console
         if (import.meta.env.DEV) console.warn('Could not fetch permissions, retrying in 3s...', err);
         return new Promise(resolve => {
           setTimeout(async () => {
@@ -36,6 +37,7 @@ export const AuthProvider = ({ children }) => {
         });
       }
       if (!isMounted.current) return;
+      // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.warn('Could not fetch permissions after retry, setting default fallback permissions:', err);
       setPermissionsError(true);
       // Fallback if permissions service fails
@@ -56,7 +58,7 @@ export const AuthProvider = ({ children }) => {
         can_view_reports: 0,
       });
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (AuthService.isEmbedded() && typeof window !== 'undefined' && window.ADMINER_CONFIG?.token) {
@@ -68,10 +70,11 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user, fetchPermissions]);
 
   useEffect(() => {
     const handleAuthError = (e) => {
+      // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.warn('Moodle Auth Error:', e.detail);
       logout();
     };

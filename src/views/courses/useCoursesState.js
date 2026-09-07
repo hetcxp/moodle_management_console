@@ -122,6 +122,7 @@ export function useCoursesState() {
       { label: 'Inscritos', accessor: 'enrolledcount' },
       { label: 'Completados', accessor: 'completedcount' },
       { label: 'Cohortes', accessor: 'cohortscount' },
+      { label: 'Competencias', accessor: (row) => row.competenciescount || 0 },
       { label: 'Progreso (%)', accessor: 'progress_percent' },
       { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
       { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
@@ -159,6 +160,7 @@ export function useCoursesState() {
             user_status: u.is_active === 1 ? 'Activo' : 'Suspendido', user_progress: u.progress || 0
           }));
         } catch (e) {
+          // eslint-disable-next-line no-console
           if (import.meta.env.DEV) console.warn('[Export Detail Error] Course ID:', course.id, e);
           return [{ course_id: course.id, course_fullname: course.fullname, course_shortname: course.shortname, course_category: course.categoryname, course_visible: course.visible === 1 ? 'Visible' : 'Oculto', course_progress: course.progress_percent, user_id: '', user_fullname: 'Error al obtener usuarios', user_email: '', user_progress: '', user_status: '', user_roles: '' }];
         }

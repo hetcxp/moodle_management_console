@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
-import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers, FileText } from 'lucide-react';
+import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers } from 'lucide-react';
 import { PermissionGate } from '../../components/PermissionGate';
 import { useCourseUserActions } from '../../hooks/useCourseUserActions';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
@@ -20,8 +20,8 @@ export const CourseUsersTab = ({
   onNavigateToDetail, 
   onOpenSelector 
 }) => {
-  const { addToast } = useToast();
-  const { selectedIds: selectedUsers, setSelectedIds: setSelectedUsers, clearSelection: clearSelectedUsers } = useBulkSelection();
+  const { addToast: _addToast } = useToast();
+  const { selectedIds: selectedUsers, setSelectedIds: setSelectedUsers, clearSelection: _clearSelectedUsers } = useBulkSelection();
   const [sortUserKey, setSortUserKey] = useState('fullname');
   const [sortUserDir, setSortUserDir] = useState('ASC');
 

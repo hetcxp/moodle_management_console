@@ -143,6 +143,7 @@ export function useUsersState() {
             }
             return [{ user_id: user.id, user_fullname: user.fullname, user_email: user.email, user_status: user.is_active === 1 ? 'Activo' : 'Suspendido', user_progress: user.progress || 0, course_id: '', course_fullname: '', course_shortname: '', course_progress: '', course_enrollment_status: '' }];
           } catch (e) {
+            // eslint-disable-next-line no-console
             if (import.meta.env.DEV) console.error('Error fetching detail for user', user.id, e);
             usersFailed.push(user.id);
             return [{ user_id: user.id, user_fullname: user.fullname, user_email: user.email, user_status: user.is_active === 1 ? 'Activo' : 'Suspendido', user_progress: user.progress || 0, course_id: '', course_fullname: '', course_shortname: '', course_progress: '', course_enrollment_status: '' }];
@@ -163,6 +164,7 @@ export function useUsersState() {
       }
       setExportModalOpen(false);
     } catch (err) {
+      // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.error('Export error', err);
       addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
     } finally {

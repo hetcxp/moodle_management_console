@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { BookOpen, User, Users, Layers, UserCheck, UserX, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, Download } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { BookOpen, Users, Layers, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
+import { FilterBar } from '../../components/FilterBar';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { PermissionGate } from '../../components/PermissionGate';
@@ -11,6 +12,7 @@ import { useToast } from '../../components/ui/Toast';
 import { AdminerApi } from '../../services/adminer-api';
 import { exportToCsv } from '../../components/CsvExporter';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
+import { usePermission } from '../../hooks/usePermission';
 
 export const UserCoursesTab = ({ 
   courses, 
@@ -21,10 +23,13 @@ export const UserCoursesTab = ({
   handleBulkUnenrollCourses, 
   handleUserCourseAction,
   onNavigateToDetail,
-  userFullname
+  _userFullname
 }) => {
   const { addToast } = useToast();
+  const canManageCourses = usePermission('can_manage_courses');
   const { selectedIds: selectedCourseIds, setSelectedIds: setSelectedCourseIds, clearSelection: clearSelectedCourseIds } = useBulkSelection();
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('-1');
   const [datesModalOpen, setDatesModalOpen] = useState(false);
   const [datesCourseIds, setDatesCourseIds] = useState([]);
   const [datesStartEnabled, setDatesStartEnabled] = useState(false);
@@ -35,6 +40,22 @@ export const UserCoursesTab = ({
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportOption, setExportOption] = useState('visible');
   const [isExporting, setIsExporting] = useState(false);
+
+  const filteredCourses = useMemo(() => {
+    if (!courses) return [];
+    return courses.filter((c) => {
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchesName = (c.fullname || '').toLowerCase().includes(q);
+        const matchesShort = (c.shortname || '').toLowerCase().includes(q);
+        if (!matchesName && !matchesShort) return false;
+      }
+      if (statusFilter !== '-1') {
+        if (String(c.enrolstatus) !== statusFilter) return false;
+      }
+      return true;
+    });
+  }, [courses, search, statusFilter]);
 
   const getEnrolmentIcon = (method, index) => {
     switch (method) {
@@ -60,7 +81,7 @@ export const UserCoursesTab = ({
   };
 
   const exportVisibleCSV = () => {
-    if (!courses || courses.length === 0) return;
+    if (!filteredCourses || filteredCourses.length === 0) return;
     const cols = [
       { label: 'ID', accessor: 'id' },
       { label: 'Nombre Corto', accessor: 'shortname' },
@@ -69,11 +90,11 @@ export const UserCoursesTab = ({
       { label: 'Estado', accessor: row => row.enrolstatus === 0 ? 'Activo' : 'Suspendido' },
       { label: 'Matriculación', accessor: row => row.enrolments?.[0]?.method || 'desconocido' }
     ];
-    exportToCsv(`usuario_${userId}_cursos_resumen`, courses, cols);
+    exportToCsv(`usuario_${userId}_cursos_resumen`, filteredCourses, cols);
   };
 
   const exportDetailedProgressCSV = async () => {
-    if (!courses || courses.length === 0) return;
+    if (!filteredCourses || filteredCourses.length === 0) return;
     setIsExporting(true);
     
     try {
@@ -81,7 +102,7 @@ export const UserCoursesTab = ({
       const detailedCourses = [];
       const activityColumns = new Set();
       
-      for (const c of courses) {
+      for (const c of filteredCourses) {
         const detail = await AdminerApi.getCourseUserDetail(c.id, userId);
         const activities = detail.activities || [];
         const courseRow = {
@@ -143,15 +164,19 @@ export const UserCoursesTab = ({
     {
       header: 'Curso',
       sortKey: 'fullname',
-      filterType: 'text',
       cell: (row) => (
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary font-bold shrink-0">
             <BookOpen className="h-4 w-4" />
           </div>
-          <div>
-            <div className="font-semibold text-foreground">{row.fullname}</div>
-            <div className="text-xs text-muted-foreground font-mono">{row.shortname}</div>
+          <div className="min-w-0">
+            <div className="font-semibold text-foreground truncate">{row.fullname}</div>
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge variant={row.enrolstatus === 0 ? 'success' : 'destructive'} className="text-[10px] px-1.5 py-0">
+                {row.enrolstatus === 0 ? 'Activo' : 'Suspendido'}
+              </Badge>
+              <span className="text-xs text-muted-foreground font-mono truncate">{row.shortname}</span>
+            </div>
           </div>
         </div>
       )
@@ -160,13 +185,6 @@ export const UserCoursesTab = ({
       header: 'Matriculaciones',
       accessor: (row) => row.enrolments?.[0]?.method || '',
       sortKey: 'enrolMethod',
-      filterType: 'select',
-      filterOptions: [
-        { label: 'Manual', value: 'manual' },
-        { label: 'Cohorte', value: 'cohort' },
-        { label: 'Auto-matriculación', value: 'self' },
-        { label: 'Invitado', value: 'guest' }
-      ],
       cell: (row) => (
         <div className="flex flex-col gap-2">
           {row.enrolments?.length > 0 ? (
@@ -182,20 +200,6 @@ export const UserCoursesTab = ({
             <span className="text-sm text-muted-foreground">-</span>
           )}
         </div>
-      )
-    },
-    {
-      header: 'Estado',
-      sortKey: 'enrolstatus',
-      filterType: 'select',
-      filterOptions: [
-        { label: 'Activo', value: '0' },
-        { label: 'Suspendido', value: '1' }
-      ],
-      cell: (row) => (
-        <Badge variant={row.enrolstatus === 0 ? 'success' : 'destructive'}>
-          {row.enrolstatus === 0 ? 'Activo' : 'Suspendido'}
-        </Badge>
       )
     },
     {
@@ -286,8 +290,8 @@ export const UserCoursesTab = ({
     return 'mixed';
   };
 
-  const selectionStatus = getSelectionStatus(selectedCourseIds, courses);
-  const manualSelectedIds = courses.filter(c => selectedCourseIds.includes(c.id) && c.enrolmethod === 'manual').map(c => c.id);
+  const selectionStatus = getSelectionStatus(selectedCourseIds, filteredCourses);
+  const manualSelectedIds = filteredCourses.filter(c => selectedCourseIds.includes(c.id) && c.enrolmethod === 'manual').map(c => c.id);
 
   const bulkActions = [
     ...(selectionStatus === 'all_active' ? [{ label: 'Suspender (Sólo Manual)', onClick: () => { handleUserCourseAction('suspend', manualSelectedIds); setSelectedCourseIds([]); }, variant: 'warning' }] : []),
@@ -302,21 +306,37 @@ export const UserCoursesTab = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setExportModalOpen(true)}>
-          <Download className="h-4 w-4 mr-2" /> Exportar CSV
-        </Button>
-        <PermissionGate capability="can_manage_courses">
-          <Button onClick={onOpenSelector}>
-            <BookOpen className="h-4 w-4 mr-2" /> Matricular en Curso(s)
-          </Button>
-        </PermissionGate>
-      </div>
+      <FilterBar
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Buscar por nombre o código de curso..."
+        loading={loading}
+        onExportCsv={() => setExportModalOpen(true)}
+        primaryAction={canManageCourses ? {
+          label: 'Matricular en Curso(s)',
+          onClick: onOpenSelector,
+          icon: <BookOpen className="h-4 w-4" />
+        } : null}
+        filters={[
+          {
+            id: 'status',
+            label: 'Estado',
+            value: statusFilter,
+            onChange: setStatusFilter,
+            options: [
+              { label: 'Cualquier Estado', value: '-1' },
+              { label: 'Solo Activos', value: '0' },
+              { label: 'Solo Suspendidos', value: '1' }
+            ]
+          }
+        ]}
+      />
+
       <DataTable
         columns={coursesCols}
-        data={courses}
+        data={filteredCourses}
         loading={loading}
-        totalCount={courses.length}
+        totalCount={filteredCourses.length}
         selectable={true}
         selectedIds={selectedCourseIds}
         onSelectionChange={setSelectedCourseIds}

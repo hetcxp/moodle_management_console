@@ -208,6 +208,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
 
       setExportModalOpen(false);
     } catch (err) {
+      // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.error("Export error", err);
       addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
     } finally {

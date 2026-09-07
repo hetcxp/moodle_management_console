@@ -3,7 +3,6 @@ import { useDashboard, useUsersKpis, useCohortsKpis, useUsers, useCourses } from
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { KpiGrid } from '../components/KpiGrid';
 import { Button } from '../components/ui/Button';
-import { useToast } from '../components/ui/Toast';
 import { BookOpen, Users, Layers, FolderTree, ArrowUpRight, CheckCircle, EyeOff, UserCheck, UserX, RotateCw, Activity, AlertTriangle, GraduationCap, Clock } from 'lucide-react';
 import { formatDate } from '../lib/utils';
 

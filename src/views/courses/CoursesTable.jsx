@@ -3,7 +3,7 @@ import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { PermissionGate } from '../../components/PermissionGate';
-import { Eye, EyeOff, FolderInput, Trash2, ExternalLink, Users, Layers } from 'lucide-react';
+import { Eye, EyeOff, FolderInput, Trash2, ExternalLink, Users, Layers, Award } from 'lucide-react';
 
 export function CoursesTable({
   courses, loading, totalCount, page, perPage,
@@ -17,15 +17,15 @@ export function CoursesTable({
     {
       header: 'Curso',
       sortKey: 'fullname',
-      filterType: 'text',
       className: 'font-medium',
       cell: (row) => (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           <div className="font-semibold text-foreground hover:text-primary transition-colors">{row.fullname}</div>
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span className="font-mono">{row.shortname}</span>
-            <span>•</span>
-            <span>ID: {row.id}</span>
+          <div className="flex items-center gap-2">
+            <Badge variant={row.visible === 1 ? 'success' : 'warning'}>
+              {row.visible === 1 ? 'Visible' : 'Oculto'}
+            </Badge>
+            <span className="text-xs text-muted-foreground font-mono">{row.shortname}</span>
           </div>
         </div>
       )
@@ -33,19 +33,11 @@ export function CoursesTable({
     {
       header: 'Categoría',
       sortKey: 'categoryname',
-      filterType: 'text',
       cell: (row) => (
         <span className="text-xs font-medium text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
           {row.categoryname || 'Sin categoría'}
         </span>
       )
-    },
-    {
-      header: 'Estado',
-      sortKey: 'visible',
-      filterType: 'select',
-      filterOptions: [{ label: 'Visible', value: '1' }, { label: 'Oculto', value: '0' }],
-      cell: (row) => <Badge variant={row.visible === 1 ? 'success' : 'warning'}>{row.visible === 1 ? 'Visible' : 'Oculto'}</Badge>
     },
     {
       header: 'Inscritos',
@@ -58,6 +50,18 @@ export function CoursesTable({
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Layers className="h-3 w-3" /><span>{row.cohortscount || 0}</span>
           </div>
+        </div>
+      )
+    },
+    {
+      header: 'Competencias',
+      sortKey: 'competenciescount',
+      cell: (row) => (
+        <div className="flex items-center gap-1.5 text-xs">
+          <Award className={`h-3.5 w-3.5 ${row.competenciescount > 0 ? 'text-amber-500' : 'text-muted-foreground/60'}`} />
+          <span className={row.competenciescount > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}>
+            {row.competenciescount || 0}
+          </span>
         </div>
       )
     },
@@ -139,7 +143,6 @@ export function CoursesTable({
       selectedIds={selectedIds}
       onSelectionChange={setSelectedIds}
       bulkActions={bulkActions}
-      virtualize={true}
     />
   );
 }

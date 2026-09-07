@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   useCompetencyDetail,
-  useCompetencyCourses
+  useCompetencyCourses,
+  useCompetencyUsers
 } from '../hooks/useAdminerQueries';
 import { useCompetencyDetailActions } from '../hooks/useCompetencyDetailActions';
 import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
 import { Dialog } from '../components/ui/Dialog';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +34,18 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
 
   const { data: competency, isLoading: compLoading, refetch: refetchCompetency } = useCompetencyDetail(compIdNum);
   const { data: coursesData, isLoading: coursesLoading } = useCompetencyCourses(compIdNum);
+
+  const defaultUsersParams = useMemo(() => ({
+    search: '',
+    status: 'all',
+    courseid: 0,
+    page: 0,
+    perpage: 20,
+    sort: 'fullname',
+    dir: 'ASC'
+  }), []);
+  const { data: usersData } = useCompetencyUsers(compIdNum, defaultUsersParams);
+  const totalUsersCount = usersData?.totalcount ?? 0;
 
   const {
     expandedCourseIds,
@@ -82,10 +96,10 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
 
   // Expand all by default if there are few courses
   useEffect(() => {
-    if (courses.length > 0 && courses.length <= 3 && expandedCourseIds.size === 0) {
-      setExpandedCourseIds(new Set(courses.map((c) => c.id)));
+    if (courses.length > 0 && courses.length <= 3) {
+      setExpandedCourseIds((prev) => (prev.size === 0 ? new Set(courses.map((c) => c.id)) : prev));
     }
-  }, [courses]);
+  }, [courses, setExpandedCourseIds]);
 
   const totalSubcompCourses = useMemo(() => {
     return subcompetencyCourses.reduce((acc, sc) => acc + (sc.courses?.length || 0), 0);
@@ -148,32 +162,30 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
 
       {/* Tabs Navigation */}
       {!hasParent ? (
-        <div className="flex items-center gap-2 border-b border-border/80 pb-px overflow-x-auto">
+        <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50 overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => setActiveTab('courses')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap ${
               activeTab === 'courses'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                ? 'bg-card text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <BookOpen className="h-4 w-4" />
             <span>Cursos y Actividades</span>
-            <span className={`px-2 py-0.5 text-xs rounded-full ${
-              activeTab === 'courses' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-            }`}>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
               {totalCoursesCount}
-            </span>
+            </Badge>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('rule')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap ${
               activeTab === 'rule'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                ? 'bg-card text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Sparkles className="h-4 w-4" />
@@ -186,65 +198,67 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
           <button
             type="button"
             onClick={() => setActiveTab('subcompetencies')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap ${
               activeTab === 'subcompetencies'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                ? 'bg-card text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Layers className="h-4 w-4" />
             <span>Subcompetencias</span>
-            <span className={`px-2 py-0.5 text-xs rounded-full ${
-              activeTab === 'subcompetencies' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-            }`}>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
               {competency?.childrencount ?? subcompetencies.length}
-            </span>
+            </Badge>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap ${
               activeTab === 'users'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                ? 'bg-card text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Users className="h-4 w-4" />
             <span>Usuarios</span>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+              {totalUsersCount}
+            </Badge>
           </button>
         </div>
       ) : (
-        <div className="flex items-center gap-2 border-b border-border/80 pb-px overflow-x-auto">
+        <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50 overflow-x-auto max-w-full">
           <button
             type="button"
             onClick={() => setActiveTab('courses')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap ${
               activeTab === 'courses'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                ? 'bg-card text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <BookOpen className="h-4 w-4" />
             <span>Cursos y Actividades</span>
-            <span className={`px-2 py-0.5 text-xs rounded-full ${
-              activeTab === 'courses' ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'
-            }`}>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
               {courses.length}
-            </span>
+            </Badge>
           </button>
 
           <button
             type="button"
             onClick={() => setActiveTab('users')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all whitespace-nowrap ${
               activeTab === 'users'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                ? 'bg-card text-foreground shadow-sm font-semibold'
+                : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             <Users className="h-4 w-4" />
             <span>Usuarios</span>
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
+              {totalUsersCount}
+            </Badge>
           </button>
         </div>
       )}

@@ -5,7 +5,6 @@ import { Badge } from '../../components/ui/Badge';
 import {
   FileText,
   CheckCircle2,
-  AlertCircle,
   Clock,
   User,
   Calendar,

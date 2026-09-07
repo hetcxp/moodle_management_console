@@ -7,7 +7,6 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { exportToCsv } from '../../components/CsvExporter';
 import {
-  Users,
   Search,
   FileText,
   CheckCircle2,
@@ -73,7 +72,6 @@ export const CompetencyUsersTab = ({
 
   const { data, isLoading } = useCompetencyUsers(compIdNum, queryParams);
 
-  const users = data?.users || [];
   const totalCount = data?.totalcount || 0;
 
   const getInitials = (name = '') => {
@@ -88,6 +86,7 @@ export const CompetencyUsersTab = ({
 
   // Client-side filtering
   const filteredUsers = useMemo(() => {
+    const users = data?.users || [];
     return users.filter((user) => {
       // Pending reviews filter
       const userPending = user.pendingreviewscount !== undefined
@@ -124,7 +123,7 @@ export const CompetencyUsersTab = ({
 
       return true;
     });
-  }, [users, filterPendingReviews, filterProgress, filterEvidences]);
+  }, [data?.users, filterPendingReviews, filterProgress, filterEvidences]);
 
   // Client-side sorting for all columns
   const sortedUsers = useMemo(() => {

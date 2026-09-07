@@ -35,7 +35,7 @@ export const CourseCreateModal = ({ open, onClose, onSuccess, categoriesList, de
       });
       setErrors({});
     }
-  }, [open, categoriesList]);
+  }, [open, categoriesList, defaultCategoryId]);
 
   const validate = () => {
     const newErrors = {};

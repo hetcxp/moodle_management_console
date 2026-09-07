@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getTenantConfig } from '../config/tenant';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/Card';
+import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { KeyRound, User, Lock, Sparkles, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 
 export const LoginView = () => {

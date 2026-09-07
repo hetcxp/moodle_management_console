@@ -13,6 +13,7 @@ import { API_CONFIG } from '../config/api';
 import { AdminerApi } from '../services/adminer-api';
 import { UserCoursesTab } from './users/UserCoursesTab';
 import { UserCohortsTab } from './users/UserCohortsTab';
+import { UserCompetenciesTab } from './users/UserCompetenciesTab';
 
 export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel }) => {
   const { addToast } = useToast();
@@ -325,6 +326,17 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           <span>Cohortes</span>
           <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.cohorts.length}</Badge>
         </button>
+        <button
+          onClick={() => setActiveTab('competencies')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'competencies'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span>Competencias</span>
+          <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.competencies?.length || 0}</Badge>
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -350,6 +362,16 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           onOpenSelector={() => { setSelectorType('cohorts'); setSelectorOpen(true); }}
           handleUnlinkCohort={handleUnlinkCohort}
           handleBulkUnlinkCohorts={handleBulkUnlinkCohorts}
+        />
+      )}
+
+      {activeTab === 'competencies' && (
+        <UserCompetenciesTab
+          competencies={data.competencies || []}
+          loading={loading}
+          userId={userId}
+          userFullname={data.fullname}
+          onNavigateToDetail={onNavigateToDetail}
         />
       )}
 

@@ -150,7 +150,7 @@ export function UsersTable({
       page={page} perPage={perPage} onPageChange={onPageChange}
       sort={sort} dir={dir} onSortChange={onSortChange} onFilterChange={onFilterChange}
       onRowClick={onRowClick} selectable={true} selectedIds={selectedIds}
-      onSelectionChange={setSelectedIds} bulkActions={bulkActions} virtualize={true}
+      onSelectionChange={setSelectedIds} bulkActions={bulkActions}
     />
   );
 }
