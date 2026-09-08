@@ -17,9 +17,13 @@ export const TENANTS = {
 export function getTenantConfig() {
   const globalConfig = typeof window !== 'undefined' && (window.MANAGEMENT_CONSOLE_CONFIG || window.ADMINER_CONFIG);
   if (globalConfig) {
+    let moodleUrl = globalConfig.moodleUrl || '';
+    if (typeof window !== 'undefined' && window.location?.protocol === 'https:' && moodleUrl.startsWith('http://')) {
+      moodleUrl = 'https://' + moodleUrl.slice(7);
+    }
     return {
       ...TENANTS['default'],
-      moodleUrl: globalConfig.moodleUrl,
+      moodleUrl,
       serviceName: globalConfig.serviceName || 'management_console_service',
       embedded: globalConfig.embedded || false,
     };

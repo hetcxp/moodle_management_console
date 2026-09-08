@@ -95,14 +95,27 @@ if ($cssfile) {
          (new moodle_url("/admin/tool/management_console/app/assets/{$cssfile}"))->out() . '">';
 }
 
+$userinfo = [
+    'userid'    => (int)$USER->id,
+    'username'  => $USER->username,
+    'fullname'  => fullname($USER),
+    'firstname' => $USER->firstname,
+    'lastname'  => $USER->lastname,
+];
+$moodleurl = $CFG->wwwroot;
+if (is_https() && str_starts_with($moodleurl, 'http://')) {
+    $moodleurl = 'https://' . substr($moodleurl, 7);
+}
+
 // Inyectar config JS global (ANTES del bundle)
 echo '<script>
 window.MANAGEMENT_CONSOLE_CONFIG = {
     token: ' . json_encode($token) . ',
-    moodleUrl: ' . json_encode($CFG->wwwroot) . ',
+    moodleUrl: ' . json_encode($moodleurl) . ',
     serviceName: "management_console_service",
     basePath: ' . json_encode((new moodle_url('/admin/tool/management_console/index.php'))->out_as_local_url(false)) . ',
-    embedded: true
+    embedded: true,
+    user: ' . json_encode($userinfo) . '
 };
 window.ADMINER_CONFIG = window.MANAGEMENT_CONSOLE_CONFIG;
 </script>';

@@ -56,7 +56,7 @@ export const MoodleApi = {
       const data = await response.json();
       
       if (data && data.exception) {
-        if (data.errorcode === 'invalidtoken' || data.errorcode === 'accessexception') {
+        if (data.errorcode === 'invalidtoken') {
           window.dispatchEvent(new CustomEvent('moodle-auth-error', { detail: data.message }));
         }
         throw new Error(data.message || data.errorcode || 'Error en la llamada al web service');

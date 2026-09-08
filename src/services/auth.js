@@ -10,6 +10,10 @@ export const AuthService = {
   },
   
   getUser() {
+    if (typeof window !== 'undefined') {
+      const configUser = window.MANAGEMENT_CONSOLE_CONFIG?.user || window.ADMINER_CONFIG?.user;
+      if (configUser) return configUser;
+    }
     const userStr = sessionStorage.getItem('adminer_user') || localStorage.getItem('adminer_user');
     return userStr ? JSON.parse(userStr) : null;
   },

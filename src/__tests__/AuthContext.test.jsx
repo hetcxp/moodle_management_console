@@ -217,4 +217,55 @@ describe('AuthContext and AuthProvider', () => {
 
     vi.useRealTimers();
   });
+
+  it('authenticates directly in embedded mode with preinjected user and token without loop', async () => {
+    window.MANAGEMENT_CONSOLE_CONFIG = {
+      embedded: true,
+      token: 'embedded-token-999',
+      user: { username: 'moodleadmin', userid: 2, fullname: 'Admin Moodle' }
+    };
+    vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
+    const validateSpy = vi.spyOn(AuthService, 'validateToken');
+    vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('idle');
+      expect(screen.getByTestId('auth-status').textContent).toBe('authenticated');
+      expect(screen.getByTestId('username').textContent).toBe('moodleadmin');
+      expect(screen.getByTestId('token').textContent).toBe('embedded-token-999');
+    });
+
+    expect(validateSpy).not.toHaveBeenCalled();
+    delete window.MANAGEMENT_CONSOLE_CONFIG;
+  });
+
+  it('uses fallback admin user in embedded mode when validateToken fails', async () => {
+    window.MANAGEMENT_CONSOLE_CONFIG = {
+      embedded: true,
+      token: 'embedded-token-fallback'
+    };
+    vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
+    vi.spyOn(AuthService, 'validateToken').mockRejectedValue(new Error('Webservice error'));
+    vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('idle');
+      expect(screen.getByTestId('auth-status').textContent).toBe('authenticated');
+      expect(screen.getByTestId('username').textContent).toBe('moodle_admin');
+    });
+
+    delete window.MANAGEMENT_CONSOLE_CONFIG;
+  });
 });

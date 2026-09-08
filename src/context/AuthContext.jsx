@@ -62,22 +62,59 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (AuthService.isEmbedded() && typeof window !== 'undefined' && window.ADMINER_CONFIG?.token) {
-      loginWithToken(window.ADMINER_CONFIG.token).then(() => {
-        fetchPermissions().finally(() => setLoading(false));
-      });
-    } else if (token && user) {
-      fetchPermissions().finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  }, [token, user, fetchPermissions]);
+    let isCurrent = true;
+
+    const initAuth = async () => {
+      try {
+        if (AuthService.isEmbedded()) {
+          const configToken = window.MANAGEMENT_CONSOLE_CONFIG?.token || window.ADMINER_CONFIG?.token;
+          const configUser = window.MANAGEMENT_CONSOLE_CONFIG?.user || window.ADMINER_CONFIG?.user;
+
+          if (configToken) {
+            setToken(configToken);
+            let currentUser = configUser || AuthService.getUser();
+            if (!currentUser) {
+              try {
+                currentUser = await AuthService.validateToken(configToken);
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                if (import.meta.env.DEV) console.warn('Could not validate token via webservice, using fallback admin user:', err);
+                currentUser = { username: 'moodle_admin', fullname: 'Administrador Moodle' };
+              }
+            }
+            if (isCurrent) {
+              setUser(currentUser);
+              await fetchPermissions();
+            }
+          }
+        } else {
+          const curToken = AuthService.getToken();
+          const curUser = AuthService.getUser();
+          if (curToken && curUser) {
+            await fetchPermissions();
+          }
+        }
+      } finally {
+        if (isCurrent) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initAuth();
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [fetchPermissions]);
 
   useEffect(() => {
     const handleAuthError = (e) => {
       // eslint-disable-next-line no-console
       if (import.meta.env.DEV) console.warn('Moodle Auth Error:', e.detail);
-      logout();
+      if (!AuthService.isEmbedded()) {
+        logout();
+      }
     };
     window.addEventListener('moodle-auth-error', handleAuthError);
     return () => window.removeEventListener('moodle-auth-error', handleAuthError);
@@ -91,6 +128,7 @@ export const AuthProvider = ({ children }) => {
       const curToken = AuthService.getToken();
       setUser(curUser);
       setToken(curToken);
+      await fetchPermissions();
       return true;
     } finally {
       setLoading(false);
@@ -103,6 +141,7 @@ export const AuthProvider = ({ children }) => {
       const validUser = await AuthService.validateToken(manualToken);
       setUser(validUser);
       setToken(manualToken);
+      await fetchPermissions();
       return true;
     } finally {
       setLoading(false);
