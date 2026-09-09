@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation } from 'wouter';
 import { useCohorts, useCohortsKpis, useCohortAction } from '../hooks/useAdminerQueries';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { AdminerApi } from '../services/adminer-api';
@@ -16,6 +17,7 @@ import { PermissionGate } from '../components/PermissionGate';
 import { KpiGrid } from '../components/KpiGrid';
 
 export const CohortsView = ({ onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
   const { addToast } = useToast();
   
   const hasManageCohorts = usePermission('can_manage_cohorts');
@@ -413,7 +415,7 @@ export const CohortsView = ({ onNavigateToDetail }) => {
           setFilters(newFilters);
           setPage(0);
         }}
-        onRowClick={(row) => onNavigateToDetail?.('cohort', row.id)}
+        onRowClick={(row) => (onNavigateToDetail ? onNavigateToDetail('cohort', row.id) : setLocation(`/cohorts/${row.id}`))}
         selectable={true}
         selectedIds={selectedIds}
         onSelectionChange={setSelectedIds}

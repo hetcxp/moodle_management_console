@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useCoursesState } from './courses/useCoursesState';
 import { CoursesHeader } from './courses/CoursesHeader';
 import { CoursesTable } from './courses/CoursesTable';
@@ -11,6 +12,7 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 
 export const CoursesView = ({ onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
   const state = useCoursesState();
 
   return (
@@ -51,7 +53,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         onPageChange={state.setPage}
         onSortChange={(s, d) => { state.setSort(s); state.setDir(d); state.setPage(0); }}
         onFilterChange={(f) => { state.setFilters(f); state.setPage(0); }}
-        onRowClick={(row) => onNavigateToDetail?.('course', row.id)}
+        onRowClick={(row) => (onNavigateToDetail ? onNavigateToDetail('course', row.id) : setLocation(`/courses/${row.id}`))}
         onViewInMoodle={state.handleViewInMoodle}
         onBulkHide={state.handleBulkHide}
         onBulkShow={state.handleBulkShow}

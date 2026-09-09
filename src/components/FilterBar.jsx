@@ -7,6 +7,7 @@ export const FilterBar = memo(({
   searchValue = '',
   onSearchChange,
   searchPlaceholder = 'Buscar...',
+  totalCount = null,
   filters = [], // array of { id, label, value, options: [{ label, value }], onChange }
   onRefresh,
   loading = false,
@@ -17,6 +18,8 @@ export const FilterBar = memo(({
 }) => {
   const [localSearch, setLocalSearch] = useState(searchValue);
   const timeoutRef = useRef(null);
+
+  const activeFiltersCount = filters.filter((f) => f.value && f.value !== '' && f.value !== 'all').length;
 
   // Sync external search value changes (e.g. clear from outside)
   useEffect(() => {
@@ -52,6 +55,11 @@ export const FilterBar = memo(({
             onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-9 pr-8 h-10 bg-background/80 w-full"
           />
+          {typeof totalCount === 'number' && !loading && (
+            <output aria-live="polite" className="sr-only">
+              {totalCount === 1 ? '1 resultado encontrado' : `${totalCount} resultados encontrados`}
+            </output>
+          )}
           {localSearch && (
             <button
               type="button"
@@ -134,17 +142,27 @@ export const FilterBar = memo(({
           })}
 
           {onRefresh && (
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={onRefresh}
-              disabled={loading}
-              title="Refrescar lista"
-              aria-label="Refrescar datos"
-              className="h-10 w-10 shrink-0 bg-background/80 ml-auto sm:ml-0"
-            >
-              <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} aria-hidden="true" />
-            </Button>
+            <div className="flex items-center gap-2 ml-auto sm:ml-0">
+              {activeFiltersCount > 0 && (
+                <span
+                  aria-label={`${activeFiltersCount} filtro${activeFiltersCount > 1 ? 's' : ''} activo${activeFiltersCount > 1 ? 's' : ''}`}
+                  className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold"
+                >
+                  {activeFiltersCount}
+                </span>
+              )}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onRefresh}
+                disabled={loading}
+                aria-busy={loading}
+                aria-label="Refrescar datos"
+                className="h-10 w-10 shrink-0 bg-background/80"
+              >
+                <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin text-primary' : 'text-muted-foreground'}`} aria-hidden="true" />
+              </Button>
+            </div>
           )}
         </div>
       )}

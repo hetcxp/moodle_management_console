@@ -67,6 +67,7 @@ class cohorts extends external_api {
             'search'  => $search,
             'filters' => $filters,
         ]);
+        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
         list($records, $totalcount) = cohort_repository::get_cohorts_filtered($params);
 
@@ -128,6 +129,18 @@ class cohorts extends external_api {
         ]);
     }
 
+    /**
+     * Perform cohort actions (create, edit, delete).
+     *
+     * @param string $action
+     * @param int $cohortid
+     * @param string $name
+     * @param string $idnumber
+     * @param string $description
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function cohort_action($action, $cohortid = 0, $name = '', $idnumber = '', $description = '') {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');

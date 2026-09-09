@@ -1,8 +1,9 @@
 import React from 'react';
-import { Card, CardHeader, CardContent } from './ui/Card';
+import { Link } from 'wouter';
+import { CardHeader, CardContent } from './ui/Card';
 import { ArrowUpRight } from 'lucide-react';
 
-export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
+export const KpiGrid = ({ items, loading, onNavigate: _onNavigate, columns }) => {
   const getGridColsClass = () => {
     if (columns === 3 || items.length === 3) {
       return 'grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6';
@@ -18,9 +19,9 @@ export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
       {items.map((item) => {
         const Icon = item.icon;
         return (
-          <Card
+          <article
             key={item.title}
-            className={`relative overflow-hidden group hover:border-primary/50 transition-colors flex flex-col justify-between ${item.onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
+            className={`rounded-2xl border border-border bg-card text-card-foreground shadow-sm relative overflow-hidden group hover:border-primary/50 transition-colors flex flex-col justify-between ${item.onClick ? 'cursor-pointer hover:shadow-md' : ''}`}
             onClick={item.onClick}
           >
             <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${item.color || 'from-primary to-primary/50'}`} />
@@ -30,7 +31,7 @@ export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
                   {item.title}
                 </span>
                 <div className={`p-2.5 rounded-xl ${item.badgeColor || 'bg-muted text-muted-foreground'}`}>
-                  {Icon && <Icon className="h-5 w-5" />}
+                  {Icon && <Icon className="h-5 w-5" aria-hidden="true" />}
                 </div>
               </CardHeader>
 
@@ -40,7 +41,14 @@ export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
                 </div>
 
                 {!loading && typeof item.progress === 'number' && (
-                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                  <div
+                    role="progressbar"
+                    aria-valuenow={Math.round(item.progress)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`Progreso de ${item.title}: ${Math.round(item.progress)}%`}
+                    className="h-1.5 w-full bg-muted rounded-full overflow-hidden"
+                  >
                     <div
                       className={`h-full bg-gradient-to-r ${item.color || 'from-primary to-primary/50'}`}
                       style={{ width: `${item.progress}%` }}
@@ -55,7 +63,7 @@ export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
                       return (
                         <div key={dIdx} className="flex items-center justify-between">
                           <span className="text-muted-foreground flex items-center gap-1.5">
-                            {DetailIcon && <DetailIcon className="h-3.5 w-3.5 opacity-70" />}
+                            {DetailIcon && <DetailIcon className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />}
                             {d.label}
                           </span>
                           <span className={`font-semibold ${d.textClass || ''}`}>
@@ -71,36 +79,19 @@ export const KpiGrid = ({ items, loading, onNavigate, columns }) => {
                   </div>
                 )}
 
-                {item.actionLabel && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (item.onClick) item.onClick();
-                    }}
+                {(item.tab || item.actionLabel) && (
+                  <Link
+                    href={item.tab ? `/${item.tab}` : undefined}
+                    onClick={item.tab ? undefined : item.onClick}
                     className="flex items-center justify-between w-full pt-1 text-xs font-semibold text-primary hover:underline group/link"
                   >
-                    <span>{item.actionLabel}</span>
-                    <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
-                  </button>
-                )}
-
-                {item.tab && onNavigate && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onNavigate(item.tab);
-                    }}
-                    className="flex items-center justify-between w-full pt-1 text-xs font-semibold text-primary hover:underline group/link"
-                  >
-                    <span>Ver listado detallado</span>
-                    <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" />
-                  </button>
+                    <span>{item.actionLabel || 'Ver listado detallado'}</span>
+                    <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5" aria-hidden="true" />
+                  </Link>
                 )}
               </CardContent>
             </div>
-          </Card>
+          </article>
         );
       })}
     </div>

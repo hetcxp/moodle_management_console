@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useCategoriesFlat, useCategoryAction } from '../hooks/useAdminerQueries';
 import { useBulkSelection } from '../hooks/useBulkSelection';
 import { AdminerApi } from '../services/adminer-api';
@@ -17,6 +18,7 @@ import { Eye, EyeOff, Trash2, Edit, Plus, FolderTree, BookOpen } from 'lucide-re
 import { exportToCsv } from '../components/CsvExporter';
 
 export const CategoriesView = ({ onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
   const { addToast } = useToast();
   const hasManageCategory = usePermission('can_manage_categories');
 
@@ -432,7 +434,7 @@ export const CategoriesView = ({ onNavigateToDetail }) => {
         page={page}
         perPage={perPage}
         onPageChange={setPage}
-        onRowClick={(row) => onNavigateToDetail?.('category', row.id)}
+        onRowClick={(row) => (onNavigateToDetail ? onNavigateToDetail('category', row.id) : setLocation(`/categories/${row.id}`))}
         sort={sort}
         dir={dir}
         onSortChange={(newSort, newDir) => { setSort(newSort); setDir(newDir); }}

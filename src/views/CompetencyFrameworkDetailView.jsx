@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useFrameworkDetailState } from './competencies/useFrameworkDetailState';
 import { FrameworkDetailHeader } from './competencies/FrameworkDetailHeader';
 import { CompetenciesTree } from './competencies/CompetenciesTree';
@@ -9,7 +10,20 @@ import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 
 export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateToDetail }) => {
-  const state = useFrameworkDetailState({ frameworkId, onNavigateToDetail });
+  const [, setLocation] = useLocation();
+  const handleBack = onBack || (() => setLocation('/competencies'));
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    if (entity === 'competency') {
+      if (typeof id === 'object' && id.frameworkId && id.competencyId) {
+        setLocation(`/competencies/${id.frameworkId}/competency/${id.competencyId}`);
+      } else {
+        setLocation(`/competencies/${id}`);
+      }
+    } else {
+      setLocation(`/${entity}s/${id}`);
+    }
+  });
+  const state = useFrameworkDetailState({ frameworkId, onNavigateToDetail: handleNavigateToDetail });
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -21,7 +35,7 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
           state.setSearch(val);
           state.setPage(0);
         }}
-        onBack={onBack}
+        onBack={handleBack}
         hasManageCompetencies={state.hasManageCompetencies}
         onToggleVisibility={state.handleToggleVisibility}
         onOpenFrameworkReviews={state.handleOpenFrameworkReviews}
@@ -190,7 +204,8 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
         open={state.coursesModalOpen}
         onClose={() => state.setCoursesModalOpen(false)}
         competency={state.selectedCompetencyForCourses}
-        onNavigateToDetail={onNavigateToDetail}
+        frameworkId={frameworkId}
+        onNavigateToDetail={handleNavigateToDetail}
       />
 
       {/* Modal: Revisiones Pendientes */}

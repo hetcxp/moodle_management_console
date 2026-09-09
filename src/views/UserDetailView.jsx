@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useUserDetail, useUserCohortAction, useUserCourseAction, useUserAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
@@ -16,6 +17,19 @@ import { UserCohortsTab } from './users/UserCohortsTab';
 import { UserCompetenciesTab } from './users/UserCompetenciesTab';
 
 export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel }) => {
+  const [, setLocation] = useLocation();
+  const fallbackBack = React.useCallback(() => setLocation('/users'), [setLocation]);
+  const handleBack = onBack || fallbackBack;
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    if (entity === 'course') {
+      setLocation(`/courses/${id}`);
+    } else if (entity === 'cohort') {
+      setLocation(`/cohorts/${id}`);
+    } else {
+      setLocation(`/${entity}s/${id}`);
+    }
+  });
+
   const { addToast } = useToast();
   
   const { data, isLoading: loading, error } = useUserDetail(userId);
@@ -35,9 +49,9 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   useEffect(() => {
     if (error) {
       addToast({ type: 'error', title: 'Error cargando usuario', description: error.message });
-      onBack();
+      handleBack();
     }
-  }, [error, addToast, onBack]);
+  }, [error, addToast, handleBack]);
 
   const systemRoles = React.useMemo(() => {
     if (Array.isArray(data?.system_roles) && data.system_roles.length > 0) {
@@ -183,7 +197,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
         {/* Breadcrumb */}
         <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
           <button 
-            onClick={onBack} 
+            onClick={handleBack} 
             className="flex items-center hover:text-foreground transition-colors"
           >
             <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
@@ -350,7 +364,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           handleUnenrollCourse={handleUnenrollCourse}
           handleBulkUnenrollCourses={handleBulkUnenrollCourses}
           handleUserCourseAction={handleUserCourseAction}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 

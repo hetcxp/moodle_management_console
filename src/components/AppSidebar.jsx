@@ -1,9 +1,10 @@
 import React from 'react';
 import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Award, Shield, Sparkles, DownloadCloud } from 'lucide-react';
+import { Link } from 'wouter';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 
-export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
+export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose }) => {
   const { permissions } = useAuth();
 
   const navigationItems = [
@@ -55,13 +56,19 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
     <>
       {/* Mobile backdrop */}
       {open && (
-        <div
-          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden"
+        <button
+          type="button"
+          aria-label="Cerrar menú"
+          className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm lg:hidden w-full cursor-default"
           onClick={onClose}
         />
       )}
 
       <aside
+        id="sidebar"
+        role={open ? 'dialog' : undefined}
+        aria-modal={open ? 'true' : undefined}
+        aria-label={open ? 'Menú de navegación' : undefined}
         className={cn(
           'fixed top-0 bottom-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-sidebar text-sidebar-foreground transition-transform duration-200 ease-in-out lg:translate-x-0 lg:static',
           open ? 'translate-x-0' : '-translate-x-full'
@@ -79,24 +86,37 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
         </div>
 
         {/* Navigation list */}
-        <nav className="flex-1 space-y-1.5 p-4 overflow-y-auto">
+        <nav aria-label="Navegación principal" className="flex-1 space-y-1.5 p-4 overflow-y-auto">
           <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50">
             Administración
           </div>
 
-          {navigationItems
-            .filter((item) => permissions?.is_siteadmin === 1 || permissions?.[item.capability] === 1)
-            .map((item) => {
+          {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
+            const hasPermission = permissions?.is_siteadmin === 1 || permissions?.[item.capability] === 1;
+
+            if (!hasPermission) {
+              return (
+                <span
+                  key={item.id}
+                  aria-disabled="true"
+                  title={`Sin permiso: ${item.capability}`}
+                  className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium opacity-40 cursor-not-allowed text-sidebar-foreground/50"
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <span>{item.label}</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wide">Sin acceso</span>
+                </span>
+              );
+            }
 
             return (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => {
-                  onTabChange(item.id);
-                  onClose?.();
-                }}
+                href={item.id === 'dashboard' ? '/' : `/${item.id}`}
+                aria-current={isActive ? 'page' : undefined}
+                onClick={() => onClose?.()}
                 className={cn(
                   'flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-all duration-150 group',
                   isActive
@@ -109,9 +129,10 @@ export const AppSidebar = ({ activeTab, onTabChange, open, onClose }) => {
                     'h-4 w-4 transition-transform group-hover:scale-110',
                     isActive ? 'text-primary-foreground' : 'text-sidebar-foreground/60'
                   )}
+                  aria-hidden="true"
                 />
                 <span>{item.label}</span>
-              </button>
+              </Link>
             );
           })}
         </nav>

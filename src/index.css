@@ -118,3 +118,16 @@
 .dark .glass-panel {
   background: rgba(15, 23, 42, 0.85);
 }
+
+/* Native dialog styles */
+dialog {
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-height: 90vh;
+  max-width: 90vw;
+}
+dialog::backdrop {
+  background: transparent; /* Manejado por Tailwind backdrop: */
+}
+

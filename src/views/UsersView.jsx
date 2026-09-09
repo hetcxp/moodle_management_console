@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useUsersState } from './users/useUsersState';
 import { UsersHeader } from './users/UsersHeader';
 import { UsersTable } from './users/UsersTable';
@@ -8,6 +9,7 @@ import { UserExportModal } from './users/UserExportModal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 export const UsersView = ({ onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
   const state = useUsersState();
 
   return (
@@ -49,7 +51,7 @@ export const UsersView = ({ onNavigateToDetail }) => {
           state.setFilters(newFilters);
           state.setPage(0);
         }}
-        onRowClick={(row) => onNavigateToDetail?.('user', row.id)}
+        onRowClick={(row) => (onNavigateToDetail ? onNavigateToDetail('user', row.id) : setLocation(`/users/${row.id}`))}
         onBulkSuspend={state.handleBulkSuspend}
         onBulkActivate={state.handleBulkActivate}
         onOpenDelete={state.handleOpenDelete}

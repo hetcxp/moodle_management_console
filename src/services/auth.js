@@ -118,6 +118,23 @@ export const AuthService = {
   },
 
   logout() {
+    if (!this.isEmbedded()) {
+      try {
+        const token = this.getToken();
+        const moodleUrl = API_CONFIG.baseUrl || localStorage.getItem('moodle_url');
+        if (token && moodleUrl) {
+          const invalidateUrl = new URL(moodleUrl + API_CONFIG.endpoints.rest, window.location.origin);
+          invalidateUrl.searchParams.append('wstoken', token);
+          invalidateUrl.searchParams.append('wsfunction', 'core_auth_invalidate_tokens');
+          invalidateUrl.searchParams.append('moodlewsrestformat', 'json');
+
+          fetch(invalidateUrl.toString(), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+          }).catch(() => {});
+        }
+      } catch { /* silent fallback */ }
+    }
     sessionStorage.removeItem('adminer_token');
     sessionStorage.removeItem('adminer_user');
     sessionStorage.removeItem('adminer_token_date');

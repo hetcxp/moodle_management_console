@@ -73,6 +73,7 @@ class courses extends external_api {
             'visibility' => $visibility,
             'filters'    => $filters,
         ]);
+        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
         list($records, $totalcount, $kpis) = course_repository::get_courses_filtered($params);
 
@@ -158,6 +159,22 @@ class courses extends external_api {
         ]);
     }
 
+    /**
+     * Execute course mutation actions (create, update, delete, etc.).
+     *
+     * @param string $action
+     * @param array $courseids
+     * @param int $categoryid
+     * @param string $fullname
+     * @param string $shortname
+     * @param string $summary
+     * @param int $visible
+     * @param int $startdate
+     * @param int $enddate
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function course_action($action, $courseids = [], $categoryid = 0, $fullname = '', $shortname = '', $summary = '', $visible = 1, $startdate = 0, $enddate = 0) {
         global $DB, $CFG;
 
@@ -541,6 +558,21 @@ class courses extends external_api {
         ]);
     }
 
+    /**
+     * Perform cohort actions on a course (add, remove, suspend, etc.).
+     *
+     * @param string $action
+     * @param int $courseid
+     * @param array $cohortids
+     * @param int $groupid
+     * @param string $newgroupname
+     * @param int $timeend
+     * @param string $message_text
+     * @param int $roleid
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function course_cohort_action($action, $courseid, $cohortids, $groupid = 0, $newgroupname = '', $timeend = 0, $message_text = '', $roleid = 0) {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
@@ -727,6 +759,19 @@ class courses extends external_api {
         ]);
     }
 
+    /**
+     * Perform user actions within a course (enrol, suspend, group assignment, etc.).
+     *
+     * @param string $action
+     * @param int $courseid
+     * @param array $userids
+     * @param int $timeend
+     * @param int $groupid
+     * @param string $newgroupname
+     * @param string $message_text
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
     public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
         global $DB, $CFG;
         require_once($CFG->dirroot.'/group/lib.php');
@@ -1001,6 +1046,14 @@ class courses extends external_api {
         ]);
     }
 
+    /**
+     * Bulk upload courses via base64 encoded CSV string.
+     *
+     * @param string $fileContent
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function upload_courses_csv($fileContent) {
         global $CFG;
         require_once($CFG->dirroot . '/course/lib.php');

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import {
   useCompetencyDetail,
   useCompetencyCourses,
@@ -27,6 +28,24 @@ import {
 import { COMPETENCY_RULE_ALL_CHILDREN } from './competencies/competencyConstants';
 
 export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
+  const handleBack = onBack || (() => setLocation(`/competencies/${frameworkId}`));
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    if (entity === 'course') {
+      setLocation(`/courses/${id}`);
+    } else if (entity === 'user') {
+      setLocation(`/users/${id}`);
+    } else if (entity === 'competency') {
+      if (typeof id === 'object' && id.frameworkId && id.competencyId) {
+        setLocation(`/competencies/${id.frameworkId}/competency/${id.competencyId}`);
+      } else {
+        setLocation(`/competencies/${id}`);
+      }
+    } else {
+      setLocation(`/${entity}s/${id}`);
+    }
+  });
+
   const compIdNum = Number(competencyId);
   const frameIdNum = Number(frameworkId);
   const { permissions } = useAuth();
@@ -155,8 +174,8 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
         totalActivitiesCount={totalActivitiesCount}
         completeRuleCoursesCount={completeRuleCoursesCount}
         subcompetenciesCount={competency?.childrencount || subcompetencies.length}
-        onBack={onBack}
-        onNavigateToDetail={onNavigateToDetail}
+        onBack={handleBack}
+        onNavigateToDetail={handleNavigateToDetail}
         onOpenReviews={() => handleOpenReviews(null)}
       />
 
@@ -270,7 +289,7 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
           subcompetencies={subcompetencies}
           frameworkId={frameIdNum}
           hasManagePermission={hasManageCompetencies}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
           onRefetchParent={refetchCompetency}
           isCreateModalOpen={createSubcompModalOpen}
           onCloseCreateModal={() => setCreateSubcompModalOpen(false)}
@@ -302,7 +321,7 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
           handleUpdateModuleRule={handleUpdateModuleRule}
           setUnlinkActivityTarget={setUnlinkActivityTarget}
           setSelectorOpen={setSelectorOpen}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
           frameIdNum={frameIdNum}
         />
       )}
@@ -313,7 +332,7 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
           competencyId={compIdNum}
           competencyName={competency?.shortname || ''}
           courses={courses}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
           onOpenReviews={handleOpenReviews}
           pendingReviewsCount={pendingReviewsCount}
         />

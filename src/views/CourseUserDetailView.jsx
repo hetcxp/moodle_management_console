@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useCourseUserDetail, useCourseUserAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
@@ -10,6 +11,9 @@ import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mai
 import { PermissionGate } from '../components/PermissionGate';
 
 export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) => {
+  const [, setLocation] = useLocation();
+  const fallbackBack = React.useCallback(() => setLocation(`/courses/${courseId}`), [setLocation, courseId]);
+  const handleBack = onBack || fallbackBack;
   const { addToast } = useToast();
   
   const { data, isLoading: loading, error } = useCourseUserDetail(courseId, userId);
@@ -29,9 +33,9 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
   useEffect(() => {
     if (error) {
       addToast({ type: 'error', title: 'Error cargando detalle', description: error.message });
-      onBack();
+      handleBack();
     }
-  }, [error, addToast, onBack]);
+  }, [error, addToast, handleBack]);
 
   const handleAction = async (action, options = {}) => {
     try {
@@ -62,7 +66,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
       
       if (action === 'remove') {
         addToast({ type: 'success', title: 'Usuario desmatriculado exitosamente' });
-        onBack();
+        handleBack();
         return;
       }
 
@@ -170,7 +174,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
       <div className="border-b border-border/70 pb-6">
         <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
           <button 
-            onClick={onBack} 
+            onClick={handleBack} 
             className="flex items-center hover:text-foreground transition-colors"
           >
             <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}

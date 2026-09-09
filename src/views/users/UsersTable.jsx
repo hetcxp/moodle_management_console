@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'wouter';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -27,7 +28,13 @@ export function UsersTable({
           </div>
           <div>
             <div className="font-semibold text-foreground flex items-center gap-1.5">
-              {row.fullname}
+              <Link 
+                href={`/users/${row.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="hover:underline hover:text-primary transition-colors focus-visible:outline-none focus-visible:underline"
+              >
+                {row.fullname}
+              </Link>
               {row.is_admin === 1 && <span className="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded">Admin</span>}
             </div>
             <div className="text-xs text-muted-foreground flex items-center gap-1">

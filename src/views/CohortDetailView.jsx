@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useCohortDetail, useCohortAction, useUserCohortAction, useCourseCohortAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
@@ -13,6 +14,19 @@ import { CohortCoursesTab } from './cohorts/CohortCoursesTab';
 import { runWithConcurrency } from '../lib/concurrency';
 
 export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentLabel }) => {
+  const [, setLocation] = useLocation();
+  const fallbackBack = React.useCallback(() => setLocation('/cohorts'), [setLocation]);
+  const handleBack = onBack || fallbackBack;
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    if (entity === 'user') {
+      setLocation(`/users/${id}`);
+    } else if (entity === 'course') {
+      setLocation(`/courses/${id}`);
+    } else {
+      setLocation(`/${entity}s/${id}`);
+    }
+  });
+
   const { addToast } = useToast();
   
   const { data, isLoading: loading, error } = useCohortDetail(cohortId);
@@ -34,9 +48,9 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
   useEffect(() => {
     if (error) {
       addToast({ type: 'error', title: 'Error cargando cohorte', description: error.message });
-      onBack();
+      handleBack();
     }
-  }, [error, addToast, onBack]);
+  }, [error, addToast, handleBack]);
 
   const handleLink = async (selectedIds) => {
     try {
@@ -145,7 +159,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
         {/* Breadcrumb */}
         <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
           <button 
-            onClick={onBack} 
+            onClick={handleBack} 
             className="flex items-center hover:text-foreground transition-colors"
           >
             <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
@@ -258,7 +272,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
           setSelectorType={setSelectorType}
           handleUnlinkUser={handleUnlinkUser}
           handleBulkUnlinkUsers={handleBulkUnlinkUsers}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 
@@ -270,7 +284,7 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
           setSelectorType={setSelectorType}
           handleUnlinkCourse={handleUnlinkCourse}
           handleBulkUnlinkCourses={handleBulkUnlinkCourses}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 

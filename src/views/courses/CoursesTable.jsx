@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'wouter';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -20,7 +21,13 @@ export function CoursesTable({
       className: 'font-medium',
       cell: (row) => (
         <div className="space-y-1">
-          <div className="font-semibold text-foreground hover:text-primary transition-colors">{row.fullname}</div>
+          <Link 
+            href={`/courses/${row.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-semibold text-foreground hover:text-primary transition-colors hover:underline focus-visible:outline-none focus-visible:underline block"
+          >
+            {row.fullname}
+          </Link>
           <div className="flex items-center gap-2">
             <Badge variant={row.visible === 1 ? 'success' : 'warning'}>
               {row.visible === 1 ? 'Visible' : 'Oculto'}

@@ -144,7 +144,8 @@ export const DataTable = memo(({
             </div>
           )}
 
-          <table className="w-full text-left text-sm border-collapse">
+          <table className="w-full text-left text-sm border-collapse" aria-busy={loading}>
+            <caption className="sr-only">Tabla de datos, mostrando {processedData.length} de {displayTotalCount} registros</caption>
             <thead>
               <tr className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                 {selectable && (
@@ -153,6 +154,7 @@ export const DataTable = memo(({
                       id="select-all-header"
                       checked={isAllSelected}
                       onChange={(e) => handleSelectAll(e.target.checked)}
+                      aria-label="Seleccionar todas las filas"
                       className={isSomeSelected ? 'bg-primary/50' : ''}
                     />
                   </th>
@@ -168,6 +170,7 @@ export const DataTable = memo(({
                   return (
                     <th
                       key={idx}
+                      aria-sort={isSortable ? (isCurrentSort ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none') : undefined}
                       className={cn(
                         'px-4 py-3.5 select-none relative',
                         isSortable && 'hover:bg-muted/70 hover:text-foreground',
@@ -270,9 +273,25 @@ export const DataTable = memo(({
                     colSpan={columns.length + (selectable ? 1 : 0)}
                     className="py-16 text-center text-muted-foreground"
                   >
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Inbox className="h-10 w-10 stroke-[1.2] text-muted-foreground opacity-60" />
-                      <p className="text-sm font-medium">{emptyMessage}</p>
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Inbox className="h-10 w-10 stroke-[1.2] text-muted-foreground opacity-60" aria-hidden="true" />
+                      {Object.keys(localFilters).length > 0 ? (
+                        <>
+                          <p className="text-sm font-medium text-muted-foreground">Sin resultados para los filtros aplicados</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLocalFilters({});
+                              if (onFilterChange) onFilterChange({});
+                            }}
+                            className="text-xs text-primary hover:underline font-medium"
+                          >
+                            Limpiar filtros
+                          </button>
+                        </>
+                      ) : (
+                        <p className="text-sm font-medium text-muted-foreground">{emptyMessage}</p>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -285,7 +304,7 @@ export const DataTable = memo(({
                     <tr
                       key={rowId || index}
                       onClick={(e) => {
-                        if (onRowClick && !e.target.closest('td:first-child > button, td:first-child > input, td:last-child > button')) {
+                        if (onRowClick && !e.target.closest('a, button, input, select, textarea, [role="button"]')) {
                           onRowClick(row);
                         }
                       }}
@@ -304,6 +323,7 @@ export const DataTable = memo(({
                             id={`select-${rowId}`}
                             checked={isSelected}
                             onChange={(e) => handleSelectRow(rowId, e.target.checked)}
+                            aria-label={`Seleccionar fila ${rowId}`}
                           />
                         </td>
                       )}

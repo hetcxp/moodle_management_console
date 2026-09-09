@@ -118,6 +118,7 @@ class users extends external_api {
             'search'  => $search,
             'filters' => $filters,
         ]);
+        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
         list($records, $totalcount) = user_repository::get_users_filtered($params);
 
@@ -191,6 +192,16 @@ class users extends external_api {
         ]);
     }
 
+    /**
+     * Perform user actions (suspend, activate, delete, etc.).
+     *
+     * @param string $action
+     * @param array $userids
+     * @param string $message_text
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function user_action($action, $userids = [], $message_text = '') {
         global $DB, $CFG;
 
@@ -515,6 +526,16 @@ class users extends external_api {
         ]);
     }
 
+    /**
+     * Assign or remove user from cohorts.
+     *
+     * @param string $action
+     * @param int $userid
+     * @param array $cohortids
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function user_cohort_action($action, $userid, $cohortids) {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');
@@ -580,6 +601,19 @@ class users extends external_api {
         ]);
     }
 
+    /**
+     * Create a new Moodle user.
+     *
+     * @param string $username
+     * @param string $password
+     * @param string $firstname
+     * @param string $lastname
+     * @param string $email
+     * @param int $createpassword
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function add_user($username, $password = '', $firstname = '', $lastname = '', $email = '', $createpassword = 0) {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/user/lib.php');
@@ -643,6 +677,14 @@ class users extends external_api {
         ]);
     }
 
+    /**
+     * Bulk upload users from a base64 encoded CSV string.
+     *
+     * @param string $fileContent
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function upload_users_csv($fileContent) {
         global $CFG;
         require_once($CFG->dirroot . '/user/lib.php');
@@ -734,6 +776,18 @@ class users extends external_api {
         ]);
     }
 
+    /**
+     * Manage user course enrolments and status.
+     *
+     * @param string $action
+     * @param int $userid
+     * @param array $courseids
+     * @param int $timestart
+     * @param int $timeend
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function user_course_action($action, $userid, $courseids, $timestart = 0, $timeend = 0) {
         global $DB;
         $context = context_system::instance();

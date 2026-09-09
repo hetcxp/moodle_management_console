@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useCourseDetail, useCourseCohortAction, useCourseUserAction, useCourseAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
@@ -14,6 +15,21 @@ import { CourseCohortsTab } from './courses/CourseCohortsTab';
 import { CourseCompetenciesTab } from './courses/CourseCompetenciesTab';
 
 export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentLabel }) => {
+  const [, setLocation] = useLocation();
+  const fallbackBack = React.useCallback(() => setLocation('/courses'), [setLocation]);
+  const handleBack = onBack || fallbackBack;
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    if (entity === 'course_user') {
+      setLocation(`/courses/${id.courseId}/users/${id.userId}`);
+    } else if (entity === 'user') {
+      setLocation(`/users/${id}`);
+    } else if (entity === 'cohort') {
+      setLocation(`/cohorts/${id}`);
+    } else {
+      setLocation(`/${entity}s/${id}`);
+    }
+  });
+
   const { addToast } = useToast();
   
   const { data, isLoading: loading, error } = useCourseDetail(courseId);
@@ -24,9 +40,9 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
   useEffect(() => {
     if (error) {
       addToast({ type: 'error', title: 'Error cargando curso', description: error.message });
-      onBack();
+      handleBack();
     }
-  }, [error, addToast, onBack]);
+  }, [error, addToast, handleBack]);
 
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'cohorts' | 'competencies'
   const [selectorOpen, setSelectorOpen] = useState(false);
@@ -146,7 +162,7 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
           {/* Breadcrumb */}
           <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
             <button 
-              onClick={onBack} 
+              onClick={handleBack} 
               className="flex items-center hover:text-foreground transition-colors"
             >
               <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
@@ -238,14 +254,13 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
           users={data.users}
           coursegroups={data.coursegroups}
           handleUserAction={handleUserAction}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
           onOpenSelector={() => { setSelectorType('users'); setSelectorOpen(true); }}
         />
       )}
 
       {activeTab === 'cohorts' && (
         <CourseCohortsTab
-          cohorts={data.cohorts}
           users={data.users}
           coursegroups={data.coursegroups}
           handleCohortAction={handleCohortAction}

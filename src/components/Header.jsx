@@ -5,7 +5,7 @@ import { AuthService } from '../services/auth';
 import { LogOut, User, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { Button } from './ui/Button';
 
-export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
+export const Header = ({ onToggleDark, isDark, onToggleSidebar, sidebarOpen }) => {
   const { user, logout, permissions } = useAuth();
   const tenant = getTenantConfig();
 
@@ -14,9 +14,12 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
       <div className="flex items-center gap-3">
         <button
           onClick={onToggleSidebar}
+          aria-label="Abrir menú de navegación"
+          aria-expanded={Boolean(sidebarOpen)}
+          aria-controls="sidebar"
           className="lg:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted"
         >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="h-6 w-6" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </button>
@@ -37,10 +40,10 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
           variant="ghost"
           size="icon"
           onClick={onToggleDark}
-          title={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
+          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
         >
-          {isDark ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
+          {isDark ? <Sun className="h-4 w-4 text-amber-400" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
         </Button>
 
         {/* User profile capsule */}
@@ -50,7 +53,7 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
               <div className="text-sm font-semibold text-foreground leading-tight flex items-center gap-1.5 justify-end">
                 {user.fullname || user.username}
                 {permissions?.is_siteadmin === 1 && (
-                  <ShieldCheck className="h-3.5 w-3.5 text-primary" title="Administrador del Sitio" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-label="Administrador del Sitio" />
                 )}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -59,7 +62,7 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
             </div>
 
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-sm ring-2 ring-primary/20">
-              {user.fullname ? user.fullname.charAt(0).toUpperCase() : <User className="h-4 w-4" />}
+              {user.fullname ? user.fullname.charAt(0).toUpperCase() : <User className="h-4 w-4" aria-hidden="true" />}
             </div>
 
             {!AuthService.isEmbedded() && (
@@ -67,10 +70,10 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar }) => {
                 variant="ghost"
                 size="icon"
                 onClick={logout}
-                title="Cerrar sesión"
+                aria-label="Cerrar sesión"
                 className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full"
               >
-                <LogOut className="h-4 w-4" />
+                <LogOut className="h-4 w-4" aria-hidden="true" />
               </Button>
             )}
           </div>

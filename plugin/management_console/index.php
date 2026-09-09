@@ -55,7 +55,16 @@ $PAGE->set_title(get_string('pluginname', 'tool_management_console'));
 global $DB, $USER, $CFG, $OUTPUT;
 require_once($CFG->libdir . '/externallib.php');
 
-$service = $DB->get_record('external_services', ['shortname' => 'management_console_service'], '*', MUST_EXIST);
+$service = $DB->get_record('external_services', ['shortname' => 'management_console_service']);
+if (!$service) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=utf-8');
+    die('<html lang="es"><body style="font-family:sans-serif;padding:2rem;max-width:600px;margin:auto">
+        <h1>Servicio no disponible</h1>
+        <p>El servicio web <code>management_console_service</code> no está habilitado en Moodle.</p>
+        <p>Ve a <strong>Administración → Servidor → Servicios web → Servicios externos</strong> y activa el servicio.</p>
+    </body></html>');
+}
 // Buscar token existente o crear uno nuevo
 $token = external_generate_token(
     EXTERNAL_TOKEN_PERMANENT,
@@ -63,6 +72,23 @@ $token = external_generate_token(
     $USER->id,
     $context
 );
+
+// Registrar evento de log de acceso
+try {
+    if (class_exists('\core\event\user_loggedin')) {
+        $logevent = \core\event\user_loggedin::create([
+            'userid' => $USER->id,
+            'context' => $context,
+            'other' => [
+                'username' => $USER->username,
+                'tool' => 'tool_management_console'
+            ]
+        ]);
+        $logevent->trigger();
+    }
+} catch (\Exception $e) {
+    // Fallback silencioso para evitar interrupciones de sesión existente
+}
 
 // 4. Escanear directorio app/assets/ para encontrar los archivos compilados
 $appdir = __DIR__ . '/app/assets';
@@ -80,6 +106,8 @@ if (is_dir($appdir)) {
 }
 
 // 5. Render: We skip $OUTPUT->header() to avoid Moodle's CSS interfering with the SPA's Tailwind CSS.
+$nonce = base64_encode(random_bytes(16));
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'nonce-{$nonce}' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:;");
 header('Content-Type: text/html; charset=utf-8');
 
 echo '<!DOCTYPE html>
@@ -108,17 +136,17 @@ if (is_https() && str_starts_with($moodleurl, 'http://')) {
 }
 
 // Inyectar config JS global (ANTES del bundle)
-echo '<script>
-window.MANAGEMENT_CONSOLE_CONFIG = {
-    token: ' . json_encode($token) . ',
-    moodleUrl: ' . json_encode($moodleurl) . ',
-    serviceName: "management_console_service",
-    basePath: ' . json_encode((new moodle_url('/admin/tool/management_console/index.php'))->out_as_local_url(false)) . ',
-    embedded: true,
-    user: ' . json_encode($userinfo) . '
-};
-window.ADMINER_CONFIG = window.MANAGEMENT_CONSOLE_CONFIG;
-</script>';
+echo "<script nonce=\"{$nonce}\">\n";
+echo "window.MANAGEMENT_CONSOLE_CONFIG = {\n";
+echo "    token: " . json_encode($token) . ",\n";
+echo "    moodleUrl: " . json_encode($moodleurl) . ",\n";
+echo "    serviceName: \"management_console_service\",\n";
+echo "    basePath: " . json_encode((new moodle_url('/admin/tool/management_console/index.php'))->out_as_local_url(false)) . ",\n";
+echo "    embedded: true,\n";
+echo "    user: " . json_encode($userinfo) . "\n";
+echo "};\n";
+echo "window.ADMINER_CONFIG = window.MANAGEMENT_CONSOLE_CONFIG;\n";
+echo "</script>";
 
 // Google Fonts
 echo '<link rel="preconnect" href="https://fonts.googleapis.com">';
@@ -137,6 +165,11 @@ if (is_dir($appdir)) {
 
 echo '</head>
 <body>
+    <noscript>
+      <div style="font-family:sans-serif;padding:2rem;text-align:center">
+        <p>Esta aplicación requiere JavaScript. Por favor habilítalo en tu navegador.</p>
+      </div>
+    </noscript>
     <div id="root"></div>';
 
 // Bundle JS principal

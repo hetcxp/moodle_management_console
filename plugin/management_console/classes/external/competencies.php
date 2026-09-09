@@ -148,6 +148,7 @@ class competencies extends external_api {
             'search'  => $search,
             'filters' => $filters,
         ]);
+        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
         $decoded_filters = json_decode($params['filters'], true);
         if (!is_array($decoded_filters)) {
@@ -201,6 +202,20 @@ class competencies extends external_api {
         ]);
     }
 
+    /**
+     * Perform competency framework mutation actions (create, edit, delete).
+     *
+     * @param string $action
+     * @param int $frameworkid
+     * @param string $shortname
+     * @param string $idnumber
+     * @param string $description
+     * @param int $scaleid
+     * @param int $visible
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function competency_framework_action($action, $frameworkid = 0, $shortname = '', $idnumber = '', $description = '', $scaleid = 0, $visible = 1) {
         global $DB, $USER;
 
@@ -487,6 +502,23 @@ class competencies extends external_api {
         ]);
     }
 
+    /**
+     * Perform competency item mutation actions (create, edit, delete, move).
+     *
+     * @param string $action
+     * @param int $competencyid
+     * @param int $frameworkid
+     * @param int $parentid
+     * @param string $shortname
+     * @param string $idnumber
+     * @param string $description
+     * @param string $ruletype
+     * @param int $ruleoutcome
+     * @param string $ruleconfig
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $parentid = 0, $shortname = '', $idnumber = '', $description = '', $ruletype = '', $ruleoutcome = 1, $ruleconfig = '') {
         global $DB, $USER;
 
@@ -912,6 +944,17 @@ class competencies extends external_api {
         ]);
     }
 
+    /**
+     * Perform competency-course link actions (add, remove).
+     *
+     * @param string $action
+     * @param int $competencyid
+     * @param array $courseids
+     * @param int $ruleoutcome
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function competency_course_action($action, $competencyid, $courseids, $ruleoutcome = 1) {
         global $DB, $USER;
 
@@ -1123,6 +1166,17 @@ class competencies extends external_api {
         ]);
     }
 
+    /**
+     * Perform module-competency link actions (add, remove, update_rule).
+     *
+     * @param string $action
+     * @param int $competencyid
+     * @param int $cmid
+     * @param int $ruleoutcome
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function module_competency_action($action, $competencyid, $cmid, $ruleoutcome = 1) {
         global $DB, $USER;
 
@@ -1344,6 +1398,18 @@ class competencies extends external_api {
         ]);
     }
 
+    /**
+     * Perform competency review assessment action.
+     *
+     * @param string $action
+     * @param int $usercompid
+     * @param int $grade
+     * @param int $proficiency
+     * @param string $note
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function competency_review_action($action, $usercompid, $grade = 1, $proficiency = 1, $note = '') {
         global $USER;
         $context = context_system::instance();
@@ -1410,6 +1476,7 @@ class competencies extends external_api {
             'sort'         => $sort,
             'dir'          => $dir,
         ]);
+        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
         return competency_repository::get_competency_users(
             $params['competencyid'],

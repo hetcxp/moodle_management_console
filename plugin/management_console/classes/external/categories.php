@@ -63,6 +63,7 @@ class categories extends external_api {
             'page'    => $page,
             'perpage' => $perpage,
         ]);
+        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
         $totalcount = category_repository::count_all();
         $records = category_repository::get_paginated($params['page'], $params['perpage']);
@@ -170,6 +171,19 @@ class categories extends external_api {
         ]);
     }
 
+    /**
+     * Perform course category actions (create, edit, hide, show, delete).
+     *
+     * @param string $action
+     * @param array $categoryids
+     * @param int $categoryid
+     * @param string $name
+     * @param int $parent
+     * @param string $description
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function category_action($action, $categoryids = [], $categoryid = 0, $name = '', $parent = 0, $description = '') {
         $context = context_system::instance();
         self::validate_context($context);

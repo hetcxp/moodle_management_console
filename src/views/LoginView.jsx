@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { AuthService } from '../services/auth';
 import { getTenantConfig } from '../config/tenant';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -19,8 +20,16 @@ export const LoginView = () => {
 
   const handleCredentialsSubmit = async (e) => {
     e.preventDefault();
-    if (!username || !password) {
-      setError('Por favor completa todos los campos.');
+    if (!username.trim() && !password.trim()) {
+      setError('El usuario y la contraseña son obligatorios.');
+      return;
+    }
+    if (!username.trim()) {
+      setError('El usuario es obligatorio.');
+      return;
+    }
+    if (!password.trim()) {
+      setError('La contraseña es obligatoria.');
       return;
     }
     setLoading(true);
@@ -28,7 +37,14 @@ export const LoginView = () => {
     try {
       await login(username, password);
     } catch (err) {
-      setError(err.message || 'Credenciales inválidas o error de conexión con el Moodle.');
+      const msg = err?.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('conexion') || msg.includes('conexión')) {
+        setError('Error de red: no fue posible conectar con el servidor Moodle. Verifica tu conexión.');
+      } else if (msg.includes('invalidlogin') || msg.includes('Credenciales') || msg.includes('inválidas')) {
+        setError('Usuario o contraseña incorrectos. Verifica tus credenciales.');
+      } else {
+        setError(msg || 'Error de autenticación.');
+      }
     } finally {
       setLoading(false);
     }
@@ -73,9 +89,18 @@ export const LoginView = () => {
 
         <Card className="border-border/80 shadow-2xl backdrop-blur-xl bg-card/90">
           <CardHeader className="pb-4">
-            <div className="flex rounded-lg bg-muted p-1 text-xs font-semibold">
+            {AuthService.isEmbedded() && (
+              <p className="text-[11px] text-primary/80 bg-primary/5 border border-primary/15 rounded-lg px-3 py-2 mb-3">
+                Acceso embebido detectado — usa <strong>Token de Administrador</strong> para conectar.
+              </p>
+            )}
+            <div role="tablist" aria-label="Método de autenticación" className="flex rounded-lg bg-muted p-1 text-xs font-semibold">
               <button
                 type="button"
+                role="tab"
+                id="tab-credentials"
+                aria-selected={mode === 'credentials'}
+                aria-controls="panel-credentials"
                 onClick={() => { setMode('credentials'); setError(''); }}
                 className={`flex-1 py-1.5 rounded-md transition-all ${
                   mode === 'credentials' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -85,6 +110,10 @@ export const LoginView = () => {
               </button>
               <button
                 type="button"
+                role="tab"
+                id="tab-token"
+                aria-selected={mode === 'token'}
+                aria-controls="panel-token"
                 onClick={() => { setMode('token'); setError(''); }}
                 className={`flex-1 py-1.5 rounded-md transition-all ${
                   mode === 'token' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
@@ -97,19 +126,34 @@ export const LoginView = () => {
 
           <CardContent>
             {error && (
-              <div className="mb-4 flex items-start gap-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-600 dark:text-rose-400">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="mb-4 flex items-start gap-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-600 dark:text-rose-400"
+              >
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden="true" />
                 <span>{error}</span>
               </div>
             )}
 
             {mode === 'credentials' ? (
-              <form onSubmit={handleCredentialsSubmit} className="space-y-4">
+              <form
+                id="panel-credentials"
+                role="tabpanel"
+                aria-labelledby="tab-credentials"
+                onSubmit={handleCredentialsSubmit}
+                className="space-y-4"
+              >
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">Usuario de Moodle</label>
+                  <label htmlFor="login-username" className="text-xs font-bold text-foreground">
+                    Usuario de Moodle
+                  </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <Input
+                      id="login-username"
+                      name="username"
+                      autoComplete="username"
                       type="text"
                       placeholder="admin"
                       value={username}
@@ -121,10 +165,15 @@ export const LoginView = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">Contraseña</label>
+                  <label htmlFor="login-password" className="text-xs font-bold text-foreground">
+                    Contraseña
+                  </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <Input
+                      id="login-password"
+                      name="password"
+                      autoComplete="current-password"
                       type="password"
                       placeholder="••••••••"
                       value={password}
@@ -137,16 +186,27 @@ export const LoginView = () => {
 
                 <Button type="submit" disabled={loading} className="w-full h-11 text-sm font-semibold mt-2 gap-2">
                   {loading ? 'Iniciando sesión...' : 'Acceder al Panel'}
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleTokenSubmit} className="space-y-4">
+              <form
+                id="panel-token"
+                role="tabpanel"
+                aria-labelledby="tab-token"
+                onSubmit={handleTokenSubmit}
+                className="space-y-4"
+              >
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">Web Service Token</label>
+                  <label htmlFor="login-token" className="text-xs font-bold text-foreground">
+                    Web Service Token
+                  </label>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <Input
+                      id="login-token"
+                      name="token"
+                      autoComplete="off"
                       type="password"
                       placeholder="Pega tu wstoken de adminer_service..."
                       value={manualToken}
@@ -162,7 +222,7 @@ export const LoginView = () => {
 
                 <Button type="submit" disabled={loading} className="w-full h-11 text-sm font-semibold mt-2 gap-2">
                   {loading ? 'Validando...' : 'Conectar con Token'}
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </form>
             )}

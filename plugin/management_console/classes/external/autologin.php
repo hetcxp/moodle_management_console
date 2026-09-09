@@ -45,6 +45,14 @@ class autologin extends external_api {
         ]);
     }
 
+    /**
+     * Generate autologin URL for destination.
+     *
+     * @param string $destination
+     * @return array
+     * @throws \moodle_exception
+     * @throws \required_capability_exception
+     */
     public static function get_autologin_url($destination) {
         global $USER, $CFG;
 
@@ -54,9 +62,9 @@ class autologin extends external_api {
 
         require_once($CFG->dirroot . '/user/lib.php');
 
-        $key = get_user_key('core_message', $USER->id);
+        $key = get_user_key('tool/management_console', $USER->id);
         if (!$key) {
-            $key = create_user_key('core_message', $USER->id, null, $CFG->sessiontimeout);
+            $key = create_user_key('tool/management_console', $USER->id, null, null, time() + 900);
         }
 
         // Endpoint de autologin en plugin root: admin/tool/management_console/autologin.php

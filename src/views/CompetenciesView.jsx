@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useCompetenciesState } from './competencies/useCompetenciesState';
 import { CompetenciesHeader } from './competencies/CompetenciesHeader';
 import { CompetenciesTable } from './competencies/CompetenciesTable';
@@ -8,6 +9,7 @@ import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 
 export const CompetenciesView = ({ onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
   const state = useCompetenciesState();
 
   return (
@@ -49,7 +51,7 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
           state.setFilters(newFilters);
           state.setPage(0);
         }}
-        onRowClick={(row) => onNavigateToDetail?.('competency_framework', row.id)}
+        onRowClick={(row) => (onNavigateToDetail ? onNavigateToDetail('competency_framework', row.id) : setLocation(`/competencies/${row.id}`))}
         onToggleVisibility={state.handleToggleVisibility}
         onOpenEdit={state.handleOpenEdit}
         onOpenDelete={state.handleOpenDelete}

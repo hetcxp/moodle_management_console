@@ -61,14 +61,24 @@ const AdminerApp = () => {
     applyTenantTheme();
   }, []);
 
+  const [loadingPhase] = useState('session');
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div
+        role="status"
+        aria-live="polite"
+        className="min-h-screen flex items-center justify-center bg-background"
+      >
         <div className="flex flex-col items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/20">
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <Loader2 className="h-6 w-6 animate-spin" aria-hidden="true" />
           </div>
-          <span className="text-sm font-semibold text-muted-foreground">Iniciando Management Console...</span>
+          <span className="text-sm font-semibold text-muted-foreground" aria-live="polite">
+            {loadingPhase === 'session' && 'Verificando sesión...'}
+            {loadingPhase === 'permissions' && 'Cargando permisos...'}
+            {!loadingPhase && 'Iniciando...'}
+          </span>
         </div>
       </div>
     );
@@ -78,45 +88,11 @@ const AdminerApp = () => {
     return <LoginView />;
   }
 
-  const ENTITY_ROUTES = {
-    course: 'courses',
-    user: 'users',
-    cohort: 'cohorts',
-    category: 'categories',
-    competency: 'competencies',
-    competency_framework: 'competencies'
-  };
-
-  // Preserve existing navigate interface for views
-  const navigateToDetail = (entity, id) => {
-    if (entity === 'course_user') {
-      setLocation(`/courses/${id.courseId}/users/${id.userId}`);
-    } else if (entity === 'competency') {
-      if (typeof id === 'object' && id.frameworkId && id.competencyId) {
-        setLocation(`/competencies/${id.frameworkId}/competency/${id.competencyId}`);
-      } else {
-        setLocation(`/competencies/${id}`);
-      }
-    } else if (entity === 'competency_framework') {
-      setLocation(`/competencies/${id}`);
-    } else {
-      const prefix = ENTITY_ROUTES[entity] || `${entity}s`;
-      setLocation(`/${prefix}/${id}`);
-    }
-  };
-
-  const navigateBack = () => {
-    setLocation(activeTab === 'dashboard' ? '/' : `/${activeTab}`);
-  };
-
   return (
     <div className="min-h-screen flex bg-background text-foreground">
       {/* Sidebar */}
       <AppSidebar
         activeTab={activeTab}
-        onTabChange={(tab) => {
-          setLocation(tab === 'dashboard' ? '/' : `/${tab}`);
-        }}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
@@ -127,10 +103,11 @@ const AdminerApp = () => {
           onToggleDark={() => setIsDark(!isDark)}
           isDark={isDark}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          sidebarOpen={sidebarOpen}
         />
 
-        <main className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
-          <ErrorBoundary>
+        <main id="main-content" tabIndex={-1} className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
+          <ErrorBoundary key={location} viewName={activeTab ? activeTab.charAt(0).toUpperCase() + activeTab.slice(1) : undefined}>
             <Suspense fallback={
               <div className="flex w-full h-40 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -138,60 +115,58 @@ const AdminerApp = () => {
             }>
               <Switch>
                 <Route path="/">
-                  <DashboardView onNavigate={(t) => setLocation(t === 'dashboard' ? '/' : `/${t}`)} onNavigateToDetail={navigateToDetail} />
+                  <DashboardView />
                 </Route>
 
                 {/* Courses */}
                 <Route path="/courses">
-                  <CoursesView onNavigateToDetail={navigateToDetail} />
+                  <CoursesView />
                 </Route>
                 <Route path="/courses/:id">
-                  {params => <CourseDetailView courseId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Cursos" />}
+                  {params => <CourseDetailView courseId={params.id} />}
                 </Route>
                 <Route path="/courses/:courseId/users/:userId">
-                  {params => <CourseUserDetailView courseId={params.courseId} userId={params.userId} onBack={() => setLocation(`/courses/${params.courseId}`)} parentLabel="Usuarios del Curso" />}
+                  {params => <CourseUserDetailView courseId={params.courseId} userId={params.userId} />}
                 </Route>
 
                 {/* Categories */}
                 <Route path="/categories">
-                  <CategoriesView onNavigateToDetail={navigateToDetail} />
+                  <CategoriesView />
                 </Route>
                 <Route path="/categories/:id">
-                  {params => <CategoryDetailView categoryId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Categorías" />}
+                  {params => <CategoryDetailView categoryId={params.id} />}
                 </Route>
 
                 {/* Users */}
                 <Route path="/users">
-                  <UsersView onNavigateToDetail={navigateToDetail} />
+                  <UsersView />
                 </Route>
                 <Route path="/users/:id">
-                  {params => <UserDetailView userId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Usuarios" />}
+                  {params => <UserDetailView userId={params.id} />}
                 </Route>
 
                 {/* Cohorts */}
                 <Route path="/cohorts">
-                  <CohortsView onNavigateToDetail={navigateToDetail} />
+                  <CohortsView />
                 </Route>
                 <Route path="/cohorts/:id">
-                  {params => <CohortDetailView cohortId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Cohortes" />}
+                  {params => <CohortDetailView cohortId={params.id} />}
                 </Route>
 
                 {/* Competencies */}
                 <Route path="/competencies">
-                  <CompetenciesView onNavigateToDetail={navigateToDetail} />
+                  <CompetenciesView />
                 </Route>
                 <Route path="/competencies/:frameworkId/competency/:competencyId">
                   {params => (
                     <CompetencyDetailView
                       frameworkId={params.frameworkId}
                       competencyId={params.competencyId}
-                      onBack={() => setLocation(`/competencies/${params.frameworkId}`)}
-                      onNavigateToDetail={navigateToDetail}
                     />
                   )}
                 </Route>
                 <Route path="/competencies/:id">
-                  {params => <CompetencyFrameworkDetailView frameworkId={params.id} onBack={navigateBack} onNavigateToDetail={navigateToDetail} parentLabel="Competencias" />}
+                  {params => <CompetencyFrameworkDetailView frameworkId={params.id} />}
                 </Route>
 
                 {/* Reports */}

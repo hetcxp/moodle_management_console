@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useCategoryDetail, useCategoriesFlat, useCourseAction, useCategoryAction } from '../hooks/useAdminerQueries';
 import { CourseCreateModal } from './courses/CourseCreateModal';
 import { SelectorModal } from '../components/ui/SelectorModal';
@@ -13,6 +14,18 @@ import { CategoryCoursesTab } from './categories/CategoryCoursesTab';
 import { CategorySubcatsTab } from './categories/CategorySubcatsTab';
 
 export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, parentLabel }) => {
+  const [, setLocation] = useLocation();
+  const handleBack = onBack || (() => setLocation('/categories'));
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    if (entity === 'course') {
+      setLocation(`/courses/${id}`);
+    } else if (entity === 'category') {
+      setLocation(`/categories/${id}`);
+    } else {
+      setLocation(`/${entity}s/${id}`);
+    }
+  });
+
   const { addToast } = useToast();
   const { permissions } = useAuth();
   
@@ -135,7 +148,7 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
       <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 border-b border-border/70 pb-6">
         <div>
           <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
-            <button onClick={onBack} className="flex items-center hover:text-foreground transition-colors">
+            <button onClick={handleBack} className="flex items-center hover:text-foreground transition-colors">
               <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
             </button>
             <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
@@ -211,7 +224,7 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
           loadData={loadData}
           handleBulkCourseAction={handleBulkCourseAction}
           handleOpenMoveModal={handleOpenMoveModal}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
           setCreateCourseModalOpen={setCreateCourseModalOpen}
           setBringCourseModalOpen={setBringCourseModalOpen}
         />
@@ -227,7 +240,7 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
           loadData={loadData}
           handleBulkSubcategoryAction={handleBulkSubcategoryAction}
           handleToggleCategoryVisibility={handleToggleCategoryVisibility}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 
