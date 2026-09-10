@@ -1,14 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminerApi } from '../../services/adminer-api';
+import { createListQuery } from './createListQuery';
 
 // --- Categories ---
-export function useCategories(params) {
-  return useQuery({
-    queryKey: ['categories', params],
-    queryFn: () => AdminerApi.getCategories(params),
-    staleTime: 30 * 1000,
-  });
-}
+export const useCategories = createListQuery('categories', (params) => AdminerApi.getCategories(params));
 
 export function useCategoriesFlat() {
   return useQuery({

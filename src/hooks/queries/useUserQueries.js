@@ -1,14 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminerApi } from '../../services/adminer-api';
+import { createListQuery } from './createListQuery';
 
 // --- Users ---
-export function useUsers(params) {
-  return useQuery({
-    queryKey: ['users', params],
-    queryFn: () => AdminerApi.getUsers(params),
-    staleTime: 30 * 1000,
-  });
-}
+export const useUsers = createListQuery('users', (params) => AdminerApi.getUsers(params));
 
 export function useUsersKpis(options = {}) {
   return useQuery({

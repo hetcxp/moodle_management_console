@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminerApi } from '../../services/adminer-api';
+import { createListQuery } from './createListQuery';
 
 // --- Competencies ---
 export function useScales() {
@@ -17,13 +18,9 @@ export function useCompetencyKpis() {
   });
 }
 
-export function useCompetencyFrameworks(params) {
-  return useQuery({
-    queryKey: ['competency_frameworks', params],
-    queryFn: () => AdminerApi.getCompetencyFrameworks(params),
-    staleTime: 30 * 1000,
-  });
-}
+export const useCompetencyFrameworks = createListQuery('competency_frameworks', (params) =>
+  AdminerApi.getCompetencyFrameworks(params)
+);
 
 export function useCompetencyFrameworkDetail(frameworkId, search = '') {
   return useQuery({

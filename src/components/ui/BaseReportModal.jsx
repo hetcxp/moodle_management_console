@@ -1,8 +1,6 @@
 import React from 'react';
 import { ReportSelectorModal } from './ReportSelectorModal';
-import { useToast } from './Toast';
-import { exportToCsv } from '../CsvExporter';
-import { runWithConcurrency } from '../../lib/concurrency';
+import { useReportExport } from '../../hooks/useReportExport';
 
 /**
  * BaseReportModal - Componente genérico para modales de reportes
@@ -50,36 +48,14 @@ export const BaseReportModal = ({
   filename,
   chunkSize = 5
 }) => {
-  const { addToast } = useToast();
-  const [exporting, setExporting] = React.useState(false);
-
-  const handleExport = async (selectedIds) => {
-    setExporting(true);
-    try {
-      const csvRows = [];
-      
-      const details = await runWithConcurrency(selectedIds, chunkSize, cid => fetchDetail(cid));
-      
-      details.forEach(detail => {
-        if (detail) {
-          processDetail(detail, csvRows);
-        }
-      });
-
-      if (csvRows.length === 0) {
-        addToast({ title: 'No se encontraron datos para exportar.', type: 'warning' });
-        return;
-      }
-
-      exportToCsv(filename, csvRows, columns);
-      addToast({ title: `Reporte generado con ${csvRows.length} filas`, type: 'success' });
-      onClose();
-    } catch (err) {
-      addToast({ title: 'Error generando reporte: ' + err.message, type: 'error' });
-    } finally {
-      setExporting(false);
-    }
-  };
+  const { exporting, handleExport } = useReportExport({
+    fetchDetail,
+    processDetail,
+    columns,
+    filename,
+    chunkSize,
+    onClose,
+  });
 
   return (
     <ReportSelectorModal

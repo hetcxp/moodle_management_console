@@ -1,14 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminerApi } from '../../services/adminer-api';
+import { createListQuery } from './createListQuery';
 
 // --- Courses ---
-export function useCourses(params) {
-  return useQuery({
-    queryKey: ['courses', params],
-    queryFn: () => AdminerApi.getCourses(params),
-    staleTime: 30 * 1000,
-  });
-}
+export const useCourses = createListQuery('courses', (params) => AdminerApi.getCourses(params));
 
 export function useCourseDetail(courseId) {
   return useQuery({

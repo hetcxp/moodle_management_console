@@ -22,9 +22,7 @@ export const CompetencyDetailHeader = ({
   subcompetenciesCount = 0,
   onBack,
   onNavigateToDetail,
-  onOpenReviews,
-  _onOpenLinkCourses,
-  _onOpenCreateSubcompetency
+  onOpenReviews
 }) => {
   const hasParent = competency?.parentid > 0;
   const isRuleActive = competency?.ruletype === 'core_competency\\competency_rule_all_children';

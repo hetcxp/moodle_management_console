@@ -1,14 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AdminerApi } from '../../services/adminer-api';
+import { createListQuery } from './createListQuery';
 
 // --- Cohorts ---
-export function useCohorts(params) {
-  return useQuery({
-    queryKey: ['cohorts', params],
-    queryFn: () => AdminerApi.getCohorts(params),
-    staleTime: 30 * 1000,
-  });
-}
+export const useCohorts = createListQuery('cohorts', (params) => AdminerApi.getCohorts(params));
 
 export function useCohortsKpis(options = {}) {
   return useQuery({
