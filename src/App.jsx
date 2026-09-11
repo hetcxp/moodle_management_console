@@ -1,6 +1,7 @@
 import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { Route, Switch, useLocation, Router } from 'wouter';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ToastProvider } from './components/ui/Toast';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
@@ -27,14 +28,13 @@ const CompetencyDetailView = lazy(() => import('./views/CompetencyDetailView').t
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
+import { navigateToDetail } from './lib/navigation';
+
 const AdminerApp = () => {
   const { isAuthenticated, loading } = useAuth();
+  const { theme, setTheme } = useTheme();
   const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isDark, setIsDark] = useState(() => {
-    return localStorage.getItem('theme') === 'dark' ||
-      (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  });
 
   // Derived active tab from URL for Sidebar highlighting
   const activeTab = useMemo(() => {
@@ -47,15 +47,13 @@ const AdminerApp = () => {
     return 'dashboard';
   }, [location]);
 
-  useEffect(() => {
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
+  const handleNavigateToDetail = React.useCallback((entity, id) => {
+    navigateToDetail(setLocation, entity, id);
+  }, [setLocation]);
+
+  const navigateBack = React.useCallback(() => {
+    setLocation(activeTab === 'dashboard' ? '/' : `/${activeTab}`);
+  }, [setLocation, activeTab]);
 
   useEffect(() => {
     applyTenantTheme();
@@ -100,8 +98,8 @@ const AdminerApp = () => {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header
-          onToggleDark={() => setIsDark(!isDark)}
-          isDark={isDark}
+          currentTheme={theme}
+          onSelectTheme={setTheme}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
         />
@@ -115,58 +113,112 @@ const AdminerApp = () => {
             }>
               <Switch>
                 <Route path="/">
-                  <DashboardView />
+                  <DashboardView
+                    onNavigate={(t) => setLocation(t === 'dashboard' ? '/' : `/${t}`)}
+                    onNavigateToDetail={handleNavigateToDetail}
+                  />
                 </Route>
 
                 {/* Courses */}
                 <Route path="/courses">
-                  <CoursesView />
+                  <CoursesView onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
                 <Route path="/courses/:id">
-                  {params => <CourseDetailView courseId={params.id} />}
+                  {params => (
+                    <CourseDetailView
+                      courseId={params.id}
+                      onBack={navigateBack}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Cursos"
+                    />
+                  )}
                 </Route>
                 <Route path="/courses/:courseId/users/:userId">
-                  {params => <CourseUserDetailView courseId={params.courseId} userId={params.userId} />}
+                  {params => (
+                    <CourseUserDetailView
+                      courseId={params.courseId}
+                      userId={params.userId}
+                      onBack={() => {
+                        if (typeof window !== 'undefined' && window.history.length > 1) {
+                          window.history.back();
+                        } else {
+                          setLocation(`/courses/${params.courseId}`);
+                        }
+                      }}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Volver"
+                    />
+                  )}
                 </Route>
 
                 {/* Categories */}
                 <Route path="/categories">
-                  <CategoriesView />
+                  <CategoriesView onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
                 <Route path="/categories/:id">
-                  {params => <CategoryDetailView categoryId={params.id} />}
+                  {params => (
+                    <CategoryDetailView
+                      categoryId={params.id}
+                      onBack={navigateBack}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Categorías"
+                    />
+                  )}
                 </Route>
 
                 {/* Users */}
                 <Route path="/users">
-                  <UsersView />
+                  <UsersView onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
                 <Route path="/users/:id">
-                  {params => <UserDetailView userId={params.id} />}
+                  {params => (
+                    <UserDetailView
+                      userId={params.id}
+                      onBack={navigateBack}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Usuarios"
+                    />
+                  )}
                 </Route>
 
                 {/* Cohorts */}
                 <Route path="/cohorts">
-                  <CohortsView />
+                  <CohortsView onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
                 <Route path="/cohorts/:id">
-                  {params => <CohortDetailView cohortId={params.id} />}
+                  {params => (
+                    <CohortDetailView
+                      cohortId={params.id}
+                      onBack={navigateBack}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Cohortes"
+                    />
+                  )}
                 </Route>
 
                 {/* Competencies */}
                 <Route path="/competencies">
-                  <CompetenciesView />
+                  <CompetenciesView onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
                 <Route path="/competencies/:frameworkId/competency/:competencyId">
                   {params => (
                     <CompetencyDetailView
                       frameworkId={params.frameworkId}
                       competencyId={params.competencyId}
+                      onBack={() => setLocation(`/competencies/${params.frameworkId}`)}
+                      onNavigateToDetail={handleNavigateToDetail}
                     />
                   )}
                 </Route>
                 <Route path="/competencies/:id">
-                  {params => <CompetencyFrameworkDetailView frameworkId={params.id} />}
+                  {params => (
+                    <CompetencyFrameworkDetailView
+                      frameworkId={params.id}
+                      onBack={navigateBack}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Competencias"
+                    />
+                  )}
                 </Route>
 
                 {/* Reports */}
@@ -197,9 +249,11 @@ export default function App() {
     <Router base={base}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ToastProvider>
-            <AdminerApp />
-          </ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <AdminerApp />
+            </ToastProvider>
+          </ThemeProvider>
         </AuthProvider>
       </QueryClientProvider>
     </Router>

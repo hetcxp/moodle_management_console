@@ -772,6 +772,7 @@ class courses extends external_api {
      * @return array
      * @throws \moodle_exception
      * @throws \required_capability_exception
+     */
     public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
         global $DB, $CFG;
         require_once($CFG->dirroot.'/group/lib.php');

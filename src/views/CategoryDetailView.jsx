@@ -12,18 +12,13 @@ import { useAuth } from '../context/AuthContext';
 import { ChevronLeft, ChevronRight, FolderTree, CheckCircle, EyeOff } from 'lucide-react';
 import { CategoryCoursesTab } from './categories/CategoryCoursesTab';
 import { CategorySubcatsTab } from './categories/CategorySubcatsTab';
+import { navigateToDetail } from '../lib/navigation';
 
 export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
   const handleBack = onBack || (() => setLocation('/categories'));
   const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
-    if (entity === 'course') {
-      setLocation(`/courses/${id}`);
-    } else if (entity === 'category') {
-      setLocation(`/categories/${id}`);
-    } else {
-      setLocation(`/${entity}s/${id}`);
-    }
+    navigateToDetail(setLocation, entity, id);
   });
 
   const { addToast } = useToast();

@@ -93,7 +93,11 @@ export const UserCompetenciesTab = ({
                 onClick={(e) => {
                   if (onNavigateToDetail) {
                     e.stopPropagation();
-                    onNavigateToDetail('course', c.id);
+                    if (c.is_enrolled && userId) {
+                      onNavigateToDetail('course_user', { courseId: c.id, userId });
+                    } else {
+                      onNavigateToDetail('course', c.id);
+                    }
                   }
                 }}
                 className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border font-medium cursor-pointer transition-colors ${

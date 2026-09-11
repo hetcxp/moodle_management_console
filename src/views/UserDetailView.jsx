@@ -15,20 +15,13 @@ import { AdminerApi } from '../services/adminer-api';
 import { UserCoursesTab } from './users/UserCoursesTab';
 import { UserCohortsTab } from './users/UserCohortsTab';
 import { UserCompetenciesTab } from './users/UserCompetenciesTab';
+import { navigateToDetail } from '../lib/navigation';
 
 export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
   const fallbackBack = React.useCallback(() => setLocation('/users'), [setLocation]);
   const handleBack = onBack || fallbackBack;
-  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
-    if (entity === 'course') {
-      setLocation(`/courses/${id}`);
-    } else if (entity === 'cohort') {
-      setLocation(`/cohorts/${id}`);
-    } else {
-      setLocation(`/${entity}s/${id}`);
-    }
-  });
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => navigateToDetail(setLocation, entity, id));
 
   const { addToast } = useToast();
   
@@ -373,9 +366,11 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           cohorts={data.cohorts}
           courses={data.courses}
           loading={loading}
+          userId={userId}
           onOpenSelector={() => { setSelectorType('cohorts'); setSelectorOpen(true); }}
           handleUnlinkCohort={handleUnlinkCohort}
           handleBulkUnlinkCohorts={handleBulkUnlinkCohorts}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 
@@ -385,7 +380,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           loading={loading}
           userId={userId}
           userFullname={data.fullname}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 

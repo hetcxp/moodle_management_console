@@ -342,5 +342,57 @@ describe('Detail Views Integration (TD-012)', () => {
     expect(screen.getByText('Quiz 1: Hooks y Context')).toBeDefined();
     expect(screen.getByRole('button', { name: /cerrar/i })).toBeDefined();
   });
+
+  it('navigates to course_user detail when clicking course row or progress action from UserDetailView', async () => {
+    const onNavigateToDetail = vi.fn();
+    renderWithProviders(<UserDetailView userId={42} onBack={vi.fn()} onNavigateToDetail={onNavigateToDetail} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('React Fundamentals')).toBeDefined();
+    });
+
+    // Clicking course row navigates to course_user
+    fireEvent.click(screen.getByText('React Fundamentals'));
+    expect(onNavigateToDetail).toHaveBeenCalledWith('course_user', { courseId: 101, userId: 42 });
+
+    // Clicking user progress action also navigates to course_user
+    const inspectBtn = screen.getByTitle('Ver desempeño en este curso');
+    fireEvent.click(inspectBtn);
+    expect(onNavigateToDetail).toHaveBeenCalledWith('course_user', { courseId: 101, userId: 42 });
+  });
+
+  it('navigates to user profile from CourseUserDetailView header', async () => {
+    const onNavigateToDetail = vi.fn();
+    renderWithProviders(<CourseUserDetailView courseId={101} userId={42} onBack={vi.fn()} onNavigateToDetail={onNavigateToDetail} />);
+
+    await waitFor(() => {
+      expect(screen.getByTitle('Ver detalle global del usuario')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByTitle('Ver detalle global del usuario'));
+    expect(onNavigateToDetail).toHaveBeenCalledWith('user', 42);
+  });
+
+  it('navigates to user detail when clicking an enrolled user in CategoryDetailView modal', async () => {
+    const onNavigateToDetail = vi.fn();
+    renderWithProviders(<CategoryDetailView categoryId={7} onBack={vi.fn()} onNavigateToDetail={onNavigateToDetail} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Node.js Mastery')).toBeDefined();
+    });
+
+    fireEvent.click(screen.getByText('Node.js Mastery'));
+
+    await waitFor(() => {
+      expect(screen.getByText('Usuarios Matriculados')).toBeDefined();
+    });
+
+    const userRow = screen.getByTitle('Ver detalle del usuario');
+    expect(userRow).toBeDefined();
+    fireEvent.click(userRow);
+
+    expect(onNavigateToDetail).toHaveBeenCalledWith('user', 42);
+  });
 });
+
 

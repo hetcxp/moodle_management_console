@@ -2,10 +2,11 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTenantConfig } from '../config/tenant';
 import { AuthService } from '../services/auth';
-import { LogOut, User, Moon, Sun, ShieldCheck } from 'lucide-react';
+import { LogOut, User, ShieldCheck } from 'lucide-react';
 import { Button } from './ui/Button';
+import { ThemeSelector } from './ThemeSelector';
 
-export const Header = ({ onToggleDark, isDark, onToggleSidebar, sidebarOpen }) => {
+export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectTheme }) => {
   const { user, logout, permissions } = useAuth();
   const tenant = getTenantConfig();
 
@@ -35,16 +36,11 @@ export const Header = ({ onToggleDark, isDark, onToggleSidebar, sidebarOpen }) =
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Dark mode toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onToggleDark}
-          aria-label={isDark ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-          className="h-9 w-9 rounded-full text-muted-foreground hover:text-foreground"
-        >
-          {isDark ? <Sun className="h-4 w-4 text-amber-400" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
-        </Button>
+        {/* Selector de tema visual */}
+        <ThemeSelector
+          currentTheme={currentTheme}
+          onSelectTheme={onSelectTheme}
+        />
 
         {/* User profile capsule */}
         {user && (

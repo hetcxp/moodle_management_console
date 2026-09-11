@@ -13,21 +13,14 @@ import { formatDateOnly } from '../lib/utils';
 import { CourseUsersTab } from './courses/CourseUsersTab';
 import { CourseCohortsTab } from './courses/CourseCohortsTab';
 import { CourseCompetenciesTab } from './courses/CourseCompetenciesTab';
+import { navigateToDetail } from '../lib/navigation';
 
 export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
   const fallbackBack = React.useCallback(() => setLocation('/courses'), [setLocation]);
   const handleBack = onBack || fallbackBack;
   const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
-    if (entity === 'course_user') {
-      setLocation(`/courses/${id.courseId}/users/${id.userId}`);
-    } else if (entity === 'user') {
-      setLocation(`/users/${id}`);
-    } else if (entity === 'cohort') {
-      setLocation(`/cohorts/${id}`);
-    } else {
-      setLocation(`/${entity}s/${id}`);
-    }
+    navigateToDetail(setLocation, entity, id);
   });
 
   const { addToast } = useToast();
@@ -261,17 +254,20 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
 
       {activeTab === 'cohorts' && (
         <CourseCohortsTab
+          cohorts={data.cohorts || []}
           users={data.users}
           coursegroups={data.coursegroups}
+          courseId={data.id}
           handleCohortAction={handleCohortAction}
           onOpenSelector={() => { setSelectorType('cohorts'); setSelectorOpen(true); }}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 
       {activeTab === 'competencies' && (
         <CourseCompetenciesTab
           competencies={data.competencies || []}
-          onNavigateToDetail={onNavigateToDetail}
+          onNavigateToDetail={handleNavigateToDetail}
         />
       )}
 

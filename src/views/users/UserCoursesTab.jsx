@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { BookOpen, Users, Layers, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle } from 'lucide-react';
+import { BookOpen, Users, Layers, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, UserCheck } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { FilterBar } from '../../components/FilterBar';
 import { Button } from '../../components/ui/Button';
@@ -263,6 +263,20 @@ export const UserCoursesTab = ({
             >
               <CalendarClock className="h-4 w-4" />
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => { 
+                e.stopPropagation(); 
+                if (onNavigateToDetail) {
+                  onNavigateToDetail('course_user', { courseId: row.id, userId });
+                }
+              }}
+              className="text-primary hover:text-primary hover:bg-primary/10 px-2"
+              title="Ver desempeño en este curso"
+            >
+              <UserCheck className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="sm"
               onClick={(e) => { e.stopPropagation(); handleUnenrollCourse(row.id); }}
               className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-2"
@@ -340,7 +354,7 @@ export const UserCoursesTab = ({
         selectable={true}
         selectedIds={selectedCourseIds}
         onSelectionChange={setSelectedCourseIds}
-        onRowClick={(row) => onNavigateToDetail('course_user', { courseId: row.id, userId: userId })}
+        onRowClick={(row) => onNavigateToDetail('course_user', { courseId: row.id, userId })}
         bulkActions={bulkActions}
       />
       

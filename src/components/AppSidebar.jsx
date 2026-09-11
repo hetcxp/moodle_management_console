@@ -76,12 +76,12 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
       >
         {/* Brand Header */}
         <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-blue-400 text-white shadow-md">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-primary/70 text-primary-foreground shadow-md">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <span className="font-extrabold text-base tracking-tight text-white">Moodle Adminer</span>
-            <span className="block text-[10px] uppercase font-bold tracking-widest text-primary/90">Headless Studio</span>
+            <span className="font-extrabold text-base tracking-tight text-sidebar-foreground">Moodle Adminer</span>
+            <span className="block text-[10px] uppercase font-bold tracking-widest text-sidebar-primary">Headless Studio</span>
           </div>
         </div>
 

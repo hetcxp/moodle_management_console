@@ -321,7 +321,15 @@ export const CategoryCoursesTab = ({
                     </thead>
                     <tbody className="divide-y divide-border/50">
                       {users.map(u => (
-                        <tr key={u.id} className="hover:bg-muted/30 transition-colors">
+                        <tr
+                          key={u.id}
+                          className="hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setCourseModalOpen(false);
+                            onNavigateToDetail?.('user', u.id);
+                          }}
+                          title="Ver detalle del usuario"
+                        >
                           <td className="px-4 py-3">
                             <div className="font-medium text-foreground">{u.fullname}</div>
                             <div className="text-xs text-muted-foreground">{u.email}</div>

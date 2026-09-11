@@ -12,7 +12,9 @@ export const UserCohortsTab = ({
   loading,
   onOpenSelector,
   handleUnlinkCohort,
-  handleBulkUnlinkCohorts
+  handleBulkUnlinkCohorts,
+  onNavigateToDetail,
+  userId
 }) => {
   const { selectedIds: selectedCohortIds, setSelectedIds: setSelectedCohortIds, clearSelection: clearSelectedCohortIds } = useBulkSelection();
   const [selectedCohortModal, setSelectedCohortModal] = useState(null);
@@ -118,7 +120,24 @@ export const UserCohortsTab = ({
         onClose={() => setSelectedCohortModal(null)}
         title={`Cursos de: ${selectedCohortModal?.name}`}
         description="Progreso del usuario en los cursos vinculados a esta cohorte."
-        footer={<Button onClick={() => setSelectedCohortModal(null)}>Cerrar</Button>}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            {onNavigateToDetail && selectedCohortModal && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const cohortId = selectedCohortModal.id;
+                  setSelectedCohortModal(null);
+                  onNavigateToDetail('cohort', cohortId);
+                }}
+              >
+                Ver Detalle de Cohorte
+              </Button>
+            )}
+            <Button onClick={() => setSelectedCohortModal(null)}>Cerrar</Button>
+          </div>
+        }
       >
         <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1">
           {selectedCohortModal && (() => {
@@ -150,7 +169,18 @@ export const UserCohortsTab = ({
                     {cohortCourses.map(course => {
                       const progress = course.progress || 0;
                       return (
-                        <tr key={course.id} className="hover:bg-muted/50 transition-colors">
+                        <tr
+                          key={course.id}
+                          className="hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => {
+                            setSelectedCohortModal(null);
+                            if (userId) {
+                              onNavigateToDetail?.('course_user', { courseId: course.id, userId });
+                            } else {
+                              onNavigateToDetail?.('course', course.id);
+                            }
+                          }}
+                        >
                           <td className="px-4 py-3">
                             <div className="font-medium text-foreground">{course.fullname}</div>
                             <div className="text-xs text-muted-foreground">{course.shortname}</div>

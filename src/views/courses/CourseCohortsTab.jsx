@@ -14,7 +14,9 @@ export const CourseCohortsTab = ({
   users, 
   coursegroups, 
   handleCohortAction, 
-  onOpenSelector 
+  onOpenSelector,
+  onNavigateToDetail,
+  courseId
 }) => {
   const { selectedIds: selectedCohorts, setSelectedIds: setSelectedCohorts, clearSelection: _clearSelectedCohorts } = useBulkSelection();
   const [sortCohortKey, setSortCohortKey] = useState('name');
@@ -400,7 +402,22 @@ export const CourseCohortsTab = ({
         title={selectedCohortDetail ? `Usuarios de la Cohorte: ${selectedCohortDetail.name}` : 'Detalle de Cohorte'}
         description="Listado de usuarios vinculados a esta cohorte en este curso y su avance."
         footer={
-          <Button variant="ghost" onClick={() => setCohortDetailOpen(false)}>Cerrar</Button>
+          <div className="flex items-center justify-between w-full">
+            {onNavigateToDetail && selectedCohortDetail && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const cohortId = selectedCohortDetail.id;
+                  setCohortDetailOpen(false);
+                  onNavigateToDetail('cohort', cohortId);
+                }}
+              >
+                Ver Detalle de Cohorte
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setCohortDetailOpen(false)}>Cerrar</Button>
+          </div>
         }
       >
         <div className="mt-4 max-h-[60vh] overflow-y-auto pr-1">
@@ -415,7 +432,19 @@ export const CourseCohortsTab = ({
                 </thead>
                 <tbody className="divide-y divide-border/70">
                   {cohortUsers.map(u => (
-                    <tr key={u.id} className="hover:bg-muted/50 transition-colors">
+                    <tr
+                      key={u.id}
+                      className="hover:bg-muted/50 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setCohortDetailOpen(false);
+                        if (courseId) {
+                          onNavigateToDetail?.('course_user', { courseId, userId: u.id });
+                        } else {
+                          onNavigateToDetail?.('user', u.id);
+                        }
+                      }}
+                      title="Ver progreso de usuario en el curso"
+                    >
                       <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{u.fullname}</div>
                         <div className="text-xs text-muted-foreground">{u.email}</div>

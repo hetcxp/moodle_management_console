@@ -118,7 +118,10 @@ export const CohortCoursesTab = ({
         footer={
           <>
             <Button variant="outline" onClick={() => setCourseDetailModalOpen(false)}>Cerrar</Button>
-            <Button onClick={() => onNavigateToDetail('course', selectedCourseDetail?.id)}>
+            <Button onClick={() => {
+              setCourseDetailModalOpen(false);
+              onNavigateToDetail?.('course', selectedCourseDetail?.id);
+            }}>
               Ir al Detalle del Curso
             </Button>
           </>
@@ -139,7 +142,14 @@ export const CohortCoursesTab = ({
                     const courseProgressObj = u.course_progresses?.find(cp => cp.courseid === selectedCourseDetail?.id);
                     const progress = courseProgressObj ? courseProgressObj.progress : 0; 
                     return (
-                      <tr key={u.id} className="hover:bg-muted/50 transition-colors">
+                      <tr
+                        key={u.id}
+                        className="hover:bg-muted/50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          setCourseDetailModalOpen(false);
+                          onNavigateToDetail?.('user', u.id);
+                        }}
+                      >
                         <td className="px-4 py-3">
                           <div className="font-medium text-foreground">{u.fullname}</div>
                           <div className="text-xs text-muted-foreground">{u.email}</div>

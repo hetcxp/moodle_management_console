@@ -71,7 +71,7 @@ describe('CohortsView behavior tests', () => {
   it('opens create cohort modal and submits new cohort', async () => {
     AdminerApi.cohortAction.mockResolvedValueOnce({ success: true, affectedcount: 1 });
 
-    const { container } = renderWithProviders(<CohortsView />);
+    renderWithProviders(<CohortsView />);
 
     await waitFor(() => {
       expect(screen.getByText('Cohorte Alfa')).toBeDefined();
@@ -84,7 +84,7 @@ describe('CohortsView behavior tests', () => {
       expect(screen.getByText('Configura los detalles del grupo.')).toBeDefined();
     });
 
-    const requiredInputs = container.querySelectorAll('input[required]');
+    const requiredInputs = document.querySelectorAll('input[required]');
     expect(requiredInputs.length).toBeGreaterThan(0);
     fireEvent.change(requiredInputs[0], { target: { value: 'Cohorte Gamma' } });
 

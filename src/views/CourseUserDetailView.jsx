@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useCourseUserDetail, useCourseUserAction } from '../hooks/useAdminerQueries';
+import { useCourseUserDetail, useCourseUserAction, useCourseDetail } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { DataTable } from '../components/DataTable';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
-import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText, ExternalLink, BookOpen } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
+import { navigateToDetail } from '../lib/navigation';
 
-export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) => {
+export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
   const fallbackBack = React.useCallback(() => setLocation(`/courses/${courseId}`), [setLocation, courseId]);
   const handleBack = onBack || fallbackBack;
+  const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
+    navigateToDetail(setLocation, entity, id);
+  });
   const { addToast } = useToast();
   
   const { data, isLoading: loading, error } = useCourseUserDetail(courseId, userId);
+  const { data: courseData } = useCourseDetail(courseId);
+  const course = data?.course || courseData;
   const courseUserAction = useCourseUserAction();
 
   const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'audit'
@@ -172,7 +178,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
       <div className="border-b border-border/70 pb-6">
-        <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4">
+        <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4 flex-wrap gap-y-1">
           <button 
             onClick={handleBack} 
             className="flex items-center hover:text-foreground transition-colors"
@@ -180,22 +186,60 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, parentLabel }) 
             <ChevronLeft className="h-4 w-4 mr-1" /> {parentLabel || 'Volver'}
           </button>
           <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+          {course?.fullname && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleNavigateToDetail('course', courseId)}
+                className="hover:text-foreground transition-colors truncate max-w-[200px]"
+                title={`Ir a ${course.fullname}`}
+              >
+                {course.fullname}
+              </button>
+              <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+            </>
+          )}
           <span className="text-foreground truncate max-w-[300px]">Detalle de Usuario</span>
         </nav>
         
         <div>
           <div className="flex items-center gap-4">
-            <div className="p-4 bg-primary/10 text-primary rounded-2xl shrink-0">
+            <div
+              className="p-4 bg-primary/10 text-primary rounded-2xl shrink-0 cursor-pointer hover:bg-primary/20 transition-colors"
+              onClick={() => handleNavigateToDetail('user', userId)}
+              title="Ver detalle del usuario"
+            >
               <User className="h-8 w-8" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">{user.fullname}</h1>
+              <button
+                type="button"
+                onClick={() => handleNavigateToDetail('user', userId)}
+                className="text-left group flex items-center gap-2 hover:opacity-80 transition-opacity"
+                title="Ver detalle global del usuario"
+              >
+                <h1 className="text-2xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
+                  {user.fullname}
+                </h1>
+                <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </button>
               <p className="text-sm text-muted-foreground">{user.email}</p>
               
-              <div className="flex items-center gap-3 mt-2">
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
                 <Badge variant={data.status === 0 ? 'success' : 'destructive'}>
                   {data.status === 0 ? 'Activo en Curso' : 'Suspendido en Curso'}
                 </Badge>
+                {course?.fullname && (
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateToDetail('course', courseId)}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+                    title="Ver curso general"
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    <span className="truncate max-w-[220px]">{course.fullname}</span>
+                  </button>
+                )}
                 <span className="inline-flex items-center text-xs font-medium text-muted-foreground">
                   Progreso: {data.progress}%
                 </span>

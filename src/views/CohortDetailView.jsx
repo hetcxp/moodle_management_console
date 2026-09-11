@@ -12,19 +12,14 @@ import { PermissionGate } from '../components/PermissionGate';
 import { CohortMembersTab } from './cohorts/CohortMembersTab';
 import { CohortCoursesTab } from './cohorts/CohortCoursesTab';
 import { runWithConcurrency } from '../lib/concurrency';
+import { navigateToDetail } from '../lib/navigation';
 
 export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
   const fallbackBack = React.useCallback(() => setLocation('/cohorts'), [setLocation]);
   const handleBack = onBack || fallbackBack;
   const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => {
-    if (entity === 'user') {
-      setLocation(`/users/${id}`);
-    } else if (entity === 'course') {
-      setLocation(`/courses/${id}`);
-    } else {
-      setLocation(`/${entity}s/${id}`);
-    }
+    navigateToDetail(setLocation, entity, id);
   });
 
   const { addToast } = useToast();
