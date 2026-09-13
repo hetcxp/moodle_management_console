@@ -2,13 +2,15 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getTenantConfig } from '../config/tenant';
 import { AuthService } from '../services/auth';
-import { LogOut, User, ShieldCheck } from 'lucide-react';
+import { LogOut, User, ShieldCheck, HelpCircle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { ThemeSelector } from './ThemeSelector';
+import { useHelp } from '../context/HelpContext';
 
 export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectTheme }) => {
   const { user, logout, permissions } = useAuth();
   const tenant = getTenantConfig();
+  const { isOpen, toggle } = useHelp();
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 px-6 backdrop-blur-md transition-colors">
@@ -41,6 +43,19 @@ export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectThe
           currentTheme={currentTheme}
           onSelectTheme={onSelectTheme}
         />
+
+        {/* Botón de Ayuda Contextual */}
+        <button
+          id="help-button"
+          type="button"
+          onClick={() => toggle()}
+          aria-label="Ayuda de la pantalla actual"
+          aria-expanded={isOpen}
+          title="Ayuda de la pantalla actual (?)"
+          className="relative inline-flex items-center justify-center p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+        >
+          <HelpCircle className="h-5 w-5" aria-hidden="true" />
+        </button>
 
         {/* User profile capsule */}
         {user && (

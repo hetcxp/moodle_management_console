@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/Badge';
 import { FilterBar } from '../../components/FilterBar';
 import { KpiGrid } from '../../components/KpiGrid';
 import { UserPlus, Upload, UserCheck, UserX, Activity, Users } from 'lucide-react';
+import { useHelp } from '../../context/HelpContext';
 
 export function UsersHeader({
   totalCount, kpis, loading,
@@ -11,6 +12,8 @@ export function UsersHeader({
   hasUpdateUsers,
   onRefresh, onExport, onAddUser, onUploadCsv,
 }) {
+  const { helpData } = useHelp();
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -28,6 +31,7 @@ export function UsersHeader({
       {kpis && (
         <KpiGrid
           loading={loading}
+          kpiHelpMap={helpData?.kpisHelp || {}}
           items={[
             { title: 'Total Usuarios', value: kpis.total_users, icon: Users, badgeColor: 'bg-primary/10 text-primary' },
             { title: 'Activos', value: kpis.active_users, icon: UserCheck, badgeColor: 'bg-emerald-500/10 text-emerald-500' },

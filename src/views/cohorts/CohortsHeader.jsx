@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/Badge';
 import { KpiGrid } from '../../components/KpiGrid';
 import { FilterBar } from '../../components/FilterBar';
 import { Layers, Users, AlertCircle, BookOpen, Plus } from 'lucide-react';
+import { useHelp } from '../../context/HelpContext';
 
 export const CohortsHeader = ({
   totalCount,
@@ -17,6 +18,8 @@ export const CohortsHeader = ({
   onOpenCreate,
   onOpenExport
 }) => {
+  const { helpData } = useHelp();
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -36,6 +39,7 @@ export const CohortsHeader = ({
       {kpis && (
         <KpiGrid
           loading={loading}
+          kpiHelpMap={helpData?.kpisHelp || {}}
           items={[
             {
               title: 'Total Cohortes',

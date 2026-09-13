@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/Badge';
 import { FilterBar } from '../../components/FilterBar';
 import { KpiGrid } from '../../components/KpiGrid';
 import { Plus, Upload, Layers, Users, Activity, FolderInput } from 'lucide-react';
+import { useHelp } from '../../context/HelpContext';
 
 export function CoursesHeader({
   totalCount, kpis, loading,
@@ -14,6 +15,8 @@ export function CoursesHeader({
   hasCreateCourse,
   onRefresh, onExport, onCreate, onImportCsv,
 }) {
+  const { helpData } = useHelp();
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -31,6 +34,7 @@ export function CoursesHeader({
       {kpis && (
         <KpiGrid
           loading={loading}
+          kpiHelpMap={helpData?.kpisHelp || {}}
           items={[
             { title: 'Total Cursos', value: kpis.total_courses, icon: Layers, badgeColor: 'bg-primary/10 text-primary' },
             { title: 'Alumnos Enrolados', value: kpis.total_enrolled, icon: Users, badgeColor: 'bg-emerald-500/10 text-emerald-500' },

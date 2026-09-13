@@ -2,8 +2,9 @@ import React from 'react';
 import { Link } from 'wouter';
 import { CardHeader, CardContent } from './ui/Card';
 import { ArrowUpRight } from 'lucide-react';
+import { HelpTooltip } from './ui/HelpTooltip';
 
-export const KpiGrid = ({ items, loading, onNavigate: _onNavigate, columns }) => {
+export const KpiGrid = ({ items, loading, onNavigate: _onNavigate, columns, kpiHelpMap = {} }) => {
   const getGridColsClass = () => {
     if (columns === 3 || items.length === 3) {
       return 'grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-6';
@@ -27,9 +28,14 @@ export const KpiGrid = ({ items, loading, onNavigate: _onNavigate, columns }) =>
             <div className={`absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r ${item.color || 'from-primary to-primary/50'}`} />
             <div>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  {item.title}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {item.title}
+                  </span>
+                  {kpiHelpMap[item.title] && (
+                    <HelpTooltip text={kpiHelpMap[item.title]} align="left" />
+                  )}
+                </div>
                 <div className={`p-2.5 rounded-xl ${item.badgeColor || 'bg-muted text-muted-foreground'}`}>
                   {Icon && <Icon className="h-5 w-5" aria-hidden="true" />}
                 </div>

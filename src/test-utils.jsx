@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthContext } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './components/ui/Toast';
+import { HelpProvider } from './context/HelpContext';
 
 const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -32,7 +33,9 @@ export function renderWithProviders(ui, { authValue = {}, ...renderOptions } = {
         <AuthContext.Provider value={defaultAuthValue}>
           <ThemeProvider>
             <ToastProvider>
-              {children}
+              <HelpProvider>
+                {children}
+              </HelpProvider>
             </ToastProvider>
           </ThemeProvider>
         </AuthContext.Provider>

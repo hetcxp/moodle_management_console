@@ -8,6 +8,7 @@ import { PlatformHealthCard } from './dashboard/PlatformHealthCard';
 import { GlobalProgressCard } from './dashboard/GlobalProgressCard';
 import { RecentUsersCard, RecentCoursesCard } from './dashboard/RecentActivityCards';
 import { QuickActionsCard } from './dashboard/QuickActionsCard';
+import { useHelp } from '../context/HelpContext';
 
 export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
   const {
@@ -25,6 +26,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
     recentUsers,
     recentCourses,
   } = useDashboardState(onNavigate, onNavigateToDetail);
+  const { helpData } = useHelp();
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -50,7 +52,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
         </Button>
       </div>
 
-      <KpiGrid items={statCards} loading={loading} onNavigate={handleNavigate} />
+      <KpiGrid items={statCards} loading={loading} onNavigate={handleNavigate} kpiHelpMap={helpData?.kpisHelp || {}} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <PlatformHealthCard
