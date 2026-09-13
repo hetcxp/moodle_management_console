@@ -13,6 +13,8 @@ Moodle Adminer transforma la experiencia de gestión de plataformas Moodle, ofre
 - 🎓 **Control de Cursos y Cohortes:** Organiza tu catálogo, gestiona inscripciones, mueve cursos entre categorías, importa mediante CSV y administra cohortes de forma ágil y visual.
 - 📂 **Administración de Categorías:** Crea y estructura tus categorías de manera lógica sin perderte en menús infinitos.
 - 🎯 **Gestión Integral de Competencias:** Administra marcos de competencias (Competency Frameworks), árboles jerárquicos, reglas de finalización de competencias, vinculación con cursos/actividades y gestión de revisiones de planes de aprendizaje.
+- ⚖️ **Gestión de Escalas de Calificación:** Administra escalas estándar y personalizadas para marcos de competencias, identificando escalas por defecto y niveles configurables.
+- 💡 **Sistema de Ayuda Contextual Integrado:** Tooltips interactivos y panel lateral accesible (`HelpDrawer`) disponible en cada vista o presionando el atajo `?`, con guías paso a paso, atajos y enlaces a documentación oficial.
 - 📈 **Reportes y Exportaciones:** Genera y exporta reportes detallados en CSV de usuarios, cursos, competencias y progreso.
 - 🎨 **Personalización y Temas:** Soporte completo para temas claro, oscuro y cyberpunk con persistencia de preferencias.
 - ⚡ **Rendimiento Inigualable:** Desarrollado con tecnología de última generación para garantizar respuestas instantáneas en cada interacción.
@@ -102,11 +104,30 @@ npm run build:moodle
 ```
 *(El output generado se compila e inyecta directamente en `plugin/management_console/app/`).*
 
+### 5. Sincronización y Despliegue en Moodle LTS
+El proyecto cuenta con automatización integral vía Puppeteer para verificar e instalar el plugin compilado directamente en el entorno de Moodle LTS:
+
+```bash
+# Auditar paridad entre versiones locales y servidor LTS
+npm run moodle:check
+
+# Empaquetar, instalar y verificar paridad en Moodle LTS
+npm run moodle:sync
+
+# Ejecutar frontend contra el backend de Moodle LTS mediante proxy
+npm run dev:lts
+```
+
+---
+
+## 🎨 Guía de Estilo UI y Arquitectura
+Para consultar los lineamientos de diseño, tokens Tailwind, catálogo de componentes (`FilterBar`, `DataTable`, `HelpDrawer`, `ScaleSelector`) y reglas de accesibilidad, consulta [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md).
+
 ---
 
 ## 🧪 Testing y Cobertura
 
-Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (180 tests):
+Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (221 tests en 37 suites):
 
 ```bash
 npm run test
