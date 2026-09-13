@@ -306,6 +306,17 @@ describe('AdminerApi service', () => {
       expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_get_scales');
     });
 
+    it('scaleAction calls tool_management_console_scale_action', async () => {
+      MoodleApi.call.mockResolvedValue({ success: 1, scaleid: 2 });
+      await AdminerApi.scaleAction({ action: 'create', name: 'Escala Test', items: 'A,B' });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_scale_action', {
+        action: 'create',
+        scaleid: 0,
+        name: 'Escala Test',
+        items: 'A,B',
+      });
+    });
+
     it('getCompetencyKpis calls tool_management_console_get_competency_kpis', async () => {
       MoodleApi.call.mockResolvedValue({});
       await AdminerApi.getCompetencyKpis();

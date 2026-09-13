@@ -41,17 +41,32 @@ class competency_framework_repository {
      * @return array
      */
     public static function get_scales(): array {
-        global $DB;
+        global $CFG, $DB;
+        require_once($CFG->libdir . '/gradelib.php');
         $records = $DB->get_records('scale', ['courseid' => 0], 'id ASC', 'id, name, scale, description');
         $scales = [];
         $first = true;
         foreach ($records as $r) {
             $items = array_map('trim', explode(',', $r->scale));
+            $frameworks_count = (int)$DB->count_records('competency_framework', ['scaleid' => $r->id]);
+            $locked = 0;
+            if ($DB->record_exists('grade_items', ['scaleid' => $r->id])) {
+                $locked = 1;
+            } else if (function_exists('scale_has_records')) {
+                $locked = scale_has_records($r->id) ? 1 : 0;
+            } else if (class_exists('\grade_scale')) {
+                $gs = \grade_scale::fetch(['id' => $r->id]);
+                if ($gs && method_exists($gs, 'is_used') && $gs->is_used()) {
+                    $locked = 1;
+                }
+            }
             $scales[] = [
-                'id'        => (int)$r->id,
-                'name'      => (string)$r->name,
-                'isdefault' => $first ? 1 : 0,
-                'items'     => $items,
+                'id'               => (int)$r->id,
+                'name'             => (string)$r->name,
+                'isdefault'        => $first ? 1 : 0,
+                'items'            => $items,
+                'locked'           => $locked,
+                'frameworks_count' => $frameworks_count,
             ];
             $first = false;
         }

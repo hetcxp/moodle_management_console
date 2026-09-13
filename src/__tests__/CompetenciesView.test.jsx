@@ -5,6 +5,15 @@ import { CompetenciesView } from '../views/CompetenciesView';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+const mockSetLocation = vi.fn();
+vi.mock('wouter', async () => {
+  const actual = await vi.importActual('wouter');
+  return {
+    ...actual,
+    useLocation: () => ['/competencies', mockSetLocation],
+  };
+});
+
 // Mock AdminerApi
 vi.mock('../services/adminer-api', () => ({
   AdminerApi: {
@@ -49,6 +58,7 @@ vi.mock('../services/adminer-api', () => ({
       ],
     }),
     competencyFrameworkAction: vi.fn().mockResolvedValue({ success: true, message: 'OK', affectedcount: 1 }),
+    scaleAction: vi.fn().mockResolvedValue({ success: 1, scaleid: 1, locked: 0, frameworks_count: 0 }),
   },
 }));
 
@@ -109,6 +119,19 @@ describe('CompetenciesView', () => {
       expect(screen.getByText('Configura el marco y su escala de calificación predeterminada.')).toBeDefined();
       expect(screen.getByPlaceholderText('Ej. Marco de Habilidades Digitales 2026')).toBeDefined();
     });
+  });
+
+  it('navigates to /competencies/scales when clicking Escalas in header', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Escalas')).toBeDefined();
+    });
+
+    const scalesBtn = screen.getByText('Escalas');
+    fireEvent.click(scalesBtn);
+
+    expect(mockSetLocation).toHaveBeenCalledWith('/competencies/scales');
   });
 
   it('triggers toggle visibility action when clicking action button', async () => {

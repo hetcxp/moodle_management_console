@@ -101,6 +101,7 @@ export const mockAdminerApi = {
 
   // 7. Competencies
   getScales: vi.fn().mockResolvedValue([]),
+  scaleAction: vi.fn().mockResolvedValue({ success: 1, scaleid: 1, locked: 0, frameworks_count: 0 }),
   getCompetencyKpis: vi.fn().mockResolvedValue({
     total_frameworks: 0,
     visible_frameworks: 0,

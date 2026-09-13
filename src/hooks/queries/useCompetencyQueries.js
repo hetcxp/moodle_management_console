@@ -11,6 +11,17 @@ export function useScales() {
   });
 }
 
+export function useScaleAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params) => AdminerApi.scaleAction(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['scales'] });
+      queryClient.invalidateQueries({ queryKey: ['competency_frameworks'] });
+    },
+  });
+}
+
 export function useCompetencyKpis() {
   return useQuery({
     queryKey: ['competency_kpis'],

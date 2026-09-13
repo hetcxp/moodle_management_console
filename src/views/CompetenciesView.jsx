@@ -4,6 +4,7 @@ import { useCompetenciesState } from './competencies/useCompetenciesState';
 import { CompetenciesHeader } from './competencies/CompetenciesHeader';
 import { CompetenciesTable } from './competencies/CompetenciesTable';
 import { CompetencyReviewsModal } from './competencies/CompetencyReviewsModal';
+import { ScaleSelector } from './competencies/ScaleSelector';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
@@ -28,6 +29,7 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
         onExport={() => state.setExportModalOpen(true)}
         onCreate={state.handleOpenCreate}
         onOpenReviews={() => state.setReviewsModalOpen(true)}
+        onOpenScales={() => setLocation('/competencies/scales')}
       />
 
       <CompetenciesTable
@@ -98,23 +100,12 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Escala de Evaluación</label>
-            <select
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              value={state.formData.scaleid}
-              onChange={(e) => state.setFormData({ ...state.formData, scaleid: Number(e.target.value) })}
-            >
-              {state.scales.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} {s.isdefault === 1 ? '(Por defecto del sitio)' : ''} — [{s.items.join(', ')}]
-                </option>
-              ))}
-            </select>
-            <p className="text-[11px] text-muted-foreground">
-              Define la escala con la que se medirán las competencias vinculadas a este marco.
-            </p>
-          </div>
+          <ScaleSelector
+            scales={state.scales}
+            value={state.formData.scaleid}
+            onChange={(scaleid) => state.setFormData({ ...state.formData, scaleid })}
+            onManageScales={state.hasManageCompetencies ? () => setLocation('/competencies/scales') : null}
+          />
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">Descripción</label>

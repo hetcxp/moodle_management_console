@@ -2,15 +2,18 @@ import React from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { FilterBar } from '../../components/FilterBar';
 import { KpiGrid } from '../../components/KpiGrid';
-import { Award, Layers, Eye, Clock, Plus } from 'lucide-react';
+import { Award, Layers, Eye, Clock, Plus, Sliders } from 'lucide-react';
+import { useHelp } from '../../context/HelpContext';
 
 export function CompetenciesHeader({
   totalCount, kpis, loading, exportLoading,
   search, onSearchChange,
   visibilityFilter, onVisibilityChange,
   hasManageCompetencies,
-  onRefresh, onExport, onCreate, onOpenReviews,
+  onRefresh, onExport, onCreate, onOpenReviews, onOpenScales,
 }) {
+  const { helpData } = useHelp();
+
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -28,6 +31,7 @@ export function CompetenciesHeader({
       {kpis && (
         <KpiGrid
           loading={loading}
+          kpiHelpMap={helpData?.kpisHelp || {}}
           items={[
             {
               title: 'Marcos de Competencias',
@@ -112,6 +116,16 @@ export function CompetenciesHeader({
                 label: 'Nuevo Marco',
                 onClick: onCreate,
                 icon: <Plus className="h-4 w-4" />,
+              }
+            : null
+        }
+        secondaryAction={
+          hasManageCompetencies && onOpenScales
+            ? {
+                label: 'Escalas',
+                onClick: onOpenScales,
+                icon: <Sliders className="h-4 w-4" aria-hidden="true" />,
+                variant: 'outline',
               }
             : null
         }

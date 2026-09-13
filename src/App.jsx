@@ -8,6 +8,8 @@ import { queryClient } from './lib/queryClient';
 import { applyTenantTheme } from './config/tenant';
 import { Header } from './components/Header';
 import { AppSidebar } from './components/AppSidebar';
+import { HelpDrawer } from './components/ui/HelpDrawer';
+import { HelpProvider } from './context/HelpContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginView } from './views/LoginView';
 import { Loader2 } from 'lucide-react';
@@ -25,6 +27,7 @@ const CategoryDetailView = lazy(() => import('./views/CategoryDetailView').then(
 const CompetenciesView = lazy(() => import('./views/CompetenciesView').then(m => ({ default: m.CompetenciesView })));
 const CompetencyFrameworkDetailView = lazy(() => import('./views/CompetencyFrameworkDetailView').then(m => ({ default: m.CompetencyFrameworkDetailView })));
 const CompetencyDetailView = lazy(() => import('./views/CompetencyDetailView').then(m => ({ default: m.CompetencyDetailView })));
+const ScalesView = lazy(() => import('./views/ScalesView').then(m => ({ default: m.ScalesView })));
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
@@ -87,8 +90,9 @@ const AdminerApp = () => {
   }
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground">
-      {/* Sidebar */}
+    <HelpProvider>
+      <div className="min-h-screen flex bg-background text-foreground">
+        {/* Sidebar */}
       <AppSidebar
         activeTab={activeTab}
         open={sidebarOpen}
@@ -200,6 +204,9 @@ const AdminerApp = () => {
                 <Route path="/competencies">
                   <CompetenciesView onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
+                <Route path="/competencies/scales">
+                  <ScalesView onBack={() => setLocation('/competencies')} />
+                </Route>
                 <Route path="/competencies/:frameworkId/competency/:competencyId">
                   {params => (
                     <CompetencyDetailView
@@ -234,8 +241,10 @@ const AdminerApp = () => {
             </Suspense>
           </ErrorBoundary>
         </main>
+        <HelpDrawer />
       </div>
     </div>
+    </HelpProvider>
   );
 };
 

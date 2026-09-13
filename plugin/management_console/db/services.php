@@ -238,6 +238,14 @@ $functions = [
         'type'          => 'read',
         'ajax'          => true,
     ],
+    'tool_management_console_scale_action' => [
+        'classname'     => 'tool_management_console\external\competencies',
+        'methodname'    => 'scale_action',
+        'description'   => 'Create, update or delete a global scale (courseid=0)',
+        'type'          => 'write',
+        'capabilities'  => 'moodle/competency:competencymanage',
+        'ajax'          => true,
+    ],
     'tool_management_console_get_competency_kpis' => [
         'classname'     => 'tool_management_console\external\competencies',
         'methodname'    => 'get_competency_kpis',
@@ -361,6 +369,7 @@ $services = [
             'tool_management_console_upload_courses_csv',
             'tool_management_console_get_autologin_url',
             'tool_management_console_get_scales',
+            'tool_management_console_scale_action',
             'tool_management_console_get_competency_kpis',
             'tool_management_console_get_competency_frameworks',
             'tool_management_console_competency_framework_action',

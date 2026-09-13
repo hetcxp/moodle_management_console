@@ -184,6 +184,15 @@ export const AdminerApi = {
     return await MoodleApi.call('tool_management_console_get_scales');
   },
 
+  async scaleAction({ action, scaleid = 0, name = '', items = '' }) {
+    return await MoodleApi.call('tool_management_console_scale_action', {
+      action,
+      scaleid,
+      name,
+      items,
+    });
+  },
+
   async getCompetencyKpis() {
     return await MoodleApi.call('tool_management_console_get_competency_kpis');
   },

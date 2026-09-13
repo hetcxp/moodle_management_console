@@ -87,12 +87,146 @@ class competencies extends external_api {
         return new external_single_structure([
             'scales' => new external_multiple_structure(
                 new external_single_structure([
-                    'id'        => new external_value(PARAM_INT, 'Scale ID'),
-                    'name'      => new external_value(PARAM_TEXT, 'Scale name'),
-                    'isdefault' => new external_value(PARAM_INT, '1 if this is the default standard scale'),
-                    'items'     => new external_multiple_structure(new external_value(PARAM_TEXT, 'Scale grade label')),
+                    'id'               => new external_value(PARAM_INT, 'Scale ID'),
+                    'name'             => new external_value(PARAM_TEXT, 'Scale name'),
+                    'isdefault'        => new external_value(PARAM_INT, '1 if this is the default standard scale'),
+                    'items'            => new external_multiple_structure(new external_value(PARAM_TEXT, 'Scale grade label')),
+                    'locked'           => new external_value(PARAM_INT, '1 if scale is locked due to records', VALUE_DEFAULT, 0),
+                    'frameworks_count' => new external_value(PARAM_INT, 'Count of frameworks using this scale', VALUE_DEFAULT, 0),
                 ])
             ),
+        ]);
+    }
+
+    // ==========================================
+    // 1B. SCALE ACTION (CRUD)
+    // ==========================================
+    public static function scale_action_parameters() {
+        return new external_function_parameters([
+            'action'  => new external_value(PARAM_ALPHA, 'Action: create, update, delete'),
+            'scaleid' => new external_value(PARAM_INT, 'Scale ID (for update or delete)', VALUE_DEFAULT, 0),
+            'name'    => new external_value(PARAM_TEXT, 'Scale name (for create or update)', VALUE_DEFAULT, ''),
+            'items'   => new external_value(PARAM_TEXT, 'Comma-separated scale items ordered from lowest to highest', VALUE_DEFAULT, ''),
+        ]);
+    }
+
+    public static function scale_action($action, $scaleid = 0, $name = '', $items = '') {
+        global $DB, $USER, $CFG;
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_manage_capability($context);
+
+        $params = self::validate_parameters(self::scale_action_parameters(), [
+            'action'  => $action,
+            'scaleid' => $scaleid,
+            'name'    => $name,
+            'items'   => $items,
+        ]);
+
+        $action = $params['action'];
+        $scaleid = (int)$params['scaleid'];
+        $name = trim($params['name']);
+        $items = trim($params['items']);
+
+        require_once($CFG->libdir . '/gradelib.php');
+
+        $is_locked = function($id) use ($DB) {
+            if ($DB->record_exists('grade_items', ['scaleid' => $id])) {
+                return true;
+            }
+            if (function_exists('scale_has_records') && scale_has_records($id)) {
+                return true;
+            }
+            if (class_exists('\grade_scale')) {
+                $gs = \grade_scale::fetch(['id' => $id]);
+                if ($gs && method_exists($gs, 'is_used') && $gs->is_used()) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $result = [
+            'success'          => 1,
+            'scaleid'          => $scaleid,
+            'locked'           => 0,
+            'frameworks_count' => 0,
+        ];
+
+        if ($action === 'create') {
+            if (empty($name)) {
+                throw new \moodle_exception('error', '', '', 'Scale name cannot be empty');
+            }
+            $item_array = array_values(array_filter(array_map('trim', explode(',', $items)), function($v) {
+                return $v !== '';
+            }));
+            if (count($item_array) < 2) {
+                throw new \moodle_exception('error', '', '', 'Scale must contain at least 2 items separated by commas');
+            }
+
+            $record = new \stdClass();
+            $record->name = $name;
+            $record->scale = implode(',', $item_array);
+            $record->courseid = 0;
+            $record->userid = $USER->id;
+            $record->description = '';
+            $record->descriptionformat = FORMAT_HTML;
+            $record->timemodified = time();
+
+            $newid = $DB->insert_record('scale', $record);
+            $result['scaleid'] = (int)$newid;
+
+        } else if ($action === 'update') {
+            if ($scaleid <= 0) {
+                throw new \moodle_exception('invalidrecord', 'error', '', 'Invalid scale ID');
+            }
+            $scale = $DB->get_record('scale', ['id' => $scaleid, 'courseid' => 0], '*', MUST_EXIST);
+            $locked = $is_locked($scaleid);
+            $result['locked'] = $locked ? 1 : 0;
+            $result['frameworks_count'] = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
+
+            if (!empty($name)) {
+                $scale->name = $name;
+            }
+
+            if (!$locked && !empty($items)) {
+                $item_array = array_values(array_filter(array_map('trim', explode(',', $items)), function($v) {
+                    return $v !== '';
+                }));
+                if (count($item_array) < 2) {
+                    throw new \moodle_exception('error', '', '', 'Scale must contain at least 2 items');
+                }
+                $scale->scale = implode(',', $item_array);
+            }
+
+            $scale->timemodified = time();
+            $DB->update_record('scale', $scale);
+
+        } else if ($action === 'delete') {
+            if ($scaleid <= 0) {
+                throw new \moodle_exception('invalidrecord', 'error', '', 'Invalid scale ID');
+            }
+            $frameworks_count = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
+            if ($frameworks_count > 0) {
+                throw new \moodle_exception('error', '', '', 'Scale cannot be deleted because it is used by ' . $frameworks_count . ' competency framework(s)');
+            }
+            if ($is_locked($scaleid)) {
+                throw new \moodle_exception('error', '', '', 'Scale cannot be deleted because it has grading records');
+            }
+            $DB->delete_records('scale', ['id' => $scaleid, 'courseid' => 0]);
+        } else {
+            throw new \moodle_exception('error', '', '', 'Unsupported scale action: ' . $action);
+        }
+
+        return $result;
+    }
+
+    public static function scale_action_returns() {
+        return new external_single_structure([
+            'success'          => new external_value(PARAM_INT, '1 on success'),
+            'scaleid'          => new external_value(PARAM_INT, 'Affected scale ID'),
+            'locked'           => new external_value(PARAM_INT, '1 if scale was locked', VALUE_DEFAULT, 0),
+            'frameworks_count' => new external_value(PARAM_INT, 'Number of frameworks linked to scale', VALUE_DEFAULT, 0),
         ]);
     }
 
