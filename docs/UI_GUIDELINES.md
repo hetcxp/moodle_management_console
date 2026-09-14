@@ -9,7 +9,7 @@ Este documento define los estándares visuales, tokens de diseño, patrones de c
 Moodle Adminer está diseñado bajo el concepto de **"Modern Management Studio"**:
 - **Densidad de Información Óptima:** Interfaces limpias y profesionales con espaciado balanceado (`gap-4` a `gap-6`), diseñadas para administradores y gestores que necesitan visualizar métricas y listas densas sin sobrecarga cognitiva.
 - **Glassmorphism y Elevaciones Sutiles:** Fondos con efecto de desenfoque (`bg-card/60 backdrop-blur-md`, `.glass-panel`), bordes semitransparentes (`border-border/70` o `border-border/80`) y sombras suaves (`shadow-sm`, `shadow-md`, `shadow-xl`).
-- **Dark Mode y Multi-Tenant Nativo:** Todo componente utiliza tokens semánticos HSL de CSS variables compatibles con modo claro, oscuro (`dark`) y cyberpunk, así como personalización dinámica por tenant (`src/config/tenant.js`).
+- **Dark Mode y Multi-Tenant Nativo:** Todo componente utiliza tokens semánticos HSL de CSS variables compatibles con los 4 temas del sistema (Claro `light`, Oscuro `dark`, Gold & Teal `gold-teal`, Mint Fresh `mint-fresh`), así como personalización dinámica por tenant (`src/config/tenant.js`).
 - **Micro-interacciones y Feedback Inmediato:** Transiciones fluidas (`transition-all duration-200`), estados de pulsación activa (`active:scale-[0.98]`), indicadores de carga unificados (`Loader2 animate-spin`) y notificaciones flotantes contextuales (`ToastProvider`).
 
 ---
@@ -181,8 +181,8 @@ Configuración estándar de columnas:
 const columns = [
   {
     header: 'Nombre',
-    sortKey: 'fullname',
-    filterType: 'text',
+    sortKey: 'fullname', // Clave enviada al backend para ordenación
+    filterType: 'text',  // Activa filtro de texto en encabezado
     className: 'font-medium',
     cell: (row) => (
       <div>
@@ -194,7 +194,7 @@ const columns = [
   {
     header: 'Estado',
     sortKey: 'visible',
-    filterType: 'select',
+    filterType: 'select', // Activa dropdown en encabezado
     filterOptions: [
       { label: 'Visible', value: '1' },
       { label: 'Oculto', value: '0' }

@@ -16,7 +16,7 @@ Moodle Adminer transforma la experiencia de gestión de plataformas Moodle, ofre
 - ⚖️ **Gestión de Escalas de Calificación:** Administra escalas estándar y personalizadas para marcos de competencias, identificando escalas por defecto y niveles configurables.
 - 💡 **Sistema de Ayuda Contextual Integrado:** Tooltips interactivos y panel lateral accesible (`HelpDrawer`) disponible en cada vista o presionando el atajo `?`, con guías paso a paso, atajos y enlaces a documentación oficial.
 - 📈 **Reportes y Exportaciones:** Genera y exporta reportes detallados en CSV de usuarios, cursos, competencias y progreso.
-- 🎨 **Personalización y Temas:** Soporte completo para temas claro, oscuro y cyberpunk con persistencia de preferencias.
+- 🎨 **Personalización y Temas:** Soporte completo para 4 temas (Claro, Oscuro, Gold & Teal, Mint Fresh) con persistencia de preferencias y personalización dinámica por tenant.
 - ⚡ **Rendimiento Inigualable:** Desarrollado con tecnología de última generación para garantizar respuestas instantáneas en cada interacción.
 
 ---
