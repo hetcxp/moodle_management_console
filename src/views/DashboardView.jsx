@@ -25,6 +25,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
     cohortsKpis,
     recentUsers,
     recentCourses,
+    lastUpdated,
   } = useDashboardState(onNavigate, onNavigateToDetail);
   const { helpData } = useHelp();
 
@@ -37,7 +38,7 @@ export const DashboardView = ({ onNavigate, onNavigateToDetail }) => {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             <span>Métricas ejecutivas y monitoreo en tiempo real</span>
-            <span className="block text-xs opacity-80">Métricas al {formatDate(new Date())}</span>
+            <span className="block text-xs opacity-80">Métricas al {formatDate(lastUpdated || new Date())}</span>
           </p>
         </div>
 

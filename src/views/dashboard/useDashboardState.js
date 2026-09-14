@@ -13,7 +13,7 @@ export const useDashboardState = (onNavigate, onNavigateToDetail) => {
   const handleNavigate = onNavigate || ((t) => setLocation(t === 'dashboard' ? '/' : `/${t}`));
   const handleNavigateToDetail = onNavigateToDetail || ((entity, id) => setLocation(`/${entity}s/${id}`));
 
-  const { data: stats, isLoading: statsLoading, isFetching: statsFetching, refetch: refetchStats } = useDashboard();
+  const { data: stats, isLoading: statsLoading, isFetching: statsFetching, refetch: refetchStats, dataUpdatedAt } = useDashboard();
   const { data: usersKpis, isLoading: usersLoading, refetch: refetchUsers } = useUsersKpis({ enabled: !!stats });
   const { data: cohortsKpis, isLoading: cohortsLoading, refetch: refetchCohorts } = useCohortsKpis({ enabled: !!stats });
   const { data: recentUsersData, isLoading: recentUsersLoading, refetch: refetchRecentUsers } = useUsers({ page: 0, perpage: 5, sort: 'lastaccess', dir: 'DESC' });
@@ -108,5 +108,6 @@ export const useDashboardState = (onNavigate, onNavigateToDetail) => {
     cohortsKpis,
     recentUsers,
     recentCourses,
+    lastUpdated: dataUpdatedAt,
   };
 };
