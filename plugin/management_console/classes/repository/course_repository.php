@@ -121,8 +121,10 @@ class course_repository {
         $sql_sub_cmp = "
             SELECT ccmp.course AS courseid, COUNT(DISTINCT ccmp.userid) AS completedcount
               FROM {course_completions} ccmp
+              JOIN {enrol} e ON e.courseid = ccmp.course
+              JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = ccmp.userid
               JOIN {user} u ON u.id = ccmp.userid
-             WHERE ccmp.timecompleted IS NOT NULL AND u.deleted = 0
+             WHERE ccmp.timecompleted > 0 AND ue.status = 0 AND u.deleted = 0
           GROUP BY ccmp.course
         ";
 

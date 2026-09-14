@@ -125,7 +125,7 @@ class course_enrolment_repository {
               FROM {cohort} c
               JOIN {enrol} e ON e.customint1 = c.id
          LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-         LEFT JOIN {course_completions} ccmp ON ccmp.userid = ue.userid AND ccmp.course = e.courseid AND ccmp.timecompleted IS NOT NULL
+         LEFT JOIN {course_completions} ccmp ON ccmp.userid = ue.userid AND ccmp.course = e.courseid AND ccmp.timecompleted > 0
              WHERE e.courseid = :courseid AND e.enrol = 'cohort'
           GROUP BY c.id, c.name, c.idnumber, e.id, e.status, e.timecreated, e.enrolenddate, e.customint2, e.roleid
         ";

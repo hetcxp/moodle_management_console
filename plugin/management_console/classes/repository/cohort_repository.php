@@ -216,7 +216,7 @@ class cohort_repository {
         $sql_completions = "
             SELECT " . $DB->sql_concat('cc.userid', "'-'", 'cc.course') . " AS u_c, 100 AS progress
               FROM {course_completions} cc
-             WHERE cc.userid $in_u_sql AND cc.course $in_c_sql AND cc.timecompleted IS NOT NULL
+             WHERE cc.userid $in_u_sql AND cc.course $in_c_sql AND cc.timecompleted > 0
         ";
         $completed_map = $DB->get_records_sql_menu($sql_completions, $sqlparams) ?: [];
 

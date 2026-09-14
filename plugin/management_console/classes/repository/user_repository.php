@@ -66,7 +66,7 @@ class user_repository {
                 SELECT cc.userid, COUNT(DISTINCT cc.id) AS completed 
                   FROM {course_completions} cc
                   JOIN {user} u2 ON u2.id = cc.userid
-                 WHERE cc.timecompleted IS NOT NULL AND u2.deleted = 0 AND u2.id <> :adminid2 AND u2.id <> :guestid2
+                 WHERE cc.timecompleted > 0 AND u2.deleted = 0 AND u2.id <> :adminid2 AND u2.id <> :guestid2
                  GROUP BY cc.userid
             ) cmp ON cmp.userid = enr.userid
         ";
@@ -167,7 +167,7 @@ class user_repository {
          LEFT JOIN (
                 SELECT userid, COUNT(DISTINCT course) AS completed_courses
                   FROM {course_completions}
-                 WHERE timecompleted IS NOT NULL
+                 WHERE timecompleted > 0
               GROUP BY userid
          ) cmp ON cmp.userid = u.id
              WHERE $where
@@ -261,7 +261,7 @@ class user_repository {
         $sql_completions = "
             SELECT course, 100 AS progress
               FROM {course_completions}
-             WHERE userid = :userid AND course $in_c_sql AND timecompleted IS NOT NULL
+             WHERE userid = :userid AND course $in_c_sql AND timecompleted > 0
         ";
         $completed_map = $DB->get_records_sql_menu($sql_completions, $params) ?: [];
 
