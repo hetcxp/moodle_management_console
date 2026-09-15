@@ -870,4 +870,490 @@ class competency_repository {
             ],
         ];
     }
+
+    /**
+     * Ejecuta acciones de creación, edición, actualización de reglas y eliminación de competencias.
+     *
+     * @param string $action create, edit, update_rule, delete
+     * @param int $competencyid
+     * @param int $frameworkid
+     * @param int $parentid
+     * @param string $shortname
+     * @param string $idnumber
+     * @param string $description
+     * @param string $ruletype
+     * @param int $ruleoutcome
+     * @param string $ruleconfig
+     * @param int $userid
+     * @return array
+     */
+    public static function competency_action(
+        string $action,
+        int $competencyid = 0,
+        int $frameworkid = 0,
+        int $parentid = 0,
+        string $shortname = '',
+        string $idnumber = '',
+        string $description = '',
+        string $ruletype = '',
+        int $ruleoutcome = 1,
+        string $ruleconfig = '',
+        int $userid = 0
+    ): array {
+        global $DB;
+        $now = time();
+
+        switch ($action) {
+            case 'create':
+                if (empty($frameworkid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco para crear la competencia.', 'affectedcount' => 0];
+                }
+                if (empty(trim($shortname))) {
+                    return ['success' => false, 'message' => 'El nombre de la competencia es obligatorio.', 'affectedcount' => 0];
+                }
+
+                $framework = $DB->get_record('competency_framework', ['id' => $frameworkid], '*', MUST_EXIST);
+
+                $parent = null;
+                $target_parentid = $parentid;
+                if ($target_parentid > 0) {
+                    $parent = $DB->get_record('competency', [
+                        'id'                    => $target_parentid,
+                        'competencyframeworkid' => $framework->id,
+                    ], '*', MUST_EXIST);
+                    if ((int)$parent->parentid > 0) {
+                        return [
+                            'success'       => false,
+                            'message'       => 'Solo se permiten 2 niveles de jerarquía. La competencia seleccionada ya es una subcompetencia.',
+                            'affectedcount' => 0,
+                        ];
+                    }
+                }
+
+                $max_sort = (int)$DB->get_field_sql(
+                    "SELECT MAX(sortorder) FROM {competency} WHERE competencyframeworkid = :fid AND parentid = :pid",
+                    ['fid' => $framework->id, 'pid' => $target_parentid]
+                );
+
+                $record = new \stdClass();
+                $record->shortname             = trim($shortname);
+                $record->idnumber              = trim($idnumber);
+                $record->description           = clean_text($description, FORMAT_HTML);
+                $record->descriptionformat     = FORMAT_HTML;
+                $record->competencyframeworkid = $framework->id;
+                $record->parentid              = $target_parentid;
+                $record->path                  = $parent ? $parent->path : '/0/';
+                $record->sortorder             = $max_sort + 1;
+                $record->ruletype              = !empty($ruletype) ? trim($ruletype) : null;
+                $record->ruleoutcome           = $ruleoutcome;
+                $record->ruleconfig            = !empty($ruleconfig) ? trim($ruleconfig) : null;
+                $record->scaleid               = null;
+                $record->scaleconfiguration    = null;
+                $record->timecreated           = $now;
+                $record->timemodified          = $now;
+                $record->usermodified          = $userid;
+
+                $newid = $DB->insert_record('competency', $record);
+
+                $newpath = $parent ? ($parent->path . $newid . '/') : ('/0/' . $newid . '/');
+                $DB->set_field('competency', 'path', $newpath, ['id' => $newid]);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $framework->id]);
+
+                return [
+                    'success'       => true,
+                    'message'       => $target_parentid > 0 ? 'Subcompetencia creada exitosamente.' : 'Competencia creada exitosamente.',
+                    'affectedcount' => (int)$newid,
+                ];
+
+            case 'edit':
+                if (empty($competencyid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia a editar.', 'affectedcount' => 0];
+                }
+                if (empty(trim($shortname))) {
+                    return ['success' => false, 'message' => 'El nombre de la competencia es obligatorio.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
+                $existing->shortname    = trim($shortname);
+                $existing->idnumber     = trim($idnumber);
+                $existing->description  = clean_text($description, FORMAT_HTML);
+                $existing->ruletype     = !empty($ruletype) ? trim($ruletype) : null;
+                $existing->ruleoutcome  = $ruleoutcome;
+                $existing->ruleconfig   = !empty($ruleconfig) ? trim($ruleconfig) : null;
+
+                if ($parentid !== (int)$existing->parentid) {
+                    $new_parentid = $parentid;
+                    if ($new_parentid === (int)$existing->id) {
+                        return ['success' => false, 'message' => 'Una competencia no puede ser padre de sí misma.', 'affectedcount' => 0];
+                    }
+                    if ($new_parentid > 0) {
+                        $has_children = $DB->record_exists('competency', ['parentid' => $existing->id]);
+                        if ($has_children) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Esta competencia tiene subcompetencias asociadas y no puede convertirse en subcompetencia.',
+                                'affectedcount' => 0,
+                            ];
+                        }
+
+                        $parent = $DB->get_record('competency', [
+                            'id'                    => $new_parentid,
+                            'competencyframeworkid' => $existing->competencyframeworkid,
+                        ], '*', MUST_EXIST);
+
+                        if ((int)$parent->parentid > 0) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Solo se permiten 2 niveles de jerarquía. La competencia seleccionada ya es una subcompetencia.',
+                                'affectedcount' => 0,
+                            ];
+                        }
+                    }
+                    $oldpath = $existing->path;
+                    if ($new_parentid > 0) {
+                        if (!empty($parent->path) && strpos($parent->path, $oldpath) === 0) {
+                            return ['success' => false, 'message' => 'No se puede mover una competencia dentro de sus propias subcompetencias.', 'affectedcount' => 0];
+                        }
+                        $newpath = $parent->path . $existing->id . '/';
+                    } else {
+                        $newpath = '/0/' . $existing->id . '/';
+                    }
+                    $existing->parentid = $new_parentid;
+                    $existing->path = $newpath;
+
+                    $descendants = $DB->get_records_select(
+                        'competency',
+                        'competencyframeworkid = :fid AND path LIKE :pathlike AND id != :id',
+                        ['fid' => $existing->competencyframeworkid, 'pathlike' => $oldpath . '%', 'id' => $existing->id]
+                    );
+                    foreach ($descendants as $desc) {
+                        $desc->path = $newpath . substr($desc->path, strlen($oldpath));
+                        $DB->update_record('competency', $desc);
+                    }
+                }
+
+                $existing->timemodified = $now;
+                $existing->usermodified = $userid;
+
+                $DB->update_record('competency', $existing);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $existing->competencyframeworkid]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Competencia actualizada exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'update_rule':
+                if (empty($competencyid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia para actualizar la regla.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
+                $existing->ruletype     = !empty($ruletype) ? trim($ruletype) : null;
+                $existing->ruleoutcome  = $ruleoutcome;
+                $existing->ruleconfig   = !empty($ruleconfig) ? trim($ruleconfig) : null;
+                $existing->timemodified = $now;
+                $existing->usermodified = $userid;
+
+                $DB->update_record('competency', $existing);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $existing->competencyframeworkid]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Regla de completado actualizada exitosamente.',
+                    'affectedcount' => (int)$existing->id,
+                ];
+
+            case 'delete':
+                if (empty($competencyid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia a eliminar.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
+                $fid = $existing->competencyframeworkid;
+
+                $DB->delete_records_select('competency', 'id = :id OR path LIKE :pathlike', [
+                    'id'       => $existing->id,
+                    'pathlike' => '%/' . $existing->id . '/%',
+                ]);
+                $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $fid]);
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Competencia y subcompetencias eliminadas exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $action, 'affectedcount' => 0];
+        }
+    }
+
+    /**
+     * Acciones de vinculación entre competencias y cursos (add, remove, update_rule).
+     *
+     * @param string $action
+     * @param int $competencyid
+     * @param array $courseids
+     * @param int $ruleoutcome
+     * @param int $userid
+     * @return array
+     */
+    public static function competency_course_action(string $action, int $competencyid, array $courseids, int $ruleoutcome = 1, int $userid = 0): array {
+        global $DB;
+        $competency = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
+        $now = time();
+        $affected = 0;
+
+        switch ($action) {
+            case 'add':
+                foreach ($courseids as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid <= 0 || (defined('SITEID') && $cid == SITEID)) {
+                        continue;
+                    }
+                    if (!$DB->record_exists('course', ['id' => $cid])) {
+                        continue;
+                    }
+                    if (!$DB->record_exists('competency_coursecomp', ['competencyid' => $competency->id, 'courseid' => $cid])) {
+                        $inserted = false;
+                        if (class_exists('\core_competency\course_competency')) {
+                            try {
+                                $cc = new \core_competency\course_competency(0, (object)[
+                                    'courseid'     => $cid,
+                                    'competencyid' => $competency->id,
+                                    'ruleoutcome'  => $ruleoutcome,
+                                ]);
+                                $cc->create();
+                                $inserted = true;
+                                $affected++;
+                            } catch (\Exception $e) {
+                                $inserted = false;
+                            }
+                        }
+
+                        if (!$inserted) {
+                            $max_sort = (int)$DB->count_records('competency_coursecomp', ['courseid' => $cid]);
+                            $record = new \stdClass();
+                            $record->courseid     = $cid;
+                            $record->competencyid = $competency->id;
+                            $record->ruleoutcome  = $ruleoutcome;
+                            $record->sortorder    = $max_sort;
+                            $record->timecreated  = $now;
+                            $record->timemodified = $now;
+                            $record->usermodified = !empty($userid) ? $userid : 2;
+
+                            $DB->insert_record('competency_coursecomp', $record);
+                            $affected++;
+                        }
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Se vincularon {$affected} curso(s) a la competencia.",
+                    'affectedcount' => $affected,
+                ];
+
+            case 'remove':
+                foreach ($courseids as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid <= 0) {
+                        continue;
+                    }
+                    $deleted = false;
+                    if (class_exists('\core_competency\course_competency')) {
+                        try {
+                            $cc = \core_competency\course_competency::get_record([
+                                'courseid'     => $cid,
+                                'competencyid' => $competency->id,
+                            ]);
+                            if ($cc) {
+                                $cc->delete();
+                                $deleted = true;
+                                $affected++;
+                            }
+                        } catch (\Exception $e) {
+                            $deleted = false;
+                        }
+                    }
+                    if (!$deleted) {
+                        $DB->delete_records('competency_coursecomp', [
+                            'competencyid' => $competency->id,
+                            'courseid'     => $cid,
+                        ]);
+                        $affected++;
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Se desvincularon {$affected} curso(s) de la competencia.",
+                    'affectedcount' => $affected,
+                ];
+
+            case 'update_rule':
+                foreach ($courseids as $cid) {
+                    $cid = (int)$cid;
+                    if ($cid <= 0) {
+                        continue;
+                    }
+                    $updated = false;
+                    if (class_exists('\core_competency\course_competency')) {
+                        try {
+                            $cc = \core_competency\course_competency::get_record([
+                                'courseid'     => $cid,
+                                'competencyid' => $competency->id,
+                            ]);
+                            if ($cc) {
+                                $cc->set('ruleoutcome', $ruleoutcome);
+                                $cc->update();
+                                $updated = true;
+                                $affected++;
+                            }
+                        } catch (\Exception $e) {
+                            $updated = false;
+                        }
+                    }
+                    if (!$updated) {
+                        $DB->set_field('competency_coursecomp', 'ruleoutcome', $ruleoutcome, [
+                            'competencyid' => $competency->id,
+                            'courseid'     => $cid,
+                        ]);
+                        $affected++;
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => "Regla de finalización del curso actualizada correctamente.",
+                    'affectedcount' => $affected,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $action, 'affectedcount' => 0];
+        }
+    }
+
+    /**
+     * Acciones de vinculación entre competencias y módulos de actividad (add, remove, update_rule).
+     *
+     * @param string $action
+     * @param int $competencyid
+     * @param int $cmid
+     * @param int $ruleoutcome
+     * @param int $userid
+     * @return array
+     */
+    public static function module_competency_action(string $action, int $competencyid, int $cmid, int $ruleoutcome = 1, int $userid = 0): array {
+        global $DB;
+        $competency = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
+        $cm = $DB->get_record('course_modules', ['id' => $cmid], '*', MUST_EXIST);
+        $now = time();
+
+        switch ($action) {
+            case 'add':
+                if (!$DB->record_exists('competency_modulecomp', ['competencyid' => $competency->id, 'cmid' => $cm->id])) {
+                    $inserted = false;
+                    if (class_exists('\core_competency\course_module_competency')) {
+                        try {
+                            $mc = new \core_competency\course_module_competency(0, (object)[
+                                'cmid'         => $cm->id,
+                                'competencyid' => $competency->id,
+                                'ruleoutcome'  => $ruleoutcome,
+                            ]);
+                            $mc->create();
+                            $inserted = true;
+                        } catch (\Exception $e) {
+                            $inserted = false;
+                        }
+                    }
+
+                    if (!$inserted) {
+                        $max_sort = (int)$DB->count_records('competency_modulecomp', ['cmid' => $cm->id]);
+                        $record = new \stdClass();
+                        $record->cmid         = $cm->id;
+                        $record->competencyid = $competency->id;
+                        $record->ruleoutcome  = $ruleoutcome;
+                        $record->sortorder    = $max_sort;
+                        $record->timecreated  = $now;
+                        $record->timemodified = $now;
+                        $record->usermodified = !empty($userid) ? $userid : 2;
+
+                        $DB->insert_record('competency_modulecomp', $record);
+                    }
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Actividad vinculada exitosamente a la competencia.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'remove':
+                $deleted = false;
+                if (class_exists('\core_competency\course_module_competency')) {
+                    try {
+                        $mc = \core_competency\course_module_competency::get_record([
+                            'cmid'         => $cm->id,
+                            'competencyid' => $competency->id,
+                        ]);
+                        if ($mc) {
+                            $mc->delete();
+                            $deleted = true;
+                        }
+                    } catch (\Exception $e) {
+                        $deleted = false;
+                    }
+                }
+
+                if (!$deleted) {
+                    $DB->delete_records('competency_modulecomp', [
+                        'competencyid' => $competency->id,
+                        'cmid'         => $cm->id,
+                    ]);
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Actividad desvinculada de la competencia.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'update_rule':
+                $updated = false;
+                if (class_exists('\core_competency\course_module_competency')) {
+                    try {
+                        $mc = \core_competency\course_module_competency::get_record([
+                            'cmid'         => $cm->id,
+                            'competencyid' => $competency->id,
+                        ]);
+                        if ($mc) {
+                            $mc->set('ruleoutcome', $ruleoutcome);
+                            $mc->update();
+                            $updated = true;
+                        }
+                    } catch (\Exception $e) {
+                        $updated = false;
+                    }
+                }
+
+                if (!$updated) {
+                    $DB->set_field('competency_modulecomp', 'ruleoutcome', $ruleoutcome, [
+                        'competencyid' => $competency->id,
+                        'cmid'         => $cm->id,
+                    ]);
+                }
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Regla de actividad actualizada exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $action, 'affectedcount' => 0];
+        }
+    }
 }

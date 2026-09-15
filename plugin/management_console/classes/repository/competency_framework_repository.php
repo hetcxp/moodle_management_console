@@ -286,4 +286,307 @@ class competency_framework_repository {
             'competencies'       => $competencies,
         ];
     }
+
+    /**
+     * Ejecuta acciones CRUD sobre escalas de calificación.
+     *
+     * @param string $action create, update, delete
+     * @param int $scaleid
+     * @param string $name
+     * @param string $items
+     * @param int $userid
+     * @return array
+     * @throws \moodle_exception
+     */
+    public static function scale_action(string $action, int $scaleid = 0, string $name = '', string $items = '', int $userid = 0): array {
+        global $DB, $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+
+        $is_locked = function($id) use ($DB) {
+            if ($DB->record_exists('grade_items', ['scaleid' => $id])) {
+                return true;
+            }
+            if (function_exists('scale_has_records') && scale_has_records($id)) {
+                return true;
+            }
+            if (class_exists('\grade_scale')) {
+                $gs = \grade_scale::fetch(['id' => $id]);
+                if ($gs && method_exists($gs, 'is_used') && $gs->is_used()) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        $result = [
+            'success'          => 1,
+            'scaleid'          => $scaleid,
+            'locked'           => 0,
+            'frameworks_count' => 0,
+        ];
+
+        if ($action === 'create') {
+            if (empty($name)) {
+                throw new \moodle_exception('error', '', '', 'Scale name cannot be empty');
+            }
+            $item_array = array_values(array_filter(array_map('trim', explode(',', $items)), function($v) {
+                return $v !== '';
+            }));
+            if (count($item_array) < 2) {
+                throw new \moodle_exception('error', '', '', 'Scale must contain at least 2 items separated by commas');
+            }
+
+            $record = new \stdClass();
+            $record->name = $name;
+            $record->scale = implode(',', $item_array);
+            $record->courseid = 0;
+            $record->userid = $userid;
+            $record->description = '';
+            $record->descriptionformat = FORMAT_HTML;
+            $record->timemodified = time();
+
+            $newid = $DB->insert_record('scale', $record);
+            $result['scaleid'] = (int)$newid;
+
+        } else if ($action === 'update') {
+            if ($scaleid <= 0) {
+                throw new \moodle_exception('invalidrecord', 'error', '', 'Invalid scale ID');
+            }
+            $scale = $DB->get_record('scale', ['id' => $scaleid, 'courseid' => 0], '*', MUST_EXIST);
+            $locked = $is_locked($scaleid);
+            $result['locked'] = $locked ? 1 : 0;
+            $result['frameworks_count'] = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
+
+            if (!empty($name)) {
+                $scale->name = $name;
+            }
+
+            if (!$locked && !empty($items)) {
+                $item_array = array_values(array_filter(array_map('trim', explode(',', $items)), function($v) {
+                    return $v !== '';
+                }));
+                if (count($item_array) < 2) {
+                    throw new \moodle_exception('error', '', '', 'Scale must contain at least 2 items');
+                }
+                $scale->scale = implode(',', $item_array);
+            }
+
+            $scale->timemodified = time();
+            $DB->update_record('scale', $scale);
+
+        } else if ($action === 'delete') {
+            if ($scaleid <= 0) {
+                throw new \moodle_exception('invalidrecord', 'error', '', 'Invalid scale ID');
+            }
+            $frameworks_count = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
+            if ($frameworks_count > 0) {
+                throw new \moodle_exception('error', '', '', 'Scale cannot be deleted because it is used by ' . $frameworks_count . ' competency framework(s)');
+            }
+            if ($is_locked($scaleid)) {
+                throw new \moodle_exception('error', '', '', 'Scale cannot be deleted because it has grading records');
+            }
+            $DB->delete_records('scale', ['id' => $scaleid, 'courseid' => 0]);
+        } else {
+            throw new \moodle_exception('error', '', '', 'Unsupported scale action: ' . $action);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Ejecuta acciones de creación, edición, visibilidad y eliminación de marcos de competencias.
+     *
+     * @param string $action create, edit, toggle_visibility, hide, show, delete
+     * @param int $frameworkid
+     * @param string $shortname
+     * @param string $idnumber
+     * @param string $description
+     * @param int $scaleid
+     * @param int $visible
+     * @param int $contextid
+     * @param int $userid
+     * @return array
+     */
+    public static function framework_action(
+        string $action,
+        int $frameworkid = 0,
+        string $shortname = '',
+        string $idnumber = '',
+        string $description = '',
+        int $scaleid = 0,
+        int $visible = 1,
+        int $contextid = 0,
+        int $userid = 0
+    ): array {
+        global $DB;
+        $now = time();
+
+        switch ($action) {
+            case 'create':
+                if (empty(trim($shortname))) {
+                    return ['success' => false, 'message' => 'El nombre del marco es obligatorio.', 'affectedcount' => 0];
+                }
+
+                $target_scaleid = $scaleid;
+                if (empty($target_scaleid)) {
+                    $first_scale = $DB->get_record('scale', ['courseid' => 0], 'id ASC', 'id, scale');
+                    $target_scaleid = $first_scale ? (int)$first_scale->id : 1;
+                }
+
+                $scale_rec = $DB->get_record('scale', ['id' => $target_scaleid]);
+                $scale_config = [];
+                if ($scale_rec && !empty($scale_rec->scale)) {
+                    $items = array_map('trim', explode(',', $scale_rec->scale));
+                    $item_count = count($items);
+                    foreach ($items as $idx => $item) {
+                        $val_id = $idx + 1;
+                        $is_last = ($val_id === $item_count);
+                        $scale_config[] = [
+                            'scaleid'      => $target_scaleid,
+                            'id'           => $val_id,
+                            'scaledefault' => $is_last ? 1 : 0,
+                            'proficient'   => $is_last ? 1 : 0,
+                        ];
+                    }
+                }
+
+                $record = new \stdClass();
+                $record->shortname          = trim($shortname);
+                $record->idnumber           = trim($idnumber);
+                $record->description        = clean_text($description, FORMAT_HTML);
+                $record->descriptionformat  = FORMAT_HTML;
+                $record->visible            = $visible ? 1 : 0;
+                $record->scaleid            = $target_scaleid;
+                $record->scaleconfiguration = json_encode($scale_config);
+                $record->contextid          = $contextid;
+                $record->taxonomies         = json_encode(['1' => 'competency']);
+                $record->timecreated        = $now;
+                $record->timemodified       = $now;
+                $record->usermodified       = $userid;
+
+                $newid = $DB->insert_record('competency_framework', $record);
+                \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias creado exitosamente.',
+                    'affectedcount' => (int)$newid,
+                ];
+
+            case 'edit':
+                if (empty($frameworkid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco a editar.', 'affectedcount' => 0];
+                }
+                if (empty(trim($shortname))) {
+                    return ['success' => false, 'message' => 'El nombre del marco es obligatorio.', 'affectedcount' => 0];
+                }
+
+                $existing = $DB->get_record('competency_framework', ['id' => $frameworkid], '*', MUST_EXIST);
+                $existing->shortname    = trim($shortname);
+                $existing->idnumber     = trim($idnumber);
+                $existing->description  = clean_text($description, FORMAT_HTML);
+                $existing->visible      = $visible ? 1 : 0;
+                $existing->timemodified = $now;
+                $existing->usermodified = $userid;
+
+                if (!empty($scaleid) && $scaleid != $existing->scaleid) {
+                    $existing->scaleid = (int)$scaleid;
+                    $scale_rec = $DB->get_record('scale', ['id' => $existing->scaleid]);
+                    if ($scale_rec && !empty($scale_rec->scale)) {
+                        $items = array_map('trim', explode(',', $scale_rec->scale));
+                        $item_count = count($items);
+                        $scale_config = [];
+                        foreach ($items as $idx => $item) {
+                            $val_id = $idx + 1;
+                            $is_last = ($val_id === $item_count);
+                            $scale_config[] = [
+                                'scaleid'      => $existing->scaleid,
+                                'id'           => $val_id,
+                                'scaledefault' => $is_last ? 1 : 0,
+                                'proficient'   => $is_last ? 1 : 0,
+                            ];
+                        }
+                        $existing->scaleconfiguration = json_encode($scale_config);
+                    }
+                }
+
+                $DB->update_record('competency_framework', $existing);
+                \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias actualizado exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'toggle_visibility':
+                if (empty($frameworkid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco.', 'affectedcount' => 0];
+                }
+                $existing = $DB->get_record('competency_framework', ['id' => $frameworkid], '*', MUST_EXIST);
+                $existing->visible = $existing->visible ? 0 : 1;
+                $existing->timemodified = $now;
+                $existing->usermodified = $userid;
+                $DB->update_record('competency_framework', $existing);
+                \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Visibilidad del marco actualizada a ' . ($existing->visible ? 'visible' : 'oculto'),
+                    'affectedcount' => (int)$existing->visible,
+                ];
+
+            case 'hide':
+                if (empty($frameworkid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco.', 'affectedcount' => 0];
+                }
+                $existing = $DB->get_record('competency_framework', ['id' => $frameworkid], '*', MUST_EXIST);
+                $existing->visible = 0;
+                $existing->timemodified = $now;
+                $existing->usermodified = $userid;
+                $DB->update_record('competency_framework', $existing);
+                \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias ocultado.',
+                    'affectedcount' => 0,
+                ];
+
+            case 'show':
+                if (empty($frameworkid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco.', 'affectedcount' => 0];
+                }
+                $existing = $DB->get_record('competency_framework', ['id' => $frameworkid], '*', MUST_EXIST);
+                $existing->visible = 1;
+                $existing->timemodified = $now;
+                $existing->usermodified = $userid;
+                $DB->update_record('competency_framework', $existing);
+                \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco de competencias hecho visible.',
+                    'affectedcount' => 1,
+                ];
+
+            case 'delete':
+                if (empty($frameworkid)) {
+                    return ['success' => false, 'message' => 'Se requiere el ID del marco a eliminar.', 'affectedcount' => 0];
+                }
+
+                $DB->delete_records('competency', ['competencyframeworkid' => $frameworkid]);
+                $DB->delete_records('competency_framework', ['id' => $frameworkid]);
+                \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
+
+                return [
+                    'success'       => true,
+                    'message'       => 'Marco y competencias eliminados exitosamente.',
+                    'affectedcount' => 1,
+                ];
+
+            default:
+                return ['success' => false, 'message' => 'Acción no reconocida: ' . $action, 'affectedcount' => 0];
+        }
+    }
 }
