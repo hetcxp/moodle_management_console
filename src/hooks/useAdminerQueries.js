@@ -9,3 +9,4 @@ export * from './queries/useCategoryQueries.js';
 export * from './queries/useUserQueries.js';
 export * from './queries/useCohortQueries.js';
 export * from './queries/useCompetencyQueries.js';
+export * from './queries/useLearningPathQueries.js';

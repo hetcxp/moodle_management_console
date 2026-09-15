@@ -29,6 +29,8 @@ const CompetencyFrameworkDetailView = lazy(() => import('./views/CompetencyFrame
 const CompetencyDetailView = lazy(() => import('./views/CompetencyDetailView').then(m => ({ default: m.CompetencyDetailView })));
 const ScalesView = lazy(() => import('./views/ScalesView').then(m => ({ default: m.ScalesView })));
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
+const LearningPathsView = lazy(() => import('./views/LearningPathsView').then(m => ({ default: m.LearningPathsView })));
+const LearningPathDetailView = lazy(() => import('./views/LearningPathDetailView').then(m => ({ default: m.LearningPathDetailView })));
 const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
 import { navigateToDetail } from './lib/navigation';
@@ -45,6 +47,7 @@ const AdminerApp = () => {
     if (location.startsWith('/categories')) return 'categories';
     if (location.startsWith('/users')) return 'users';
     if (location.startsWith('/cohorts')) return 'cohorts';
+    if (location.startsWith('/learning-paths')) return 'learning-paths';
     if (location.startsWith('/competencies')) return 'competencies';
     if (location.startsWith('/reports')) return 'reports';
     return 'dashboard';
@@ -224,6 +227,21 @@ const AdminerApp = () => {
                       onBack={navigateBack}
                       onNavigateToDetail={handleNavigateToDetail}
                       parentLabel="Competencias"
+                    />
+                  )}
+                </Route>
+
+                {/* Learning Paths */}
+                <Route path="/learning-paths">
+                  <LearningPathsView onNavigateToDetail={handleNavigateToDetail} />
+                </Route>
+                <Route path="/learning-paths/:id">
+                  {params => (
+                    <LearningPathDetailView
+                      id={params.id}
+                      onBack={navigateBack}
+                      onNavigateToDetail={handleNavigateToDetail}
+                      parentLabel="Rutas de Aprendizaje"
                     />
                   )}
                 </Route>

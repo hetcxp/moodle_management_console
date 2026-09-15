@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Award, Shield, Sparkles, DownloadCloud } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, Sparkles, DownloadCloud } from 'lucide-react';
 import { Link } from 'wouter';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
@@ -37,6 +37,12 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
       label: 'Cohortes',
       icon: Layers,
       capability: 'can_view_cohorts',
+    },
+    {
+      id: 'learning-paths',
+      label: 'Rutas de Aprendizaje',
+      icon: Milestone,
+      capability: 'can_create_courses',
     },
     {
       id: 'competencies',
