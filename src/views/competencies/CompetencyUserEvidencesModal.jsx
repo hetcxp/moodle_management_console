@@ -13,6 +13,7 @@ import {
   Sparkles,
   Inbox
 } from 'lucide-react';
+import { formatDate as formatAppDate } from '../../lib/utils';
 
 export const CompetencyUserEvidencesModal = ({
   open,
@@ -38,14 +39,7 @@ export const CompetencyUserEvidencesModal = ({
 
   const formatDate = (timestamp) => {
     if (!timestamp) return 'Fecha no registrada';
-    const d = new Date(timestamp * 1000);
-    return d.toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return formatAppDate(timestamp);
   };
 
   return (

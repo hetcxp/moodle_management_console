@@ -2,6 +2,7 @@ import React from 'react';
 import { FolderTree, Layers } from 'lucide-react';
 import { AdminerApi } from '../../services/adminer-api';
 import { I18N } from '../../config/i18n';
+import { formatDate } from '../../lib/utils';
 
 export const REPORT_CONFIGS = {
   category: {
@@ -161,8 +162,8 @@ export const REPORT_CONFIGS = {
               progreso: user.progress || 0,
               estado: user.status === 0 ? I18N.reports.course.strings.active : I18N.reports.course.strings.suspended,
               metodo: I18N.reports.course.strings.unknown,
-              fecha_inicio: user.timestart > 0 ? new Date(user.timestart * 1000).toLocaleString() : '',
-              fecha_fin: user.timeend > 0 ? new Date(user.timeend * 1000).toLocaleString() : ''
+              fecha_inicio: user.timestart > 0 ? formatDate(user.timestart) : '',
+              fecha_fin: user.timeend > 0 ? formatDate(user.timeend) : ''
             });
           } else {
             user.enrolments.forEach(enrol => {
@@ -174,8 +175,8 @@ export const REPORT_CONFIGS = {
                 progreso: user.progress || 0,
                 estado: enrol.status === 0 ? I18N.reports.course.strings.active : I18N.reports.course.strings.suspended,
                 metodo: enrol.method,
-                fecha_inicio: enrol.timestart > 0 ? new Date(enrol.timestart * 1000).toLocaleString() : '',
-                fecha_fin: enrol.timeend > 0 ? new Date(enrol.timeend * 1000).toLocaleString() : ''
+                fecha_inicio: enrol.timestart > 0 ? formatDate(enrol.timestart) : '',
+                fecha_fin: enrol.timeend > 0 ? formatDate(enrol.timeend) : ''
               });
             });
           }
@@ -242,8 +243,8 @@ export const REPORT_CONFIGS = {
                 progreso: course.progress || 0,
                 metodo: enrol.method,
                 estado: enrol.status === 0 ? I18N.reports.user.strings.active : I18N.reports.user.strings.suspended,
-                fecha_inicio: enrol.timestart > 0 ? new Date(enrol.timestart * 1000).toLocaleString() : '',
-                fecha_fin: enrol.timeend > 0 ? new Date(enrol.timeend * 1000).toLocaleString() : ''
+                fecha_inicio: enrol.timestart > 0 ? formatDate(enrol.timestart) : '',
+                fecha_fin: enrol.timeend > 0 ? formatDate(enrol.timeend) : ''
               });
             });
           }

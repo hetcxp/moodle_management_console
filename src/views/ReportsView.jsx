@@ -11,6 +11,7 @@ import { CategoryReportModal } from './reports/CategoryReportModal';
 import { UserReportModal } from './reports/UserReportModal';
 import { CohortReportModal } from './reports/CohortReportModal';
 import { I18N } from '../config/i18n';
+import { formatDate } from '../lib/utils';
 
 export function ReportsView() {
   const { addToast } = useToast();
@@ -90,7 +91,7 @@ export function ReportsView() {
         { label: I18N.reports.dashboard.reports.users.columns.email, accessor: 'email' },
         { label: I18N.reports.dashboard.reports.users.columns.city, accessor: 'city' },
         { label: I18N.reports.dashboard.reports.users.columns.country, accessor: 'country' },
-        { label: I18N.reports.dashboard.reports.users.columns.lastAccess, accessor: (row) => row.lastaccess ? new Date(row.lastaccess * 1000).toLocaleString() : I18N.reports.dashboard.reports.users.strings.never },
+        { label: I18N.reports.dashboard.reports.users.columns.lastAccess, accessor: (row) => row.lastaccess ? formatDate(row.lastaccess) : I18N.reports.dashboard.reports.users.strings.never },
         { label: I18N.reports.dashboard.reports.users.columns.suspended, accessor: (row) => row.suspended === 1 ? I18N.reports.dashboard.reports.users.strings.yes : I18N.reports.dashboard.reports.users.strings.no },
         { label: I18N.reports.dashboard.reports.users.columns.enrolledCourses, accessor: 'enrolled_courses' },
         { label: I18N.reports.dashboard.reports.users.columns.completedCourses, accessor: 'completed_courses' },

@@ -14,26 +14,26 @@ describe('Utils', () => {
   });
 
   describe('formatDate', () => {
-    it('formats timestamp to date string', () => {
+    it('formats timestamp to date string in dd/mm/yy, hh:mm format', () => {
       // Use a fixed timestamp for testing
       const timestamp = 1716307200; // May 21, 2024
       const result = formatDate(timestamp);
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
-      expect(result).toContain('2024');
+      expect(result).toMatch(/\d{2}\/\d{2}\/24, \d{2}:\d{2}/);
     });
 
     it('formats Date instance correctly without spurious multiplication', () => {
       const date = new Date('2026-09-14T14:38:00Z');
       const result = formatDate(date);
-      expect(result).toContain('2026');
+      expect(result).toMatch(/14\/09\/26, \d{2}:38/);
       expect(result).not.toContain('58');
     });
 
     it('formats millisecond timestamps correctly', () => {
       const ms = 1716307200000;
       const result = formatDate(ms);
-      expect(result).toContain('2024');
+      expect(result).toMatch(/\d{2}\/\d{2}\/24, \d{2}:\d{2}/);
     });
 
     it('returns "Nunca" if timestamp is 0 or invalid', () => {
@@ -44,18 +44,18 @@ describe('Utils', () => {
   });
 
   describe('formatDateOnly', () => {
-    it('formats timestamp to date only string', () => {
+    it('formats timestamp to date only string in dd/mm/yy format', () => {
       const timestamp = 1716307200; // May 21, 2024
       const result = formatDateOnly(timestamp);
       expect(typeof result).toBe('string');
       expect(result.length).toBeGreaterThan(0);
-      expect(result).toContain('2024');
+      expect(result).toMatch(/\d{2}\/\d{2}\/24/);
     });
 
-    it('formats Date instance correctly', () => {
+    it('formats Date instance correctly in dd/mm/yy format', () => {
       const date = new Date('2026-09-14T14:38:00Z');
       const result = formatDateOnly(date);
-      expect(result).toContain('2026');
+      expect(result).toBe('14/09/26');
     });
 
     it('returns "Nunca" if timestamp is 0 or invalid', () => {

@@ -29,10 +29,11 @@ export function formatDate(timestamp) {
   if (!date) return 'Nunca';
   return new Intl.DateTimeFormat('es-ES', {
     day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    month: '2-digit',
+    year: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: false
   }).format(date);
 }
 
@@ -41,7 +42,7 @@ export function formatDateOnly(timestamp) {
   if (!date) return 'Nunca';
   return new Intl.DateTimeFormat('es-ES', {
     day: '2-digit',
-    month: 'short',
-    year: 'numeric'
+    month: '2-digit',
+    year: '2-digit'
   }).format(date);
 }

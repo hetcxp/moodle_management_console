@@ -10,6 +10,7 @@ import { Input } from '../components/ui/Input';
 import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText, ExternalLink, BookOpen } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
 import { navigateToDetail } from '../lib/navigation';
+import { formatDate as formatAppDate } from '../lib/utils';
 
 export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
@@ -87,7 +88,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
 
   const formatDate = (timestamp) => {
     if (!timestamp) return '-';
-    return new Date(timestamp * 1000).toLocaleString();
+    return formatAppDate(timestamp);
   };
 
   const formatActivityName = (modname) => {
