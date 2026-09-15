@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useCategoriesFlat, useCategoryAction } from '../../hooks/useAdminerQueries';
-import { useBulkSelection } from '../../hooks/useBulkSelection';
 import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../components/ui/Toast';
-import { AdminerApi } from '../../services/adminer-api';
-import { exportToCsv } from '../../components/CsvExporter';
+import { useCategoriesFilters } from './useCategoriesFilters';
+import { useCategoriesExport } from './useCategoriesExport';
 
 export const useCategoriesState = () => {
   const { addToast } = useToast();
@@ -13,17 +12,16 @@ export const useCategoriesState = () => {
   const { data: flatCatsData, isLoading: loading, refetch: loadData } = useCategoriesFlat();
   const categoryAction = useCategoryAction();
 
-  const flatCategories = flatCatsData?.categories || [];
+  const flatCategories = useMemo(() => flatCatsData?.categories || [], [flatCatsData?.categories]);
 
-  const [page, setPage] = useState(0);
-  const [perPage] = useState(50);
-  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
+  // Sub-hook: Filters, search, sort, pagination, bulk selection
+  const filters = useCategoriesFilters(flatCategories);
 
-  // Filtering & Sorting
-  const [search, setSearch] = useState('');
-  const [visibilityFilter, setVisibilityFilter] = useState('-1');
-  const [sort, setSort] = useState('name');
-  const [dir, setDir] = useState('ASC');
+  // Sub-hook: Export logic with concurrency
+  const exporter = useCategoriesExport({
+    filteredCategories: filters.filteredCategories,
+    addToast
+  });
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
@@ -31,15 +29,6 @@ export const useCategoriesState = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportOption, setExportOption] = useState('visible');
-  const [exportLoading, setExportLoading] = useState(false);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setPage(0);
-  }, [search, visibilityFilter, sort, dir]);
 
   const handleOpenCreate = () => {
     setEditingCategory(null);
@@ -68,7 +57,7 @@ export const useCategoriesState = () => {
         type: 'success',
         title: `Categorías ${action === 'hide' ? 'ocultadas' : action === 'delete' ? 'eliminadas' : 'visibles'}`
       });
-      clearSelection();
+      filters.clearSelection();
     } catch (err) {
       addToast({ type: 'error', title: 'Error', description: err.message });
     }
@@ -90,117 +79,29 @@ export const useCategoriesState = () => {
 
   // KPIs
   const totalCategories = flatCategories.length;
-  const visibleCategories = flatCategories.filter((c) => c.visible === 1).length;
-  const hiddenCategories = flatCategories.filter((c) => c.visible === 0).length;
-  const totalCourses = flatCategories.reduce((sum, cat) => sum + (cat.coursecount || 0), 0);
-
-  // Filter & Sort
-  const filteredCategories = flatCategories.filter((c) => {
-    const matchesSearch = c.name.toLowerCase().includes(search.toLowerCase());
-    const matchesVis = visibilityFilter === '-1' || String(c.visible) === visibilityFilter;
-    return matchesSearch && matchesVis;
-  });
-
-  filteredCategories.sort((a, b) => {
-    let valA = a[sort];
-    let valB = b[sort];
-    if (typeof valA === 'string') valA = valA.toLowerCase();
-    if (typeof valB === 'string') valB = valB.toLowerCase();
-    if (valA < valB) return dir === 'ASC' ? -1 : 1;
-    if (valA > valB) return dir === 'ASC' ? 1 : -1;
-    return 0;
-  });
-
-  const totalCount = filteredCategories.length;
-  const paginatedData = filteredCategories.slice(page * perPage, (page + 1) * perPage);
-
-  const handleExport = async () => {
-    setExportLoading(true);
-    try {
-      if (exportOption === 'visible') {
-        const columns = [
-          { label: 'ID', accessor: 'id' },
-          { label: 'Categoría', accessor: 'name' },
-          { label: 'Subcategoría de', accessor: 'parentname' },
-          { label: 'Cursos', accessor: 'coursecount' },
-          { label: 'Estado', accessor: (row) => (row.visible === 1 ? 'Visible' : 'Oculto') },
-          { label: 'Progreso (%)', accessor: (row) => row.progress || 0 }
-        ];
-        exportToCsv('categorias_moodle', filteredCategories, columns);
-      } else {
-        const exportData = [];
-        for (const cat of filteredCategories) {
-          try {
-            const detail = await AdminerApi.getCategoryDetail(cat.id);
-            if (detail.courses && detail.courses.length > 0) {
-              for (const course of detail.courses) {
-                exportData.push({
-                  cat_id: cat.id,
-                  cat_name: cat.name,
-                  cat_parentname: cat.parentname,
-                  cat_visible: cat.visible === 1 ? 'Visible' : 'Oculto',
-                  cat_progress: cat.progress || 0,
-                  course_id: course.id,
-                  course_name: course.fullname || course.name,
-                  course_progress: course.progress || 0
-                });
-              }
-            } else {
-              exportData.push({
-                cat_id: cat.id,
-                cat_name: cat.name,
-                cat_parentname: cat.parentname,
-                cat_visible: cat.visible === 1 ? 'Visible' : 'Oculto',
-                cat_progress: cat.progress || 0,
-                course_id: '',
-                course_name: '',
-                course_progress: ''
-              });
-            }
-          } catch (e) {
-            if (import.meta.env.DEV) console.error('Error fetching detail for category', cat.id, e);
-          }
-        }
-
-        const columns = [
-          { label: 'ID Categoría', accessor: 'cat_id' },
-          { label: 'Categoría', accessor: 'cat_name' },
-          { label: 'Subcategoría de', accessor: 'cat_parentname' },
-          { label: 'Estado Categoría', accessor: 'cat_visible' },
-          { label: 'Progreso Categoría (%)', accessor: 'cat_progress' },
-          { label: 'ID Curso', accessor: 'course_id' },
-          { label: 'Curso', accessor: 'course_name' },
-          { label: 'Progreso Curso (%)', accessor: 'course_progress' }
-        ];
-        exportToCsv('categorias_cursos_moodle', exportData, columns);
-      }
-      setExportModalOpen(false);
-    } catch (err) {
-      addToast({ type: 'error', title: 'Error en la exportación', description: err.message });
-    } finally {
-      setExportLoading(false);
-    }
-  };
+  const visibleCategories = useMemo(() => flatCategories.filter((c) => c.visible === 1).length, [flatCategories]);
+  const hiddenCategories = useMemo(() => flatCategories.filter((c) => c.visible === 0).length, [flatCategories]);
+  const totalCourses = useMemo(() => flatCategories.reduce((sum, cat) => sum + (cat.coursecount || 0), 0), [flatCategories]);
 
   return {
     flatCategories,
-    paginatedData,
+    paginatedData: filters.paginatedData,
     loading,
     loadData,
-    page,
-    setPage,
-    perPage,
-    sort,
-    setSort,
-    dir,
-    setDir,
-    search,
-    setSearch,
-    visibilityFilter,
-    setVisibilityFilter,
-    selectedIds,
-    setSelectedIds,
-    clearSelection,
+    page: filters.page,
+    setPage: filters.setPage,
+    perPage: filters.perPage,
+    sort: filters.sort,
+    setSort: filters.setSort,
+    dir: filters.dir,
+    setDir: filters.setDir,
+    search: filters.search,
+    setSearch: filters.setSearch,
+    visibilityFilter: filters.visibilityFilter,
+    setVisibilityFilter: filters.setVisibilityFilter,
+    selectedIds: filters.selectedIds,
+    setSelectedIds: filters.setSelectedIds,
+    clearSelection: filters.clearSelection,
     hasManageCategory,
     modalOpen,
     setModalOpen,
@@ -210,21 +111,21 @@ export const useCategoriesState = () => {
     categoryToDelete,
     setCategoryToDelete,
     deleteLoading,
-    exportModalOpen,
-    setExportModalOpen,
-    exportOption,
-    setExportOption,
-    exportLoading,
+    exportModalOpen: exporter.exportModalOpen,
+    setExportModalOpen: exporter.setExportModalOpen,
+    exportOption: exporter.exportOption,
+    setExportOption: exporter.setExportOption,
+    exportLoading: exporter.exportLoading,
     totalCategories,
     visibleCategories,
     hiddenCategories,
     totalCourses,
-    totalCount,
+    totalCount: filters.totalCount,
     handleOpenCreate,
     handleOpenEdit,
     handleToggleVisibility,
     handleBulkAction,
     handleDelete,
-    handleExport
+    handleExport: exporter.handleExport
   };
 };
