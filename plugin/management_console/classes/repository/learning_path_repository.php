@@ -650,7 +650,7 @@ class learning_path_repository {
                 $missing[] = 'mod_subcourse';
             }
             $subenrol = $pm->get_plugin_info('local_subcourseenrol');
-            if (!$subenrol || !$subenrol->is_enabled()) {
+            if (!$subenrol || $subenrol->is_enabled() === false) {
                 $missing[] = 'local_subcourseenrol';
             }
         } else {
