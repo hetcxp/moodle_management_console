@@ -78,24 +78,11 @@ export const FilterBar = memo(({
 
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {onExportCsv && (
-            <Button
-              variant="outline"
-              onClick={onExportCsv}
-              className="gap-2 h-10 bg-background/80"
-              title="Exportar a CSV"
-              aria-label="Exportar a CSV"
-            >
-              <Download className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Exportar</span>
-            </Button>
-          )}
-
           {secondaryAction && (
             <Button
               variant={secondaryAction.variant || 'outline'}
               onClick={secondaryAction.onClick}
-              className="gap-2 h-10 shadow-sm"
+              className={`gap-2 h-10 shadow-sm ${secondaryAction.className || ''}`}
               aria-label={secondaryAction.label}
             >
               {secondaryAction.icon}
@@ -118,11 +105,28 @@ export const FilterBar = memo(({
             )
           ))}
 
+          {Boolean((secondaryAction || (Array.isArray(extraActions) && extraActions.length > 0)) && onExportCsv) && (
+            <div className="h-6 w-px bg-border/80 mx-0.5 hidden sm:block" aria-hidden="true" />
+          )}
+
+          {onExportCsv && (
+            <Button
+              variant="outline"
+              onClick={onExportCsv}
+              className="gap-1.5 h-10 bg-background/50 text-muted-foreground hover:text-foreground border-dashed border-border/80 hover:border-border hover:bg-muted/40 font-normal"
+              title="Exportar a CSV"
+              aria-label="Exportar a CSV"
+            >
+              <Download className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          )}
+
           {primaryAction && (
             <Button
               variant={primaryAction.variant || 'default'}
               onClick={primaryAction.onClick}
-              className="gap-2 h-10 shadow-sm"
+              className={`gap-2 h-10 shadow-sm font-semibold ${primaryAction.className || ''}`}
               aria-label={primaryAction.label}
             >
               {primaryAction.icon || <Plus className="h-4 w-4" aria-hidden="true" />}

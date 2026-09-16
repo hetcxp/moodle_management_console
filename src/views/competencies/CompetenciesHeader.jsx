@@ -124,8 +124,9 @@ export function CompetenciesHeader({
             ? {
                 label: 'Escalas',
                 onClick: onOpenScales,
-                icon: <Sliders className="h-4 w-4" aria-hidden="true" />,
+                icon: <Sliders className="h-4 w-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform" aria-hidden="true" />,
                 variant: 'outline',
+                className: 'group border-indigo-300/80 dark:border-indigo-700/60 bg-gradient-to-r from-indigo-50/80 to-blue-50/50 dark:from-indigo-950/40 dark:to-blue-950/20 text-indigo-700 dark:text-indigo-300 hover:from-indigo-100 hover:to-blue-100 dark:hover:from-indigo-900/60 dark:hover:to-blue-900/40 hover:border-indigo-400 font-semibold shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98]',
               }
             : null
         }
@@ -135,8 +136,9 @@ export function CompetenciesHeader({
                 {
                   label: 'Rúbricas',
                   onClick: onOpenRubrics,
-                  icon: <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />,
+                  icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" aria-hidden="true" />,
                   variant: 'outline',
+                  className: 'group border-emerald-300/80 dark:border-emerald-700/60 bg-gradient-to-r from-emerald-50/80 to-teal-50/50 dark:from-emerald-950/40 dark:to-teal-950/20 text-emerald-700 dark:text-emerald-300 hover:from-emerald-100 hover:to-teal-100 dark:hover:from-emerald-900/60 dark:hover:to-teal-900/40 hover:border-emerald-400 font-semibold shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98]',
                 },
               ]
             : []

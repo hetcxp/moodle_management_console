@@ -23,7 +23,7 @@ export const ScalesTable = ({
           <thead className="border-b border-border bg-muted/30 text-xs font-bold text-muted-foreground uppercase tracking-wider">
             <tr>
               <th className="px-5 py-3.5">Escala</th>
-              <th className="px-5 py-3.5">Niveles de Evaluación (Menor a Mayor)</th>
+              <th className="px-5 py-3.5">Niveles de Evaluación</th>
               <th className="px-5 py-3.5">Marcos</th>
               <th className="px-5 py-3.5">Estado Moodle</th>
               {hasManageCompetencies && <th className="px-5 py-3.5 text-right">Acciones</th>}
@@ -45,6 +45,7 @@ export const ScalesTable = ({
               filteredScales.map((scale) => {
                 const isUsed = (scale.frameworks_count || 0) > 0;
                 const isLocked = scale.locked === 1;
+                const levelsCount = scale.items?.length || 0;
 
                 return (
                   <tr key={scale.id} className="hover:bg-muted/20 transition-colors">
@@ -67,18 +68,14 @@ export const ScalesTable = ({
                       </div>
                     </td>
 
-                    <td className="px-5 py-4 align-top">
-                      <div className="flex flex-wrap items-center gap-1.5 max-w-xl">
-                        {scale.items?.map((item, idx) => (
-                          <span
-                            key={idx}
-                            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-background border border-border text-xs text-foreground font-medium shadow-2xs"
-                          >
-                            <span className="text-muted-foreground text-[10px]">{idx + 1}.</span>
-                            {item}
-                          </span>
-                        ))}
-                      </div>
+                    <td className="px-5 py-4 align-top whitespace-nowrap">
+                      <Badge
+                        variant="secondary"
+                        className="font-medium text-xs"
+                        title={scale.items?.join(', ')}
+                      >
+                        {levelsCount} {levelsCount === 1 ? 'nivel' : 'niveles'}
+                      </Badge>
                     </td>
 
                     <td className="px-5 py-4 align-top whitespace-nowrap">

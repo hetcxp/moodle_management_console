@@ -69,7 +69,7 @@ describe('ScalesView', () => {
       </QueryClientProvider>
     );
 
-  it('renders title, KPIs, and scales list', async () => {
+  it('renders title, KPIs, and scales list with level count badges', async () => {
     renderComponent();
 
     expect(screen.getByText('Escalas de Evaluación')).toBeDefined();
@@ -78,10 +78,16 @@ describe('ScalesView', () => {
       expect(screen.getByText('Escala Rúbrica 1-4')).toBeDefined();
       expect(screen.getByText(/2 marcos/i)).toBeDefined();
       expect(screen.getAllByText(/Sin marcos/i).length).toBeGreaterThanOrEqual(1);
+      // Verify level count badges exist instead of raw items in table
+      expect(screen.getByText('2 niveles')).toBeDefined();
+      expect(screen.getByText('4 niveles')).toBeDefined();
+      // Ensure level text like 'Inicial' or 'Estratégico' is NOT in the table cells
+      expect(screen.queryByText('Inicial')).toBeNull();
+      expect(screen.queryByText('Estratégico')).toBeNull();
     });
   });
 
-  it('opens ScaleFormModal when clicking Nueva Escala', async () => {
+  it('opens ScaleFormModal when clicking Nueva Escala and displays levels preview', async () => {
     renderComponent();
 
     await waitFor(() => {
@@ -94,6 +100,9 @@ describe('ScalesView', () => {
     await waitFor(() => {
       expect(screen.getByText('Nueva Escala de Evaluación')).toBeDefined();
       expect(screen.getByPlaceholderText('Ej. Escala de Habilidades Digitales 2026')).toBeDefined();
+      expect(screen.getByText(/Vista previa de niveles \(2\):/i)).toBeDefined();
+      expect(screen.getByText('No competente')).toBeDefined();
+      expect(screen.getByText('Competente')).toBeDefined();
     });
   });
 

@@ -132,14 +132,17 @@ export function ScaleFormModal({
                   <strong>Escala protegida:</strong> Existen registros de calificaciones en Moodle vinculados a esta escala. Los niveles no pueden modificarse para preservar la integridad histórica, pero sí puedes actualizar el nombre.
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5 p-2 bg-muted/40 rounded-md border border-border">
+              <div className="flex flex-col gap-1.5 p-2 bg-muted/40 rounded-md border border-border max-h-52 overflow-y-auto">
                 {scale?.items?.map((item, i) => (
-                  <span
+                  <div
                     key={i}
-                    className="px-2 py-0.5 text-xs bg-background rounded font-medium text-foreground border border-border/60"
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs bg-background rounded-md font-medium text-foreground border border-border/60 shadow-2xs"
                   >
-                    {i + 1}. {item}
-                  </span>
+                    <span className="text-muted-foreground text-[11px] font-semibold shrink-0">
+                      {i + 1}.
+                    </span>
+                    <span className="text-foreground">{item}</span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -156,20 +159,22 @@ export function ScaleFormModal({
               </p>
 
               {parsedItems.length > 0 && (
-                <div className="p-3 bg-muted/30 rounded-lg border border-border/60 space-y-1.5">
+                <div className="p-3 bg-muted/30 rounded-lg border border-border/60 space-y-2">
                   <div className="text-[11px] font-semibold text-foreground flex items-center gap-1.5">
                     <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
-                    Vista previa de niveles ({parsedItems.length}):
+                    <span>Vista previa de niveles ({parsedItems.length}):</span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                  <div className="flex flex-col gap-1.5 pt-0.5 max-h-52 overflow-y-auto pr-1">
                     {parsedItems.map((item, idx) => (
-                      <span
+                      <div
                         key={idx}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-background border border-border text-xs text-foreground font-medium shadow-2xs"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-background border border-border text-xs text-foreground font-medium shadow-2xs"
                       >
-                        <span className="text-muted-foreground text-[10px]">{idx + 1}.</span>
-                        {item}
-                      </span>
+                        <span className="text-muted-foreground text-[11px] font-semibold shrink-0">
+                          {idx + 1}.
+                        </span>
+                        <span className="text-foreground">{item}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
