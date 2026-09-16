@@ -344,6 +344,24 @@ describe('AdminerApi service', () => {
       });
     });
 
+    it('rubricTemplateAction supports update action with templateid', async () => {
+      MoodleApi.call.mockResolvedValue({ success: 1, templateid: 51 });
+      await AdminerApi.rubricTemplateAction({
+        action: 'update',
+        templateid: 51,
+        name: 'Rúbrica Actualizada',
+        description: 'Nueva descripción',
+        criteria: [{ id: 195, sortorder: 1, description: 'Criterio 1', levels: [{ id: 971, score: 0, definition: 'Nivel 0' }] }],
+      });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_rubric_template_action', {
+        action: 'update',
+        templateid: 51,
+        name: 'Rúbrica Actualizada',
+        description: 'Nueva descripción',
+        criteria: JSON.stringify([{ id: 195, sortorder: 1, description: 'Criterio 1', levels: [{ id: 971, score: 0, definition: 'Nivel 0' }] }]),
+      });
+    });
+
     it('getCompetencyKpis calls tool_management_console_get_competency_kpis', async () => {
       MoodleApi.call.mockResolvedValue({});
       await AdminerApi.getCompetencyKpis();

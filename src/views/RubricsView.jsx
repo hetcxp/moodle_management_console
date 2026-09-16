@@ -3,15 +3,14 @@ import { useLocation } from 'wouter';
 import { useRubricsState } from './rubrics/useRubricsState';
 import { RubricsHeader } from './rubrics/RubricsHeader';
 import { RubricsTable } from './rubrics/RubricsTable';
-import { RubricPreviewModal } from './rubrics/RubricPreviewModal';
 import { RubricFormModal } from './rubrics/RubricFormModal';
 import { RubricDeleteModal } from './rubrics/RubricDeleteModal';
 
-export const RubricsView = ({ onBack, parentLabel = 'Competencias' }) => {
+export const RubricsView = ({ onBack, onNavigateToDetail, parentLabel = 'Competencias' }) => {
   const [, setLocation] = useLocation();
   const handleBack = onBack || (() => setLocation('/competencies'));
 
-  const state = useRubricsState();
+  const state = useRubricsState({ onNavigateToDetail });
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -36,21 +35,16 @@ export const RubricsView = ({ onBack, parentLabel = 'Competencias' }) => {
         hasManageCompetencies={state.hasManageCompetencies}
         search={state.search}
         onOpenPreview={state.handleOpenPreview}
+        onOpenEdit={state.handleOpenEdit}
         onOpenDelete={state.handleOpenDelete}
-      />
-
-      <RubricPreviewModal
-        open={state.previewModalOpen}
-        onClose={() => {
-          state.setPreviewModalOpen(false);
-        }}
-        rubric={state.selectedRubric}
       />
 
       <RubricFormModal
         open={state.formModalOpen}
+        initialData={state.rubricToEdit}
         onClose={() => {
           state.setFormModalOpen(false);
+          state.setRubricToEdit(null);
         }}
         onSave={state.handleSaveRubric}
       />

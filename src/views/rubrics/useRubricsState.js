@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
+import { useLocation } from 'wouter';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useHelp } from '../../context/HelpContext';
 import { useRubricTemplates, useRubricTemplateAction } from '../../hooks/queries/useCompetencyQueries';
 
-export const useRubricsState = () => {
+export const useRubricsState = ({ onNavigateToDetail } = {}) => {
+  const [, setLocation] = useLocation();
   const { addToast } = useToast();
   const { permissions } = useAuth();
   const { helpData } = useHelp();
@@ -31,6 +33,7 @@ export const useRubricsState = () => {
   const [selectedRubric, setSelectedRubric] = useState(null);
 
   const [formModalOpen, setFormModalOpen] = useState(false);
+  const [rubricToEdit, setRubricToEdit] = useState(null);
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [rubricToDelete, setRubricToDelete] = useState(null);
@@ -56,10 +59,20 @@ export const useRubricsState = () => {
 
   const handleOpenPreview = (rubric) => {
     setSelectedRubric(rubric);
-    setPreviewModalOpen(true);
+    if (onNavigateToDetail) {
+      onNavigateToDetail('rubric', rubric.id);
+    } else {
+      setLocation(`/competencies/rubrics/${rubric.id}`);
+    }
   };
 
   const handleOpenCreate = () => {
+    setRubricToEdit(null);
+    setFormModalOpen(true);
+  };
+
+  const handleOpenEdit = (rubric) => {
+    setRubricToEdit(rubric);
     setFormModalOpen(true);
   };
 
@@ -92,22 +105,41 @@ export const useRubricsState = () => {
   };
 
   const handleSaveRubric = async (formData) => {
+    const isEditing = Boolean(formData?.id || rubricToEdit?.id);
+    const targetId = formData?.id || rubricToEdit?.id;
+
     try {
-      await performRubricAction({
-        action: 'create',
-        name: formData.name,
-        description: formData.description,
-        criteria: formData.criteria,
-      });
-      addToast({
-        title: 'Rúbrica creada',
-        description: `La plantilla "${formData.name}" se guardó exitosamente en el banco compartido.`,
-        type: 'success',
-      });
+      if (isEditing) {
+        await performRubricAction({
+          action: 'update',
+          templateid: targetId,
+          name: formData.name,
+          description: formData.description,
+          criteria: formData.criteria,
+        });
+        addToast({
+          title: 'Plantilla actualizada',
+          description: `La plantilla "${formData.name}" fue actualizada exitosamente.`,
+          type: 'success',
+        });
+      } else {
+        await performRubricAction({
+          action: 'create',
+          name: formData.name,
+          description: formData.description,
+          criteria: formData.criteria,
+        });
+        addToast({
+          title: 'Rúbrica creada',
+          description: `La plantilla "${formData.name}" se guardó exitosamente en el banco compartido.`,
+          type: 'success',
+        });
+      }
       setFormModalOpen(false);
+      setRubricToEdit(null);
     } catch (err) {
       addToast({
-        title: 'Error al crear rúbrica',
+        title: isEditing ? 'Error al actualizar rúbrica' : 'Error al crear rúbrica',
         description: err?.message || 'No se pudo guardar la plantilla de rúbrica.',
         type: 'error',
       });
@@ -138,7 +170,10 @@ export const useRubricsState = () => {
     // Form modal
     formModalOpen,
     setFormModalOpen,
+    rubricToEdit,
+    setRubricToEdit,
     handleOpenCreate,
+    handleOpenEdit,
     handleSaveRubric,
     // Delete modal
     deleteConfirmOpen,

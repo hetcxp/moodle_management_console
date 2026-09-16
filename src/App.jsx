@@ -29,6 +29,7 @@ const CompetencyFrameworkDetailView = lazy(() => import('./views/CompetencyFrame
 const CompetencyDetailView = lazy(() => import('./views/CompetencyDetailView').then(m => ({ default: m.CompetencyDetailView })));
 const ScalesView = lazy(() => import('./views/ScalesView').then(m => ({ default: m.ScalesView })));
 const RubricsView = lazy(() => import('./views/RubricsView').then(m => ({ default: m.RubricsView })));
+const RubricDetailView = lazy(() => import('./views/RubricDetailView').then(m => ({ default: m.RubricDetailView })));
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const LearningPathsView = lazy(() => import('./views/LearningPathsView').then(m => ({ default: m.LearningPathsView })));
 const LearningPathDetailView = lazy(() => import('./views/LearningPathDetailView').then(m => ({ default: m.LearningPathDetailView })));
@@ -211,8 +212,17 @@ const AdminerApp = () => {
                 <Route path="/competencies/scales">
                   <ScalesView onBack={() => setLocation('/competencies')} />
                 </Route>
+                <Route path="/competencies/rubrics/:id">
+                  {params => (
+                    <RubricDetailView
+                      templateId={params.id}
+                      onBack={() => setLocation('/competencies/rubrics')}
+                      onNavigateToDetail={handleNavigateToDetail}
+                    />
+                  )}
+                </Route>
                 <Route path="/competencies/rubrics">
-                  <RubricsView onBack={() => setLocation('/competencies')} />
+                  <RubricsView onBack={() => setLocation('/competencies')} onNavigateToDetail={handleNavigateToDetail} />
                 </Route>
                 <Route path="/competencies/:frameworkId/competency/:competencyId">
                   {params => (

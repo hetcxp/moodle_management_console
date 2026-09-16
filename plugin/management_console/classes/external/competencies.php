@@ -1077,15 +1077,15 @@ class competencies extends external_api {
     }
 
     // ==========================================
-    // 13. RUBRIC TEMPLATE ACTION (CREATE / DELETE)
-    // ==========================================
+    // 13. RUBRIC TEMPLATE ACTION (CREATE / UPDATE / DELETE)
+    // ====================================================
     public static function rubric_template_action_parameters() {
         return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHA, 'Action: create or delete'),
-            'templateid'  => new external_value(PARAM_INT, 'Template ID (for delete)', VALUE_DEFAULT, 0),
-            'name'        => new external_value(PARAM_TEXT, 'Rubric name (for create)', VALUE_DEFAULT, ''),
-            'description' => new external_value(PARAM_RAW, 'Rubric description (for create)', VALUE_DEFAULT, ''),
-            'criteria'    => new external_value(PARAM_RAW, 'Criteria JSON (for create)', VALUE_DEFAULT, ''),
+            'action'      => new external_value(PARAM_ALPHA, 'Action: create, update or delete'),
+            'templateid'  => new external_value(PARAM_INT, 'Template ID (for delete or update)', VALUE_DEFAULT, 0),
+            'name'        => new external_value(PARAM_TEXT, 'Rubric name (for create or update)', VALUE_DEFAULT, ''),
+            'description' => new external_value(PARAM_RAW, 'Rubric description (for create or update)', VALUE_DEFAULT, ''),
+            'criteria'    => new external_value(PARAM_RAW, 'Criteria JSON (for create or update)', VALUE_DEFAULT, ''),
         ]);
     }
 

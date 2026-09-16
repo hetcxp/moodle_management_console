@@ -270,38 +270,7 @@ class rubric_repository {
             $targetmanager = get_grading_manager($newareaid);
             $targetcontroller = $targetmanager->get_controller('rubric');
 
-            // Format criteria and levels for gradingform_rubric_controller.
-            $criteria_data = [];
-            $critindex = 1;
-            foreach ($parsed_criteria as $crit) {
-                $crit_key = 'NEWID' . $critindex++;
-                $levels_data = [];
-                $lvlindex = 1;
-
-                $rawlevels = $crit['levels'] ?? [];
-                if (empty($rawlevels)) {
-                    $rawlevels = [
-                        ['score' => 0, 'definition' => 'No cumple'],
-                        ['score' => 10, 'definition' => 'Cumple']
-                    ];
-                }
-
-                foreach ($rawlevels as $lvl) {
-                    $lvl_key = 'NEWID' . ($critindex * 100 + $lvlindex++);
-                    $levels_data[$lvl_key] = [
-                        'score'            => (float)($lvl['score'] ?? 0),
-                        'definition'       => (string)($lvl['definition'] ?? ''),
-                        'definitionformat' => FORMAT_HTML,
-                    ];
-                }
-
-                $criteria_data[$crit_key] = [
-                    'sortorder'         => (int)($crit['sortorder'] ?? ($critindex - 1)),
-                    'description'       => (string)($crit['description'] ?? ''),
-                    'descriptionformat' => FORMAT_HTML,
-                    'levels'            => $levels_data,
-                ];
-            }
+            $criteria_data = self::format_criteria_data($parsed_criteria, false);
 
             $newdef = new stdClass();
             $newdef->name = $name;
@@ -325,6 +294,112 @@ class rubric_repository {
             ];
         }
 
+        if ($action === 'update') {
+            if ($templateid <= 0) {
+                throw new moodle_exception('invalidrecord', 'error', '', 'ID de plantilla no proporcionado');
+            }
+
+            $sql = "SELECT gd.*, ga.contextid, ga.component
+                      FROM {grading_definitions} gd
+                      JOIN {grading_areas} ga ON gd.areaid = ga.id
+                     WHERE gd.id = :id AND gd.method = 'rubric'";
+            $record = $DB->get_record_sql($sql, ['id' => $templateid]);
+
+            if (!$record) {
+                throw new moodle_exception('invalidrecord', 'error', '', 'Plantilla de rúbrica no encontrada');
+            }
+
+            if ($record->component !== 'core_grading') {
+                throw new moodle_exception('nopermissions', 'error', '', 'Solo se permite modificar plantillas del banco del sitio');
+            }
+
+            $name = trim($name);
+            if (empty($name)) {
+                throw new moodle_exception('invalidparameter', 'error', '', 'El nombre de la rúbrica es obligatorio');
+            }
+
+            $parsed_criteria = [];
+            if (!empty($criteria_json)) {
+                $decoded = json_decode($criteria_json, true);
+                if (is_array($decoded)) {
+                    $parsed_criteria = $decoded;
+                }
+            }
+
+            if (empty($parsed_criteria)) {
+                throw new moodle_exception('invalidparameter', 'error', '', 'La rúbrica debe contener al menos un criterio de evaluación');
+            }
+
+            $manager = get_grading_manager($record->areaid);
+            $controller = $manager->get_controller('rubric');
+
+            $criteria_data = self::format_criteria_data($parsed_criteria, true);
+
+            $def = new stdClass();
+            $def->name = $name;
+            $def->description = $description;
+            $def->description_editor = [
+                'text'   => $description,
+                'format' => FORMAT_HTML,
+            ];
+            $def->status = gradingform_controller::DEFINITION_STATUS_READY;
+            $def->rubric = [
+                'options'  => gradingform_rubric_controller::get_default_options(),
+                'criteria' => $criteria_data,
+            ];
+
+            $controller->update_definition($def, $userid > 0 ? $userid : null);
+
+            return [
+                'success'    => 1,
+                'templateid' => $templateid,
+            ];
+        }
+
         throw new moodle_exception('invalidaction', 'error', '', 'Acción no reconocida: ' . s($action));
+    }
+
+    /**
+     * Format criteria and levels for gradingform_rubric_controller.
+     *
+     * @param array $parsed_criteria Array of criteria with levels
+     * @param bool $preserve_existing_ids Whether to keep existing numeric IDs
+     * @return array
+     */
+    private static function format_criteria_data(array $parsed_criteria, bool $preserve_existing_ids = false): array {
+        $criteria_data = [];
+        $critindex = 1;
+        foreach ($parsed_criteria as $crit) {
+            $is_existing_crit = $preserve_existing_ids && !empty($crit['id']) && is_numeric($crit['id']) && (int)$crit['id'] > 0;
+            $crit_key = $is_existing_crit ? (int)$crit['id'] : ('NEWID' . $critindex++);
+            $levels_data = [];
+            $lvlindex = 1;
+
+            $rawlevels = $crit['levels'] ?? [];
+            if (empty($rawlevels)) {
+                $rawlevels = [
+                    ['score' => 0, 'definition' => 'No cumple'],
+                    ['score' => 10, 'definition' => 'Cumple']
+                ];
+            }
+
+            foreach ($rawlevels as $lvl) {
+                $is_existing_lvl = $preserve_existing_ids && !empty($lvl['id']) && is_numeric($lvl['id']) && (int)$lvl['id'] > 0;
+                $lvl_key = $is_existing_lvl ? (int)$lvl['id'] : ('NEWID' . ($critindex * 100 + $lvlindex++));
+                $levels_data[$lvl_key] = [
+                    'score'            => (float)($lvl['score'] ?? 0),
+                    'definition'       => (string)($lvl['definition'] ?? ''),
+                    'definitionformat' => FORMAT_HTML,
+                ];
+            }
+
+            $criteria_data[$crit_key] = [
+                'sortorder'         => (int)($crit['sortorder'] ?? ($critindex - 1)),
+                'description'       => (string)($crit['description'] ?? ''),
+                'descriptionformat' => FORMAT_HTML,
+                'levels'            => $levels_data,
+            ];
+        }
+        return $criteria_data;
     }
 }

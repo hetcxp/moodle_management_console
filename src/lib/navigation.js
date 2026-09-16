@@ -10,6 +10,7 @@ export const ENTITY_ROUTES = {
   competency: 'competencies',
   competency_framework: 'competencies',
   framework: 'competencies',
+  rubric: 'competencies/rubrics',
 };
 
 /**

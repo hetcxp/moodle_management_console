@@ -114,19 +114,16 @@ describe('RubricsView Component', () => {
     });
   });
 
-  it('opens RubricPreviewModal when clicking Ver Matriz', async () => {
+  it('navigates to /competencies/rubrics/:id when clicking Ver Matriz', async () => {
     renderComponent();
 
     await waitFor(() => {
-      expect(screen.getAllByText('Ver Matriz')[0]).toBeDefined();
+      expect(screen.getAllByLabelText(/Ver matriz de/i)[0]).toBeDefined();
     });
 
-    fireEvent.click(screen.getAllByText('Ver Matriz')[0]);
+    fireEvent.click(screen.getAllByLabelText(/Ver matriz de/i)[0]);
 
-    await waitFor(() => {
-      expect(screen.getByText('Matriz de Criterios y Niveles de Desempeño')).toBeDefined();
-      expect(screen.getByText('Puntaje Total')).toBeDefined();
-    });
+    expect(mockSetLocation).toHaveBeenCalledWith('/competencies/rubrics/51');
   });
 
   it('opens RubricFormModal when clicking Nueva Rúbrica', async () => {
@@ -165,6 +162,40 @@ describe('RubricsView Component', () => {
         expect.objectContaining({
           action: 'create',
           name: 'Rúbrica Test Vitest',
+        })
+      );
+    });
+  });
+
+  it('opens edit modal with pre-filled data and triggers update', async () => {
+    const { AdminerApi } = await import('../services/adminer-api');
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Editar [MC-AREA-19] Rúbrica: Orientación al cliente')).toBeDefined();
+    });
+
+    const editBtn = screen.getByLabelText('Editar [MC-AREA-19] Rúbrica: Orientación al cliente');
+    fireEvent.click(editBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Editar Plantilla de Rúbrica')).toBeDefined();
+    });
+
+    const nameInput = screen.getByDisplayValue('[MC-AREA-19] Rúbrica: Orientación al cliente');
+    expect(nameInput).toBeDefined();
+
+    fireEvent.change(nameInput, { target: { value: '[MC-AREA-19] Rúbrica: Orientación al cliente - Editada' } });
+
+    const saveBtn = screen.getByText('Guardar Cambios');
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(AdminerApi.rubricTemplateAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'update',
+          templateid: 51,
+          name: '[MC-AREA-19] Rúbrica: Orientación al cliente - Editada',
         })
       );
     });

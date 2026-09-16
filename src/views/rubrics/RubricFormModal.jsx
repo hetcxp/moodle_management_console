@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
@@ -19,6 +19,7 @@ export const RubricFormModal = ({
   open,
   onClose,
   onSave,
+  initialData = null,
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -41,6 +42,41 @@ export const RubricFormModal = ({
     setError('');
     setSaving(false);
   };
+
+  useEffect(() => {
+    if (open) {
+      if (initialData) {
+        setName(initialData.name || '');
+        const rawDesc = initialData.description || '';
+        setDescription(rawDesc.replace(/<[^>]*>?/gm, '').trim());
+        if (Array.isArray(initialData.criteria) && initialData.criteria.length > 0) {
+          setCriteria(
+            initialData.criteria.map((c, cIdx) => ({
+              id: c.id || `crit_${cIdx + 1}`,
+              sortorder: c.sortorder ?? cIdx + 1,
+              description: (c.description || '').replace(/<[^>]*>?/gm, '').trim(),
+              levels: (c.levels && c.levels.length > 0)
+                ? c.levels.map((l, lIdx) => ({
+                    id: l.id || `lvl_${lIdx + 1}`,
+                    score: Number(l.score) || 0,
+                    definition: (l.definition || '').replace(/<[^>]*>?/gm, '').trim(),
+                  }))
+                : [
+                    { id: `temp_l_1`, score: 0, definition: 'No cumple' },
+                    { id: `temp_l_2`, score: 10, definition: 'Cumple' },
+                  ],
+            }))
+          );
+        } else {
+          setCriteria([createDefaultCriterion(1)]);
+        }
+      } else {
+        handleReset();
+      }
+      setError('');
+      setSaving(false);
+    }
+  }, [open, initialData]);
 
   const handleAddCriterion = () => {
     setCriteria((prev) => [...prev, createDefaultCriterion(prev.length + 1)]);
@@ -134,12 +170,15 @@ export const RubricFormModal = ({
     setSaving(true);
     try {
       await onSave({
+        id: initialData?.id,
         name: name.trim(),
         description: description.trim(),
         criteria: criteria.map((c, idx) => ({
+          id: c.id,
           sortorder: idx + 1,
           description: c.description.trim(),
           levels: c.levels.map((l) => ({
+            id: l.id,
             score: Number(l.score) || 0,
             definition: l.definition.trim(),
           })),
@@ -153,6 +192,8 @@ export const RubricFormModal = ({
     }
   };
 
+  const isEditing = Boolean(initialData);
+
   return (
     <Dialog
       open={open}
@@ -160,8 +201,12 @@ export const RubricFormModal = ({
         handleReset();
         onClose();
       }}
-      title="Nueva Plantilla de Rúbrica"
-      description="Diseña una matriz analítica de evaluación con criterios y niveles ponderados."
+      title={isEditing ? 'Editar Plantilla de Rúbrica' : 'Nueva Plantilla de Rúbrica'}
+      description={
+        isEditing
+          ? 'Modifica los criterios, niveles y ponderaciones de la matriz analítica existente.'
+          : 'Diseña una matriz analítica de evaluación con criterios y niveles ponderados.'
+      }
       className="max-w-4xl"
       footer={
         <>
@@ -176,7 +221,7 @@ export const RubricFormModal = ({
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? 'Guardando...' : 'Crear Plantilla'}
+            {saving ? 'Guardando...' : isEditing ? 'Guardar Cambios' : 'Crear Plantilla'}
           </Button>
         </>
       }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Trash2, Layers, Award, User, Calendar } from 'lucide-react';
+import { Eye, Trash2, Layers, Award, User, Calendar, Pencil } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 
@@ -9,6 +9,7 @@ export const RubricsTable = ({
   hasManageCompetencies = false,
   search = '',
   onOpenPreview,
+  onOpenEdit,
   onOpenDelete,
 }) => {
   const formatDate = (timestamp) => {
@@ -90,32 +91,12 @@ export const RubricsTable = ({
                       </div>
                     </td>
 
-                    {/* 2. Criteria count and summary */}
-                    <td className="px-5 py-4 align-top">
-                      <div className="space-y-1.5 max-w-md">
-                        <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="text-emerald-600 border-emerald-300 dark:border-emerald-700 bg-emerald-500/10 font-semibold text-xs">
-                            <Layers className="h-3 w-3 mr-1" />
-                            {template.criteria_count} {template.criteria_count === 1 ? 'criterio' : 'criterios'}
-                          </Badge>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1">
-                          {template.criteria?.slice(0, 3).map((crit, idx) => (
-                            <span
-                              key={crit.id || idx}
-                              className="inline-flex items-center px-2 py-0.5 rounded-md bg-background border border-border text-[11px] text-foreground font-medium truncate max-w-[200px]"
-                              title={stripHtml(crit.description)}
-                            >
-                              {stripHtml(crit.description) || `Criterio ${idx + 1}`}
-                            </span>
-                          ))}
-                          {(template.criteria?.length || 0) > 3 && (
-                            <span className="text-[10px] text-muted-foreground font-semibold px-1">
-                              +{template.criteria.length - 3} más
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    {/* 2. Criteria count */}
+                    <td className="px-5 py-4 align-top whitespace-nowrap">
+                      <Badge variant="outline" className="text-emerald-600 border-emerald-300 dark:border-emerald-700 bg-emerald-500/10 font-semibold text-xs">
+                        <Layers className="h-3 w-3 mr-1" />
+                        {template.criteria_count} {template.criteria_count === 1 ? 'criterio' : 'criterios'}
+                      </Badge>
                     </td>
 
                     {/* 3. Max Score */}
@@ -147,13 +128,25 @@ export const RubricsTable = ({
                           variant="ghost"
                           size="sm"
                           onClick={() => onOpenPreview(template)}
-                          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-primary"
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
                           title="Previsualizar matriz analítica"
                           aria-label={`Ver matriz de ${template.name}`}
                         >
                           <Eye className="h-4 w-4" />
-                          <span className="hidden lg:inline">Ver Matriz</span>
                         </Button>
+
+                        {hasManageCompetencies && onOpenEdit && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onOpenEdit(template)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            title="Editar plantilla"
+                            aria-label={`Editar ${template.name}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
 
                         {hasManageCompetencies && (
                           <Button
