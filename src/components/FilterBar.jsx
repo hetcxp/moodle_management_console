@@ -13,6 +13,7 @@ export const FilterBar = memo(({
   loading = false,
   primaryAction, // { label, icon, onClick, variant }
   secondaryAction, // { label, icon, onClick, variant }
+  extraActions = [], // array of { label, icon, onClick, variant }
   onExportCsv,
   className = ''
 }) => {
@@ -98,9 +99,24 @@ export const FilterBar = memo(({
               aria-label={secondaryAction.label}
             >
               {secondaryAction.icon}
-              <span className="hidden sm:inline">{secondaryAction.label}</span>
+              <span>{secondaryAction.label}</span>
             </Button>
           )}
+
+          {Array.isArray(extraActions) && extraActions.map((action, idx) => (
+            action && (
+              <Button
+                key={action.key || action.label || idx}
+                variant={action.variant || 'outline'}
+                onClick={action.onClick}
+                className={`gap-2 h-10 shadow-sm ${action.className || ''}`}
+                aria-label={action.label}
+              >
+                {action.icon}
+                <span>{action.label}</span>
+              </Button>
+            )
+          ))}
 
           {primaryAction && (
             <Button

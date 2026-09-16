@@ -108,6 +108,7 @@ describe('HelpContext', () => {
     expect(resolveViewId('/courses')).toBe('courses');
     expect(resolveViewId('/users/55')).toBe('users-detail');
     expect(resolveViewId('/competencies/scales')).toBe('scales');
+    expect(resolveViewId('/competencies/rubrics')).toBe('rubrics');
     expect(resolveViewId('/competencies/12')).toBe('competency-framework-detail');
     expect(resolveViewId('/competencies')).toBe('competencies');
   });

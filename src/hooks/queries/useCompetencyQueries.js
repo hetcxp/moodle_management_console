@@ -154,3 +154,21 @@ export function useCompetencyUsers(competencyId, params = {}) {
     staleTime: 30 * 1000,
   });
 }
+
+export function useRubricTemplates(params = {}) {
+  return useQuery({
+    queryKey: ['rubric_templates', params],
+    queryFn: () => AdminerApi.getRubricTemplates(params),
+    staleTime: 2 * 60 * 1000,
+  });
+}
+
+export function useRubricTemplateAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params) => AdminerApi.rubricTemplateAction(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rubric_templates'] });
+    },
+  });
+}

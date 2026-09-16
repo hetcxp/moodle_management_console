@@ -30,6 +30,7 @@ export const CompetenciesView = ({ onNavigateToDetail }) => {
         onCreate={state.handleOpenCreate}
         onOpenReviews={() => state.setReviewsModalOpen(true)}
         onOpenScales={() => setLocation('/competencies/scales')}
+        onOpenRubrics={() => setLocation('/competencies/rubrics')}
       />
 
       <CompetenciesTable

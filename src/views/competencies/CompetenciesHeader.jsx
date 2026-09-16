@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { FilterBar } from '../../components/FilterBar';
 import { KpiGrid } from '../../components/KpiGrid';
-import { Award, Layers, Eye, Clock, Plus, Sliders } from 'lucide-react';
+import { Award, Layers, Eye, Clock, Plus, Sliders, FileSpreadsheet } from 'lucide-react';
 import { useHelp } from '../../context/HelpContext';
 
 export function CompetenciesHeader({
@@ -10,7 +10,7 @@ export function CompetenciesHeader({
   search, onSearchChange,
   visibilityFilter, onVisibilityChange,
   hasManageCompetencies,
-  onRefresh, onExport, onCreate, onOpenReviews, onOpenScales,
+  onRefresh, onExport, onCreate, onOpenReviews, onOpenScales, onOpenRubrics,
 }) {
   const { helpData } = useHelp();
 
@@ -128,6 +128,18 @@ export function CompetenciesHeader({
                 variant: 'outline',
               }
             : null
+        }
+        extraActions={
+          onOpenRubrics
+            ? [
+                {
+                  label: 'Rúbricas',
+                  onClick: onOpenRubrics,
+                  icon: <FileSpreadsheet className="h-4 w-4" aria-hidden="true" />,
+                  variant: 'outline',
+                },
+              ]
+            : []
         }
         filters={[
           {

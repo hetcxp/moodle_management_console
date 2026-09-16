@@ -134,6 +134,19 @@ describe('CompetenciesView', () => {
     expect(mockSetLocation).toHaveBeenCalledWith('/competencies/scales');
   });
 
+  it('navigates to /competencies/rubrics when clicking Rúbricas in header', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Rúbricas')).toBeDefined();
+    });
+
+    const rubricsBtn = screen.getByText('Rúbricas');
+    fireEvent.click(rubricsBtn);
+
+    expect(mockSetLocation).toHaveBeenCalledWith('/competencies/rubrics');
+  });
+
   it('triggers toggle visibility action when clicking action button', async () => {
     const { AdminerApi } = await import('../services/adminer-api');
     renderComponent();

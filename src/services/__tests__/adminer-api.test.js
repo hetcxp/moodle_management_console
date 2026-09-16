@@ -317,6 +317,33 @@ describe('AdminerApi service', () => {
       });
     });
 
+    it('getRubricTemplates calls tool_management_console_get_rubric_templates', async () => {
+      MoodleApi.call.mockResolvedValue({ total: 1, templates: [] });
+      await AdminerApi.getRubricTemplates({ search: 'liderazgo', page: 0, perpage: 50 });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_get_rubric_templates', {
+        search: 'liderazgo',
+        page: 0,
+        perpage: 50,
+      });
+    });
+
+    it('rubricTemplateAction calls tool_management_console_rubric_template_action', async () => {
+      MoodleApi.call.mockResolvedValue({ success: 1, templateid: 5 });
+      await AdminerApi.rubricTemplateAction({
+        action: 'create',
+        name: 'Rúbrica Test',
+        description: 'Desc',
+        criteria: [{ sortorder: 1, description: 'Crit', levels: [] }],
+      });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_rubric_template_action', {
+        action: 'create',
+        templateid: 0,
+        name: 'Rúbrica Test',
+        description: 'Desc',
+        criteria: JSON.stringify([{ sortorder: 1, description: 'Crit', levels: [] }]),
+      });
+    });
+
     it('getCompetencyKpis calls tool_management_console_get_competency_kpis', async () => {
       MoodleApi.call.mockResolvedValue({});
       await AdminerApi.getCompetencyKpis();

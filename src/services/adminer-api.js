@@ -193,6 +193,24 @@ export const AdminerApi = {
     });
   },
 
+  async getRubricTemplates({ search = '', page = 0, perpage = 50 } = {}) {
+    return await MoodleApi.call('tool_management_console_get_rubric_templates', {
+      search,
+      page,
+      perpage,
+    });
+  },
+
+  async rubricTemplateAction({ action, templateid = 0, name = '', description = '', criteria = [] } = {}) {
+    return await MoodleApi.call('tool_management_console_rubric_template_action', {
+      action,
+      templateid,
+      name,
+      description,
+      criteria: typeof criteria === 'string' ? criteria : JSON.stringify(criteria),
+    });
+  },
+
   async getCompetencyKpis() {
     return await MoodleApi.call('tool_management_console_get_competency_kpis');
   },
