@@ -13,6 +13,7 @@ import { formatDateOnly } from '../lib/utils';
 import { CourseUsersTab } from './courses/CourseUsersTab';
 import { CourseCohortsTab } from './courses/CourseCohortsTab';
 import { CourseCompetenciesTab } from './courses/CourseCompetenciesTab';
+import { CourseDetailKpis } from './courses/CourseDetailKpis';
 import { navigateToDetail } from '../lib/navigation';
 
 export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentLabel }) => {
@@ -200,6 +201,9 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
           </div>
         </div>
       </div>
+
+      {/* Course KPIs */}
+      <CourseDetailKpis users={data.users || []} />
 
       {/* Tabs */}
       <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
