@@ -126,7 +126,7 @@ describe('RubricsView Component', () => {
     expect(mockSetLocation).toHaveBeenCalledWith('/competencies/rubrics/51');
   });
 
-  it('opens RubricFormModal when clicking Nueva Rúbrica', async () => {
+  it('navigates to /competencies/rubrics/new when clicking Nueva Rúbrica', async () => {
     renderComponent();
 
     await waitFor(() => {
@@ -135,40 +135,10 @@ describe('RubricsView Component', () => {
 
     fireEvent.click(screen.getByText('Nueva Rúbrica'));
 
-    await waitFor(() => {
-      expect(screen.getByText('Nueva Plantilla de Rúbrica')).toBeDefined();
-      expect(screen.getByPlaceholderText('Ej. Rúbrica Analítica: Resolución de Problemas Complejos')).toBeDefined();
-    });
+    expect(mockSetLocation).toHaveBeenCalledWith('/competencies/rubrics/new');
   });
 
-  it('submits a new rubric and triggers rubricTemplateAction', async () => {
-    const { AdminerApi } = await import('../services/adminer-api');
-    renderComponent();
-
-    await waitFor(() => {
-      expect(screen.getByText('Nueva Rúbrica')).toBeDefined();
-    });
-
-    fireEvent.click(screen.getByText('Nueva Rúbrica'));
-
-    const nameInput = screen.getByPlaceholderText('Ej. Rúbrica Analítica: Resolución de Problemas Complejos');
-    fireEvent.change(nameInput, { target: { value: 'Rúbrica Test Vitest' } });
-
-    const createBtn = screen.getByText('Crear Plantilla');
-    fireEvent.click(createBtn);
-
-    await waitFor(() => {
-      expect(AdminerApi.rubricTemplateAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'create',
-          name: 'Rúbrica Test Vitest',
-        })
-      );
-    });
-  });
-
-  it('opens edit modal with pre-filled data and triggers update', async () => {
-    const { AdminerApi } = await import('../services/adminer-api');
+  it('navigates to /competencies/rubrics/:id/edit when clicking Editar', async () => {
     renderComponent();
 
     await waitFor(() => {
@@ -178,27 +148,7 @@ describe('RubricsView Component', () => {
     const editBtn = screen.getByLabelText('Editar [MC-AREA-19] Rúbrica: Orientación al cliente');
     fireEvent.click(editBtn);
 
-    await waitFor(() => {
-      expect(screen.getByText('Editar Plantilla de Rúbrica')).toBeDefined();
-    });
-
-    const nameInput = screen.getByDisplayValue('[MC-AREA-19] Rúbrica: Orientación al cliente');
-    expect(nameInput).toBeDefined();
-
-    fireEvent.change(nameInput, { target: { value: '[MC-AREA-19] Rúbrica: Orientación al cliente - Editada' } });
-
-    const saveBtn = screen.getByText('Guardar Cambios');
-    fireEvent.click(saveBtn);
-
-    await waitFor(() => {
-      expect(AdminerApi.rubricTemplateAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'update',
-          templateid: 51,
-          name: '[MC-AREA-19] Rúbrica: Orientación al cliente - Editada',
-        })
-      );
-    });
+    expect(mockSetLocation).toHaveBeenCalledWith('/competencies/rubrics/51/edit');
   });
 
   it('opens delete confirmation and triggers deletion', async () => {

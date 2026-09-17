@@ -638,6 +638,73 @@ export const helpRegistry = {
       }
     ]
   },
+  'rubrics-editor': {
+    title: 'Editor de Plantilla de Rúbrica',
+    summary: 'Entorno de diseño a pantalla completa para modelar y calibrar matrices analíticas de evaluación por competencias. Permite estructurar criterios graduales, definir niveles de logro cualitativos y asignar ponderaciones cuantitativas con recálculo de puntaje máximo en tiempo real.',
+    actions: [
+      {
+        name: 'Añadir Criterio',
+        description: 'Incorpora una nueva dimensión evaluativa a la matriz con una escala base de niveles predefinida.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Duplicar Criterio',
+        description: 'Clona de forma inmediata la descripción y escalas de niveles de un criterio existente para acelerar la confección de la matriz.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Reordenar Criterios',
+        description: 'Mueve los criterios hacia arriba o abajo para establecer la secuencia pedagógica óptima de evaluación.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Añadir / Eliminar Niveles',
+        description: 'Modifica la cantidad de escalones de logro por criterio (mínimo 2) para adaptar la granularidad de la escala.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Puntaje en Tiempo Real',
+        description: 'Monitoreo dinámico del puntaje máximo acumulable calculando el nivel superior de cada criterio de forma instantánea.',
+        requiredRole: 'Acceso General de Consulta'
+      },
+      {
+        name: 'Guardar Plantilla',
+        description: 'Valida la completitud de la rúbrica (nombre, criterios y niveles válidos) y persiste los datos en el banco institucional.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Cancelar Edición',
+        description: 'Descarta los cambios no guardados y regresa al catálogo o detalle de rúbricas.',
+        requiredRole: 'Acceso General de Consulta'
+      }
+    ],
+    kpisHelp: {
+      'Puntaje Máximo': 'Suma acumulada de las puntuaciones más altas de cada criterio. Representa la calificación máxima alcanzable al obtener el nivel superior en todos los criterios.',
+      'Criterios': 'Cantidad total de dimensiones o competencias evaluativas configuradas en la matriz activa.',
+      'Niveles de Desempeño': 'Escala gradual de descriptores cualitativos y cuantitativos que miden el nivel de dominio alcanzado.'
+    },
+    workflows: [
+      {
+        title: 'Diseño Efectivo de una Matriz Analítica',
+        steps: [
+          'Ingresa el nombre normativo y describe el objetivo pedagógico o contexto de aplicación formativa.',
+          'Define cada dimensión o competencia en la descripción del criterio evaluado con claridad terminológica.',
+          'Configura la progresión de niveles desde 0 pts (sin evidencia) hasta la nota máxima esperada.',
+          'Redacta definiciones cualitativas basadas en evidencias y conductas observables para evitar ambigüedades.',
+          'Verifica que el puntaje total coincida con la escala de calificación requerida y presiona "Crear Plantilla" o "Guardar Cambios".'
+        ]
+      },
+      {
+        title: 'Modelado y Duplicación Rápida',
+        steps: [
+          'Estructura completamente el primer criterio con sus niveles, puntajes y redacción pedagógica.',
+          'Presiona el botón "Duplicar" en la barra de herramientas del criterio para clonar la estructura.',
+          'Edita la descripción de la competencia y adapta las definiciones de cada nivel según la nueva dimensión.',
+          'Utiliza las flechas arriba/abajo para ordenar los criterios en la secuencia de corrección del docente.'
+        ]
+      }
+    ]
+  },
   reports: {
     title: 'Generador de Reportes',
     summary: 'Centro de exportación y análisis: métricas agregadas por cursos, usuarios, categorías y cohortes.',

@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react';
+import { useLocation } from 'wouter';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useHelp } from '../../context/HelpContext';
 import { useRubricTemplates, useRubricTemplateAction } from '../../hooks/queries/useCompetencyQueries';
 
-export const useRubricDetailState = ({ templateId, onBack }) => {
+export const useRubricDetailState = ({ templateId, onBack, onNavigateToDetail }) => {
+  const [, setLocation] = useLocation();
   const { helpData } = useHelp();
   const { addToast } = useToast();
   const { permissions } = useAuth();
@@ -27,7 +29,11 @@ export const useRubricDetailState = ({ templateId, onBack }) => {
   }, [rubricsData?.templates, templateId]);
 
   const handleOpenEdit = () => {
-    setEditModalOpen(true);
+    if (onNavigateToDetail) {
+      onNavigateToDetail('rubric_edit', templateId);
+    } else {
+      setLocation(`/competencies/rubrics/${templateId}/edit`);
+    }
   };
 
   const handleSaveRubric = async (formData) => {

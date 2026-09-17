@@ -14,6 +14,8 @@ Moodle Adminer transforma la experiencia de gestión de plataformas Moodle, ofre
 - 📂 **Administración de Categorías:** Crea y estructura tus categorías de manera lógica sin perderte en menús infinitos.
 - 🎯 **Gestión Integral de Competencias:** Administra marcos de competencias (Competency Frameworks), árboles jerárquicos, reglas de finalización de competencias, vinculación con cursos/actividades y gestión de revisiones de planes de aprendizaje.
 - ⚖️ **Gestión de Escalas de Calificación:** Administra escalas estándar y personalizadas para marcos de competencias, identificando escalas por defecto y niveles configurables.
+- 📋 **Plantillas y Editor Visual de Rúbricas:** Catálogo institucional de rúbricas, vista detallada de matriz interactiva de criterios/niveles y constructor ergonómico a ancho completo con reordenamiento, validación reactiva y KPIs de puntaje acumulado en tiempo real.
+- 🛤️ **Rutas de Aprendizaje (Learning Paths):** Diseño de itinerarios formativos secuenciales con control de prerrequisitos entre cursos, matriculación masiva de cohortes y analítica de progreso paso a paso con guardia de dependencias de plugins.
 - 💡 **Sistema de Ayuda Contextual Integrado:** Tooltips interactivos y panel lateral accesible (`HelpDrawer`) disponible en cada vista o presionando el atajo `?`, con guías paso a paso, atajos y enlaces a documentación oficial.
 - 📈 **Reportes y Exportaciones:** Genera y exporta reportes detallados en CSV de usuarios, cursos, competencias y progreso.
 - 🎨 **Personalización y Temas:** Soporte completo para 4 temas (Claro, Oscuro, Gold & Teal, Mint Fresh) con persistencia de preferencias y personalización dinámica por tenant.
@@ -38,7 +40,7 @@ Moodle Adminer está compuesto por dos grandes piezas: una moderna Single Page A
 - **Iconografía:** `lucide-react`
 
 **Backend (Moodle Plugin)**
-- **`tool_management_console`**: Plugin de administración de Moodle (`admin/tool/management_console`, PHP) que consolida la API de servicios web externos (`external_api`), la arquitectura de repositorios (`category_repository`, `cohort_repository`, `competency_repository`, `course_repository`, `user_repository`) para consultas de alta velocidad y control granular de capacidades RBAC, integrando además la SPA React compilada en `app/`.
+- **`tool_management_console`**: Plugin de administración de Moodle (`admin/tool/management_console`, PHP) que consolida la API de servicios web externos (`external_api`), una arquitectura de repositorios especializados (`category_repository`, `cohort_repository`, `competency_framework_repository`, `competency_repository`, `competency_review_repository`, `course_enrolment_repository`, `course_repository`, `learning_path_repository`, `rubric_repository`, `user_repository`) para consultas de alta velocidad y control granular de capacidades RBAC, integrando además la SPA React compilada en `app/`.
 
 ### Estructura del Workspace
 
@@ -47,20 +49,23 @@ moodle_management_console/
 ├── src/                      # Código fuente de la aplicación React (Vite + Tailwind)
 │   ├── __tests__/            # Suite de pruebas unitarias e integración (Vitest)
 │   ├── components/           # Componentes UI reutilizables (Botones, Tablas, Modales, PermissionGate)
-│   ├── config/               # Configuración multi-tenant y endpoints
-│   ├── context/              # Contextos globales (AuthContext, ThemeContext)
+│   ├── config/               # Configuración multi-tenant, endpoints y helpRegistry
+│   ├── context/              # Contextos globales (AuthContext, ThemeContext, HelpContext)
 │   ├── hooks/                # Custom hooks (Queries API, mutaciones, selección masiva)
-│   ├── lib/                  # Utilidades y helpers de formato
+│   ├── lib/                  # Utilidades, navegación y helpers de formato
 │   ├── services/             # Integración y llamadas a la API de Moodle
-│   └── views/                # Vistas principales (Dashboard, Courses, Users, Competencies, Reports, etc)
+│   └── views/                # Vistas principales de la consola
 │       ├── categories/       # Pestañas y modales del módulo de categorías
 │       ├── cohorts/          # Componentes y modales de cohortes
 │       ├── competencies/     # Componentes, modales y constantes de competencias
 │       ├── courses/          # Pestañas, modales de creación, CSV y traslado de cursos
+│       ├── learning_paths/   # Componentes, tablas y estructura de rutas formativas
+│       ├── rubrics/          # Criterios, cabecera y hooks de estado del editor de rúbricas
+│       ├── scales/           # Hooks y subcomponentes de escalas de calificación
 │       └── users/            # Pestañas y gestión de usuarios
 ├── plugin/                   
 │   └── management_console/   # Plugin de administración Moodle (admin/tool/management_console)
-├── scripts/                  # Scripts de utilidades y pruebas headless
+├── scripts/                  # Scripts de utilidades, sincronización LTS y pruebas headless
 ├── package.json              # Dependencias y scripts del frontend
 └── vite.config.js            # Configuración de compilación de Vite
 ```
@@ -127,7 +132,7 @@ Para consultar los lineamientos de diseño, tokens Tailwind, catálogo de compon
 
 ## 🧪 Testing y Cobertura
 
-Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (221 tests en 37 suites):
+Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (263 tests en 42 suites):
 
 ```bash
 npm run test

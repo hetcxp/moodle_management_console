@@ -38,6 +38,15 @@ export function buildDetailUrl(entity, id) {
     return `/competencies/${id}`;
   }
 
+  if (entity === 'rubric_new') {
+    return '/competencies/rubrics/new';
+  }
+
+  if (entity === 'rubric_edit') {
+    const rubricId = typeof id === 'object' ? (id.id ?? id.templateId ?? id.templateid) : id;
+    return `/competencies/rubrics/${rubricId}/edit`;
+  }
+
   const prefix = ENTITY_ROUTES[entity] || `${entity}s`;
   return `/${prefix}/${id}`;
 }

@@ -162,8 +162,7 @@ describe('RubricDetailView Component', () => {
     });
   });
 
-  it('opens edit modal from detail view and executes update', async () => {
-    const { AdminerApi } = await import('../services/adminer-api');
+  it('navigates to /competencies/rubrics/:id/edit when clicking Editar', async () => {
     renderComponent(51);
 
     await waitFor(() => {
@@ -172,27 +171,7 @@ describe('RubricDetailView Component', () => {
 
     fireEvent.click(screen.getByTitle('Editar plantilla de rúbrica'));
 
-    await waitFor(() => {
-      expect(screen.getByText('Editar Plantilla de Rúbrica')).toBeDefined();
-    });
-
-    const nameInput = screen.getByDisplayValue('[MC-AREA-19] Rúbrica: Orientación al cliente');
-    expect(nameInput).toBeDefined();
-
-    fireEvent.change(nameInput, { target: { value: '[MC-AREA-19] Rúbrica: Orientación al cliente - Actualizada' } });
-
-    const saveBtn = screen.getByText('Guardar Cambios');
-    fireEvent.click(saveBtn);
-
-    await waitFor(() => {
-      expect(AdminerApi.rubricTemplateAction).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'update',
-          templateid: 51,
-          name: '[MC-AREA-19] Rúbrica: Orientación al cliente - Actualizada',
-        })
-      );
-    });
+    expect(mockSetLocation).toHaveBeenCalledWith('/competencies/rubrics/51/edit');
   });
 
   it('opens delete confirmation modal and executes delete', async () => {

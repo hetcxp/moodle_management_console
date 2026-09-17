@@ -155,11 +155,12 @@ export function useCompetencyUsers(competencyId, params = {}) {
   });
 }
 
-export function useRubricTemplates(params = {}) {
+export function useRubricTemplates(params = {}, options = {}) {
   return useQuery({
     queryKey: ['rubric_templates', params],
     queryFn: () => AdminerApi.getRubricTemplates(params),
     staleTime: 2 * 60 * 1000,
+    ...options,
   });
 }
 

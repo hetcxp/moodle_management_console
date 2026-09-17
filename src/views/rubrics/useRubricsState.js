@@ -17,7 +17,6 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
     search, setSearch, page, setPage, perPage,
     modalOpen: formModalOpen, setModalOpen: setFormModalOpen,
     editingItem: rubricToEdit, setEditingItem: setRubricToEdit,
-    openCreate: handleOpenCreate, openEdit: handleOpenEdit,
     deleteConfirmOpen, setDeleteConfirmOpen,
     itemsToDelete: rubricToDelete, setItemsToDelete: setRubricToDelete,
     openDelete: handleOpenDelete,
@@ -62,6 +61,22 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
       onNavigateToDetail('rubric', rubric.id);
     } else {
       setLocation(`/competencies/rubrics/${rubric.id}`);
+    }
+  };
+
+  const handleOpenCreate = () => {
+    if (onNavigateToDetail) {
+      onNavigateToDetail('rubric_new');
+    } else {
+      setLocation('/competencies/rubrics/new');
+    }
+  };
+
+  const handleOpenEdit = (rubric) => {
+    if (onNavigateToDetail) {
+      onNavigateToDetail('rubric_edit', rubric.id);
+    } else {
+      setLocation(`/competencies/rubrics/${rubric.id}/edit`);
     }
   };
 

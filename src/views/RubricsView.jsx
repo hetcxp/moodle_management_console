@@ -3,7 +3,6 @@ import { useLocation } from 'wouter';
 import { useRubricsState } from './rubrics/useRubricsState';
 import { RubricsHeader } from './rubrics/RubricsHeader';
 import { RubricsTable } from './rubrics/RubricsTable';
-import { RubricFormModal } from './rubrics/RubricFormModal';
 import { RubricDeleteModal } from './rubrics/RubricDeleteModal';
 
 export const RubricsView = ({ onBack, onNavigateToDetail, parentLabel = 'Competencias' }) => {
@@ -37,16 +36,6 @@ export const RubricsView = ({ onBack, onNavigateToDetail, parentLabel = 'Compete
         onOpenPreview={state.handleOpenPreview}
         onOpenEdit={state.handleOpenEdit}
         onOpenDelete={state.handleOpenDelete}
-      />
-
-      <RubricFormModal
-        open={state.formModalOpen}
-        initialData={state.rubricToEdit}
-        onClose={() => {
-          state.setFormModalOpen(false);
-          state.setRubricToEdit(null);
-        }}
-        onSave={state.handleSaveRubric}
       />
 
       <RubricDeleteModal

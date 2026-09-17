@@ -5,13 +5,12 @@ import { Button } from '../components/ui/Button';
 import { RubricDetailHeader } from './rubrics/RubricDetailHeader';
 import { RubricMatrixTable } from './rubrics/RubricMatrixTable';
 import { RubricDeleteModal } from './rubrics/RubricDeleteModal';
-import { RubricFormModal } from './rubrics/RubricFormModal';
 import { useRubricDetailState } from './rubrics/useRubricDetailState';
 
 export const RubricDetailView = ({
   templateId,
   onBack,
-  _onNavigateToDetail,
+  onNavigateToDetail,
 }) => {
   const [, setLocation] = useLocation();
   const handleBack = onBack || (() => setLocation('/competencies/rubrics'));
@@ -19,6 +18,7 @@ export const RubricDetailView = ({
   const state = useRubricDetailState({
     templateId,
     onBack: handleBack,
+    onNavigateToDetail,
   });
 
   if (state.isLoading) {
@@ -71,13 +71,6 @@ export const RubricDetailView = ({
       <RubricMatrixTable
         rubric={state.rubric}
         viewMode={state.viewMode}
-      />
-
-      <RubricFormModal
-        open={state.editModalOpen}
-        initialData={state.rubric}
-        onClose={() => state.setEditModalOpen(false)}
-        onSave={state.handleSaveRubric}
       />
 
       <RubricDeleteModal

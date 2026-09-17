@@ -18,6 +18,7 @@ export function resolveViewId(pathname) {
   if (pathname === '/cohorts') return 'cohorts';
   if (pathname.includes('/competency/')) return 'competency-detail';
   if (pathname === '/competencies/scales' || pathname.startsWith('/competencies/scales/')) return 'scales';
+  if (pathname === '/competencies/rubrics/new' || (pathname.startsWith('/competencies/rubrics/') && pathname.endsWith('/edit'))) return 'rubrics-editor';
   if (pathname.startsWith('/competencies/rubrics/')) return 'rubrics-detail';
   if (pathname === '/competencies/rubrics') return 'rubrics';
   if (pathname.match(/^\/competencies\/[^/]+$/)) return 'competency-framework-detail';
