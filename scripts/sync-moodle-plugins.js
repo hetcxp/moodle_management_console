@@ -274,25 +274,33 @@ async function installPluginViaWeb(page, plugin, zipPath) {
       break;
     }
 
-    const progressHandle = await page.evaluateHandle(() => {
-      const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
-      // 1. Priorizar botón de actualización de base de datos
-      const upgradeBtn = candidates.find(el => {
-        const txt = (el.innerText || el.value || '').trim().toLowerCase();
-        return (txt.includes('actualizar') && txt.includes('base de datos')) ||
-               (txt.includes('upgrade') && txt.includes('database'));
-      });
-      if (upgradeBtn) return upgradeBtn;
+    await page.waitForFunction(() => document.readyState === 'complete' && !!document.body, { timeout: 30000 }).catch(() => {});
+    await new Promise(r => setTimeout(r, 3000));
 
-      // 2. Botón de continuar
-      const continueBtn = candidates.find(el => {
-        const txt = (el.innerText || el.value || '').trim().toLowerCase();
-        return txt.includes('continuar') || txt.includes('continue');
-      });
-      return continueBtn || null;
-    });
+    let progressBtn = null;
+    for (let retry = 0; retry < 8; retry++) {
+      const progressHandle = await page.evaluateHandle(() => {
+        const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
+        // 1. Priorizar botón de actualización de base de datos
+        const upgradeBtn = candidates.find(el => {
+          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+          return (txt.includes('actualizar') && (txt.includes('base de datos') || txt.includes('moodle'))) ||
+                 (txt.includes('upgrade') && (txt.includes('database') || txt.includes('moodle')));
+        });
+        if (upgradeBtn) return upgradeBtn;
 
-    const progressBtn = progressHandle.asElement();
+        // 2. Botón de continuar
+        const continueBtn = candidates.find(el => {
+          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+          return txt.includes('continuar') || txt.includes('continue');
+        });
+        return continueBtn || null;
+      });
+
+      progressBtn = progressHandle.asElement();
+      if (progressBtn) break;
+      await new Promise(r => setTimeout(r, 2000));
+    }
 
     if (progressBtn) {
       const btnText = await page.evaluate(el => el.value || el.innerText, progressBtn);
@@ -300,9 +308,9 @@ async function installPluginViaWeb(page, plugin, zipPath) {
       try {
         await Promise.all([
           progressBtn.click(),
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 180000 }).catch(() => {})
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 180000 }).catch(() => {})
         ]);
-        await new Promise(r => setTimeout(r, 2000));
+        await new Promise(r => setTimeout(r, 4000));
       } catch (err) {
         console.log(`  Navegación concluida o botón no interactivo (${err.message}).`);
         break;
@@ -315,16 +323,21 @@ async function installPluginViaWeb(page, plugin, zipPath) {
 
   // 7. Purgar Cachés de Moodle
   console.log('  Purgando cachés de Moodle (/admin/purgecaches.php)...');
-  await page.goto(`${CONFIG.baseUrl}/admin/purgecaches.php`, { waitUntil: 'networkidle2', timeout: 60000 });
-  const purgeBtn = await page.$(
-    'form.mform input[type="submit"], #id_submitbutton, input[type="submit"][value*="Purgar"], input[type="submit"][value*="Purge"]'
-  );
-  if (purgeBtn) {
-    await Promise.all([
-      purgeBtn.click(),
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 })
-    ]);
-    console.log('  Cachés purgadas correctamente.');
+  try {
+    await page.goto(`${CONFIG.baseUrl}/admin/purgecaches.php`, { waitUntil: 'domcontentloaded', timeout: 120000 });
+    const purgeBtn = await page.waitForSelector(
+      'form.mform input[type="submit"], #id_submitbutton, input[type="submit"][value*="Purgar"], input[type="submit"][value*="Purge"]',
+      { timeout: 30000 }
+    ).catch(() => null);
+    if (purgeBtn) {
+      await Promise.all([
+        purgeBtn.click(),
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {})
+      ]);
+      console.log('  Cachés purgadas correctamente.');
+    }
+  } catch (err) {
+    console.log(`  Aviso al purgar cachés: ${err.message}`);
   }
 }
 
