@@ -118,7 +118,7 @@ export const CompetencyDetailHeader = ({
       {/* Description if present */}
       {competency?.description && (
         <div
-          className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm text-sm text-muted-foreground max-w-4xl prose dark:prose-invert prose-sm"
+          className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm text-sm text-muted-foreground max-w-none prose dark:prose-invert prose-sm competency-description-content overflow-hidden"
           dangerouslySetInnerHTML={{ __html: competency.description }}
         />
       )}

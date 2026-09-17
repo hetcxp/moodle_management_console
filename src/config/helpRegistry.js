@@ -502,6 +502,142 @@ export const helpRegistry = {
       }
     ]
   },
+  rubrics: {
+    title: 'Plantillas de Rúbricas',
+    summary: 'Catálogo y administración centralizada de matrices analíticas de evaluación compartidas en Moodle. Permite estandarizar criterios de logro por competencias, definir niveles progresivos de desempeño con ponderación cuantitativa y reutilizar plantillas en tareas y actividades curriculares.',
+    actions: [
+      {
+        name: 'Nueva Rúbrica',
+        description: 'Crea una nueva matriz analítica especificando nombre, descripción, criterios y niveles graduales con puntajes.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Previsualizar Matriz',
+        description: 'Inspección rápida en modal de la matriz completa y baremos sin entrar en edición ni modificar datos.',
+        requiredRole: 'Acceso General de Consulta'
+      },
+      {
+        name: 'Editar Rúbrica',
+        description: 'Actualiza descriptores, añade o remueve criterios y recalibra ponderaciones de puntuación.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Eliminar Plantilla',
+        description: 'Remueve la rúbrica del banco compartido institucional tras confirmación destructiva.',
+        requiredRole: 'Administrador del Sitio'
+      },
+      {
+        name: 'Modo de Vista (Matriz / Tarjetas)',
+        description: 'Alterna en el detalle entre cuadrícula horizontal y tarjetas apiladas optimizadas para lectura focalizada o pantallas estrechas.',
+        requiredRole: 'Acceso General de Consulta'
+      },
+      {
+        name: 'Imprimir / PDF',
+        description: 'Genera una versión tipográfica limpia optimizada para impresión física o guardado en PDF para validación curricular.',
+        requiredRole: 'Acceso General de Consulta'
+      }
+    ],
+    kpisHelp: {
+      'Total Plantillas': 'Número total de plantillas de rúbricas analíticas disponibles en el banco compartido institucional.',
+      'Criterios Evaluativos': 'Suma acumulada de dimensiones o estándares de desempeño definidos entre todas las plantillas activas.',
+      'Promedio Criterios / Rúbrica': 'Profundidad analítica media evaluada por matriz (cantidad promedio de criterios por plantilla).',
+      'Puntaje Máximo Promedio': 'Calificación máxima ponderada promedio alcanzable en las escalas analíticas del catálogo.',
+      'Puntaje Total': 'Calificación acumulada máxima alcanzable obteniendo el nivel superior en todos los criterios.',
+      'Criterios': 'Cantidad de dimensiones evaluativas configuradas en la matriz activa.',
+      'Niveles Totales': 'Suma total de descriptores y niveles de gradación de logro configurados en la rúbrica.',
+      'Promedio Niveles': 'Cantidad media de escalones de desempeño por criterio evaluativo.'
+    },
+    workflows: [
+      {
+        title: 'Creación y Modelado de Rúbrica',
+        steps: [
+          'Haz clic en "Nueva Rúbrica" en la barra de herramientas.',
+          'Asigna el nombre normativo y descripción del ámbito evaluativo o competencia asociada.',
+          'Añade criterios evaluativos asignando títulos claros a cada dimensión de desempeño.',
+          'Configura niveles ascendentes (desde 0 pts hasta la nota máxima del criterio) con descriptores cualitativos claros.',
+          'Guarda la plantilla para habilitarla en el catálogo compartido de Moodle.'
+        ]
+      },
+      {
+        title: 'Auditoría y Validación Pedagógica',
+        steps: [
+          'Localiza la plantilla requerida mediante el buscador unificado por nombre o palabra clave.',
+          'Abre el detalle para alternar entre la vista "Matriz" tabular y el formato "Tarjetas".',
+          'Ejecuta "Imprimir / PDF" para presentar el baremo ante comités académicos o docentes evaluadores.'
+        ]
+      },
+      {
+        title: 'Calibración y Depuración del Catálogo',
+        steps: [
+          'Monitorea los KPI de profundidad media y puntaje máximo para asegurar alineación a estándares institucionales.',
+          'Edita matrices que presenten desequilibrios en ponderaciones o redactados inconsistentes.',
+          'Elimina plantillas obsoletas o duplicadas que no pertenezcan al ciclo lectivo vigente.'
+        ]
+      }
+    ]
+  },
+  'rubrics-detail': {
+    title: 'Detalle de la Rúbrica',
+    summary: 'Inspección analítica profunda, baremos de niveles de desempeño, descriptores cualitativos y exportación curricular de la plantilla de evaluación.',
+    actions: [
+      {
+        name: 'Modo de Vista (Matriz / Tarjetas)',
+        description: 'Alterna entre cuadrícula horizontal y tarjetas apiladas optimizadas para lectura focalizada o pantallas estrechas.',
+        requiredRole: 'Acceso General de Consulta'
+      },
+      {
+        name: 'Imprimir / PDF',
+        description: 'Genera una versión tipográfica limpia para impresión en papel o guardado en PDF para validación curricular.',
+        requiredRole: 'Acceso General de Consulta'
+      },
+      {
+        name: 'Refrescar',
+        description: 'Recarga la matriz y descriptores de logro directamente desde el servidor Moodle.',
+        requiredRole: 'Acceso General de Consulta'
+      },
+      {
+        name: 'Editar Rúbrica',
+        description: 'Modifica el nombre, descripción metodológica, criterios y niveles con sus respectivos puntajes.',
+        requiredRole: 'Gestor de Plataforma / Administrador'
+      },
+      {
+        name: 'Eliminar Rúbrica',
+        description: 'Remueve de forma permanente la plantilla de rúbrica del catálogo institucional compartido.',
+        requiredRole: 'Administrador del Sitio'
+      }
+    ],
+    kpisHelp: {
+      'Puntaje Total': 'Calificación máxima ponderada alcanzable al obtener el nivel de excelencia en todos los criterios.',
+      'Criterios': 'Cantidad total de dimensiones evaluativas configuradas en esta matriz.',
+      'Prom. Niveles': 'Media de niveles o gradaciones de logro cualitativo por criterio evaluativo.'
+    },
+    workflows: [
+      {
+        title: 'Auditoría y Validación Metodológica',
+        steps: [
+          'Revisa la descripción metodológica e instruccional de la rúbrica.',
+          'Alterna entre vista "Matriz" para una inspección general y vista "Tarjetas" para revisión detallada por dimensión.',
+          'Verifica que las definiciones cualitativas de cada nivel sean claras y no presenten ambigüedades.'
+        ]
+      },
+      {
+        title: 'Calibración y Modificación de la Matriz',
+        steps: [
+          'Haz clic en el botón "Editar" en la barra superior de acciones.',
+          'Ajusta la redacción de los descriptores o añade nuevos criterios evaluativos con su puntuación.',
+          'Confirma los cambios para sincronizar la plantilla actualizada en el banco de actividades.'
+        ]
+      },
+      {
+        title: 'Exportación y Uso Colegiado',
+        steps: [
+          'Haz clic en "Imprimir / PDF" en la barra de herramientas superior.',
+          'Configura la salida en orientación horizontal en el diálogo del navegador.',
+          'Distribuye el documento a los docentes evaluadores o al comité de calidad académica.'
+        ]
+      }
+    ]
+  },
   reports: {
     title: 'Generador de Reportes',
     summary: 'Centro de exportación y análisis: métricas agregadas por cursos, usuarios, categorías y cohortes.',

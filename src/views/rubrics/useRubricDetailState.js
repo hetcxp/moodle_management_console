@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
+import { useHelp } from '../../context/HelpContext';
 import { useRubricTemplates, useRubricTemplateAction } from '../../hooks/queries/useCompetencyQueries';
 
 export const useRubricDetailState = ({ templateId, onBack }) => {
+  const { helpData } = useHelp();
   const { addToast } = useToast();
   const { permissions } = useAuth();
   const hasManageCompetencies = permissions?.is_siteadmin === 1 || permissions?.can_manage_competencies === 1;
@@ -92,6 +94,7 @@ export const useRubricDetailState = ({ templateId, onBack }) => {
 
   return {
     rubric,
+    helpData,
     isLoading,
     isFetching,
     refetch,

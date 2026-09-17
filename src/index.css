@@ -223,3 +223,214 @@ dialog::backdrop {
   background: transparent; /* Manejado por Tailwind backdrop: */
 }
 
+/* =============================================================
+   Competency Descriptions & Rich Content Contrast in Dark Modes
+   ============================================================= */
+.competency-description-content .martha-alles-competency {
+  max-width: 100% !important;
+}
+
+.dark .competency-description-content,
+.theme-gold-teal .competency-description-content,
+.dark .martha-alles-competency,
+.theme-gold-teal .martha-alles-competency {
+  color: #cbd5e1 !important;
+}
+
+/* Section Headings (1. Apertura en Grados, 2. Comportamientos, etc.) */
+.dark .competency-description-content h4,
+.theme-gold-teal .competency-description-content h4,
+.dark .martha-alles-competency h4,
+.theme-gold-teal .martha-alles-competency h4 {
+  color: #f8fafc !important;
+  border-bottom-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .competency-description-content h3,
+.theme-gold-teal .competency-description-content h3,
+.dark .martha-alles-competency h3,
+.theme-gold-teal .martha-alles-competency h3 {
+  color: #ffffff !important;
+}
+
+/* Override dark inline text colors in dark mode */
+.dark .competency-description-content [style*="color: #0f172a"],
+.theme-gold-teal .competency-description-content [style*="color: #0f172a"],
+.dark .competency-description-content [style*="color:#0f172a"],
+.theme-gold-teal .competency-description-content [style*="color:#0f172a"] {
+  color: #f8fafc !important;
+}
+
+.dark .competency-description-content [style*="color: #1e293b"],
+.theme-gold-teal .competency-description-content [style*="color: #1e293b"],
+.dark .competency-description-content [style*="color:#1e293b"],
+.theme-gold-teal .competency-description-content [style*="color:#1e293b"] {
+  color: #f1f5f9 !important;
+}
+
+.dark .competency-description-content [style*="color: #334155"],
+.theme-gold-teal .competency-description-content [style*="color: #334155"],
+.dark .competency-description-content [style*="color:#334155"],
+.theme-gold-teal .competency-description-content [style*="color:#334155"] {
+  color: #cbd5e1 !important;
+}
+
+.dark .competency-description-content [style*="color: #475569"],
+.theme-gold-teal .competency-description-content [style*="color: #475569"],
+.dark .competency-description-content [style*="color:#475569"],
+.theme-gold-teal .competency-description-content [style*="color:#475569"] {
+  color: #94a3b8 !important;
+}
+
+.dark .competency-description-content [style*="color: #64748b"],
+.theme-gold-teal .competency-description-content [style*="color: #64748b"],
+.dark .competency-description-content [style*="color:#64748b"],
+.theme-gold-teal .competency-description-content [style*="color:#64748b"] {
+  color: #94a3b8 !important;
+}
+
+.dark .competency-description-content [style*="color: #1e3a8a"],
+.theme-gold-teal .competency-description-content [style*="color: #1e3a8a"],
+.dark .competency-description-content [style*="color:#1e3a8a"],
+.theme-gold-teal .competency-description-content [style*="color:#1e3a8a"] {
+  color: #93c5fd !important;
+}
+
+/* Override borders */
+.dark .competency-description-content [style*="border-bottom: 2px solid #e2e8f0"],
+.theme-gold-teal .competency-description-content [style*="border-bottom: 2px solid #e2e8f0"],
+.dark .competency-description-content [style*="border-bottom:2px solid #e2e8f0"],
+.theme-gold-teal .competency-description-content [style*="border-bottom:2px solid #e2e8f0"] {
+  border-bottom: 2px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Callout and Definition Box */
+.dark .competency-description-content [style*="background: #f8fafc"],
+.theme-gold-teal .competency-description-content [style*="background: #f8fafc"],
+.dark .competency-description-content [style*="background:#f8fafc"],
+.theme-gold-teal .competency-description-content [style*="background:#f8fafc"] {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark .competency-description-content [style*="background: #fff1f2"],
+.theme-gold-teal .competency-description-content [style*="background: #fff1f2"],
+.dark .competency-description-content [style*="background:#fff1f2"],
+.theme-gold-teal .competency-description-content [style*="background:#fff1f2"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(239, 68, 68, 0.25) !important;
+}
+
+/* Table styling in dark modes */
+.dark .competency-description-content table,
+.theme-gold-teal .competency-description-content table {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  background: transparent !important;
+}
+
+.dark .competency-description-content thead tr,
+.theme-gold-teal .competency-description-content thead tr,
+.dark .competency-description-content [style*="background: #f1f5f9"],
+.theme-gold-teal .competency-description-content [style*="background: #f1f5f9"] {
+  background: rgba(30, 41, 59, 0.85) !important;
+  color: #f8fafc !important;
+}
+
+.dark .competency-description-content th,
+.theme-gold-teal .competency-description-content th {
+  background: rgba(30, 41, 59, 0.85) !important;
+  color: #f8fafc !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.dark .competency-description-content td,
+.theme-gold-teal .competency-description-content td {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+.dark .competency-description-content td[style*="font-weight: 600"],
+.theme-gold-teal .competency-description-content td[style*="font-weight: 600"] {
+  color: #f8fafc !important;
+}
+
+/* Row tinting in dark mode */
+.dark .competency-description-content tr[style*="#ecfdf5"],
+.theme-gold-teal .competency-description-content tr[style*="#ecfdf5"] {
+  background: rgba(16, 185, 129, 0.12) !important;
+}
+
+.dark .competency-description-content tr[style*="#eff6ff"],
+.theme-gold-teal .competency-description-content tr[style*="#eff6ff"] {
+  background: rgba(59, 130, 246, 0.12) !important;
+}
+
+.dark .competency-description-content tr[style*="#fefce8"],
+.theme-gold-teal .competency-description-content tr[style*="#fefce8"] {
+  background: rgba(234, 179, 8, 0.12) !important;
+}
+
+.dark .competency-description-content tr[style*="#fef2f2"],
+.theme-gold-teal .competency-description-content tr[style*="#fef2f2"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+}
+
+/* Grade letter badges */
+.dark .competency-description-content [style*="color: #059669"],
+.theme-gold-teal .competency-description-content [style*="color: #059669"],
+.dark .competency-description-content [style*="color:#059669"],
+.theme-gold-teal .competency-description-content [style*="color:#059669"] {
+  color: #34d399 !important;
+}
+
+.dark .competency-description-content [style*="color: #2563eb"],
+.theme-gold-teal .competency-description-content [style*="color: #2563eb"],
+.dark .competency-description-content [style*="color:#2563eb"],
+.theme-gold-teal .competency-description-content [style*="color:#2563eb"] {
+  color: #60a5fa !important;
+}
+
+.dark .competency-description-content [style*="color: #ca8a04"],
+.theme-gold-teal .competency-description-content [style*="color: #ca8a04"],
+.dark .competency-description-content [style*="color:#ca8a04"],
+.theme-gold-teal .competency-description-content [style*="color:#ca8a04"] {
+  color: #facc15 !important;
+}
+
+.dark .competency-description-content [style*="color: #dc2626"],
+.theme-gold-teal .competency-description-content [style*="color: #dc2626"],
+.dark .competency-description-content [style*="color:#dc2626"],
+.theme-gold-teal .competency-description-content [style*="color:#dc2626"] {
+  color: #f87171 !important;
+}
+
+.dark .competency-description-content [style*="color: #16a34a"],
+.theme-gold-teal .competency-description-content [style*="color: #16a34a"],
+.dark .competency-description-content [style*="color:#16a34a"],
+.theme-gold-teal .competency-description-content [style*="color:#16a34a"] {
+  color: #4ade80 !important;
+}
+
+/* Lists and questions */
+.dark .competency-description-content p,
+.theme-gold-teal .competency-description-content p,
+.dark .competency-description-content li,
+.theme-gold-teal .competency-description-content li {
+  color: #cbd5e1 !important;
+}
+
+.dark .competency-description-content ol,
+.theme-gold-teal .competency-description-content ol {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #cbd5e1 !important;
+}
+
+/* Action plan callout */
+.dark .competency-description-content [style*="background: #eff6ff"],
+.theme-gold-teal .competency-description-content [style*="background: #eff6ff"] {
+  background: rgba(30, 58, 138, 0.2) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+

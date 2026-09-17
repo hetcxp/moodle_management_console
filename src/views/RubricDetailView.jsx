@@ -56,6 +56,7 @@ export const RubricDetailView = ({
     <div className="space-y-6 animate-fadeIn pb-12">
       <RubricDetailHeader
         rubric={state.rubric}
+        helpData={state.helpData}
         onBack={handleBack}
         hasManageCompetencies={state.hasManageCompetencies}
         isFetching={state.isFetching}

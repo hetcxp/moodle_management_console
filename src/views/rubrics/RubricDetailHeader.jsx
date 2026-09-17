@@ -15,9 +15,11 @@ import {
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { HelpTooltip } from '../../components/ui/HelpTooltip';
 
 export const RubricDetailHeader = ({
   rubric,
+  helpData,
   onBack,
   hasManageCompetencies = false,
   isFetching = false,
@@ -192,6 +194,9 @@ export const RubricDetailHeader = ({
               <div className="text-[10px] uppercase font-bold tracking-wider text-amber-700 dark:text-amber-400 flex items-center justify-center gap-1">
                 <Award className="h-3.5 w-3.5" />
                 <span>Puntaje Total</span>
+                {helpData?.kpisHelp?.['Puntaje Total'] && (
+                  <HelpTooltip text={helpData.kpisHelp['Puntaje Total']} align="center" />
+                )}
               </div>
               <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
                 {rubric.max_score} pts
@@ -203,6 +208,9 @@ export const RubricDetailHeader = ({
               <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-700 dark:text-emerald-400 flex items-center justify-center gap-1">
                 <Layers className="h-3.5 w-3.5" />
                 <span>Criterios</span>
+                {helpData?.kpisHelp?.['Criterios'] && (
+                  <HelpTooltip text={helpData.kpisHelp['Criterios']} align="center" />
+                )}
               </div>
               <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
                 {rubric.criteria_count || 0}
@@ -214,6 +222,9 @@ export const RubricDetailHeader = ({
               <div className="text-[10px] uppercase font-bold tracking-wider text-primary flex items-center justify-center gap-1">
                 <Info className="h-3.5 w-3.5" />
                 <span>Prom. Niveles</span>
+                {helpData?.kpisHelp?.['Prom. Niveles'] && (
+                  <HelpTooltip text={helpData.kpisHelp['Prom. Niveles']} align="center" />
+                )}
               </div>
               <div className="text-2xl font-black text-primary mt-0.5">
                 {avgLevelsPerCrit}

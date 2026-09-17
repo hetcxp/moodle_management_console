@@ -102,4 +102,46 @@ describe('HelpDrawer', () => {
     expect(summaryTexts.some(t => t.includes('Suspender / Activar'))).toBe(true);
     expect(summaryTexts.some(t => t.includes('Desmatricular'))).toBe(true);
   });
+
+  it('muestra la ayuda específica de rubrics con sus KPIs, acciones y flujos', () => {
+    render(
+      <HelpProvider>
+        <MockAppWithDrawer initialViewId="rubrics" />
+      </HelpProvider>
+    );
+
+    fireEvent.click(screen.getByText('Open Help'));
+    expect(screen.getByText('Plantillas de Rúbricas')).toBeDefined();
+
+    const aside = screen.getByRole('dialog', { hidden: true }) || screen.getByRole('dialog');
+    const summaries = aside.querySelectorAll('details summary');
+    const summaryTexts = Array.from(summaries).map(s => s.textContent);
+
+    expect(summaryTexts.some(t => t.includes('Total Plantillas'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Criterios Evaluativos'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Nueva Rúbrica'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Previsualizar Matriz'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Creación y Modelado de Rúbrica'))).toBe(true);
+  });
+
+  it('muestra la ayuda específica de rubrics-detail con sus KPIs, acciones y flujos', () => {
+    render(
+      <HelpProvider>
+        <MockAppWithDrawer initialViewId="rubrics-detail" />
+      </HelpProvider>
+    );
+
+    fireEvent.click(screen.getByText('Open Help'));
+    expect(screen.getByText('Detalle de la Rúbrica')).toBeDefined();
+
+    const aside = screen.getByRole('dialog', { hidden: true }) || screen.getByRole('dialog');
+    const summaries = aside.querySelectorAll('details summary');
+    const summaryTexts = Array.from(summaries).map(s => s.textContent);
+
+    expect(summaryTexts.some(t => t.includes('Puntaje Total'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Criterios'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Prom. Niveles'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Modo de Vista (Matriz / Tarjetas)'))).toBe(true);
+    expect(summaryTexts.some(t => t.includes('Auditoría y Validación Metodológica'))).toBe(true);
+  });
 });

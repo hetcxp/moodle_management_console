@@ -473,7 +473,7 @@ export const CourseCompetenciesTab = ({
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descripción</h4>
                 <div
-                  className="p-3.5 rounded-xl bg-muted/30 border border-border/50 text-xs text-foreground/90 leading-relaxed max-h-40 overflow-y-auto"
+                  className="p-3.5 rounded-xl bg-muted/30 border border-border/50 text-xs text-foreground/90 leading-relaxed max-h-40 overflow-y-auto competency-description-content"
                   dangerouslySetInnerHTML={{ __html: selectedCompetency.description }}
                 />
               </div>
