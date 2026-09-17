@@ -2,7 +2,17 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { Check } from 'lucide-react';
 
-export const Checkbox = React.forwardRef(({ className, checked, onChange, id, disabled, ...props }, ref) => {
+export const Checkbox = React.forwardRef(({
+  className,
+  checked,
+  onChange,
+  id,
+  disabled,
+  disabledReason,
+  ...props
+}, ref) => {
+  const reasonId = (disabled && disabledReason) ? `${id ?? 'chk'}-reason` : undefined;
+
   return (
     <div className="inline-flex items-center">
       <input
@@ -11,6 +21,7 @@ export const Checkbox = React.forwardRef(({ className, checked, onChange, id, di
         ref={ref}
         checked={checked}
         disabled={disabled}
+        aria-describedby={reasonId || props['aria-describedby']}
         onChange={onChange}
         className="sr-only peer"
         {...props}
@@ -24,6 +35,9 @@ export const Checkbox = React.forwardRef(({ className, checked, onChange, id, di
       >
         {checked && <Check className="h-3 w-3 stroke-[3]" />}
       </label>
+      {reasonId && (
+        <span id={reasonId} className="sr-only">{disabledReason}</span>
+      )}
     </div>
   );
 });

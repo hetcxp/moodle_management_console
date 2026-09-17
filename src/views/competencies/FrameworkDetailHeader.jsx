@@ -116,8 +116,7 @@ export function FrameworkDetailHeader({
           </div>
 
           <div
-            onClick={onOpenFrameworkReviews}
-            className={`bg-card/60 backdrop-blur-md rounded-2xl border p-4 shadow-sm flex items-center justify-between gap-3 transition-all cursor-pointer hover:border-amber-500/50 ${(framework.pendingreviewscount || 0) > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
+            className={`bg-card/60 backdrop-blur-md rounded-2xl border p-4 shadow-sm flex items-center justify-between gap-3 ${(framework.pendingreviewscount || 0) > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className={`p-2.5 rounded-xl shrink-0 ${(framework.pendingreviewscount || 0) > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
@@ -131,10 +130,7 @@ export function FrameworkDetailHeader({
             <Button
               size="sm"
               variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenFrameworkReviews();
-              }}
+              onClick={onOpenFrameworkReviews}
               className="text-xs text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 shrink-0"
             >
               {(framework.pendingreviewscount || 0) > 0 ? 'Revisar' : 'Ver'}

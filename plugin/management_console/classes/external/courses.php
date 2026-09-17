@@ -34,6 +34,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use tool_management_console\repository\course_repository;
+use tool_management_console\repository\course_enrolment_repository;
 use stdClass;
 
 /**
@@ -359,7 +360,7 @@ class courses extends external_api {
         ]);
 
         $course = course_repository::get_course_strict($params['courseid']);
-        $enrolled_users = course_repository::get_course_enrolled_users_detail($course->id);
+        $enrolled_users = course_enrolment_repository::get_course_enrolled_users_detail($course->id);
         $cohort_user_map = course_repository::get_course_user_cohort_map($course->id);
         $all_enrolments = course_repository::get_course_all_enrolments($course->id);
 

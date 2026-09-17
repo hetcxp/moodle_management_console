@@ -93,6 +93,7 @@ export const RubricDetailHeader = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               title="Vista Matriz Completa"
+              aria-label="Vista Matriz Completa"
               aria-pressed={viewMode === 'matrix'}
             >
               <TableIcon className="h-3.5 w-3.5" />
@@ -107,6 +108,7 @@ export const RubricDetailHeader = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               title="Vista por Tarjetas de Criterios"
+              aria-label="Vista por Tarjetas de Criterios"
               aria-pressed={viewMode === 'cards'}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -120,6 +122,7 @@ export const RubricDetailHeader = ({
             onClick={onPrint}
             className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
             title="Imprimir o guardar matriz en PDF"
+            aria-label="Imprimir o guardar matriz en PDF"
           >
             <Printer className="h-3.5 w-3.5" />
             <span className="hidden md:inline">Imprimir / PDF</span>
@@ -133,6 +136,7 @@ export const RubricDetailHeader = ({
               disabled={isFetching}
               className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
               title="Actualizar datos de la rúbrica"
+              aria-label="Actualizar datos de la rúbrica"
             >
               <RotateCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
               <span className="hidden md:inline">Refrescar</span>
@@ -146,6 +150,7 @@ export const RubricDetailHeader = ({
               onClick={onOpenEdit}
               className="gap-1.5 text-xs text-foreground hover:text-primary hover:border-primary/50"
               title="Editar plantilla de rúbrica"
+              aria-label="Editar plantilla de rúbrica"
             >
               <Pencil className="h-3.5 w-3.5" />
               <span className="hidden md:inline">Editar</span>
@@ -159,6 +164,7 @@ export const RubricDetailHeader = ({
               onClick={onOpenDelete}
               className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
               title="Eliminar plantilla de rúbrica"
+              aria-label="Eliminar plantilla de rúbrica"
             >
               <Trash2 className="h-3.5 w-3.5" />
               <span className="hidden md:inline">Eliminar</span>

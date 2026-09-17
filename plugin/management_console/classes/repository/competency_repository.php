@@ -35,49 +35,6 @@ defined('MOODLE_INTERNAL') || die();
  */
 class competency_repository {
 
-    /**
-     * Devuelve las escalas del sitio identificando la estándar por defecto.
-     *
-     * @return array
-     */
-    public static function get_scales() {
-        return competency_framework_repository::get_scales();
-    }
-
-    /**
-     * KPIs globales de competencias.
-     *
-     * @return array
-     */
-    public static function get_kpis() {
-        return competency_framework_repository::get_kpis();
-    }
-
-    /**
-     * Listado paginado de marcos de competencias.
-     *
-     * @param int $page
-     * @param int $perpage
-     * @param string $sort
-     * @param string $dir
-     * @param string $search
-     * @param array $filters
-     * @return array
-     */
-    public static function get_paginated_frameworks($page = 0, $perpage = 50, $sort = 'shortname', $dir = 'ASC', $search = '', $filters = []) {
-        return competency_framework_repository::get_paginated_frameworks($page, $perpage, $sort, $dir, $search, $filters);
-    }
-
-    /**
-     * Detalle de un marco y sus competencias de nivel 1.
-     *
-     * @param int $frameworkid
-     * @param string $search
-     * @return array|null
-     */
-    public static function get_framework_detail($frameworkid, $search = '') {
-        return competency_framework_repository::get_framework_detail($frameworkid, $search);
-    }
 
     /**
      * Devuelve los detalles de una competencia individual y sus subcompetencias hijas.

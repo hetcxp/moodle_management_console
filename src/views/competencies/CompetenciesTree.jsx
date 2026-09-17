@@ -40,8 +40,9 @@ export function CompetenciesTree({
         const indentPadding = isSubcomp ? Math.min((level - 1) * 24, 48) : 0;
 
         return (
-          <div
-            className="flex items-center gap-3 cursor-pointer group"
+          <button
+            type="button"
+            className="flex items-center gap-3 cursor-pointer group text-left bg-transparent border-0 p-0"
             style={{ paddingLeft: `${indentPadding}px` }}
             onClick={() => onOpenCompetencyDetail(row)}
           >
@@ -85,7 +86,7 @@ export function CompetenciesTree({
                 )}
               </div>
             </div>
-          </div>
+          </button>
         );
       },
     },

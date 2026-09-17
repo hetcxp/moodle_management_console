@@ -75,9 +75,13 @@ export const RubricsTable = ({
                     {/* 1. Name & ID */}
                     <td className="px-5 py-4 align-top max-w-sm">
                       <div className="space-y-1">
-                        <div className="font-bold text-foreground hover:text-primary transition-colors cursor-pointer" onClick={() => onOpenPreview(template)}>
+                        <button
+                          type="button"
+                          className="font-bold text-foreground hover:text-primary transition-colors cursor-pointer text-left bg-transparent border-0 p-0"
+                          onClick={() => onOpenPreview(template)}
+                        >
                           {template.name}
-                        </div>
+                        </button>
                         {cleanDesc && (
                           <p className="text-xs text-muted-foreground line-clamp-2">
                             {cleanDesc}

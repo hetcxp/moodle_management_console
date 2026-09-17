@@ -5,6 +5,7 @@ import {
   useCompetencyFrameworkAction,
 } from '../../hooks/useAdminerQueries';
 import { useToast } from '../../components/ui/Toast';
+import { useEntityListState } from '../../hooks/useEntityListState';
 import { exportToCsv } from '../../components/CsvExporter';
 import { useAuth } from '../../context/AuthContext';
 
@@ -14,11 +15,15 @@ export function useFrameworkDetailState({ frameworkId, onNavigateToDetail }) {
 
   const hasManageCompetencies = permissions?.is_siteadmin === 1 || permissions?.can_manage_competencies === 1;
 
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('shortname');
-  const [dir, setDir] = useState('ASC');
-  const [page, setPage] = useState(0);
-  const [perPage, setPerPage] = useState(100);
+  const {
+    page, setPage, perPage, setPerPage, sort, setSort, dir, setDir, search, setSearch,
+    deleteLoading, setDeleteLoading,
+    modalOpen, setModalOpen, editingItem: editingCompetency, setEditingItem: setEditingCompetency,
+    deleteConfirmOpen, setDeleteConfirmOpen,
+    itemsToDelete: competencyToDelete, setItemsToDelete: setCompetencyToDelete,
+    openDelete: handleOpenDelete,
+    exportModalOpen, setExportModalOpen,
+  } = useEntityListState({ defaultSort: 'shortname', defaultDir: 'ASC', defaultPerPage: 100 });
 
   const { data: framework, isLoading, isFetching, refetch } = useCompetencyFrameworkDetail(frameworkId, search);
 
@@ -29,16 +34,8 @@ export function useFrameworkDetailState({ frameworkId, onNavigateToDetail }) {
   const totalCount = competencies.length;
   const loading = isLoading || isFetching;
 
-  // Modals state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingCompetency, setEditingCompetency] = useState(null);
   const [formData, setFormData] = useState({ shortname: '', idnumber: '', description: '', parentid: 0 });
   const [formLoading, setFormLoading] = useState(false);
-
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [competencyToDelete, setCompetencyToDelete] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [coursesModalOpen, setCoursesModalOpen] = useState(false);
   const [selectedCompetencyForCourses, setSelectedCompetencyForCourses] = useState(null);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
@@ -106,7 +103,7 @@ export function useFrameworkDetailState({ frameworkId, onNavigateToDetail }) {
         });
         addToast({
           type: 'success',
-          title: formData.parentid > 0 ? 'Subcompetencia creada' : 'Competencia creada'
+          title: formData.parentid > 0 ? 'Subcompetencia creada' : 'Competencia creada',
         });
       }
       setModalOpen(false);
@@ -116,11 +113,6 @@ export function useFrameworkDetailState({ frameworkId, onNavigateToDetail }) {
     } finally {
       setFormLoading(false);
     }
-  };
-
-  const handleOpenDelete = (comp) => {
-    setCompetencyToDelete(comp);
-    setDeleteConfirmOpen(true);
   };
 
   const handleDeleteCompetency = async () => {

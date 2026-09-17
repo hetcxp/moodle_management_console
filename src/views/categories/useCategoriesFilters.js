@@ -1,21 +1,17 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useBulkSelection } from '../../hooks/useBulkSelection';
+import { useEntityListState } from '../../hooks/useEntityListState';
 
 export const useCategoriesFilters = (flatCategories = []) => {
-  const [page, setPage] = useState(0);
-  const [perPage] = useState(50);
-  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
+  const {
+    page, setPage, perPage, sort, setSort, dir, setDir,
+    search, setSearch, selectedIds, setSelectedIds, clearSelection,
+  } = useEntityListState({ defaultSort: 'name', defaultDir: 'ASC', defaultPerPage: 50 });
 
-  // Filtering & Sorting state
-  const [search, setSearch] = useState('');
   const [visibilityFilter, setVisibilityFilter] = useState('-1');
-  const [sort, setSort] = useState('name');
-  const [dir, setDir] = useState('ASC');
 
-  // Reset page when search, visibilityFilter, sort, or dir change
   useEffect(() => {
     setPage(0);
-  }, [search, visibilityFilter, sort, dir]);
+  }, [search, visibilityFilter, sort, dir, setPage]);
 
   const filteredCategories = useMemo(() => {
     const result = flatCategories.filter((c) => {
@@ -43,22 +39,9 @@ export const useCategoriesFilters = (flatCategories = []) => {
   }, [filteredCategories, page, perPage]);
 
   return {
-    page,
-    setPage,
-    perPage,
-    sort,
-    setSort,
-    dir,
-    setDir,
-    search,
-    setSearch,
-    visibilityFilter,
-    setVisibilityFilter,
-    selectedIds,
-    setSelectedIds,
-    clearSelection,
-    filteredCategories,
-    paginatedData,
-    totalCount
+    page, setPage, perPage, sort, setSort, dir, setDir,
+    search, setSearch, visibilityFilter, setVisibilityFilter,
+    selectedIds, setSelectedIds, clearSelection,
+    filteredCategories, paginatedData, totalCount,
   };
 };

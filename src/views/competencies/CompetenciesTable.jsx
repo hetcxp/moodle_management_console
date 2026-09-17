@@ -72,6 +72,7 @@ export function CompetenciesTable({
               size="icon"
               onClick={() => onToggleVisibility(row)}
               title={row.visible === 1 ? 'Ocultar marco' : 'Hacer visible'}
+              aria-label={row.visible === 1 ? 'Ocultar marco' : 'Hacer visible'}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               {row.visible === 1 ? (
@@ -85,6 +86,7 @@ export function CompetenciesTable({
               size="icon"
               onClick={() => onOpenEdit(row)}
               title="Editar marco"
+              aria-label="Editar marco"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
@@ -94,6 +96,7 @@ export function CompetenciesTable({
               size="icon"
               onClick={() => onOpenDelete([row.id])}
               title="Eliminar marco"
+              aria-label="Eliminar marco"
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="h-4 w-4" />

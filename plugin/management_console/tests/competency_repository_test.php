@@ -51,7 +51,7 @@ class competency_repository_test extends advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        $scales = \tool_management_console\repository\competency_repository::get_scales();
+        $scales = \tool_management_console\repository\competency_framework_repository::get_scales();
         $this->assertIsArray($scales);
         if (!empty($scales)) {
             $this->assertArrayHasKey('id', $scales[0]);
@@ -64,7 +64,7 @@ class competency_repository_test extends advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        $kpis = \tool_management_console\repository\competency_repository::get_kpis();
+        $kpis = \tool_management_console\repository\competency_framework_repository::get_kpis();
         $this->assertIsArray($kpis);
         $this->assertArrayHasKey('total_frameworks', $kpis);
         $this->assertArrayHasKey('visible_frameworks', $kpis);
@@ -93,7 +93,7 @@ class competency_repository_test extends advanced_testcase {
         $framework->usermodified = 2;
         $framework->id = $DB->insert_record('competency_framework', $framework);
 
-        $res = \tool_management_console\repository\competency_repository::get_paginated_frameworks(0, 10, 'shortname', 'ASC', 'Framework Test');
+        $res = \tool_management_console\repository\competency_framework_repository::get_paginated_frameworks(0, 10, 'shortname', 'ASC', 'Framework Test');
         $this->assertGreaterThanOrEqual(1, $res['totalcount']);
         $this->assertEquals('Framework Test', $res['frameworks'][0]['shortname']);
 

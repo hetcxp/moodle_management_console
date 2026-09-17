@@ -169,16 +169,21 @@ export const SelectorModal = ({
                   return (
                     <li
                       key={item.id}
-                      className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5' : ''}`}
-                      onClick={() => handleToggleRow(item.id)}
+                      className={isSelected ? 'bg-primary/5' : ''}
                     >
-                      <Checkbox
-                        id={`select-${item.id}`}
-                        checked={isSelected}
-                        onChange={() => {}} // Controlled by li onClick
-                        className="pointer-events-none"
-                      />
-                      {renderRowInfo(item)}
+                      <button
+                        type="button"
+                        className="w-full text-left bg-transparent border-0 p-3 cursor-pointer flex items-center gap-3 hover:bg-muted/50 transition-colors"
+                        onClick={() => handleToggleRow(item.id)}
+                      >
+                        <Checkbox
+                          id={`select-${item.id}`}
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="pointer-events-none"
+                        />
+                        {renderRowInfo(item)}
+                      </button>
                     </li>
                   );
                 })}

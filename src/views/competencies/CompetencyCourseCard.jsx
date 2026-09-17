@@ -39,6 +39,7 @@ export const CompetencyCourseCard = ({
         {/* Left: Course Info & Expand Button */}
         <div className="flex items-start gap-3 min-w-0 flex-1">
           <button
+            type="button"
             onClick={() => onToggleExpand(course.id)}
             className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors mt-0.5"
             title={isExpanded ? 'Colapsar actividades' : 'Expandir actividades'}
@@ -52,12 +53,13 @@ export const CompetencyCourseCard = ({
 
           <div className="space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="font-semibold text-foreground text-sm hover:text-primary transition-colors cursor-pointer"
+              <button
+                type="button"
+                className="font-semibold text-foreground text-sm hover:text-primary transition-colors cursor-pointer text-left bg-transparent border-0 p-0"
                 onClick={() => onToggleExpand(course.id)}
               >
                 {course.fullname}
-              </span>
+              </button>
               {course.shortname && (
                 <Badge variant="outline" className="text-[11px] font-mono">
                   {course.shortname}
@@ -74,22 +76,31 @@ export const CompetencyCourseCard = ({
                 </Badge>
               )}
               {isReadOnly && subcompetencyInfo && (
-                <Badge
-                  variant="outline"
-                  className={`text-[11px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20 ${
-                    onNavigateToSubcompetency ? 'cursor-pointer hover:bg-indigo-500/20' : ''
-                  }`}
-                  onClick={onNavigateToSubcompetency ? (e) => { e.stopPropagation(); onNavigateToSubcompetency(); } : undefined}
-                  title={onNavigateToSubcompetency ? 'Ir a la subcompetencia' : undefined}
-                >
-                  <Layers className="h-3 w-3 mr-1" />
-                  {subcompetencyInfo.name || subcompetencyInfo}
-                </Badge>
+                onNavigateToSubcompetency ? (
+                  <button
+                    type="button"
+                    onClick={onNavigateToSubcompetency}
+                    title="Ir a la subcompetencia"
+                    className="inline-flex items-center text-[11px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 px-2.5 py-0.5 rounded-full font-semibold transition-colors cursor-pointer"
+                  >
+                    <Layers className="h-3 w-3 mr-1" />
+                    {subcompetencyInfo.name || subcompetencyInfo}
+                  </button>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="text-[11px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border-indigo-500/20"
+                  >
+                    <Layers className="h-3 w-3 mr-1" />
+                    {subcompetencyInfo.name || subcompetencyInfo}
+                  </Badge>
+                )
               )}
             </div>
 
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <button
+                type="button"
                 onClick={() => onToggleExpand(course.id)}
                 className="flex items-center gap-1 font-medium hover:underline text-primary/90"
               >

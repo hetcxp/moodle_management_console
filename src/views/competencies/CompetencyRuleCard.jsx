@@ -139,7 +139,9 @@ export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
               <button
                 key={`${rule.ruletype}-${rule.ruleoutcome}`}
                 type="button"
+                id={`rule-btn-${rule.ruleoutcome}`}
                 disabled={!hasManagePermission}
+                aria-describedby={!hasManagePermission ? `rule-${rule.ruleoutcome}-reason` : undefined}
                 onClick={() => handleSelectRule(rule)}
                 className={`text-left p-4 rounded-xl border transition-all flex flex-col justify-between ${
                   isSelected
@@ -147,6 +149,11 @@ export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
                     : 'border-border bg-card hover:bg-muted/40 hover:border-border/80'
                 } ${!hasManagePermission ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
               >
+                {!hasManagePermission && (
+                  <span id={`rule-${rule.ruleoutcome}-reason`} className="sr-only">
+                    La regla está en uso y no puede modificarse
+                  </span>
+                )}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm font-semibold text-foreground flex items-center gap-1.5">

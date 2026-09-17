@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useCourses, useCategoriesFlat, useCourseAction } from '../../hooks/useAdminerQueries';
-import { useBulkSelection } from '../../hooks/useBulkSelection';
-import { usePaginatedExport } from '../../hooks/usePaginatedExport';
 import { usePermission } from '../../hooks/usePermission';
-import { runWithConcurrency } from '../../lib/concurrency';
+import { useEntityListState } from '../../hooks/useEntityListState';
 import { AdminerApi } from '../../services/adminer-api';
 import { useToast } from '../../components/ui/Toast';
-import { formatDateOnly } from '../../lib/utils';
 import { API_CONFIG } from '../../config/api';
+import { useCoursesExport } from './useCoursesExport';
 
 export function useCoursesState() {
   const { addToast } = useToast();
@@ -17,15 +15,22 @@ export function useCoursesState() {
   const hasManageCategory = usePermission('can_manage_categories');
   const hasDeleteCourse = usePermission('can_delete_courses');
 
-  const [page, setPage] = useState(0);
-  const [perPage] = useState(20);
-  const [sort, setSort] = useState('timecreated');
-  const [dir, setDir] = useState('DESC');
-  const [search, setSearch] = useState('');
+  const {
+    page, setPage, perPage, sort, setSort, dir, setDir, search, setSearch, filters, setFilters,
+    selectedIds, setSelectedIds, clearSelection,
+    deleteLoading, setDeleteLoading,
+    deleteConfirmOpen, setDeleteConfirmOpen,
+    itemsToDelete: coursesToDeleteRaw, setItemsToDelete: setCoursesToDelete,
+    openDelete: handleOpenDeleteModal,
+  } = useEntityListState({ defaultSort: 'timecreated', defaultDir: 'DESC', defaultPerPage: 20 });
+
+  const coursesToDelete = coursesToDeleteRaw || [];
+
   const [categoryFilter, setCategoryFilter] = useState('0');
   const [visibilityFilter, setVisibilityFilter] = useState('-1');
-  const [filters, setFilters] = useState({});
   const [emptyOnly, setEmptyOnly] = useState(false);
+
+  const exporter = useCoursesExport({ sort, dir, search, categoryFilter, visibilityFilter });
 
   const { data: categoriesData } = useCategoriesFlat();
   const categoriesList = categoriesData?.categories || [];
@@ -38,7 +43,7 @@ export function useCoursesState() {
     search,
     category: parseInt(categoryFilter, 10) || 0,
     visibility: parseInt(visibilityFilter, 10) || -1,
-    filters: { ...filters, empty_only: emptyOnly ? 1 : 0 }
+    filters: { ...filters, empty_only: emptyOnly ? 1 : 0 },
   });
 
   const courses = coursesData?.courses || [];
@@ -47,18 +52,11 @@ export function useCoursesState() {
   const loading = isLoading || isFetching;
 
   const { mutateAsync: performCourseAction } = useCourseAction();
-  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
-  const { exportLoading, handleExport: executeExport } = usePaginatedExport();
 
   const [csvModalOpen, setCsvModalOpen] = useState(false);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportOption, setExportOption] = useState('visible');
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [moveModalOpen, setMoveModalOpen] = useState(false);
   const [coursesToMove, setCoursesToMove] = useState([]);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [coursesToDelete, setCoursesToDelete] = useState([]);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const handleViewInMoodle = async (courseId) => {
     try {
@@ -96,7 +94,6 @@ export function useCoursesState() {
   };
 
   const handleOpenMoveModal = (ids = selectedIds) => { setCoursesToMove(ids); setMoveModalOpen(true); };
-  const handleOpenDeleteModal = (ids = selectedIds) => { setCoursesToDelete(ids); setDeleteConfirmOpen(true); };
 
   const handleExecuteDelete = async () => {
     setDeleteLoading(true);
@@ -112,91 +109,21 @@ export function useCoursesState() {
     }
   };
 
-  const handleExport = () => {
-    const columnsForExport = [
-      { label: 'ID', accessor: 'id' },
-      { label: 'Nombre Completo', accessor: 'fullname' },
-      { label: 'Nombre Corto', accessor: 'shortname' },
-      { label: 'Categoría', accessor: 'categoryname' },
-      { label: 'Estado', accessor: (row) => (row.visible === 1 ? 'Visible' : 'Oculto') },
-      { label: 'Inscritos', accessor: 'enrolledcount' },
-      { label: 'Completados', accessor: 'completedcount' },
-      { label: 'Cohortes', accessor: 'cohortscount' },
-      { label: 'Competencias', accessor: (row) => row.competenciescount || 0 },
-      { label: 'Progreso (%)', accessor: 'progress_percent' },
-      { label: 'Creado', accessor: (row) => formatDateOnly(row.timecreated) },
-      { label: 'Inicio', accessor: (row) => row.startdate > 0 ? formatDateOnly(row.startdate) : 'No definida' },
-      { label: 'Fin', accessor: (row) => row.enddate > 0 ? formatDateOnly(row.enddate) : 'No definida' }
-    ];
-
-    const columnsDetailed = [
-      { label: 'ID Curso', accessor: 'course_id' },
-      { label: 'Curso', accessor: 'course_fullname' },
-      { label: 'Nombre Corto', accessor: 'course_shortname' },
-      { label: 'Categoría', accessor: 'course_category' },
-      { label: 'Estado Curso', accessor: 'course_visible' },
-      { label: 'Progreso Prom. Curso (%)', accessor: 'course_progress' },
-      { label: 'ID Usuario', accessor: 'user_id' },
-      { label: 'Nombre Usuario', accessor: 'user_fullname' },
-      { label: 'Email', accessor: 'user_email' },
-      { label: 'Rol', accessor: 'user_roles' },
-      { label: 'Estado Usuario', accessor: 'user_status' },
-      { label: 'Progreso Usuario (%)', accessor: 'user_progress' }
-    ];
-
-    const processDetail = async (coursesData) => {
-      const detailedRowsArrays = await runWithConcurrency(coursesData, 5, async (course) => {
-        try {
-          const detail = await AdminerApi.getCourseDetail(course.id);
-          const users = detail?.users || [];
-          if (users.length === 0) {
-            return [{ course_id: course.id, course_fullname: course.fullname, course_shortname: course.shortname, course_category: course.categoryname, course_visible: course.visible === 1 ? 'Visible' : 'Oculto', course_progress: course.progress_percent, user_id: '', user_fullname: '', user_email: '', user_progress: '', user_status: '', user_roles: '' }];
-          }
-          return users.map((u) => ({
-            course_id: course.id, course_fullname: course.fullname, course_shortname: course.shortname,
-            course_category: course.categoryname, course_visible: course.visible === 1 ? 'Visible' : 'Oculto',
-            course_progress: course.progress_percent, user_id: u.id, user_fullname: u.fullname,
-            user_email: u.email, user_roles: (u.roles || []).join(', '),
-            user_status: u.is_active === 1 ? 'Activo' : 'Suspendido', user_progress: u.progress || 0
-          }));
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          if (import.meta.env.DEV) console.warn('[Export Detail Error] Course ID:', course.id, e);
-          return [{ course_id: course.id, course_fullname: course.fullname, course_shortname: course.shortname, course_category: course.categoryname, course_visible: course.visible === 1 ? 'Visible' : 'Oculto', course_progress: course.progress_percent, user_id: '', user_fullname: 'Error al obtener usuarios', user_email: '', user_progress: '', user_status: '', user_roles: '' }];
-        }
-      });
-      return detailedRowsArrays.flat();
-    };
-
-    executeExport({
-      fetchFn: AdminerApi.getCourses,
-      params: { sort, dir, search, category: parseInt(categoryFilter, 10) || 0, visibility: parseInt(visibilityFilter, 10) || -1 },
-      filename: exportOption === 'visible' ? 'cursos_moodle' : 'cursos_usuarios_moodle',
-      columns: exportOption === 'visible' ? columnsForExport : columnsDetailed,
-      processData: exportOption === 'visible' ? null : processDetail
-    }).then(() => setExportModalOpen(false));
-  };
-
   return {
-    // Data
     courses, totalCount, kpis, loading, categoriesList,
-    // Pagination & Sort
     page, setPage, perPage, sort, dir, setSort, setDir, setFilters,
-    // Filters
     search, setSearch, categoryFilter, setCategoryFilter, visibilityFilter, setVisibilityFilter, emptyOnly, setEmptyOnly,
-    // Selection
     selectedIds, setSelectedIds, clearSelection,
-    // Permissions
     hasCreateCourse, hasUpdateCourse, hasManageCategory, hasDeleteCourse,
-    // Actions
-    handleViewInMoodle, handleBulkHide, handleBulkShow, handleOpenMoveModal, handleOpenDeleteModal, handleExecuteDelete, handleExport,
-    // Modals state
+    handleViewInMoodle, handleBulkHide, handleBulkShow, handleOpenMoveModal, handleOpenDeleteModal, handleExecuteDelete,
+    handleExport: exporter.handleExport,
     csvModalOpen, setCsvModalOpen,
-    exportModalOpen, setExportModalOpen, exportOption, setExportOption, exportLoading,
+    exportModalOpen: exporter.exportModalOpen, setExportModalOpen: exporter.setExportModalOpen,
+    exportOption: exporter.exportOption, setExportOption: exporter.setExportOption,
+    exportLoading: exporter.exportLoading,
     createModalOpen, setCreateModalOpen,
     moveModalOpen, setMoveModalOpen, coursesToMove,
     deleteConfirmOpen, setDeleteConfirmOpen, coursesToDelete, deleteLoading,
-    // Refetch
     refetch,
   };
 }

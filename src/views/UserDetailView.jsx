@@ -401,7 +401,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
         footer={
           <>
             <Button variant="outline" onClick={() => { setMessageModalOpen(false); setMessageText(''); }}>Cancelar</Button>
-            <Button onClick={handleSendMessage} disabled={!messageText.trim() || sendingMessage}>Enviar Mensaje</Button>
+            <Button onClick={handleSendMessage} disabled={!messageText.trim() || sendingMessage} disabledReason="El mensaje no puede estar vacío">Enviar Mensaje</Button>
           </>
         }
       >

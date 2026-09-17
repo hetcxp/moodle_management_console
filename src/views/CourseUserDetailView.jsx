@@ -181,6 +181,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
       <div className="border-b border-border/70 pb-6">
         <nav className="flex items-center text-sm font-medium text-muted-foreground mb-4 flex-wrap gap-y-1">
           <button 
+            type="button"
             onClick={handleBack} 
             className="flex items-center hover:text-foreground transition-colors"
           >
@@ -205,13 +206,15 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
         
         <div>
           <div className="flex items-center gap-4">
-            <div
-              className="p-4 bg-primary/10 text-primary rounded-2xl shrink-0 cursor-pointer hover:bg-primary/20 transition-colors"
+            <button
+              type="button"
+              className="p-4 bg-primary/10 text-primary rounded-2xl shrink-0 cursor-pointer hover:bg-primary/20 transition-colors border-0"
               onClick={() => handleNavigateToDetail('user', userId)}
               title="Ver detalle del usuario"
+              aria-label="Ver detalle del usuario"
             >
               <User className="h-8 w-8" />
-            </div>
+            </button>
             <div>
               <button
                 type="button"

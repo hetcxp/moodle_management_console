@@ -88,8 +88,10 @@ export const UserCompetenciesTab = ({
         return (
           <div className="flex flex-wrap gap-1.5 max-w-md">
             {linkedCourses.map((c) => (
-              <span
+              <button
+                type="button"
                 key={c.id}
+                aria-label={`Ver curso ${c.fullname}`}
                 onClick={(e) => {
                   if (onNavigateToDetail) {
                     e.stopPropagation();
@@ -112,7 +114,7 @@ export const UserCompetenciesTab = ({
                 {c.is_enrolled ? (
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" title="Matriculado" />
                 ) : null}
-              </span>
+              </button>
             ))}
           </div>
         );

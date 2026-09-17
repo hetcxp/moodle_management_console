@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   useLearningPaths,
   useDeleteLearningPath,
@@ -6,6 +6,7 @@ import {
 } from '../../hooks/useAdminerQueries';
 import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../components/ui/Toast';
+import { useEntityListState } from '../../hooks/useEntityListState';
 
 export function useLearningPathsState() {
   const { addToast } = useToast();
@@ -13,12 +14,12 @@ export function useLearningPathsState() {
   const hasCreatePerm = usePermission('can_create_courses');
   const hasDeletePerm = usePermission('can_delete_courses');
 
-  const [page, setPage] = useState(0);
-  const [perPage, setPerPage] = useState(20);
-  const [search, setSearch] = useState('');
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [pathToDelete, setPathToDelete] = useState(null);
+  const {
+    page, setPage, perPage, setPerPage, search, setSearch,
+    modalOpen: createModalOpen, setModalOpen: setCreateModalOpen,
+    deleteConfirmOpen, setDeleteConfirmOpen,
+    itemsToDelete: pathToDelete, setItemsToDelete: setPathToDelete,
+  } = useEntityListState({ defaultPerPage: 20 });
 
   // Verificación de dependencias de plugins
   const { data: depData, isLoading: depsLoading } = useCheckLpDependencies();

@@ -93,6 +93,7 @@ export function LearningPathsTable({
                 size="sm"
                 className="h-8 w-8 p-0"
                 title={row.visible === 1 ? 'Ocultar ruta' : 'Mostrar ruta'}
+                aria-label={row.visible === 1 ? 'Ocultar ruta' : 'Mostrar ruta'}
                 onClick={() => onToggleVisibility(row)}
               >
                 {row.visible === 1 ? (
@@ -107,7 +108,9 @@ export function LearningPathsTable({
               size="sm"
               className={`h-8 w-8 p-0 ${hasStudents ? 'opacity-40 cursor-not-allowed' : 'text-destructive hover:text-destructive'}`}
               disabled={hasStudents}
+              disabledReason={hasStudents ? 'No se puede eliminar: hay estudiantes matriculados' : undefined}
               title={hasStudents ? 'No se puede eliminar: hay estudiantes matriculados' : 'Eliminar ruta'}
+              aria-label="Eliminar ruta"
               onClick={() => {
                 if (!hasStudents && onDelete) {
                   onDelete(row);

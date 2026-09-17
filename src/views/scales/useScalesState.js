@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useHelp } from '../../context/HelpContext';
+import { useEntityListState } from '../../hooks/useEntityListState';
 import { useScales, useScaleAction } from '../../hooks/queries/useCompetencyQueries';
 
 export const useScalesState = () => {
@@ -10,20 +11,22 @@ export const useScalesState = () => {
   const { helpData } = useHelp();
   const hasManageCompetencies = permissions?.is_siteadmin === 1 || permissions?.can_manage_competencies === 1;
 
+  const {
+    search, setSearch,
+    modalOpen: formModalOpen, setModalOpen: setFormModalOpen,
+    editingItem: editingScale, setEditingItem: setEditingScale,
+    openCreate: handleOpenCreate, openEdit: handleOpenEdit,
+    deleteConfirmOpen, setDeleteConfirmOpen,
+    itemsToDelete: scaleToDelete, setItemsToDelete: setScaleToDelete,
+    openDelete: handleOpenDelete,
+  } = useEntityListState();
+
   const { data: scalesData, isLoading, isFetching, refetch } = useScales();
   const { mutateAsync: performScaleAction, isPending: deleteLoading } = useScaleAction();
 
   const scales = useMemo(() => scalesData?.scales || [], [scalesData?.scales]);
 
-  // Filters state
-  const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-
-  // Modals state
-  const [formModalOpen, setFormModalOpen] = useState(false);
-  const [editingScale, setEditingScale] = useState(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [scaleToDelete, setScaleToDelete] = useState(null);
 
   // Filtered scales
   const filteredScales = useMemo(() => {
@@ -59,21 +62,6 @@ export const useScalesState = () => {
 
     return { total, inUse, locked, avgLevels };
   }, [scales]);
-
-  const handleOpenCreate = () => {
-    setEditingScale(null);
-    setFormModalOpen(true);
-  };
-
-  const handleOpenEdit = (scale) => {
-    setEditingScale(scale);
-    setFormModalOpen(true);
-  };
-
-  const handleOpenDelete = (scale) => {
-    setScaleToDelete(scale);
-    setDeleteConfirmOpen(true);
-  };
 
   const handleConfirmDelete = async () => {
     if (!scaleToDelete) return;

@@ -3,6 +3,7 @@ import { useLocation } from 'wouter';
 import { useToast } from '../../components/ui/Toast';
 import { useAuth } from '../../context/AuthContext';
 import { useHelp } from '../../context/HelpContext';
+import { useEntityListState } from '../../hooks/useEntityListState';
 import { useRubricTemplates, useRubricTemplateAction } from '../../hooks/queries/useCompetencyQueries';
 
 export const useRubricsState = ({ onNavigateToDetail } = {}) => {
@@ -12,10 +13,15 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
   const { helpData } = useHelp();
   const hasManageCompetencies = permissions?.is_siteadmin === 1 || permissions?.can_manage_competencies === 1;
 
-  // Search & Pagination
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(0);
-  const perPage = 50;
+  const {
+    search, setSearch, page, setPage, perPage,
+    modalOpen: formModalOpen, setModalOpen: setFormModalOpen,
+    editingItem: rubricToEdit, setEditingItem: setRubricToEdit,
+    openCreate: handleOpenCreate, openEdit: handleOpenEdit,
+    deleteConfirmOpen, setDeleteConfirmOpen,
+    itemsToDelete: rubricToDelete, setItemsToDelete: setRubricToDelete,
+    openDelete: handleOpenDelete,
+  } = useEntityListState({ defaultPerPage: 50 });
 
   const { data: rubricsData, isLoading, isFetching, refetch } = useRubricTemplates({
     search,
@@ -28,15 +34,8 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
   const templates = useMemo(() => rubricsData?.templates || [], [rubricsData?.templates]);
   const totalCount = rubricsData?.total ?? templates.length;
 
-  // Modals state
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [selectedRubric, setSelectedRubric] = useState(null);
-
-  const [formModalOpen, setFormModalOpen] = useState(false);
-  const [rubricToEdit, setRubricToEdit] = useState(null);
-
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [rubricToDelete, setRubricToDelete] = useState(null);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -64,21 +63,6 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
     } else {
       setLocation(`/competencies/rubrics/${rubric.id}`);
     }
-  };
-
-  const handleOpenCreate = () => {
-    setRubricToEdit(null);
-    setFormModalOpen(true);
-  };
-
-  const handleOpenEdit = (rubric) => {
-    setRubricToEdit(rubric);
-    setFormModalOpen(true);
-  };
-
-  const handleOpenDelete = (rubric) => {
-    setRubricToDelete(rubric);
-    setDeleteConfirmOpen(true);
   };
 
   const handleConfirmDelete = async () => {
@@ -162,12 +146,10 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
     kpis,
     helpData,
     hasManageCompetencies,
-    // Preview modal
     previewModalOpen,
     setPreviewModalOpen,
     selectedRubric,
     handleOpenPreview,
-    // Form modal
     formModalOpen,
     setFormModalOpen,
     rubricToEdit,
@@ -175,7 +157,6 @@ export const useRubricsState = ({ onNavigateToDetail } = {}) => {
     handleOpenCreate,
     handleOpenEdit,
     handleSaveRubric,
-    // Delete modal
     deleteConfirmOpen,
     setDeleteConfirmOpen,
     rubricToDelete,

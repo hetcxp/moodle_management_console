@@ -6,6 +6,8 @@ export const Button = React.forwardRef(({
   variant = 'default',
   size = 'default',
   disabled,
+  disabledReason,
+  id,
   children,
   ...props
 }, ref) => {
@@ -19,7 +21,7 @@ export const Button = React.forwardRef(({
     ghost: 'hover:bg-accent hover:text-accent-foreground',
     link: 'text-primary underline-offset-4 hover:underline',
     success: 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm',
-    warning: 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm'
+    warning: 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm',
   };
 
   const sizes = {
@@ -29,15 +31,24 @@ export const Button = React.forwardRef(({
     icon: 'h-9 w-9 rounded-lg p-0',
   };
 
+  const reasonId = (disabled && disabledReason) ? `${id ?? 'btn'}-reason` : undefined;
+
   return (
-    <button
-      ref={ref}
-      disabled={disabled}
-      className={cn(baseStyles, variants[variant], sizes[size], className)}
-      {...props}
-    >
-      {children}
-    </button>
+    <>
+      <button
+        ref={ref}
+        id={id}
+        disabled={disabled}
+        aria-describedby={reasonId || props['aria-describedby']}
+        className={cn(baseStyles, variants[variant], sizes[size], className)}
+        {...props}
+      >
+        {children}
+      </button>
+      {reasonId && (
+        <span id={reasonId} className="sr-only">{disabledReason}</span>
+      )}
+    </>
   );
 });
 

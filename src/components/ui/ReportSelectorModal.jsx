@@ -140,15 +140,21 @@ export const ReportSelectorModal = ({
                   return (
                     <li
                       key={item.id}
-                      className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 transition-colors ${isSelected ? 'bg-primary/5' : ''} ${exporting ? 'opacity-50 pointer-events-none' : ''}`}
-                      onClick={() => !exporting && handleToggleRow(item.id)}
+                      className={`${isSelected ? 'bg-primary/5' : ''} ${exporting ? 'opacity-50 pointer-events-none' : ''}`}
                     >
-                      <Checkbox
-                        checked={isSelected}
-                        onChange={() => {}}
-                        className="pointer-events-none"
-                      />
-                      {renderItem(item)}
+                      <button
+                        type="button"
+                        className="w-full text-left bg-transparent border-0 p-3 cursor-pointer flex items-center gap-3 hover:bg-muted/50 transition-colors"
+                        onClick={() => !exporting && handleToggleRow(item.id)}
+                        disabled={exporting}
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="pointer-events-none"
+                        />
+                        {renderItem(item)}
+                      </button>
                     </li>
                   );
                 })}

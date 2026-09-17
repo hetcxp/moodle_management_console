@@ -107,6 +107,7 @@ export const CohortsTable = ({
               size="icon"
               onClick={() => onOpenEdit(row)}
               title="Editar cohorte"
+              aria-label="Editar cohorte"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
@@ -116,6 +117,7 @@ export const CohortsTable = ({
               size="icon"
               onClick={() => onOpenDelete([row.id])}
               title="Eliminar cohorte"
+              aria-label="Eliminar cohorte"
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="h-4 w-4" />

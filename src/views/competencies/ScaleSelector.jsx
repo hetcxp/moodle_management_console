@@ -37,6 +37,7 @@ export function ScaleSelector({
         value={value}
         onChange={(e) => onChange && onChange(Number(e.target.value))}
         disabled={disabled}
+        aria-describedby={disabled ? 'scale-selector-disabled-reason' : undefined}
       >
         {scales.map((s) => (
           <option key={s.id} value={s.id}>
@@ -44,6 +45,11 @@ export function ScaleSelector({
           </option>
         ))}
       </select>
+      {disabled && (
+        <span id="scale-selector-disabled-reason" className="sr-only">
+          La escala está bloqueada por registros existentes
+        </span>
+      )}
 
       {selectedScale && (
         <div className="p-3 bg-muted/40 rounded-lg border border-border/60 space-y-2 text-xs">

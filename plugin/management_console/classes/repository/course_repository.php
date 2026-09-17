@@ -199,9 +199,6 @@ class course_repository {
         return [$records, $totalcount, $kpis];
     }
 
-    public static function get_course_enrolled_users_detail($courseid) {
-        return course_enrolment_repository::get_course_enrolled_users_detail($courseid);
-    }
 
     public static function get_course_user_cohort_map($courseid) {
         return course_enrolment_repository::get_course_user_cohort_map($courseid);

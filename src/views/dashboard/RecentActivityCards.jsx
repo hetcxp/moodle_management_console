@@ -21,9 +21,10 @@ export const RecentUsersCard = ({ loading, recentUsers, onNavigate, onNavigateTo
         ) : (
           <div className="divide-y divide-border/50">
             {recentUsers.map(user => (
-              <div 
+              <button 
                 key={user.id} 
-                className="p-4 flex items-center justify-between hover:bg-muted/30 cursor-pointer transition-colors"
+                type="button"
+                className="w-full text-left p-4 flex items-center justify-between hover:bg-muted/30 cursor-pointer transition-colors border-0 bg-transparent"
                 onClick={() => onNavigateToDetail('user', user.id)}
               >
                 <div className="flex items-center gap-3 overflow-hidden">
@@ -39,7 +40,7 @@ export const RecentUsersCard = ({ loading, recentUsers, onNavigate, onNavigateTo
                   <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Acceso</span>
                   <span className="font-medium mt-0.5">{user.lastaccess > 0 ? formatDate(user.lastaccess) : 'Nunca'}</span>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}
@@ -65,9 +66,10 @@ export const RecentCoursesCard = ({ loading, recentCourses, onNavigate, onNaviga
         ) : (
           <div className="divide-y divide-border/50">
             {recentCourses.map(course => (
-              <div 
+              <button 
                 key={course.id} 
-                className="p-4 flex items-center justify-between hover:bg-muted/30 cursor-pointer transition-colors gap-4"
+                type="button"
+                className="w-full text-left p-4 flex items-center justify-between hover:bg-muted/30 cursor-pointer transition-colors gap-4 border-0 bg-transparent"
                 onClick={() => onNavigateToDetail('course', course.id)}
               >
                 <div className="flex items-center gap-3 overflow-hidden">
@@ -86,7 +88,7 @@ export const RecentCoursesCard = ({ loading, recentCourses, onNavigate, onNaviga
                   </div>
                   <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              </div>
+              </button>
             ))}
           </div>
         )}

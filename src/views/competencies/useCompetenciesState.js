@@ -3,12 +3,12 @@ import {
   useCompetencyFrameworks,
   useCompetencyKpis,
   useCompetencyFrameworkAction,
-  useScales
+  useScales,
 } from '../../hooks/useAdminerQueries';
 import { AdminerApi } from '../../services/adminer-api';
-import { useBulkSelection } from '../../hooks/useBulkSelection';
 import { useToast } from '../../components/ui/Toast';
-import { exportToCsv } from '../../components/CsvExporter';
+import { useEntityListState } from '../../hooks/useEntityListState';
+import { usePaginatedExport } from '../../hooks/usePaginatedExport';
 import { useAuth } from '../../context/AuthContext';
 
 export function useCompetenciesState() {
@@ -17,14 +17,21 @@ export function useCompetenciesState() {
 
   const hasManageCompetencies = permissions?.is_siteadmin === 1 || permissions?.can_manage_competencies === 1;
 
-  const [page, setPage] = useState(0);
-  const [perPage, setPerPage] = useState(50);
-  const [sort, setSort] = useState('shortname');
-  const [dir, setDir] = useState('ASC');
-  const [search, setSearch] = useState('');
-  const [visibilityFilter, setVisibilityFilter] = useState('-1');
-  const [filters, setFilters] = useState({});
+  const {
+    page, setPage, perPage, setPerPage, sort, setSort, dir, setDir, search, setSearch, filters, setFilters,
+    selectedIds, setSelectedIds, clearSelection,
+    deleteLoading, setDeleteLoading,
+    modalOpen, setModalOpen, editingItem: editingFramework, setEditingItem: setEditingFramework,
+    deleteConfirmOpen, setDeleteConfirmOpen,
+    itemsToDelete: frameworksToDeleteRaw, setItemsToDelete: setFrameworksToDelete,
+    openDelete: handleOpenDelete,
+    exportModalOpen, setExportModalOpen,
+  } = useEntityListState({ defaultSort: 'shortname', defaultDir: 'ASC', defaultPerPage: 50 });
 
+  const frameworksToDelete = frameworksToDeleteRaw || [];
+  const { exportLoading, handleExport: executeExport } = usePaginatedExport();
+
+  const [visibilityFilter, setVisibilityFilter] = useState('-1');
   const activeFilters = { ...filters };
   if (visibilityFilter !== '-1') {
     activeFilters.visible = visibilityFilter;
@@ -48,11 +55,7 @@ export function useCompetenciesState() {
   const loading = isLoading || isFetching;
 
   const { mutateAsync: performFrameworkAction } = useCompetencyFrameworkAction();
-  const { selectedIds, setSelectedIds, clearSelection } = useBulkSelection();
 
-  // Modals state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingFramework, setEditingFramework] = useState(null);
   const [formData, setFormData] = useState({
     shortname: '',
     idnumber: '',
@@ -61,16 +64,8 @@ export function useCompetenciesState() {
     visible: 1,
   });
   const [formLoading, setFormLoading] = useState(false);
-
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [frameworksToDelete, setFrameworksToDelete] = useState([]);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportLoading, setExportLoading] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
 
-  // Preconfigurar escala por defecto cuando cargan las escalas
   useEffect(() => {
     if (!editingFramework && scales.length > 0 && formData.scaleid === 0) {
       const defaultScale = scales.find((s) => s.isdefault === 1) || scales[0];
@@ -159,11 +154,6 @@ export function useCompetenciesState() {
     }
   };
 
-  const handleOpenDelete = (ids) => {
-    setFrameworksToDelete(ids);
-    setDeleteConfirmOpen(true);
-  };
-
   const handleDelete = async () => {
     if (frameworksToDelete.length === 0) return;
     setDeleteLoading(true);
@@ -182,42 +172,24 @@ export function useCompetenciesState() {
   };
 
   const handleExport = async () => {
-    setExportLoading(true);
-    try {
-      let exportData = frameworks;
-      if (totalCount > frameworks.length) {
-        const res = await AdminerApi.getCompetencyFrameworks({
-          page: 0,
-          perpage: 99999,
-          sort,
-          dir,
-          search,
-          filters: activeFilters,
-        });
-        if (res?.frameworks) {
-          exportData = res.frameworks;
-        }
-      }
+    const cols = [
+      { label: 'ID', accessor: 'id' },
+      { label: 'Nombre del Marco', accessor: 'shortname' },
+      { label: 'Código / ID Number', accessor: 'idnumber' },
+      { label: 'Escala de Evaluación', accessor: 'scalename' },
+      { label: 'Competencias Nivel 1', accessor: 'competenciescount' },
+      { label: 'Estado', accessor: (r) => (r.visible ? 'Visible' : 'Oculto') },
+      { label: 'Descripción', accessor: 'description' },
+    ];
 
-      const cols = [
-        { label: 'ID', accessor: 'id' },
-        { label: 'Nombre del Marco', accessor: 'shortname' },
-        { label: 'Código / ID Number', accessor: 'idnumber' },
-        { label: 'Escala de Evaluación', accessor: 'scalename' },
-        { label: 'Competencias Nivel 1', accessor: 'competenciescount' },
-        { label: 'Estado', accessor: (r) => (r.visible ? 'Visible' : 'Oculto') },
-        { label: 'Descripción', accessor: 'description' },
-      ];
-
-      exportToCsv('marcos_competencias_moodle', exportData, cols);
-      setExportModalOpen(false);
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      if (import.meta.env.DEV) console.error('Export error', err);
-      addToast({ title: 'Error', description: 'Error al exportar registros.', type: 'error' });
-    } finally {
-      setExportLoading(false);
-    }
+    await executeExport({
+      fetchFn: AdminerApi.getCompetencyFrameworks,
+      params: { sort, dir, search, filters: activeFilters },
+      dataKey: 'frameworks',
+      filename: 'marcos_competencias_moodle',
+      columns: cols,
+    });
+    setExportModalOpen(false);
   };
 
   return {

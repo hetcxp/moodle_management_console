@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * External service for competencies in tool_management_console.
+ * External service for competency frameworks in tool_management_console.
  *
  * @package    tool_management_console
  * @copyright  2026 Hector Teran
@@ -34,17 +34,15 @@ use core_external\external_single_structure;
 use core_external\external_value;
 use tool_management_console\repository\competency_repository;
 use tool_management_console\repository\competency_framework_repository;
-use tool_management_console\repository\competency_review_repository;
-use tool_management_console\repository\rubric_repository;
 
 /**
- * Competencies external service class.
+ * Competency frameworks external service class.
  *
  * @package    tool_management_console
  * @copyright  2026 Hector Teran
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class competencies extends external_api {
+class competency_frameworks extends external_api {
 
     /**
      * Helper para verificar permisos de visualización.
@@ -68,80 +66,6 @@ class competencies extends external_api {
             return;
         }
         require_capability('moodle/competency:competencymanage', $context);
-    }
-
-    // ==========================================
-    // 1. GET SCALES
-    // ==========================================
-    public static function get_scales_parameters() {
-        return new external_function_parameters([]);
-    }
-
-    public static function get_scales() {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $scales = competency_framework_repository::get_scales();
-        return ['scales' => $scales];
-    }
-
-    public static function get_scales_returns() {
-        return new external_single_structure([
-            'scales' => new external_multiple_structure(
-                new external_single_structure([
-                    'id'               => new external_value(PARAM_INT, 'Scale ID'),
-                    'name'             => new external_value(PARAM_TEXT, 'Scale name'),
-                    'isdefault'        => new external_value(PARAM_INT, '1 if this is the default standard scale'),
-                    'items'            => new external_multiple_structure(new external_value(PARAM_TEXT, 'Scale grade label')),
-                    'locked'           => new external_value(PARAM_INT, '1 if scale is locked due to records', VALUE_DEFAULT, 0),
-                    'frameworks_count' => new external_value(PARAM_INT, 'Count of frameworks using this scale', VALUE_DEFAULT, 0),
-                ])
-            ),
-        ]);
-    }
-
-    // ==========================================
-    // 1B. SCALE ACTION (CRUD)
-    // ==========================================
-    public static function scale_action_parameters() {
-        return new external_function_parameters([
-            'action'  => new external_value(PARAM_ALPHA, 'Action: create, update, delete'),
-            'scaleid' => new external_value(PARAM_INT, 'Scale ID (for update or delete)', VALUE_DEFAULT, 0),
-            'name'    => new external_value(PARAM_TEXT, 'Scale name (for create or update)', VALUE_DEFAULT, ''),
-            'items'   => new external_value(PARAM_TEXT, 'Comma-separated scale items ordered from lowest to highest', VALUE_DEFAULT, ''),
-        ]);
-    }
-
-    public static function scale_action($action, $scaleid = 0, $name = '', $items = '') {
-        global $USER;
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_manage_capability($context);
-
-        $params = self::validate_parameters(self::scale_action_parameters(), [
-            'action'  => $action,
-            'scaleid' => $scaleid,
-            'name'    => $name,
-            'items'   => $items,
-        ]);
-
-        return competency_framework_repository::scale_action(
-            (string)$params['action'],
-            (int)$params['scaleid'],
-            trim((string)$params['name']),
-            trim((string)$params['items']),
-            !empty($USER->id) ? (int)$USER->id : 0
-        );
-    }
-
-    public static function scale_action_returns() {
-        return new external_single_structure([
-            'success'          => new external_value(PARAM_INT, '1 on success'),
-            'scaleid'          => new external_value(PARAM_INT, 'Affected scale ID'),
-            'locked'           => new external_value(PARAM_INT, '1 if scale was locked', VALUE_DEFAULT, 0),
-            'frameworks_count' => new external_value(PARAM_INT, 'Number of frameworks linked to scale', VALUE_DEFAULT, 0),
-        ]);
     }
 
     // ==========================================
@@ -252,17 +176,6 @@ class competencies extends external_api {
 
     /**
      * Perform competency framework mutation actions (create, edit, delete).
-     *
-     * @param string $action
-     * @param int $frameworkid
-     * @param string $shortname
-     * @param string $idnumber
-     * @param string $description
-     * @param int $scaleid
-     * @param int $visible
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
      */
     public static function competency_framework_action($action, $frameworkid = 0, $shortname = '', $idnumber = '', $description = '', $scaleid = 0, $visible = 1) {
         global $USER;
@@ -388,20 +301,6 @@ class competencies extends external_api {
 
     /**
      * Perform competency item mutation actions (create, edit, delete, move).
-     *
-     * @param string $action
-     * @param int $competencyid
-     * @param int $frameworkid
-     * @param int $parentid
-     * @param string $shortname
-     * @param string $idnumber
-     * @param string $description
-     * @param string $ruletype
-     * @param int $ruleoutcome
-     * @param string $ruleconfig
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
      */
     public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $parentid = 0, $shortname = '', $idnumber = '', $description = '', $ruletype = '', $ruleoutcome = 1, $ruleconfig = '') {
         global $USER;
@@ -639,14 +538,6 @@ class competencies extends external_api {
 
     /**
      * Perform competency-course link actions (add, remove).
-     *
-     * @param string $action
-     * @param int $competencyid
-     * @param array $courseids
-     * @param int $ruleoutcome
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
      */
     public static function competency_course_action($action, $competencyid, $courseids, $ruleoutcome = 1) {
         global $USER;
@@ -735,14 +626,6 @@ class competencies extends external_api {
 
     /**
      * Perform module-competency link actions (add, remove, update_rule).
-     *
-     * @param string $action
-     * @param int $competencyid
-     * @param int $cmid
-     * @param int $ruleoutcome
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
      */
     public static function module_competency_action($action, $competencyid, $cmid, $ruleoutcome = 1) {
         global $USER;
@@ -774,350 +657,4 @@ class competencies extends external_api {
             'affectedcount' => new external_value(PARAM_INT, 'Number of records affected'),
         ]);
     }
-
-    // ==========================================
-    // 12. GET COMPETENCY REVIEWS (PENDING / IN REVIEW)
-    // ==========================================
-    public static function get_competency_reviews_parameters() {
-        return new external_function_parameters([
-            'page'        => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
-            'perpage'     => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
-            'frameworkid' => new external_value(PARAM_INT, 'Filter by framework ID', VALUE_DEFAULT, 0),
-            'competencyid'=> new external_value(PARAM_INT, 'Filter by competency ID', VALUE_DEFAULT, 0),
-            'userid'      => new external_value(PARAM_INT, 'Filter by student user ID', VALUE_DEFAULT, 0),
-            'search'      => new external_value(PARAM_TEXT, 'Search query', VALUE_DEFAULT, ''),
-        ]);
-    }
-
-    public static function get_competency_reviews($page = 0, $perpage = 20, $frameworkid = 0, $competencyid = 0, $userid = 0, $search = '') {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_competency_reviews_parameters(), [
-            'page'         => $page,
-            'perpage'      => $perpage,
-            'frameworkid'  => $frameworkid,
-            'competencyid' => $competencyid,
-            'userid'       => $userid,
-            'search'       => $search,
-        ]);
-
-        $filters = [
-            'frameworkid'  => $params['frameworkid'],
-            'competencyid' => $params['competencyid'],
-            'userid'       => $params['userid'],
-            'search'       => trim($params['search']),
-        ];
-
-        return competency_review_repository::get_pending_reviews($filters, $params['page'], $params['perpage']);
-    }
-
-    public static function get_competency_reviews_returns() {
-        return new external_single_structure([
-            'totalcount' => new external_value(PARAM_INT, 'Total pending reviews count'),
-            'page'       => new external_value(PARAM_INT, 'Current page index'),
-            'perpage'    => new external_value(PARAM_INT, 'Items per page'),
-            'reviews'    => new external_multiple_structure(
-                new external_single_structure([
-                    'usercompid'            => new external_value(PARAM_INT, 'User competency ID'),
-                    'userid'                => new external_value(PARAM_INT, 'User ID'),
-                    'userfullname'          => new external_value(PARAM_TEXT, 'User full name'),
-                    'useremail'             => new external_value(PARAM_TEXT, 'User email'),
-                    'competencyid'          => new external_value(PARAM_INT, 'Competency ID'),
-                    'competencyname'        => new external_value(PARAM_TEXT, 'Competency short name'),
-                    'competencyidnumber'    => new external_value(PARAM_RAW, 'Competency ID number'),
-                    'competencyframeworkid' => new external_value(PARAM_INT, 'Framework ID'),
-                    'frameworkname'         => new external_value(PARAM_TEXT, 'Framework short name'),
-                    'status'                => new external_value(PARAM_INT, 'Review status (1=Waiting, 2=In Review)'),
-                    'proficiency'           => new external_value(PARAM_INT, 'Proficiency (1 or 0)'),
-                    'currentgrade'          => new external_value(PARAM_INT, 'Current grade in scale'),
-                    'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
-                    'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
-                    'scaleoptions'          => new external_multiple_structure(
-                        new external_single_structure([
-                            'value' => new external_value(PARAM_INT, 'Scale item rating value'),
-                            'name'  => new external_value(PARAM_TEXT, 'Scale item display label'),
-                        ]),
-                        'Scale grade options',
-                        VALUE_DEFAULT,
-                        []
-                    ),
-                    'latestevidence'        => new external_value(PARAM_RAW, 'Latest evidence note'),
-                    'timemodified'          => new external_value(PARAM_INT, 'Timestamp requested/modified'),
-                ])
-            ),
-        ]);
-    }
-
-    // ==========================================
-    // 13. COMPETENCY REVIEW ACTION (EVALUATE / COMPLETE)
-    // ==========================================
-    public static function competency_review_action_parameters() {
-        return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: evaluate, complete'),
-            'usercompid'  => new external_value(PARAM_INT, 'User competency record ID'),
-            'grade'       => new external_value(PARAM_INT, 'Grade value in scale', VALUE_DEFAULT, 1),
-            'proficiency' => new external_value(PARAM_INT, 'Proficiency result (1=proficient, 0=not)', VALUE_DEFAULT, 1),
-            'note'        => new external_value(PARAM_RAW, 'Review feedback / evidence note', VALUE_DEFAULT, ''),
-        ]);
-    }
-
-    /**
-     * Perform competency review assessment action.
-     *
-     * @param string $action
-     * @param int $usercompid
-     * @param int $grade
-     * @param int $proficiency
-     * @param string $note
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
-     */
-    public static function competency_review_action($action, $usercompid, $grade = 1, $proficiency = 1, $note = '') {
-        global $USER;
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_manage_capability($context);
-
-        $params = self::validate_parameters(self::competency_review_action_parameters(), [
-            'action'      => $action,
-            'usercompid'  => $usercompid,
-            'grade'       => $grade,
-            'proficiency' => $proficiency,
-            'note'        => $note,
-        ]);
-
-        $success = competency_review_repository::evaluate_competency_review(
-            $params['usercompid'],
-            $params['grade'],
-            $params['proficiency'],
-            $params['note'],
-            $USER->id
-        );
-
-        return [
-            'success' => $success,
-            'message' => $success ? 'Revisión de competencia completada exitosamente.' : 'Error al guardar revisión.',
-        ];
-    }
-
-    public static function competency_review_action_returns() {
-        return new external_single_structure([
-            'success' => new external_value(PARAM_BOOL, 'True if operation succeeded'),
-            'message' => new external_value(PARAM_TEXT, 'Status description message'),
-        ]);
-    }
-
-    // ==========================================
-    // 13. GET COMPETENCY USERS (ENROLLED & COMPETENCY PROGRESS + EVIDENCES)
-    // ==========================================
-    public static function get_competency_users_parameters() {
-        return new external_function_parameters([
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
-            'search'       => new external_value(PARAM_RAW, 'Search by user name or email', VALUE_DEFAULT, ''),
-            'status'       => new external_value(PARAM_ALPHANUMEXT, 'Filter status: all, proficient, not_proficient, in_review, pending_reviews', VALUE_DEFAULT, 'all'),
-            'courseid'     => new external_value(PARAM_INT, 'Filter by specific course ID', VALUE_DEFAULT, 0),
-            'page'         => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
-            'perpage'      => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
-            'sort'         => new external_value(PARAM_ALPHANUMEXT, 'Sort field', VALUE_DEFAULT, 'lastname'),
-            'dir'          => new external_value(PARAM_ALPHA, 'Sort direction: ASC, DESC', VALUE_DEFAULT, 'ASC'),
-        ]);
-    }
-
-    public static function get_competency_users($competencyid, $search = '', $status = 'all', $courseid = 0, $page = 0, $perpage = 20, $sort = 'lastname', $dir = 'ASC') {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_competency_users_parameters(), [
-            'competencyid' => $competencyid,
-            'search'       => $search,
-            'status'       => $status,
-            'courseid'     => $courseid,
-            'page'         => $page,
-            'perpage'      => $perpage,
-            'sort'         => $sort,
-            'dir'          => $dir,
-        ]);
-        $params['perpage'] = min(max(1, $params['perpage']), 200);
-
-        return competency_repository::get_competency_users(
-            $params['competencyid'],
-            $params['search'],
-            $params['status'],
-            $params['courseid'],
-            $params['page'],
-            $params['perpage'],
-            $params['sort'],
-            $params['dir']
-        );
-    }
-
-    public static function get_competency_users_returns() {
-        return new external_single_structure([
-            'totalcount' => new external_value(PARAM_INT, 'Total count of users matching criteria'),
-            'page'       => new external_value(PARAM_INT, 'Current page'),
-            'perpage'    => new external_value(PARAM_INT, 'Items per page'),
-            'users'      => new external_multiple_structure(
-                new external_single_structure([
-                    'userid'                => new external_value(PARAM_INT, 'User ID'),
-                    'fullname'              => new external_value(PARAM_TEXT, 'User full name'),
-                    'email'                 => new external_value(PARAM_TEXT, 'User email'),
-                    'usercompid'            => new external_value(PARAM_INT, 'User competency record ID'),
-                    'status'                => new external_value(PARAM_INT, 'Competency review status'),
-                    'pendingreviewscount'   => new external_value(PARAM_INT, 'Pending reviews count for user', VALUE_DEFAULT, 0),
-                    'proficiency'           => new external_value(PARAM_INT, 'Is proficient (1=yes, 0=no)'),
-                    'grade'                 => new external_value(PARAM_INT, 'Competency grade/scale value'),
-                    'gradename'             => new external_value(PARAM_TEXT, 'Grade name in scale'),
-                    'coursescount'          => new external_value(PARAM_INT, 'Count of enrolled courses linked'),
-                    'completedcoursescount' => new external_value(PARAM_INT, 'Count of completed courses'),
-                    'progress'              => new external_value(PARAM_INT, 'Overall average course completion percentage'),
-                    'courses'               => new external_multiple_structure(
-                        new external_single_structure([
-                            'courseid'    => new external_value(PARAM_INT, 'Course ID'),
-                            'fullname'    => new external_value(PARAM_TEXT, 'Course full name'),
-                            'shortname'   => new external_value(PARAM_TEXT, 'Course short name'),
-                            'completed'   => new external_value(PARAM_INT, 'Is course completed'),
-                            'progress'    => new external_value(PARAM_INT, 'Course completion percentage'),
-                            'proficiency' => new external_value(PARAM_INT, 'Course-level competency proficiency'),
-                            'grade'       => new external_value(PARAM_INT, 'Course-level competency grade'),
-                        ])
-                    ),
-                    'evidencescount'        => new external_value(PARAM_INT, 'Number of registered evidences'),
-                    'evidences'             => new external_multiple_structure(
-                        new external_single_structure([
-                            'id'                 => new external_value(PARAM_INT, 'Evidence ID'),
-                            'action'             => new external_value(PARAM_INT, 'Evidence action type'),
-                            'actionname'         => new external_value(PARAM_TEXT, 'Evidence action name'),
-                            'actionuserfullname' => new external_value(PARAM_TEXT, 'Action user full name'),
-                            'descidentifier'     => new external_value(PARAM_TEXT, 'Description identifier'),
-                            'note'               => new external_value(PARAM_RAW, 'Evidence note / feedback'),
-                            'grade'              => new external_value(PARAM_INT, 'Evidence grade'),
-                            'gradename'          => new external_value(PARAM_TEXT, 'Evidence grade name'),
-                            'url'                => new external_value(PARAM_RAW, 'Evidence URL'),
-                            'timecreated'        => new external_value(PARAM_INT, 'Evidence timestamp'),
-                        ])
-                    ),
-                ])
-            ),
-            'scale'      => new external_single_structure([
-                'id'    => new external_value(PARAM_INT, 'Scale ID'),
-                'name'  => new external_value(PARAM_TEXT, 'Scale name'),
-                'items' => new external_multiple_structure(new external_value(PARAM_TEXT, 'Scale item name')),
-            ]),
-        ]);
-    }
-
-    // ==========================================
-    // 12. GET RUBRIC TEMPLATES
-    // ==========================================
-    public static function get_rubric_templates_parameters() {
-        return new external_function_parameters([
-            'search'  => new external_value(PARAM_RAW, 'Search query', VALUE_DEFAULT, ''),
-            'page'    => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
-            'perpage' => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 50),
-        ]);
-    }
-
-    public static function get_rubric_templates($search = '', $page = 0, $perpage = 50) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_rubric_templates_parameters(), [
-            'search'  => $search,
-            'page'    => $page,
-            'perpage' => $perpage,
-        ]);
-
-        return rubric_repository::get_templates(
-            (string)$params['search'],
-            (int)$params['page'],
-            (int)$params['perpage']
-        );
-    }
-
-    public static function get_rubric_templates_returns() {
-        return new external_single_structure([
-            'total'     => new external_value(PARAM_INT, 'Total count of rubric templates'),
-            'templates' => new external_multiple_structure(
-                new external_single_structure([
-                    'id'                => new external_value(PARAM_INT, 'Template definition ID'),
-                    'areaid'            => new external_value(PARAM_INT, 'Grading area ID'),
-                    'name'              => new external_value(PARAM_TEXT, 'Rubric name'),
-                    'description'       => new external_value(PARAM_RAW, 'Rubric description'),
-                    'descriptionformat' => new external_value(PARAM_INT, 'Description format'),
-                    'status'            => new external_value(PARAM_INT, 'Definition status'),
-                    'criteria_count'    => new external_value(PARAM_INT, 'Number of criteria'),
-                    'max_score'         => new external_value(PARAM_FLOAT, 'Calculated max score'),
-                    'author_name'       => new external_value(PARAM_TEXT, 'Author user name'),
-                    'timecreated'       => new external_value(PARAM_INT, 'Creation timestamp'),
-                    'timemodified'      => new external_value(PARAM_INT, 'Modified timestamp'),
-                    'criteria'          => new external_multiple_structure(
-                        new external_single_structure([
-                            'id'                => new external_value(PARAM_INT, 'Criterion ID'),
-                            'sortorder'         => new external_value(PARAM_INT, 'Criterion sort order'),
-                            'description'       => new external_value(PARAM_RAW, 'Criterion description'),
-                            'descriptionformat' => new external_value(PARAM_INT, 'Criterion description format'),
-                            'levels'            => new external_multiple_structure(
-                                new external_single_structure([
-                                    'id'                => new external_value(PARAM_INT, 'Level ID'),
-                                    'score'             => new external_value(PARAM_FLOAT, 'Level score points'),
-                                    'definition'        => new external_value(PARAM_RAW, 'Level description text'),
-                                    'definitionformat'  => new external_value(PARAM_INT, 'Level definition format'),
-                                ])
-                            ),
-                        ])
-                    ),
-                ])
-            ),
-        ]);
-    }
-
-    // ==========================================
-    // 13. RUBRIC TEMPLATE ACTION (CREATE / UPDATE / DELETE)
-    // ====================================================
-    public static function rubric_template_action_parameters() {
-        return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHA, 'Action: create, update or delete'),
-            'templateid'  => new external_value(PARAM_INT, 'Template ID (for delete or update)', VALUE_DEFAULT, 0),
-            'name'        => new external_value(PARAM_TEXT, 'Rubric name (for create or update)', VALUE_DEFAULT, ''),
-            'description' => new external_value(PARAM_RAW, 'Rubric description (for create or update)', VALUE_DEFAULT, ''),
-            'criteria'    => new external_value(PARAM_RAW, 'Criteria JSON (for create or update)', VALUE_DEFAULT, ''),
-        ]);
-    }
-
-    public static function rubric_template_action($action, $templateid = 0, $name = '', $description = '', $criteria = '') {
-        global $USER;
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_manage_capability($context);
-
-        $params = self::validate_parameters(self::rubric_template_action_parameters(), [
-            'action'      => $action,
-            'templateid'  => $templateid,
-            'name'        => $name,
-            'description' => $description,
-            'criteria'    => $criteria,
-        ]);
-
-        return rubric_repository::rubric_action(
-            (string)$params['action'],
-            (int)$params['templateid'],
-            (string)$params['name'],
-            (string)$params['description'],
-            (string)$params['criteria'],
-            !empty($USER->id) ? (int)$USER->id : 0
-        );
-    }
-
-    public static function rubric_template_action_returns() {
-        return new external_single_structure([
-            'success'    => new external_value(PARAM_INT, '1 on success'),
-            'templateid' => new external_value(PARAM_INT, 'Affected template ID'),
-        ]);
-    }
 }
-

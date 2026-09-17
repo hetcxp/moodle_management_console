@@ -244,8 +244,7 @@ export const CompetencySubcompetenciesTab = ({
             return (
               <div
                 key={subcomp.id}
-                onClick={() => handleNavigateSubcomp(subcomp)}
-                className="group relative bg-card hover:bg-muted/30 border border-border/80 hover:border-primary/40 rounded-xl p-4 transition-all duration-200 cursor-pointer shadow-sm hover:shadow"
+                className="group relative bg-card hover:bg-muted/30 border border-border/80 hover:border-primary/40 rounded-xl p-4 transition-all duration-200 shadow-sm hover:shadow"
               >
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-start gap-3.5 min-w-0">
@@ -255,9 +254,13 @@ export const CompetencySubcompetenciesTab = ({
 
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h4 className="font-semibold text-foreground text-sm group-hover:text-primary transition-colors truncate">
+                        <button
+                          type="button"
+                          onClick={() => handleNavigateSubcomp(subcomp)}
+                          className="font-semibold text-foreground text-sm hover:text-primary transition-colors truncate text-left border-0 bg-transparent p-0 cursor-pointer"
+                        >
                           {subcomp.shortname}
-                        </h4>
+                        </button>
                         {subcomp.idnumber && (
                           <Badge variant="outline" className="text-[11px] font-mono py-0 px-1.5 bg-muted/60 text-muted-foreground border-border">
                             {subcomp.idnumber}
@@ -318,10 +321,7 @@ export const CompetencySubcompetenciesTab = ({
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2 text-xs text-primary group-hover:translate-x-0.5 transition-transform gap-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleNavigateSubcomp(subcomp);
-                      }}
+                      onClick={() => handleNavigateSubcomp(subcomp)}
                     >
                       <span>Ver detalle</span>
                       <ChevronRight className="h-4 w-4" />
