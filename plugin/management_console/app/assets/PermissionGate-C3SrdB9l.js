@@ -1,1 +1,0 @@
-import{y as m,j as s}from"./index-ClWw1Cq_.js";const a=({capability:i,permission:o,children:r,fallback:n=null})=>{const{permissions:t}=m();if(!t)return n;if(t.is_siteadmin===1)return s.jsx(s.Fragment,{children:r});const e=i||o;return e&&t[e]===1?s.jsx(s.Fragment,{children:r}):n};export{a as P};
