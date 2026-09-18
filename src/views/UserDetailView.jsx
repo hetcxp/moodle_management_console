@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useUserDetail, useUserCohortAction, useUserCourseAction, useUserAction } from '../hooks/useAdminerQueries';
+import { useUserDetail, useUserCohortAction, useUserCourseAction, useUserAction, useUserPlanAction } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Dialog } from '../components/ui/Dialog';
 import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
-import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX, KeyRound, Shield } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX, KeyRound, Shield, Award } from 'lucide-react';
 import { PermissionGate } from '../components/PermissionGate';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatDate } from '../lib/utils';
@@ -15,6 +15,7 @@ import { AdminerApi } from '../services/adminer-api';
 import { UserCoursesTab } from './users/UserCoursesTab';
 import { UserCohortsTab } from './users/UserCohortsTab';
 import { UserCompetenciesTab } from './users/UserCompetenciesTab';
+import { UserEvidencesTab } from './users/UserEvidencesTab';
 import { navigateToDetail } from '../lib/navigation';
 
 export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel }) => {
@@ -29,8 +30,33 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
   const userCohortAction = useUserCohortAction();
   const userCourseAction = useUserCourseAction();
   const userAction = useUserAction();
+  const userPlanAction = useUserPlanAction();
 
-  const [activeTab, setActiveTab] = useState('courses');
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        const savedTab = window.sessionStorage.getItem(`user_detail_tab_${userId}`);
+        if (savedTab && ['courses', 'cohorts', 'competencies', 'evidencias'].includes(savedTab)) {
+          return savedTab;
+        }
+      } catch {
+        // Fallback a 'courses'
+      }
+    }
+    return 'courses';
+  });
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.setItem(`user_detail_tab_${userId}`, tab);
+      } catch {
+        // Silencioso
+      }
+    }
+  };
+
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [selectorType, setSelectorType] = useState('courses');
   const [messageModalOpen, setMessageModalOpen] = useState(false);
@@ -55,6 +81,15 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     }
     return [];
   }, [data?.system_roles, data?.is_admin]);
+
+  const compLinked = data?.competencies?.length || 0;
+  const compCompleted = data?.competencies?.filter((c) => c.proficiency === 1).length || 0;
+  const compInProgress = compLinked - compCompleted;
+
+  const totalEvidences = React.useMemo(() =>
+    (data?.competencies || []).reduce((acc, c) => acc + (c.evidences?.length || 0), 0),
+    [data?.competencies]
+  );
 
   const handleLinkCohorts = async (cohortIds) => {
     try {
@@ -173,6 +208,36 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
     }
   };
 
+  const handleAssignCompetency = async (competencyId) => {
+    try {
+      const res = await userPlanAction.mutateAsync({
+        action: 'assign_competency',
+        userid: userId,
+        competencyid: competencyId,
+      });
+      if (res?.already_existed) {
+        addToast({ type: 'warning', title: 'Competencia ya asignada', description: 'La competencia ya se encuentra en el plan de aprendizaje del usuario.' });
+      } else {
+        addToast({ type: 'success', title: 'Competencia asignada', description: 'Competencia agregada exitosamente al plan personal del usuario.' });
+      }
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error al asignar competencia', description: err.message });
+    }
+  };
+
+  const handleRemoveCompetency = React.useCallback(async (competencyId) => {
+    try {
+      await userPlanAction.mutateAsync({
+        action: 'remove_competency',
+        userid: userId,
+        competencyid: competencyId,
+      });
+      addToast({ type: 'success', title: 'Competencia eliminada', description: 'Competencia removida exitosamente del plan personal del usuario.' });
+    } catch (err) {
+      addToast({ type: 'error', title: 'Error al eliminar competencia', description: err.message });
+    }
+  }, [userPlanAction, userId, addToast]);
+
   if (loading && !data) {
     return (
       <div className="flex justify-center p-12">
@@ -211,7 +276,14 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
                   {data.is_active ? 'Activo' : 'Suspendido'}
                 </Badge>
               </div>
-              <p className="text-sm font-mono text-muted-foreground mt-0.5">{data.email}</p>
+              <div className="flex items-center gap-2 flex-wrap mt-0.5 text-sm text-muted-foreground">
+                <span className="font-mono font-medium">{data.username}</span>
+                <span className="opacity-40">·</span>
+                <span>{data.email}</span>
+                <span className="opacity-40">·</span>
+                <Clock className="h-3.5 w-3.5 shrink-0" />
+                <span>{data.lastaccess > 0 ? formatDate(data.lastaccess) : 'Nunca conectado'}</span>
+              </div>
             </div>
           </div>
 
@@ -249,20 +321,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
 
       {/* Grid Estadísticas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Username & Último Acceso combinados */}
-        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
-          <div className="p-2.5 bg-muted rounded-xl shrink-0"><User className="h-5 w-5 text-muted-foreground" /></div>
-          <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium text-muted-foreground">Username & Último Acceso</p>
-            <h3 className="text-base font-bold text-foreground truncate mt-0.5">{data.username}</h3>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-              <Clock className="h-3.5 w-3.5 shrink-0" />
-              <span className="truncate">{data.lastaccess > 0 ? formatDate(data.lastaccess) : 'Nunca'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Roles de Sistema */}
+        {/* Card 1: Roles de Sistema */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
           <div className="p-2.5 bg-amber-500/10 rounded-xl shrink-0"><Shield className="h-5 w-5 text-amber-600 dark:text-amber-400" /></div>
           <div className="min-w-0 flex-1">
@@ -285,7 +344,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           </div>
         </div>
 
-        {/* Card 3: Cursos */}
+        {/* Card 2: Cursos */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
           <div className="p-2.5 bg-primary/10 rounded-xl shrink-0"><BookOpen className="h-5 w-5 text-primary" /></div>
           <div>
@@ -294,7 +353,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           </div>
         </div>
 
-        {/* Card 4: Progreso Global */}
+        {/* Card 3: Progreso Global */}
         <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
           <div className="p-2.5 bg-blue-500/10 rounded-xl shrink-0"><GraduationCap className="h-5 w-5 text-blue-500" /></div>
           <div className="flex-1 min-w-0">
@@ -307,12 +366,24 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
             </div>
           </div>
         </div>
+
+        {/* Card 4: Competencias */}
+        <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3">
+          <div className="p-2.5 bg-violet-500/10 rounded-xl shrink-0"><Award className="h-5 w-5 text-violet-500" /></div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium text-muted-foreground">Competencias</p>
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              <span className="text-xs text-amber-500 font-medium">{compInProgress} en progreso</span>
+              <span className="text-xs text-emerald-500 font-medium">{compCompleted} completadas</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Tabs */}
       <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
         <button
-          onClick={() => setActiveTab('courses')}
+          onClick={() => handleTabChange('courses')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
             activeTab === 'courses'
               ? 'bg-card text-foreground shadow-sm font-semibold'
@@ -323,7 +394,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.courses.length}</Badge>
         </button>
         <button
-          onClick={() => setActiveTab('cohorts')}
+          onClick={() => handleTabChange('cohorts')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
             activeTab === 'cohorts'
               ? 'bg-card text-foreground shadow-sm font-semibold'
@@ -334,7 +405,7 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.cohorts.length}</Badge>
         </button>
         <button
-          onClick={() => setActiveTab('competencies')}
+          onClick={() => handleTabChange('competencies')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
             activeTab === 'competencies'
               ? 'bg-card text-foreground shadow-sm font-semibold'
@@ -343,6 +414,19 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
         >
           <span>Competencias</span>
           <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{data.competencies?.length || 0}</Badge>
+        </button>
+        <button
+          onClick={() => handleTabChange('evidencias')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm transition-all ${
+            activeTab === 'evidencias'
+              ? 'bg-card text-foreground shadow-sm font-semibold'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <span>Evidencias</span>
+          {totalEvidences > 0 && (
+            <Badge variant="secondary" className="text-xs px-1.5 py-0.5">{totalEvidences}</Badge>
+          )}
         </button>
       </div>
 
@@ -377,10 +461,20 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
       {activeTab === 'competencies' && (
         <UserCompetenciesTab
           competencies={data.competencies || []}
+          userCourses={data.courses || []}
           loading={loading}
           userId={userId}
           userFullname={data.fullname}
           onNavigateToDetail={handleNavigateToDetail}
+          onAssignCompetency={handleAssignCompetency}
+          onRemoveCompetency={handleRemoveCompetency}
+        />
+      )}
+
+      {activeTab === 'evidencias' && (
+        <UserEvidencesTab
+          competencies={data.competencies || []}
+          userFullname={data.fullname}
         />
       )}
 

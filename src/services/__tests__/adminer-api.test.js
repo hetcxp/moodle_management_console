@@ -381,6 +381,14 @@ describe('AdminerApi service', () => {
       });
     });
 
+    it('getAllCompetencies calls tool_management_console_get_all_competencies', async () => {
+      MoodleApi.call.mockResolvedValue({ competencies: [], total: 0 });
+      await AdminerApi.getAllCompetencies({ frameworkid: 5 });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_get_all_competencies', {
+        frameworkid: 5,
+      });
+    });
+
     it('competencyFrameworkAction calls tool_management_console_competency_framework_action', async () => {
       MoodleApi.call.mockResolvedValue({ success: true });
       await AdminerApi.competencyFrameworkAction({ action: 'create', shortname: 'FW1' });
@@ -497,6 +505,30 @@ describe('AdminerApi service', () => {
         proficiency: 1,
         note: 'bien',
       });
+    });
+
+    it('userPlanAction calls tool_management_console_user_plan_action', async () => {
+      MoodleApi.call.mockResolvedValue({ planid: 12, competencyid: 301, already_existed: false, success: true });
+      const res = await AdminerApi.userPlanAction({ action: 'assign_competency', userid: 10, competencyid: 301 });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_user_plan_action', {
+        action: 'assign_competency',
+        userid: 10,
+        competencyid: 301,
+      });
+      expect(res.success).toBe(true);
+      expect(res.planid).toBe(12);
+    });
+
+    it('userPlanAction supports batch operations with userids', async () => {
+      MoodleApi.call.mockResolvedValue({ planid: 15, competencyid: 301, already_existed: false, success: true, processed_count: 2 });
+      const res = await AdminerApi.userPlanAction({ action: 'assign_competency', competencyid: 301, userids: [10, 20] });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_user_plan_action', {
+        action: 'assign_competency',
+        competencyid: 301,
+        userids: [10, 20],
+      });
+      expect(res.success).toBe(true);
+      expect(res.processed_count).toBe(2);
     });
   });
 });

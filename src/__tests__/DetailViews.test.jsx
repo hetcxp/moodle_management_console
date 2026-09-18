@@ -7,6 +7,7 @@ import { CategoryDetailView } from '../views/CategoryDetailView';
 import { CohortDetailView } from '../views/CohortDetailView';
 import { CourseUserDetailView } from '../views/CourseUserDetailView';
 import { CourseDetailView } from '../views/CourseDetailView';
+import { AdminerApi } from '../services/adminer-api';
 
 // Mock AdminerApi
 vi.mock('../services/adminer-api', () => ({
@@ -144,6 +145,8 @@ vi.mock('../services/adminer-api', () => ({
     courseUserAction: vi.fn().mockResolvedValue({ success: true }),
     courseCohortAction: vi.fn().mockResolvedValue({ success: true }),
     courseAction: vi.fn().mockResolvedValue({ success: true }),
+    competencyCourseAction: vi.fn().mockResolvedValue({ success: true, affectedcount: 1 }),
+    moduleCompetencyAction: vi.fn().mockResolvedValue({ success: true, affectedcount: 1 }),
     getCourses: vi.fn().mockResolvedValue({
       courses: [{ id: 999, fullname: 'External Course', shortname: 'EXT-101' }],
       totalcount: 1
@@ -169,7 +172,8 @@ describe('Detail Views Integration (TD-012)', () => {
     expect(screen.getByText('jdoe@example.com')).toBeDefined();
     expect(screen.getByText('React Fundamentals')).toBeDefined();
     expect(screen.getByText('Clave Temporal')).toBeDefined();
-    expect(screen.getByText('Username & Último Acceso')).toBeDefined();
+    expect(screen.getByText('jdoe')).toBeDefined();
+    expect(screen.getAllByText('Competencias').length).toBeGreaterThan(0);
     expect(screen.getByText('Roles de Sistema')).toBeDefined();
     expect(screen.getByText('Teacher')).toBeDefined();
     expect(screen.getByText('Ver en Moodle')).toBeDefined();
@@ -341,6 +345,44 @@ describe('Detail Views Integration (TD-012)', () => {
 
     expect(screen.getByText('Quiz 1: Hooks y Context')).toBeDefined();
     expect(screen.getByRole('button', { name: /cerrar/i })).toBeDefined();
+  });
+
+  it('allows unlinking a competency from a course in CourseCompetenciesTab', async () => {
+    renderWithProviders(<CourseDetailView courseId={101} onBack={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /competencias/i })).toBeDefined();
+    });
+
+    const compTabBtn = screen.getByRole('button', { name: /competencias/i });
+    fireEvent.click(compTabBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('State Management with Hooks')).toBeDefined();
+    });
+
+    // Find unlink button
+    const unlinkBtn = screen.getByTitle('Desvincular competencia de este curso');
+    expect(unlinkBtn).toBeDefined();
+    fireEvent.click(unlinkBtn);
+
+    // Verify confirmation modal opens with warning
+    await waitFor(() => {
+      expect(screen.getByText('Desvincular Competencia del Curso')).toBeDefined();
+    });
+    expect(screen.getByText(/Se desvincularán automáticamente las/i)).toBeDefined();
+
+    // Confirm unlinking
+    const confirmBtn = screen.getByRole('button', { name: 'Desvincular Competencia' });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(AdminerApi.competencyCourseAction).toHaveBeenCalledWith({
+        action: 'remove',
+        competencyid: 50,
+        courseids: [101]
+      });
+    });
   });
 
   it('navigates to course_user detail when clicking course row or progress action from UserDetailView', async () => {

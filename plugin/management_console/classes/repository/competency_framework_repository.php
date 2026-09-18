@@ -589,4 +589,39 @@ class competency_framework_repository {
                 return ['success' => false, 'message' => 'Acción no reconocida: ' . $action, 'affectedcount' => 0];
         }
     }
+
+    /**
+     * Obtiene todas las competencias de forma plana con datos de su marco.
+     *
+     * @return array
+     */
+    public static function get_all_competencies_flat(): array {
+        global $DB;
+
+        $sql = "SELECT c.id, c.shortname, c.idnumber, c.description, c.descriptionformat,
+                       c.competencyframeworkid AS frameworkid,
+                       f.shortname AS frameworkname,
+                       f.idnumber AS frameworkidnumber
+                  FROM {competency} c
+                  JOIN {competency_framework} f ON f.id = c.competencyframeworkid
+              ORDER BY f.shortname ASC, c.shortname ASC";
+
+        $records = $DB->get_records_sql($sql);
+        $result = [];
+
+        foreach ($records as $r) {
+            $result[] = [
+                'id'                => (int)$r->id,
+                'shortname'         => (string)$r->shortname,
+                'idnumber'          => (string)($r->idnumber ?? ''),
+                'description'       => (string)($r->description ?? ''),
+                'descriptionformat' => (int)($r->descriptionformat ?? 1),
+                'frameworkid'       => (int)$r->frameworkid,
+                'frameworkname'     => (string)$r->frameworkname,
+                'frameworkidnumber' => (string)($r->frameworkidnumber ?? ''),
+            ];
+        }
+
+        return $result;
+    }
 }

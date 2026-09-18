@@ -335,6 +335,7 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
           onNavigateToDetail={handleNavigateToDetail}
           onOpenReviews={handleOpenReviews}
           pendingReviewsCount={pendingReviewsCount}
+          hasManagePermission={hasManageCompetencies}
         />
       )}
 

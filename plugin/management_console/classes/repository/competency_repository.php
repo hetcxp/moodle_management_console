@@ -507,7 +507,30 @@ class competency_repository {
             ", $rc_params) ?: [];
         }
 
-        $all_user_ids = array_values(array_unique(array_merge(array_keys($usercomp_by_user), $enrolled_user_ids)));
+        // C) Usuarios con plan ad-hoc individual
+        $adhoc_user_ids = [];
+        $dbman = $DB->get_manager();
+        if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
+            $sql_adhoc = "
+                SELECT DISTINCT p.userid
+                  FROM {competency_plancomp} pc
+                  JOIN {competency_plan} p ON p.id = pc.planid
+                 WHERE pc.competencyid = :cid
+                   AND (p.templateid IS NULL OR p.templateid = 0)
+                   AND p.name = :planname
+            ";
+            $adhoc_user_ids = $DB->get_fieldset_sql($sql_adhoc, [
+                'cid'      => $competencyid,
+                'planname' => 'Plan de Competencias Personales',
+            ]) ?: [];
+            $adhoc_user_ids = array_map('intval', $adhoc_user_ids);
+        }
+
+        $all_user_ids = array_values(array_unique(array_merge(
+            array_keys($usercomp_by_user),
+            $enrolled_user_ids,
+            $adhoc_user_ids
+        )));
         if (empty($all_user_ids)) {
             return [
                 'totalcount' => 0,
@@ -796,6 +819,15 @@ class competency_repository {
                 ? (int)$user_pending_map[$uid]
                 : (($uc && in_array((int)$uc->status, [1, 2])) ? 1 : 0);
 
+            $is_adhoc = in_array($uid, $adhoc_user_ids);
+            if ($is_adhoc) {
+                $source = 'adhoc';
+            } else if (!empty($user_courses)) {
+                $source = 'course';
+            } else {
+                $source = 'usercomp';
+            }
+
             $users_output[] = [
                 'userid'                 => $uid,
                 'fullname'               => trim(($ur->firstname ?? '') . ' ' . ($ur->lastname ?? '')),
@@ -812,6 +844,8 @@ class competency_repository {
                 'progress'               => $avg_progress,
                 'evidencescount'         => count($user_evidences),
                 'evidences'              => $user_evidences,
+                'source'                 => $source,
+                'is_adhoc'               => $is_adhoc ? 1 : 0,
             ];
         }
 
@@ -1119,6 +1153,19 @@ class competency_repository {
                     if ($cid <= 0) {
                         continue;
                     }
+
+                    // Limpiar vínculos en actividades del curso (mdl_competency_modulecomp)
+                    try {
+                        $cmids = $DB->get_fieldset_select('course_modules', 'id', 'course = :cid', ['cid' => $cid]);
+                        if (!empty($cmids)) {
+                            list($insql, $inparams) = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+                            $inparams['compid'] = $competency->id;
+                            $DB->delete_records_select('competency_modulecomp', "competencyid = :compid AND cmid $insql", $inparams);
+                        }
+                    } catch (\Exception $e) {
+                        // Continuar con la desvinculación a nivel de curso
+                    }
+
                     $deleted = false;
                     if (class_exists('\core_competency\course_competency')) {
                         try {

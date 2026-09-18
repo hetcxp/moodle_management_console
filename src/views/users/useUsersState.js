@@ -109,6 +109,7 @@ export function useUsersState() {
       { label: 'Estado', accessor: (r) => (r.is_active === 1 ? 'Activo' : 'Suspendido') },
       { label: 'Último Acceso', accessor: (r) => formatDate(r.lastaccess) },
       { label: 'Cohortes', accessor: 'cohorts_count' },
+      { label: 'Competencias', accessor: 'competencies_count' },
       { label: 'Cursos Inscritos', accessor: 'enrolled_courses' },
       { label: 'Cursos Completados', accessor: 'completed_courses' },
       { label: 'Progreso (%)', accessor: 'progress' },

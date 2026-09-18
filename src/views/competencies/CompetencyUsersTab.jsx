@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useCompetencyUsers } from '../../hooks/useAdminerQueries';
+import { useUserPlanAction } from '../../hooks/queries/useUserQueries';
 import { CompetencyUserEvidencesModal } from './CompetencyUserEvidencesModal';
+import { AssignUsersToCompetencyModal } from '../../components/ui/AssignUsersToCompetencyModal';
+import { ConfirmDialog } from '../../components/ConfirmDialog';
+import { useToast } from '../../components/ui/Toast';
 import { DataTable } from '../../components/DataTable';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -15,7 +19,9 @@ import {
   RotateCcw,
   X,
   Download,
-  Filter
+  Filter,
+  UserPlus,
+  Trash2
 } from 'lucide-react';
 
 export const CompetencyUsersTab = ({
@@ -24,11 +30,16 @@ export const CompetencyUsersTab = ({
   courses = [],
   onNavigateToDetail,
   onOpenReviews,
-  pendingReviewsCount = 0
+  pendingReviewsCount = 0,
+  hasManagePermission = false,
 }) => {
   const compIdNum = Number(competencyId);
+  const { addToast } = useToast();
+  const { mutateAsync: performUserPlanAction } = useUserPlanAction();
+
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterSource, setFilterSource] = useState('all');
   const [selectedCourse, setSelectedCourse] = useState('0');
   const [filterPendingReviews, setFilterPendingReviews] = useState('all');
   const [filterProgress, setFilterProgress] = useState('all');
@@ -40,11 +51,16 @@ export const CompetencyUsersTab = ({
   const perpage = 20;
 
   const [selectedUserEvidences, setSelectedUserEvidences] = useState(null);
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [userToRemove, setUserToRemove] = useState(null);
+  const [removingUser, setRemovingUser] = useState(false);
 
   const hasActiveFilters = Boolean(
     search.trim() ||
     selectedCourse !== '0' ||
     filterStatus !== 'all' ||
+    filterSource !== 'all' ||
     filterPendingReviews !== 'all' ||
     filterProgress !== 'all' ||
     filterEvidences !== 'all'
@@ -54,10 +70,63 @@ export const CompetencyUsersTab = ({
     setSearch('');
     setSelectedCourse('0');
     setFilterStatus('all');
+    setFilterSource('all');
     setFilterPendingReviews('all');
     setFilterProgress('all');
     setFilterEvidences('all');
     setPage(0);
+  };
+
+  const handleAssignUsers = async (userIds) => {
+    if (!compIdNum || userIds.length === 0) return;
+    setAssigning(true);
+    try {
+      await performUserPlanAction({
+        action: 'assign_competency',
+        competencyid: compIdNum,
+        userids: userIds,
+      });
+      addToast({
+        type: 'success',
+        title: 'Usuarios vinculados',
+        description: `${userIds.length} usuario(s) vinculados a la competencia.`
+      });
+      setAssignModalOpen(false);
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Error al vincular usuarios',
+        description: err.message
+      });
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleConfirmRemoveUser = async () => {
+    if (!userToRemove) return;
+    setRemovingUser(true);
+    try {
+      await performUserPlanAction({
+        action: 'remove_competency',
+        userid: userToRemove.userid,
+        competencyid: compIdNum,
+      });
+      addToast({
+        type: 'success',
+        title: 'Usuario desvinculado',
+        description: `${userToRemove.fullname} ha sido desvinculado de la competencia.`
+      });
+      setUserToRemove(null);
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Error al desvincular usuario',
+        description: err.message
+      });
+    } finally {
+      setRemovingUser(false);
+    }
   };
 
   const queryParams = useMemo(() => ({
@@ -88,6 +157,11 @@ export const CompetencyUsersTab = ({
   const filteredUsers = useMemo(() => {
     const users = data?.users || [];
     return users.filter((user) => {
+      // Source filter
+      if (filterSource !== 'all' && (user.source || 'course') !== filterSource) {
+        return false;
+      }
+
       // Pending reviews filter
       const userPending = user.pendingreviewscount !== undefined
         ? Number(user.pendingreviewscount)
@@ -123,7 +197,7 @@ export const CompetencyUsersTab = ({
 
       return true;
     });
-  }, [data?.users, filterPendingReviews, filterProgress, filterEvidences]);
+  }, [data?.users, filterSource, filterPendingReviews, filterProgress, filterEvidences]);
 
   // Client-side sorting for all columns
   const sortedUsers = useMemo(() => {
@@ -134,6 +208,12 @@ export const CompetencyUsersTab = ({
         valA = a.fullname || '';
         valB = b.fullname || '';
         return dir === 'ASC' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      if (sort === 'source') {
+        const sourceLabels = { adhoc: 'Plan ad-hoc', course: 'Matriculación', usercomp: 'Evaluación directa' };
+        valA = sourceLabels[a.source] || a.source || '';
+        valB = sourceLabels[b.source] || b.source || '';
+        return dir === 'ASC' ? String(valA).localeCompare(String(valB)) : String(valB).localeCompare(String(valA));
       }
       if (sort === 'coursescount') {
         valA = a.coursescount ?? (a.courses?.length || 0);
@@ -170,6 +250,7 @@ export const CompetencyUsersTab = ({
       { label: 'ID Usuario', accessor: 'userid' },
       { label: 'Estudiante', accessor: 'fullname' },
       { label: 'Email', accessor: 'email' },
+      { label: 'Procedencia', accessor: (u) => u.source === 'adhoc' ? 'Plan ad-hoc' : (u.source === 'course' ? 'Matriculación' : 'Evaluación directa') },
       { label: 'Cursos Vinculados', accessor: (u) => (u.courses || []).map((c) => c.shortname || c.fullname).join('; ') },
       { label: 'Progreso Promedio', accessor: (u) => `${u.progress || 0}%` },
       { label: 'Cursos Completados', accessor: (u) => `${u.completedcoursescount || 0}/${u.coursescount || 0}` },
@@ -211,6 +292,32 @@ export const CompetencyUsersTab = ({
           </div>
         </div>
       )
+    },
+    {
+      header: 'Procedencia',
+      accessor: 'source',
+      sortKey: 'source',
+      cell: (user) => {
+        if (user.source === 'adhoc') {
+          return (
+            <Badge variant="secondary" className="text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 whitespace-nowrap">
+              Plan ad-hoc
+            </Badge>
+          );
+        }
+        if (user.source === 'course') {
+          return (
+            <Badge variant="secondary" className="text-xs font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 whitespace-nowrap">
+              Matriculación
+            </Badge>
+          );
+        }
+        return (
+          <Badge variant="secondary" className="text-xs font-semibold bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20 whitespace-nowrap">
+            Evaluación directa
+          </Badge>
+        );
+      }
     },
     {
       header: 'Cursos Vinculados',
@@ -355,7 +462,29 @@ export const CompetencyUsersTab = ({
           )}
         </Button>
       )
-    }
+    },
+    ...(hasManagePermission ? [{
+      header: 'Acciones',
+      className: 'text-right',
+      cell: (user) => {
+        if (user.source !== 'adhoc') {
+          return <span className="text-xs text-muted-foreground">-</span>;
+        }
+        return (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setUserToRemove(user)}
+              className="text-destructive hover:bg-destructive/10 h-8 px-2"
+              title="Desvincular del plan personal"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        );
+      }
+    }] : [])
   ];
 
   return (
@@ -390,6 +519,17 @@ export const CompetencyUsersTab = ({
           </div>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end flex-wrap">
+            {hasManagePermission && (
+              <Button
+                onClick={() => setAssignModalOpen(true)}
+                className="h-9 gap-1.5 text-xs shrink-0"
+                title="Vincular usuarios directamente a esta competencia"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Vincular Usuario(s)</span>
+              </Button>
+            )}
+
             {onOpenReviews && (
               <Button
                 variant="outline"
@@ -428,6 +568,20 @@ export const CompetencyUsersTab = ({
             <Filter className="h-3.5 w-3.5" />
             <span>Filtros:</span>
           </div>
+
+          <select
+            value={filterSource}
+            onChange={(e) => {
+              setFilterSource(e.target.value);
+              setPage(0);
+            }}
+            className="text-xs rounded-lg border border-border bg-card px-2.5 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+          >
+            <option value="all">Procedencia: Todas</option>
+            <option value="adhoc">Plan ad-hoc</option>
+            <option value="course">Matriculación</option>
+            <option value="usercomp">Evaluación directa</option>
+          </select>
 
           {courses.length > 0 && (
             <select
@@ -535,7 +689,7 @@ export const CompetencyUsersTab = ({
         emptyMessage={
           hasActiveFilters
             ? 'No hay usuarios que coincidan con los filtros aplicados.'
-            : 'Aún no hay estudiantes matriculados en los cursos vinculados a esta competencia.'
+            : 'Aún no hay estudiantes vinculados a esta competencia.'
         }
       />
 
@@ -548,6 +702,28 @@ export const CompetencyUsersTab = ({
           competencyName={competencyName}
         />
       )}
+
+      {/* Assign Users Modal */}
+      <AssignUsersToCompetencyModal
+        open={assignModalOpen}
+        onClose={() => setAssignModalOpen(false)}
+        onConfirm={handleAssignUsers}
+        assignedUserIds={(data?.users || []).map((u) => u.userid)}
+        loading={assigning}
+        competencyName={competencyName}
+      />
+
+      {/* Confirm Unlink Dialog */}
+      <ConfirmDialog
+        open={!!userToRemove}
+        onClose={() => setUserToRemove(null)}
+        onConfirm={handleConfirmRemoveUser}
+        title="Desvincular usuario de la competencia"
+        description={`¿Estás seguro de que deseas desvincular a "${userToRemove?.fullname}" de esta competencia en su plan de aprendizaje individual?`}
+        confirmText="Desvincular"
+        loading={removingUser}
+        variant="destructive"
+      />
     </div>
   );
 };

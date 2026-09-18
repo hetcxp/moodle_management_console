@@ -284,6 +284,8 @@ class competency_reviews extends external_api {
                             'timecreated'        => new external_value(PARAM_INT, 'Evidence timestamp'),
                         ])
                     ),
+                    'source'                => new external_value(PARAM_ALPHA, 'User assignment source (adhoc, course, usercomp)', VALUE_DEFAULT, 'course'),
+                    'is_adhoc'              => new external_value(PARAM_INT, 'Whether assigned via adhoc plan', VALUE_DEFAULT, 0),
                 ])
             ),
             'scale'      => new external_single_structure([

@@ -69,3 +69,23 @@ export function useUserCourseAction() {
     },
   });
 }
+
+export function useUserPlanAction() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params) => AdminerApi.userPlanAction(params),
+    onSuccess: (_, variables) => {
+      if (variables.userid) {
+        queryClient.invalidateQueries({ queryKey: ['user', variables.userid] });
+      }
+      if (variables.userids && Array.isArray(variables.userids)) {
+        variables.userids.forEach((uid) => {
+          queryClient.invalidateQueries({ queryKey: ['user', uid] });
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['competency_users'] });
+      queryClient.invalidateQueries({ queryKey: ['competencies'] });
+    },
+  });
+}
+

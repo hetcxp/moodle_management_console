@@ -4,6 +4,14 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
+import { useToast } from '../../components/ui/Toast';
+import { PermissionGate } from '../../components/PermissionGate';
+import { AddActivityToCompetencyModal } from '../competencies/AddActivityToCompetencyModal';
+import {
+  useCompetencyCourseAction,
+  useModuleCompetencyAction,
+  useAllCompetencies,
+} from '../../hooks/useAdminerQueries';
 import {
   Award,
   Layers,
@@ -13,29 +21,70 @@ import {
   Eye,
   Info,
   CheckCircle2,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Plus,
+  BookCopy,
+  Loader2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   RULE_OUTCOMES,
   getModuleIcon,
-  getModuleTypeName
+  getModuleTypeName,
 } from '../competencies/competencyConstants';
 
 export const CourseCompetenciesTab = ({
   competencies = [],
-  onNavigateToDetail
+  onNavigateToDetail,
+  courseId,
+  courseFullname,
 }) => {
-  const [search, setSearch] = useState('');
-  const [frameworkFilter, setFrameworkFilter] = useState('all');
-  const [ruleFilter, setRuleFilter] = useState('all');
+  const { addToast } = useToast();
+
   const [selectedCompetency, setSelectedCompetency] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
 
-  // Sorting state
+  const [addCompetencyOpen, setAddCompetencyOpen] = useState(false);
+  const [addCompetencySearch, setAddCompetencySearch] = useState('');
+  const [pendingCompetency, setPendingCompetency] = useState(null);
+  const [ruleOpen, setRuleOpen] = useState(false);
+  const [addCompetencyRule, setAddCompetencyRule] = useState(3);
+  const [addCompetencyLoading, setAddCompetencyLoading] = useState(false);
+
+  const [activityLinkTarget, setActivityLinkTarget] = useState(null);
+  const [unlinkCompetencyTarget, setUnlinkCompetencyTarget] = useState(null);
+  const [unlinkLoading, setUnlinkLoading] = useState(false);
+  const [unlinkActivityTarget, setUnlinkActivityTarget] = useState(null);
+
+  const [search, setSearch] = useState('');
+  const [frameworkFilter, setFrameworkFilter] = useState('all');
+  const [ruleFilter, setRuleFilter] = useState('all');
   const [sortKey, setSortKey] = useState('shortname');
   const [sortDir, setSortDir] = useState('ASC');
 
-  // Unique Frameworks for filter
+  const { mutateAsync: competencyCourseAction } = useCompetencyCourseAction();
+  const { mutateAsync: moduleCompetencyAction } = useModuleCompetencyAction();
+
+  const { data: allCompetenciesData } = useAllCompetencies();
+  const allFrameworkCompetencies = useMemo(() => {
+    return allCompetenciesData?.competencies || [];
+  }, [allCompetenciesData]);
+
+  const linkedIds = useMemo(() => new Set(competencies.map((c) => c.id)), [competencies]);
+  const availableToAdd = useMemo(() => {
+    const q = addCompetencySearch.toLowerCase().trim();
+    return allFrameworkCompetencies.filter((c) => {
+      if (linkedIds.has(c.id)) return false;
+      if (!q) return true;
+      return (
+        (c.shortname || '').toLowerCase().includes(q) ||
+        (c.idnumber || '').toLowerCase().includes(q) ||
+        (c.frameworkname || '').toLowerCase().includes(q)
+      );
+    });
+  }, [allFrameworkCompetencies, linkedIds, addCompetencySearch]);
+
   const uniqueFrameworks = useMemo(() => {
     const map = new Map();
     competencies.forEach((c) => {
@@ -46,10 +95,8 @@ export const CourseCompetenciesTab = ({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [competencies]);
 
-  // Filtering & Sorting
   const filteredCompetencies = useMemo(() => {
     return competencies.filter((c) => {
-      // Search
       if (search.trim()) {
         const q = search.toLowerCase();
         const matchesName = (c.shortname || '').toLowerCase().includes(q);
@@ -61,21 +108,12 @@ export const CourseCompetenciesTab = ({
           return false;
         }
       }
-
-      // Framework
       if (frameworkFilter !== 'all') {
-        if (String(c.frameworkid) !== String(frameworkFilter)) {
-          return false;
-        }
+        if (String(c.frameworkid) !== String(frameworkFilter)) return false;
       }
-
-      // Rule Outcome
       if (ruleFilter !== 'all') {
-        if (String(c.ruleoutcome) !== String(ruleFilter)) {
-          return false;
-        }
+        if (String(c.ruleoutcome) !== String(ruleFilter)) return false;
       }
-
       return true;
     });
   }, [competencies, search, frameworkFilter, ruleFilter]);
@@ -84,49 +122,155 @@ export const CourseCompetenciesTab = ({
     return [...filteredCompetencies].sort((a, b) => {
       let aVal = a[sortKey];
       let bVal = b[sortKey];
-
       if (sortKey === 'activitiescount') {
         aVal = a.activities?.length || 0;
         bVal = b.activities?.length || 0;
       }
-
       if (sortKey === 'completedcount' || sortKey === 'progress') {
         aVal = a.completedcount || 0;
         bVal = b.completedcount || 0;
       }
-
       if (aVal == null) aVal = '';
       if (bVal == null) bVal = '';
-
       if (aVal === bVal) return 0;
-
       if (typeof aVal === 'number' && typeof bVal === 'number') {
         return sortDir === 'ASC' ? aVal - bVal : bVal - aVal;
       }
-
-      const aStr = String(aVal);
-      const bStr = String(bVal);
-      return sortDir === 'ASC' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+      return sortDir === 'ASC'
+        ? String(aVal).localeCompare(String(bVal))
+        : String(bVal).localeCompare(String(aVal));
     });
   }, [filteredCompetencies, sortKey, sortDir]);
 
-  const getRuleConfig = (ruleoutcome) => {
-    return (
-      RULE_OUTCOMES.find((r) => r.value === Number(ruleoutcome)) || {
-        value: ruleoutcome,
-        label: 'Desconocida',
-        fullLabel: 'Regla no identificada',
-        description: '',
-        colorClass: 'bg-muted text-muted-foreground border-border',
-        icon: LinkIcon,
-        dotColor: 'bg-muted-foreground'
-      }
-    );
-  };
+  const getRuleConfig = (ruleoutcome) =>
+    RULE_OUTCOMES.find((r) => r.value === Number(ruleoutcome)) || {
+      value: ruleoutcome,
+      label: 'Desconocida',
+      fullLabel: 'Regla no identificada',
+      description: '',
+      colorClass: 'bg-muted text-muted-foreground border-border',
+      icon: LinkIcon,
+      dotColor: 'bg-muted-foreground',
+    };
 
   const handleOpenDetail = (comp) => {
     setSelectedCompetency(comp);
     setDetailModalOpen(true);
+  };
+
+  const handleSelectPendingCompetency = (comp) => {
+    setPendingCompetency({ id: comp.id, shortname: comp.shortname });
+    setAddCompetencyOpen(false);
+    setAddCompetencySearch('');
+    setAddCompetencyRule(3);
+    setRuleOpen(true);
+  };
+
+  const handleConfirmAddCompetency = async () => {
+    if (!pendingCompetency || !courseId) return;
+    setAddCompetencyLoading(true);
+    try {
+      await competencyCourseAction({
+        action: 'add',
+        competencyid: pendingCompetency.id,
+        courseids: [courseId],
+        ruleoutcome: addCompetencyRule,
+      });
+      addToast({
+        type: 'success',
+        title: 'Competencia agregada',
+        description: `"${pendingCompetency.shortname}" vinculada al curso.`,
+      });
+      setRuleOpen(false);
+      setPendingCompetency(null);
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Error al agregar competencia',
+        description: err?.message || 'Error desconocido',
+      });
+    } finally {
+      setAddCompetencyLoading(false);
+    }
+  };
+
+  const handleAddActivity = async (cmid, ruleoutcome) => {
+    if (!activityLinkTarget || !courseId) return;
+    await moduleCompetencyAction({
+      action: 'add',
+      competencyid: activityLinkTarget.id,
+      cmid,
+      ruleoutcome,
+    });
+    addToast({
+      type: 'success',
+      title: 'Actividad vinculada',
+      description: `Actividad vinculada a "${activityLinkTarget.shortname}".`,
+    });
+    setActivityLinkTarget(null);
+  };
+
+  const handleConfirmUnlinkCompetency = async () => {
+    if (!unlinkCompetencyTarget || !courseId) return;
+    setUnlinkLoading(true);
+    try {
+      await competencyCourseAction({
+        action: 'remove',
+        competencyid: unlinkCompetencyTarget.id,
+        courseids: [courseId],
+      });
+      addToast({
+        type: 'success',
+        title: 'Competencia desvinculada',
+        description: `"${unlinkCompetencyTarget.shortname}" fue desvinculada del curso.`,
+      });
+      if (selectedCompetency?.id === unlinkCompetencyTarget.id) {
+        setDetailModalOpen(false);
+        setSelectedCompetency(null);
+      }
+      setUnlinkCompetencyTarget(null);
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Error al desvincular competencia',
+        description: err?.message || 'Error desconocido',
+      });
+    } finally {
+      setUnlinkLoading(false);
+    }
+  };
+
+  const handleConfirmUnlinkActivity = async () => {
+    if (!unlinkActivityTarget || !selectedCompetency) return;
+    setUnlinkLoading(true);
+    try {
+      await moduleCompetencyAction({
+        action: 'remove',
+        competencyid: selectedCompetency.id,
+        cmid: unlinkActivityTarget.cmid,
+      });
+      addToast({
+        type: 'success',
+        title: 'Actividad desvinculada',
+        description: `"${unlinkActivityTarget.name}" fue desvinculada de la competencia.`,
+      });
+      setSelectedCompetency((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          activities: (prev.activities || []).filter((a) => a.cmid !== unlinkActivityTarget.cmid),
+        };
+      });
+      setUnlinkActivityTarget(null);
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Error al desvincular actividad',
+        description: err?.message || 'Error desconocido',
+      });
+    } finally {
+      setUnlinkLoading(false);
+    }
   };
 
   const columns = [
@@ -138,7 +282,13 @@ export const CourseCompetenciesTab = ({
         const isSubcompetency = (row.parentid || 0) > 0;
         return (
           <div className="flex items-start gap-3 py-1">
-            <div className={`p-2 rounded-xl mt-0.5 shrink-0 ${isSubcompetency ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' : 'bg-primary/10 text-primary'}`}>
+            <div
+              className={`p-2 rounded-xl mt-0.5 shrink-0 ${
+                isSubcompetency
+                  ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                  : 'bg-primary/10 text-primary'
+              }`}
+            >
               <Award className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -163,7 +313,7 @@ export const CourseCompetenciesTab = ({
             </div>
           </div>
         );
-      }
+      },
     },
     {
       header: 'Marco',
@@ -176,7 +326,7 @@ export const CourseCompetenciesTab = ({
             {row.frameworkname || `Marco #${row.frameworkid}`}
           </Badge>
         </div>
-      )
+      ),
     },
     {
       header: 'Regla al Completar Curso',
@@ -185,12 +335,15 @@ export const CourseCompetenciesTab = ({
         const rule = getRuleConfig(row.ruleoutcome);
         const IconComponent = rule.icon || LinkIcon;
         return (
-          <div className={`${rule.colorClass} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border shadow-xs`} title={rule.description}>
+          <div
+            className={`${rule.colorClass} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border shadow-xs`}
+            title={rule.description}
+          >
             <IconComponent className="h-3.5 w-3.5" />
             <span>{rule.label}</span>
           </div>
         );
-      }
+      },
     },
     {
       header: 'Progreso',
@@ -201,11 +354,14 @@ export const CourseCompetenciesTab = ({
         if (enrolled === 0) {
           return <span className="text-xs text-muted-foreground italic">Sin inscritos</span>;
         }
-        const percentage = row.progress != null ? row.progress : Math.round((completed / enrolled) * 100);
+        const percentage =
+          row.progress != null ? row.progress : Math.round((completed / enrolled) * 100);
         return (
           <div className="flex flex-col gap-1 w-full max-w-[130px]">
             <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-              <span>{completed} / {enrolled}</span>
+              <span>
+                {completed} / {enrolled}
+              </span>
               <span className="font-semibold text-foreground">{percentage}%</span>
             </div>
             <div className="h-1.5 w-full bg-secondary overflow-hidden rounded-full">
@@ -216,7 +372,7 @@ export const CourseCompetenciesTab = ({
             </div>
           </div>
         );
-      }
+      },
     },
     {
       header: 'Actividades Vinculadas',
@@ -224,16 +380,46 @@ export const CourseCompetenciesTab = ({
       className: 'text-center',
       cell: (row) => {
         const count = row.activities?.length || 0;
-        if (count === 0) {
-          return <span className="text-xs text-muted-foreground">Sin actividades</span>;
-        }
         return (
-          <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-700 dark:text-purple-400 text-xs font-medium border border-purple-500/20">
-            <Sparkles className="h-3 w-3" />
-            <span>{count} {count === 1 ? 'actividad' : 'actividades'}</span>
+          <div className="flex items-center justify-center gap-2 flex-wrap">
+            {count > 0 && (
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-800 dark:text-purple-300 text-xs font-semibold border border-purple-500/30 shadow-xs">
+                <Sparkles className="h-3 w-3 text-purple-600 dark:text-purple-300" />
+                <span>
+                  {count} {count === 1 ? 'actividad' : 'actividades'}
+                </span>
+              </div>
+            )}
+            {courseId ? (
+              <PermissionGate
+                capability="can_update_courses"
+                fallback={
+                  count === 0 ? (
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Sin actividades</span>
+                  ) : null
+                }
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActivityLinkTarget({ id: row.id, shortname: row.shortname });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-sky-500/50 dark:border-sky-400/60 bg-sky-500/15 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 hover:bg-sky-500/25 dark:hover:bg-sky-500/35 hover:text-sky-950 dark:hover:text-white transition-all shadow-xs cursor-pointer"
+                  title="Vincular actividad del curso a esta competencia"
+                >
+                  <BookCopy className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300 shrink-0" />
+                  <span>Vincular actividad</span>
+                </button>
+              </PermissionGate>
+            ) : (
+              count === 0 && (
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Sin actividades</span>
+              )
+            )}
           </div>
         );
-      }
+      },
     },
     {
       header: 'Acciones',
@@ -252,6 +438,38 @@ export const CourseCompetenciesTab = ({
           >
             <Eye className="h-4 w-4" />
           </Button>
+          {courseId && (
+            <PermissionGate capability="can_update_courses">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivityLinkTarget({ id: row.id, shortname: row.shortname });
+                }}
+                className="h-8 w-8 text-purple-600 hover:bg-purple-500/10"
+                title="Vincular actividad del curso a esta competencia"
+              >
+                <BookCopy className="h-4 w-4" />
+              </Button>
+            </PermissionGate>
+          )}
+          {courseId && (
+            <PermissionGate capability="can_update_courses">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setUnlinkCompetencyTarget(row);
+                }}
+                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                title="Desvincular competencia de este curso"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </PermissionGate>
+          )}
           {onNavigateToDetail && (
             <Button
               variant="ghost"
@@ -260,7 +478,7 @@ export const CourseCompetenciesTab = ({
                 e.stopPropagation();
                 onNavigateToDetail('competency', {
                   frameworkId: row.frameworkid,
-                  competencyId: row.id
+                  competencyId: row.id,
                 });
               }}
               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -270,8 +488,8 @@ export const CourseCompetenciesTab = ({
             </Button>
           )}
         </div>
-      )
-    }
+      ),
+    },
   ];
 
   if (competencies.length === 0) {
@@ -282,8 +500,49 @@ export const CourseCompetenciesTab = ({
         </div>
         <h3 className="text-lg font-semibold text-foreground">No hay competencias vinculadas</h3>
         <p className="text-sm text-muted-foreground max-w-md mx-auto mt-1.5">
-          Este curso aún no tiene competencias asignadas desde los marcos de competencias de la plataforma.
+          Este curso aún no tiene competencias asignadas desde los marcos de competencias de la
+          plataforma.
         </p>
+        {courseId && (
+          <PermissionGate capability="can_update_courses">
+            <Button
+              variant="default"
+              size="sm"
+              className="mt-5 gap-2"
+              onClick={() => setAddCompetencyOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Agregar Competencia
+            </Button>
+          </PermissionGate>
+        )}
+        <Dialog
+          open={addCompetencyOpen}
+          onClose={() => { setAddCompetencyOpen(false); setAddCompetencySearch(''); }}
+          title={
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-primary" />
+              <span>Agregar Competencia al Curso</span>
+            </div>
+          }
+          maxWidth="max-w-lg"
+        >
+          <CompetencySelectorContent
+            search={addCompetencySearch}
+            onSearchChange={setAddCompetencySearch}
+            available={availableToAdd}
+            onSelect={handleSelectPendingCompetency}
+          />
+        </Dialog>
+        <RuleOutcomeDialog
+          open={ruleOpen}
+          onClose={() => setRuleOpen(false)}
+          pending={pendingCompetency}
+          rule={addCompetencyRule}
+          onRuleChange={setAddCompetencyRule}
+          loading={addCompetencyLoading}
+          onConfirm={handleConfirmAddCompetency}
+        />
       </div>
     );
   }
@@ -293,8 +552,6 @@ export const CourseCompetenciesTab = ({
 
   return (
     <div className="space-y-4 animate-fadeIn">
-
-      {/* Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-card/40 p-3 rounded-xl border border-border/60">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -305,9 +562,7 @@ export const CourseCompetenciesTab = ({
             className="pl-9 h-9 text-sm"
           />
         </div>
-
         <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
-          {/* Framework Filter */}
           {uniqueFrameworks.length > 1 && (
             <select
               value={frameworkFilter}
@@ -322,8 +577,6 @@ export const CourseCompetenciesTab = ({
               ))}
             </select>
           )}
-
-          {/* Rule Filter */}
           <select
             value={ruleFilter}
             onChange={(e) => setRuleFilter(e.target.value)}
@@ -336,10 +589,22 @@ export const CourseCompetenciesTab = ({
               </option>
             ))}
           </select>
+          {courseId && (
+            <PermissionGate capability="can_update_courses">
+              <Button
+                variant="default"
+                size="sm"
+                className="gap-2 h-9"
+                onClick={() => setAddCompetencyOpen(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Agregar Competencia
+              </Button>
+            </PermissionGate>
+          )}
         </div>
       </div>
 
-      {/* DataTable */}
       <DataTable
         columns={columns}
         data={sortedCompetencies}
@@ -354,7 +619,45 @@ export const CourseCompetenciesTab = ({
         selectable={false}
       />
 
-      {/* Read-Only Competency Detail Modal */}
+      <Dialog
+        open={addCompetencyOpen}
+        onClose={() => { setAddCompetencyOpen(false); setAddCompetencySearch(''); }}
+        title={
+          <div className="flex items-center gap-2">
+            <Award className="h-5 w-5 text-primary" />
+            <span>Agregar Competencia al Curso</span>
+          </div>
+        }
+        maxWidth="max-w-lg"
+      >
+        <CompetencySelectorContent
+          search={addCompetencySearch}
+          onSearchChange={setAddCompetencySearch}
+          available={availableToAdd}
+          onSelect={handleSelectPendingCompetency}
+        />
+      </Dialog>
+
+      <RuleOutcomeDialog
+        open={ruleOpen}
+        onClose={() => setRuleOpen(false)}
+        pending={pendingCompetency}
+        rule={addCompetencyRule}
+        onRuleChange={setAddCompetencyRule}
+        loading={addCompetencyLoading}
+        onConfirm={handleConfirmAddCompetency}
+      />
+
+      {activityLinkTarget && (
+        <AddActivityToCompetencyModal
+          open={!!activityLinkTarget}
+          onClose={() => setActivityLinkTarget(null)}
+          course={{ id: courseId, fullname: courseFullname }}
+          competencyId={activityLinkTarget.id}
+          onAddActivity={handleAddActivity}
+        />
+      )}
+
       <Dialog
         open={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
@@ -375,21 +678,35 @@ export const CourseCompetenciesTab = ({
         description="Información detallada de la vinculación de esta competencia y sus actividades en el curso."
         footer={
           <div className="flex items-center justify-between w-full">
-            {onNavigateToDetail && selectedCompetency ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setDetailModalOpen(false);
-                  onNavigateToDetail('competency', {
-                    frameworkId: selectedCompetency.frameworkid,
-                    competencyId: selectedCompetency.id
-                  });
-                }}
-              >
-                <ExternalLink className="h-4 w-4 mr-1.5" /> Ver en Marco de Competencias
-              </Button>
-            ) : <div />}
+            <div className="flex items-center gap-2">
+              {onNavigateToDetail && selectedCompetency && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setDetailModalOpen(false);
+                    onNavigateToDetail('competency', {
+                      frameworkId: selectedCompetency.frameworkid,
+                      competencyId: selectedCompetency.id,
+                    });
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4 mr-1.5" /> Ver en Marco de Competencias
+                </Button>
+              )}
+              {courseId && selectedCompetency && (
+                <PermissionGate capability="can_update_courses">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setUnlinkCompetencyTarget(selectedCompetency)}
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" /> Desvincular del Curso
+                  </Button>
+                </PermissionGate>
+              )}
+            </div>
             <Button variant="ghost" onClick={() => setDetailModalOpen(false)}>
               Cerrar
             </Button>
@@ -398,7 +715,6 @@ export const CourseCompetenciesTab = ({
       >
         {selectedCompetency && (
           <div className="space-y-5 pt-2 max-h-[70vh] overflow-y-auto pr-1">
-            {/* Meta Information Cards (Marco & Jerarquía) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60">
                 <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
@@ -413,7 +729,6 @@ export const CourseCompetenciesTab = ({
                   </p>
                 )}
               </div>
-
               <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60">
                 <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
                   <Award className="h-3.5 w-3.5 text-indigo-500" /> Jerarquía
@@ -429,7 +744,6 @@ export const CourseCompetenciesTab = ({
               </div>
             </div>
 
-            {/* Student Completion Progress */}
             <div className="p-3.5 rounded-xl bg-muted/40 border border-border/60 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground font-medium flex items-center gap-1.5">
@@ -450,7 +764,6 @@ export const CourseCompetenciesTab = ({
               </div>
             </div>
 
-            {/* Course Rule Outcome Banner */}
             {selectedRule && (
               <div className="p-4 rounded-xl bg-card border border-border/70 space-y-1.5 shadow-xs">
                 <div className="flex items-center justify-between">
@@ -468,7 +781,6 @@ export const CourseCompetenciesTab = ({
               </div>
             )}
 
-            {/* Description */}
             {selectedCompetency.description && (
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descripción</h4>
@@ -479,7 +791,6 @@ export const CourseCompetenciesTab = ({
               </div>
             )}
 
-            {/* Linked Activities */}
             <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -487,14 +798,12 @@ export const CourseCompetenciesTab = ({
                   Actividades del curso vinculadas ({selectedCompetency.activities?.length || 0})
                 </h4>
               </div>
-
               {selectedCompetency.activities && selectedCompetency.activities.length > 0 ? (
                 <div className="rounded-xl border border-border/70 overflow-hidden divide-y divide-border/60">
                   {selectedCompetency.activities.map((act) => {
                     const ModIcon = getModuleIcon(act.modname);
                     const actRule = getRuleConfig(act.ruleoutcome);
                     const ActRuleIcon = actRule.icon || LinkIcon;
-
                     return (
                       <div key={act.id} className="p-3 bg-card/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-muted/30 transition-colors">
                         <div className="flex items-center gap-3">
@@ -510,10 +819,30 @@ export const CourseCompetenciesTab = ({
                             </div>
                           </div>
                         </div>
-
-                        <div className={`${actRule.colorClass} inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border shrink-0`} title={actRule.description}>
-                          <ActRuleIcon className="h-3 w-3" />
-                          <span>{actRule.label}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div
+                            className={`${actRule.colorClass} inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border shrink-0`}
+                            title={actRule.description}
+                          >
+                            <ActRuleIcon className="h-3 w-3" />
+                            <span>{actRule.label}</span>
+                          </div>
+                          {courseId && (
+                            <PermissionGate capability="can_update_courses">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setUnlinkActivityTarget(act);
+                                }}
+                                className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                                title="Desvincular actividad de esta competencia"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </PermissionGate>
+                          )}
                         </div>
                       </div>
                     );
@@ -528,6 +857,206 @@ export const CourseCompetenciesTab = ({
           </div>
         )}
       </Dialog>
+
+      <Dialog
+        open={!!unlinkCompetencyTarget}
+        onClose={() => {
+          if (!unlinkLoading) setUnlinkCompetencyTarget(null);
+        }}
+        title={
+          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Desvincular Competencia del Curso</span>
+          </div>
+        }
+        description={`¿Estás seguro de que deseas desvincular "${unlinkCompetencyTarget?.shortname}" de este curso?`}
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="outline"
+              onClick={() => setUnlinkCompetencyTarget(null)}
+              disabled={unlinkLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmUnlinkCompetency}
+              disabled={unlinkLoading}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {unlinkLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Desvinculando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Desvincular Competencia
+                </>
+              )}
+            </Button>
+          </div>
+        }
+      >
+        {unlinkCompetencyTarget && (
+          <div className="space-y-3 pt-2">
+            <p className="text-sm text-muted-foreground">
+              Esta acción eliminará la asociación de la competencia con el curso.
+            </p>
+            {unlinkCompetencyTarget.activities?.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+                <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-semibold">Atención: </span>
+                  Se desvincularán automáticamente las{' '}
+                  <span className="font-bold">{unlinkCompetencyTarget.activities.length}</span>{' '}
+                  {unlinkCompetencyTarget.activities.length === 1 ? 'actividad vinculada' : 'actividades vinculadas'} a
+                  esta competencia en el curso para evitar referencias huérfanas.
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={!!unlinkActivityTarget}
+        onClose={() => {
+          if (!unlinkLoading) setUnlinkActivityTarget(null);
+        }}
+        title={
+          <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+            <AlertTriangle className="h-5 w-5" />
+            <span>Desvincular Actividad</span>
+          </div>
+        }
+        description={`¿Estás seguro de que deseas desvincular la actividad "${unlinkActivityTarget?.name}" de esta competencia?`}
+        footer={
+          <div className="flex items-center justify-end gap-2 w-full">
+            <Button
+              variant="outline"
+              onClick={() => setUnlinkActivityTarget(null)}
+              disabled={unlinkLoading}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmUnlinkActivity}
+              disabled={unlinkLoading}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+            >
+              {unlinkLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Desvinculando...
+                </>
+              ) : (
+                'Desvincular Actividad'
+              )}
+            </Button>
+          </div>
+        }
+      />
     </div>
+  );
+};
+
+const CompetencySelectorContent = ({ search, onSearchChange, available, onSelect }) => (
+  <div className="space-y-3 pt-2">
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input
+        placeholder="Buscar competencia por nombre o código..."
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        className="pl-9 h-9 text-sm"
+        autoFocus
+      />
+    </div>
+    <div className="max-h-72 overflow-y-auto rounded-xl border border-border/70 divide-y divide-border/50">
+      {available.length === 0 ? (
+        <div className="py-8 text-center text-xs text-muted-foreground">
+          {search
+            ? 'Sin resultados para esta búsqueda.'
+            : 'Todas las competencias ya están vinculadas o no hay marcos configurados.'}
+        </div>
+      ) : (
+        available.map((comp) => (
+          <button
+            key={comp.id}
+            type="button"
+            onClick={() => onSelect(comp)}
+            className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-start gap-3"
+          >
+            <Award className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground truncate">{comp.shortname}</div>
+              <div className="flex items-center gap-2 mt-0.5">
+                {comp.idnumber && (
+                  <span className="font-mono text-xs text-muted-foreground">{comp.idnumber}</span>
+                )}
+                {comp.frameworkname && (
+                  <span className="text-xs text-muted-foreground">· {comp.frameworkname}</span>
+                )}
+              </div>
+            </div>
+          </button>
+        ))
+      )}
+    </div>
+  </div>
+);
+
+const RuleOutcomeDialog = ({ open, onClose, pending, rule, onRuleChange, loading, onConfirm }) => {
+  if (!open) return null;
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title="Configurar Regla de Competencia"
+      description="Configura cómo se contabiliza esta competencia al completar el curso."
+      footer={
+        <div className="flex justify-end gap-2 w-full">
+          <Button variant="outline" onClick={onClose} disabled={loading}>
+            Cancelar
+          </Button>
+          <Button variant="default" onClick={onConfirm} disabled={loading} className="gap-2">
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            Confirmar
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4 pt-2">
+        {pending && (
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-center gap-2">
+            <Award className="h-4 w-4 text-primary shrink-0" />
+            <span className="text-sm font-semibold text-foreground">{pending.shortname}</span>
+          </div>
+        )}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-foreground">
+            Regla al completar el curso:
+          </label>
+          <select
+            value={rule}
+            onChange={(e) => onRuleChange(Number(e.target.value))}
+            className="w-full text-xs rounded-lg border border-border bg-background px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {RULE_OUTCOMES.map((ro) => (
+              <option key={ro.value} value={ro.value}>
+                {ro.fullLabel}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {RULE_OUTCOMES.find((r) => r.value === rule)?.description}
+          </p>
+        </div>
+      </div>
+    </Dialog>
   );
 };

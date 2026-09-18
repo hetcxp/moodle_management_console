@@ -272,6 +272,8 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
         <CourseCompetenciesTab
           competencies={data.competencies || []}
           onNavigateToDetail={handleNavigateToDetail}
+          courseId={data.id}
+          courseFullname={data.fullname}
         />
       )}
 

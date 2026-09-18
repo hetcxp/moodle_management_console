@@ -82,16 +82,40 @@ class user_repository {
     public static function get_users_filtered(array $params): array {
         global $DB, $CFG;
 
+        $dbman = $DB->get_manager();
+        $has_comp = $dbman->table_exists('competency');
+        $has_usercomp = $has_comp && $dbman->table_exists('competency_usercomp');
+        $has_plancomp = $has_comp && $dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp');
+        $has_coursecomp = $has_comp && $dbman->table_exists('competency_coursecomp');
+        $has_usercompcourse = $has_comp && $dbman->table_exists('competency_usercompcourse');
+
+        $comp_unions = [];
+        if ($has_usercomp) {
+            $comp_unions[] = "SELECT uc.userid, uc.competencyid FROM {competency_usercomp} uc JOIN {competency} c ON c.id = uc.competencyid";
+        }
+        if ($has_plancomp) {
+            $comp_unions[] = "SELECT p.userid, pc.competencyid FROM {competency_plancomp} pc JOIN {competency_plan} p ON p.id = pc.planid JOIN {competency} c ON c.id = pc.competencyid";
+        }
+        if ($has_coursecomp) {
+            $comp_unions[] = "SELECT ue.userid, cc.competencyid FROM {competency_coursecomp} cc JOIN {enrol} e ON e.courseid = cc.courseid JOIN {user_enrolments} ue ON ue.enrolid = e.id JOIN {competency} c ON c.id = cc.competencyid";
+        }
+        if ($has_usercompcourse) {
+            $comp_unions[] = "SELECT ucc.userid, ucc.competencyid FROM {competency_usercompcourse} ucc JOIN {competency} c ON c.id = ucc.competencyid";
+        }
+
+        $has_competencies = !empty($comp_unions);
+
         $allowed_sorts = [
-            'id'         => 'u.id',
-            'firstname'  => 'u.firstname',
-            'lastname'   => 'u.lastname',
-            'email'      => 'u.email',
-            'suspended'  => 'u.suspended',
-            'lastaccess' => 'u.lastaccess',
-            'cohorts'    => 'coh.cohorts_count',
-            'courses'    => 'enr.enrolled_courses',
-            'progress'   => 'progress_sort'
+            'id'           => 'u.id',
+            'firstname'    => 'u.firstname',
+            'lastname'     => 'u.lastname',
+            'email'        => 'u.email',
+            'suspended'    => 'u.suspended',
+            'lastaccess'   => 'u.lastaccess',
+            'cohorts'      => 'coh.cohorts_count',
+            'competencies' => $has_competencies ? 'comp_uc.competencies_count' : '0',
+            'courses'      => 'enr.enrolled_courses',
+            'progress'     => 'progress_sort'
         ];
 
         $sort = $params['sort'] ?? 'lastaccess';
@@ -140,10 +164,28 @@ class user_repository {
             }
         }
 
+        $comp_select = $has_competencies
+            ? "COALESCE(comp_uc.competencies_count, 0) AS competencies_count,"
+            : "0 AS competencies_count,";
+
+        $comp_join = '';
+        if ($has_competencies) {
+            $union_sql = implode("\n                        UNION\n                        ", $comp_unions);
+            $comp_join = "
+         LEFT JOIN (
+                SELECT all_comp.userid, COUNT(DISTINCT all_comp.competencyid) AS competencies_count
+                  FROM (
+                        $union_sql
+                  ) all_comp
+              GROUP BY all_comp.userid
+         ) comp_uc ON comp_uc.userid = u.id";
+        }
+
         $sql_select = "
             SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.suspended, u.lastaccess,
                    u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
                    COALESCE(coh.cohorts_count, 0) AS cohorts_count,
+                   $comp_select
                    COALESCE(enr.enrolled_courses, 0) AS enrolled_courses,
                    COALESCE(cmp.completed_courses, 0) AS completed_courses,
                    CASE 
@@ -157,6 +199,7 @@ class user_repository {
                   FROM {cohort_members}
               GROUP BY userid
          ) coh ON coh.userid = u.id
+         $comp_join
          LEFT JOIN (
                 SELECT ue.userid, COUNT(DISTINCT ue.id) AS enrolled_courses
                   FROM {user_enrolments} ue
@@ -528,6 +571,7 @@ class user_repository {
         // 2. Cursos vinculados a cada competencia
         $courses_by_comp = [];
         if (!empty($competency_ids) && $dbman->table_exists('competency_coursecomp')) {
+            $courses_progress = !empty($enrolled_courses) ? self::get_user_courses_progress_data($userid, $enrolled_courses) : [];
             list($in_csql, $in_cparams) = $DB->get_in_or_equal($competency_ids, SQL_PARAMS_NAMED, 'cid');
             $sql_cc = "
                 SELECT cc.id, cc.competencyid, c.id AS courseid, c.fullname, c.shortname
@@ -539,11 +583,14 @@ class user_repository {
             $cc_records = $DB->get_records_sql($sql_cc, $in_cparams);
             foreach ($cc_records as $cc) {
                 $cid = (int)$cc->competencyid;
+                $courseid = (int)$cc->courseid;
+                $is_enrolled = in_array($courseid, $enrolled_course_ids) ? 1 : 0;
                 $courses_by_comp[$cid][] = [
-                    'id'          => (int)$cc->courseid,
+                    'id'          => $courseid,
                     'fullname'    => (string)$cc->fullname,
                     'shortname'   => (string)$cc->shortname,
-                    'is_enrolled' => in_array((int)$cc->courseid, $enrolled_course_ids) ? 1 : 0,
+                    'is_enrolled' => $is_enrolled,
+                    'progress'    => $is_enrolled ? (int)($courses_progress[$courseid] ?? 0) : 0,
                 ];
             }
         }
@@ -588,9 +635,29 @@ class user_repository {
             }
         }
 
-        // 4. Armar resultado
+        // 4. Identificar competencias de planes ad-hoc (Plan de Competencias Personales)
+        $adhoc_comp_ids = [];
+        if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
+            $sql_adhoc = "
+                SELECT DISTINCT pc.competencyid
+                  FROM {competency_plancomp} pc
+                  JOIN {competency_plan} p ON p.id = pc.planid
+                 WHERE p.userid = :userid
+                   AND (p.templateid IS NULL OR p.templateid = 0)
+                   AND p.name = :planname
+            ";
+            $adhoc_records = $DB->get_records_sql($sql_adhoc, [
+                'userid'   => $userid,
+                'planname' => 'Plan de Competencias Personales',
+            ]);
+            $adhoc_comp_ids = array_map(function($r) {
+                return (int)$r->competencyid;
+            }, $adhoc_records);
+        }
+
+        // 5. Armar resultado
         $result = [];
-        foreach ($records as $r) {
+        foreach ($records as $key => $r) {
             $comp_id = (int)$r->competencyid;
             $usercomp_id = (int)$r->usercompid;
 
@@ -608,21 +675,39 @@ class user_repository {
 
             $evs = $usercomp_id > 0 ? ($evidences_by_usercomp[$usercomp_id] ?? []) : [];
 
+            $enrolled_in_linked_course = 0;
+            foreach ($courses_by_comp[$comp_id] ?? [] as $course) {
+                if (!empty($course['is_enrolled'])) {
+                    $enrolled_in_linked_course = 1;
+                    break;
+                }
+            }
+
+            if (in_array($comp_id, $adhoc_comp_ids)) {
+                $source = 'adhoc';
+            } else if (strpos((string)$key, 'course_') === 0) {
+                $source = 'course';
+            } else {
+                $source = 'usercomp';
+            }
+
             $result[] = [
-                'id'              => $comp_id,
-                'shortname'       => (string)$r->shortname,
-                'idnumber'        => (string)($r->idnumber ?? ''),
-                'description'     => (string)($r->description ?? ''),
-                'frameworkid'     => (int)$r->competencyframeworkid,
-                'frameworkname'   => (string)$r->frameworkname,
-                'proficiency'     => (int)$r->proficiency,
-                'status'          => (int)$r->status,
-                'statusname'      => $status_name,
-                'grade'           => $grade_val,
-                'gradename'       => $grade_name,
-                'courses'         => $courses_by_comp[$comp_id] ?? [],
-                'evidences_count' => count($evs),
-                'evidences'       => $evs,
+                'id'                        => $comp_id,
+                'shortname'                 => (string)$r->shortname,
+                'idnumber'                  => (string)($r->idnumber ?? ''),
+                'description'               => (string)($r->description ?? ''),
+                'frameworkid'               => (int)$r->competencyframeworkid,
+                'frameworkname'             => (string)$r->frameworkname,
+                'proficiency'               => (int)$r->proficiency,
+                'status'                    => (int)$r->status,
+                'statusname'                => $status_name,
+                'grade'                     => $grade_val,
+                'gradename'                 => $grade_name,
+                'courses'                   => $courses_by_comp[$comp_id] ?? [],
+                'evidences_count'           => count($evs),
+                'evidences'                 => $evs,
+                'source'                    => $source,
+                'enrolled_in_linked_course' => $enrolled_in_linked_course,
             ];
         }
 

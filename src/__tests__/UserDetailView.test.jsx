@@ -4,6 +4,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { UserDetailView } from '../views/UserDetailView';
 import { UserCoursesTab } from '../views/users/UserCoursesTab';
 import { UserCompetenciesTab } from '../views/users/UserCompetenciesTab';
+import { UserCohortsTab } from '../views/users/UserCohortsTab';
+import { UserEvidencesTab } from '../views/users/UserEvidencesTab';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -13,6 +15,8 @@ vi.mock('../services/adminer-api', () => ({
     getUserDetail: vi.fn(),
     getCourseUserDetail: vi.fn().mockResolvedValue({ activities: [] }),
     getAutologinUrl: vi.fn().mockResolvedValue({ url: 'http://localhost/moodle' }),
+    getCompetencyFrameworks: vi.fn().mockResolvedValue({ frameworks: [{ id: 1, shortname: 'FW1' }] }),
+    getAllCompetencies: vi.fn().mockResolvedValue({ competencies: [{ id: 301, shortname: 'Pensamiento Crítico', frameworkid: 1 }] }),
   },
 }));
 
@@ -82,6 +86,8 @@ const mockUserData = {
       statusname: 'Competente',
       grade: 2,
       gradename: 'Competente',
+      source: 'adhoc',
+      enrolled_in_linked_course: 1,
       courses: [
         { id: 201, fullname: 'Curso de Matemáticas', shortname: 'MAT-101', is_enrolled: 1 }
       ],
@@ -113,6 +119,8 @@ const mockUserData = {
       statusname: 'En revisión',
       grade: 1,
       gradename: 'En desarrollo',
+      source: 'adhoc',
+      enrolled_in_linked_course: 0,
       courses: [],
       evidences_count: 0,
       evidences: []
@@ -133,6 +141,7 @@ vi.mock('../hooks/useAdminerQueries', () => ({
   useUserCohortAction: () => ({ mutateAsync: vi.fn() }),
   useUserCourseAction: () => ({ mutateAsync: vi.fn() }),
   useUserAction: () => ({ mutateAsync: vi.fn() }),
+  useUserPlanAction: () => ({ mutateAsync: vi.fn() }),
 }));
 
 function renderWithProviders(ui) {
@@ -317,6 +326,70 @@ describe('Refactor Vista Detalle de Usuario', () => {
     expect(screen.getByText('No se encontraron competencias asignadas para este usuario.')).toBeDefined();
   });
 
+  it('UserCompetenciesTab abre modal de detalle al hacer click en el curso vinculado con progreso y permite navegar', () => {
+    const onNavigateToDetail = vi.fn();
+    renderWithProviders(
+      <UserCompetenciesTab
+        competencies={mockUserData.competencies}
+        userCourses={mockUserData.courses}
+        loading={false}
+        userId={10}
+        userFullname="Juan Pérez"
+        onNavigateToDetail={onNavigateToDetail}
+      />
+    );
+
+    const courseBtn = screen.getByRole('button', { name: /Ver curso Curso de Matemáticas/i });
+    expect(courseBtn).toBeDefined();
+
+    // Click en el badge del curso abre modal en lugar de navegar de inmediato
+    fireEvent.click(courseBtn);
+    expect(onNavigateToDetail).not.toHaveBeenCalled();
+
+    // El modal muestra título, nombre del curso, progreso y estado
+    expect(screen.getByText('Curso Vinculado a la Competencia')).toBeDefined();
+    expect(screen.getByText('Progreso del estudiante')).toBeDefined();
+    expect(screen.getByText('100%')).toBeDefined();
+
+    // Botón de ir al detalle del curso
+    const detailBtn = screen.getByRole('button', { name: /Ir al detalle del curso/i });
+    expect(detailBtn).toBeDefined();
+
+    fireEvent.click(detailBtn);
+    expect(onNavigateToDetail).toHaveBeenCalledWith('course_user', { courseId: 201, userId: 10 });
+  });
+
+  it('UserDetailView persiste la pestaña activa en sessionStorage al cambiar de tab y la restaura', () => {
+    mockLoading = false;
+    mockData = mockUserData;
+
+    const { unmount } = renderWithProviders(
+      <UserDetailView
+        userId={10}
+        onBack={vi.fn()}
+        onNavigateToDetail={vi.fn()}
+      />
+    );
+
+    const competenciesTabBtn = screen.getByRole('button', { name: /Competencias/i });
+    fireEvent.click(competenciesTabBtn);
+
+    expect(window.sessionStorage.getItem('user_detail_tab_10')).toBe('competencies');
+    unmount();
+
+    // Al volver a montar, debe restaurar la pestaña de Competencias
+    renderWithProviders(
+      <UserDetailView
+        userId={10}
+        onBack={vi.fn()}
+        onNavigateToDetail={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('Pensamiento Crítico')).toBeDefined();
+    window.sessionStorage.removeItem('user_detail_tab_10');
+  });
+
   it('UserDetailView muestra indicador de carga cuando isLoading es true y no hay data', () => {
     mockLoading = true;
     mockData = null;
@@ -326,5 +399,217 @@ describe('Refactor Vista Detalle de Usuario', () => {
     );
 
     expect(container.querySelector('.animate-spin')).toBeDefined();
+  });
+
+  it('UserCohortsTab tiene sortKey en la columna progreso de cursos y permite ordenar', () => {
+    const mockCohorts = [
+      { id: 1, name: 'Cohorte A', idnumber: 'COH-A' },
+      { id: 2, name: 'Cohorte B', idnumber: 'COH-B' },
+    ];
+    const mockCourses = [
+      { id: 10, fullname: 'Curso 1', enrolmethod: 'cohort', cohortid: 1, progress: 20 },
+      { id: 20, fullname: 'Curso 2', enrolmethod: 'cohort', cohortid: 2, progress: 90 },
+    ];
+
+    renderWithProviders(
+      <UserCohortsTab
+        cohorts={mockCohorts}
+        courses={mockCourses}
+        loading={false}
+        userId={10}
+        onOpenSelector={vi.fn()}
+        handleUnlinkCohort={vi.fn()}
+        handleBulkUnlinkCohorts={vi.fn()}
+      />
+    );
+
+    const progressHeader = screen.getByText('Progreso de Cursos');
+    expect(progressHeader).toBeDefined();
+
+    const headerButton = progressHeader.closest('[class*="cursor-pointer"]');
+    expect(headerButton).not.toBeNull();
+
+    expect(screen.getByText('20%')).toBeDefined();
+    expect(screen.getByText('90%')).toBeDefined();
+
+    fireEvent.click(headerButton);
+    fireEvent.click(headerButton);
+  });
+
+  it('UserDetailView renderiza header en 2 líneas y el nuevo card de Competencias con métricas nativas', () => {
+    renderWithProviders(
+      <UserDetailView userId={10} onBack={vi.fn()} onNavigateToDetail={vi.fn()} />
+    );
+
+    // Header línea 1: Nombre
+    expect(screen.getByRole('heading', { level: 1, name: 'Juan Pérez' })).toBeDefined();
+
+    // Header línea 2: Username, email y último acceso
+    expect(screen.getByText('juan.perez')).toBeDefined();
+    expect(screen.getByText('juan@example.com')).toBeDefined();
+
+    // Card de Competencias (1 completada con proficiency=1, 1 en progreso)
+    expect(screen.getAllByText('Competencias').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/vinculadas/i)).toBeNull();
+    expect(screen.getByText('1 en progreso')).toBeDefined();
+    expect(screen.getByText('1 completadas')).toBeDefined();
+
+    // Verificar que ya no existe el texto del card eliminado
+    expect(screen.queryByText('Username & Último Acceso')).toBeNull();
+  });
+
+  it('UserCompetenciesTab muestra botón Asignar Competencia y permite abrir el modal', async () => {
+    const onAssign = vi.fn();
+    renderWithProviders(
+      <UserCompetenciesTab
+        competencies={mockUserData.competencies}
+        loading={false}
+        userId={10}
+        userFullname="Juan Pérez"
+        onNavigateToDetail={vi.fn()}
+        onAssignCompetency={onAssign}
+      />
+    );
+
+    const assignBtn = screen.getByRole('button', { name: /Asignar Competencia/i });
+    expect(assignBtn).toBeDefined();
+
+    fireEvent.click(assignBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Asignar Competencia al Usuario')).toBeDefined();
+    });
+  });
+
+  it('UserDetailView integra pestaña Competencias con botón Asignar Competencia', async () => {
+    renderWithProviders(
+      <UserDetailView userId={10} onBack={vi.fn()} onNavigateToDetail={vi.fn()} />
+    );
+
+    const competenciesTabBtn = screen.getByRole('button', { name: /Competencias/i });
+    fireEvent.click(competenciesTabBtn);
+
+    const assignBtn = screen.getByRole('button', { name: /Asignar Competencia/i });
+    expect(assignBtn).toBeDefined();
+  });
+
+  it('UserDetailView integra pestaña Evidencias con contador y muestra lista cronológica', async () => {
+    mockLoading = false;
+    mockData = mockUserData;
+
+    renderWithProviders(
+      <UserDetailView userId={10} onBack={vi.fn()} onNavigateToDetail={vi.fn()} />
+    );
+
+    const evidenciasTabBtn = screen.getAllByRole('button', { name: /Evidencias/i })[0];
+    expect(evidenciasTabBtn).toBeDefined();
+    expect(evidenciasTabBtn.textContent).toContain('1');
+
+    fireEvent.click(evidenciasTabBtn);
+
+    expect(screen.getByText('Aprobó con nota sobresaliente')).toBeDefined();
+    expect(screen.getByText('Profesor Carlos')).toBeDefined();
+  });
+
+  it('UserCompetenciesTab muestra badges de origen y deshabilita eliminar si está matriculado en curso vinculado', () => {
+    const onRemove = vi.fn();
+    renderWithProviders(
+      <UserCompetenciesTab
+        competencies={mockUserData.competencies}
+        loading={false}
+        userId={10}
+        userFullname="Juan Pérez"
+        onNavigateToDetail={vi.fn()}
+        onRemoveCompetency={onRemove}
+      />
+    );
+
+    // Badges de origen (1 en el selector de filtros + 2 en las filas de la tabla)
+    expect(screen.getAllByText('Plan ad-hoc').length).toBe(3);
+
+    // Botón eliminar deshabilitado para Pensamiento Crítico (enrolled_in_linked_course = 1)
+    const disabledBtn = screen.getByTitle('No se puede eliminar: el usuario está matriculado en al menos un curso vinculado a esta competencia.');
+    expect(disabledBtn).toBeDefined();
+    expect(disabledBtn.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(disabledBtn);
+    expect(onRemove).not.toHaveBeenCalled();
+  });
+
+  it('UserCompetenciesTab permite eliminar competencia ad-hoc cuando no está matriculado en cursos vinculados', async () => {
+    const onRemove = vi.fn().mockResolvedValue();
+    renderWithProviders(
+      <UserCompetenciesTab
+        competencies={mockUserData.competencies}
+        loading={false}
+        userId={10}
+        userFullname="Juan Pérez"
+        onNavigateToDetail={vi.fn()}
+        onRemoveCompetency={onRemove}
+      />
+    );
+
+    const enabledDeleteBtn = screen.getByTitle('Eliminar competencia');
+    expect(enabledDeleteBtn).toBeDefined();
+    expect(enabledDeleteBtn.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.click(enabledDeleteBtn);
+
+    // ConfirmDialog se abre
+    expect(screen.getByText('¿Estás seguro de que deseas eliminar la competencia "Comunicación Asertiva" del plan personal de este usuario?')).toBeDefined();
+
+    const confirmBtn = screen.getByRole('button', { name: 'Eliminar' });
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(onRemove).toHaveBeenCalledWith(302);
+    });
+  });
+
+  it('UserEvidencesTab renderiza timeline y maneja estado vacío correctamente', () => {
+    const { unmount } = renderWithProviders(
+      <UserEvidencesTab
+        competencies={mockUserData.competencies}
+        userFullname="Juan Pérez"
+      />
+    );
+
+    expect(screen.getAllByText('Evidencia manual').length).toBeGreaterThan(0);
+    expect(screen.getByText('Aprobó con nota sobresaliente')).toBeDefined();
+    unmount();
+
+    renderWithProviders(
+      <UserEvidencesTab
+        competencies={[]}
+        userFullname="Juan Pérez"
+      />
+    );
+
+    expect(screen.getByText('Sin evidencias registradas')).toBeDefined();
+  });
+
+  it('UserCompetenciesTab renderiza columna propia de Origen con sortKey y permite ordenar', () => {
+    renderWithProviders(
+      <UserCompetenciesTab
+        competencies={mockUserData.competencies}
+        loading={false}
+        userId={10}
+        userFullname="Juan Pérez"
+        onNavigateToDetail={vi.fn()}
+      />
+    );
+
+    // Header de columna Origen
+    const originHeaders = screen.getAllByText('Origen');
+    expect(originHeaders.length).toBeGreaterThan(0);
+
+    // Click en el header para ordenar por Origen
+    const originHeader = originHeaders.find(el => el.closest('th'));
+    expect(originHeader).toBeDefined();
+
+    const sortButton = originHeader.closest('button') || originHeader.closest('[class*="cursor-pointer"]');
+    if (sortButton) {
+      fireEvent.click(sortButton);
+    }
   });
 });

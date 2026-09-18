@@ -226,6 +226,12 @@ export const AdminerApi = {
     });
   },
 
+  async getAllCompetencies({ frameworkid = 0 } = {}) {
+    return await MoodleApi.call('tool_management_console_get_all_competencies', {
+      frameworkid
+    });
+  },
+
   async competencyFrameworkAction({ action, frameworkid = 0, shortname = '', idnumber = '', description = '', scaleid = 0, visible = 1 }) {
     return await MoodleApi.call('tool_management_console_competency_framework_action', {
       action,
@@ -319,6 +325,20 @@ export const AdminerApi = {
       sort,
       dir
     });
+  },
+
+  async userPlanAction({ action, userid, competencyid, userids = [] }) {
+    const params = {
+      action,
+      competencyid,
+    };
+    if (userid !== undefined) {
+      params.userid = userid;
+    }
+    if (userids && userids.length > 0) {
+      params.userids = userids;
+    }
+    return await MoodleApi.call('tool_management_console_user_plan_action', params);
   },
 
   // 8. Learning Paths

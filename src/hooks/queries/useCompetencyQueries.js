@@ -33,6 +33,14 @@ export const useCompetencyFrameworks = createListQuery('competency_frameworks', 
   AdminerApi.getCompetencyFrameworks(params)
 );
 
+export function useAllCompetencies(frameworkid = 0) {
+  return useQuery({
+    queryKey: ['all_competencies', frameworkid],
+    queryFn: () => AdminerApi.getAllCompetencies({ frameworkid }),
+    staleTime: 30 * 1000,
+  });
+}
+
 export function useCompetencyFrameworkDetail(frameworkId, search = '') {
   return useQuery({
     queryKey: ['competency_framework', frameworkId, search],
@@ -120,6 +128,7 @@ export function useModuleCompetencyAction() {
         queryClient.invalidateQueries({ queryKey: ['competency_courses', variables.competencyid] });
       }
       queryClient.invalidateQueries({ queryKey: ['course_available_activities'] });
+      queryClient.invalidateQueries({ queryKey: ['course'] });
     },
   });
 }

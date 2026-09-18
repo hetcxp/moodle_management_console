@@ -657,4 +657,54 @@ class competency_frameworks extends external_api {
             'affectedcount' => new external_value(PARAM_INT, 'Number of records affected'),
         ]);
     }
+
+    // ==========================================
+    // 16. GET ALL COMPETENCIES (FLAT BULK)
+    // ==========================================
+    public static function get_all_competencies_parameters() {
+        return new external_function_parameters([
+            'frameworkid' => new external_value(PARAM_INT, 'Optional framework ID filter, 0 for all', VALUE_DEFAULT, 0),
+        ]);
+    }
+
+    public static function get_all_competencies($frameworkid = 0) {
+        $context = context_system::instance();
+        self::validate_context($context);
+        self::check_view_capability($context);
+
+        $params = self::validate_parameters(self::get_all_competencies_parameters(), [
+            'frameworkid' => $frameworkid,
+        ]);
+
+        $competencies = competency_framework_repository::get_all_competencies_flat();
+
+        if (!empty($params['frameworkid'])) {
+            $competencies = array_values(array_filter($competencies, function($c) use ($params) {
+                return (int)$c['frameworkid'] === (int)$params['frameworkid'];
+            }));
+        }
+
+        return [
+            'competencies' => $competencies,
+            'total'        => count($competencies),
+        ];
+    }
+
+    public static function get_all_competencies_returns() {
+        return new external_single_structure([
+            'competencies' => new external_multiple_structure(
+                new external_single_structure([
+                    'id'                => new external_value(PARAM_INT, 'Competency ID'),
+                    'shortname'         => new external_value(PARAM_TEXT, 'Competency short name'),
+                    'idnumber'          => new external_value(PARAM_RAW, 'Competency ID number'),
+                    'description'       => new external_value(PARAM_RAW, 'Competency description'),
+                    'descriptionformat' => new external_value(PARAM_INT, 'Description format'),
+                    'frameworkid'       => new external_value(PARAM_INT, 'Framework ID'),
+                    'frameworkname'     => new external_value(PARAM_TEXT, 'Framework short name'),
+                    'frameworkidnumber' => new external_value(PARAM_RAW, 'Framework ID number'),
+                ])
+            ),
+            'total' => new external_value(PARAM_INT, 'Total competencies count'),
+        ]);
+    }
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Layers, Trash2 } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
@@ -18,11 +18,56 @@ export const UserCohortsTab = ({
 }) => {
   const { selectedIds: selectedCohortIds, setSelectedIds: setSelectedCohortIds, clearSelection: clearSelectedCohortIds } = useBulkSelection();
   const [selectedCohortModal, setSelectedCohortModal] = useState(null);
+  const [sortKey, setSortKey] = useState('name');
+  const [sortDir, setSortDir] = useState('ASC');
 
   const handleBulkSubmit = (ids) => {
     handleBulkUnlinkCohorts(ids);
     clearSelectedCohortIds();
   };
+
+  const enrichedCohorts = useMemo(() => {
+    if (!cohorts) return [];
+    return cohorts.map((row) => {
+      const cohortCourses = (courses || []).filter((c) => {
+        if (c.enrolmethod !== 'cohort') return false;
+        if (c.cohortid) return String(c.cohortid) === String(row.id);
+        if (c.cohortids) return String(c.cohortids).split(',').includes(String(row.id));
+        return true; // Fallback
+      });
+
+      const totalProgress = cohortCourses.length > 0
+        ? Math.round(cohortCourses.reduce((acc, c) => acc + (c.progress || 0), 0) / cohortCourses.length)
+        : 0;
+
+      return {
+        ...row,
+        progress: totalProgress,
+        cohortCoursesCount: cohortCourses.length,
+      };
+    });
+  }, [cohorts, courses]);
+
+  const sortedCohorts = useMemo(() => {
+    if (!sortKey) return enrichedCohorts;
+    return [...enrichedCohorts].sort((a, b) => {
+      let aVal = a[sortKey];
+      let bVal = b[sortKey];
+
+      if (aVal == null) aVal = '';
+      if (bVal == null) bVal = '';
+
+      if (aVal === bVal) return 0;
+
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        return sortDir === 'ASC' ? aVal - bVal : bVal - aVal;
+      }
+
+      const aStr = String(aVal);
+      const bStr = String(bVal);
+      return sortDir === 'ASC' ? aStr.localeCompare(bStr) : bStr.localeCompare(aStr);
+    });
+  }, [enrichedCohorts, sortKey, sortDir]);
 
   const cohortsCols = [
     {
@@ -43,22 +88,21 @@ export const UserCohortsTab = ({
     },
     {
       header: 'Progreso de Cursos',
+      sortKey: 'progress',
       cell: (row) => {
-        const cohortCourses = courses.filter(c => {
+        const cohortCoursesCount = row.cohortCoursesCount ?? (courses || []).filter(c => {
           if (c.enrolmethod !== 'cohort') return false;
           if (c.cohortid) return String(c.cohortid) === String(row.id);
           if (c.cohortids) return String(c.cohortids).split(',').includes(String(row.id));
           return true; // Fallback
-        });
-        
-        const totalProgress = cohortCourses.length > 0 
-          ? Math.round(cohortCourses.reduce((acc, c) => acc + (c.progress || 0), 0) / cohortCourses.length) 
-          : 0;
+        }).length;
+
+        const totalProgress = row.progress !== undefined ? row.progress : 0;
 
         return (
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between text-[11px] mb-1 max-w-[120px]">
-              <span className="text-muted-foreground">{cohortCourses.length} curso(s)</span>
+              <span className="text-muted-foreground">{cohortCoursesCount} curso(s)</span>
               <span className="font-semibold">{totalProgress}%</span>
             </div>
             <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden max-w-[120px]">
@@ -100,9 +144,15 @@ export const UserCohortsTab = ({
       </div>
       <DataTable
         columns={cohortsCols}
-        data={cohorts}
+        data={sortedCohorts}
         loading={loading}
-        totalCount={cohorts.length}
+        totalCount={sortedCohorts.length}
+        sort={sortKey}
+        dir={sortDir}
+        onSortChange={(newSort, newDir) => {
+          setSortKey(newSort);
+          setSortDir(newDir);
+        }}
         selectable={true}
         selectedIds={selectedCohortIds}
         onSelectionChange={setSelectedCohortIds}

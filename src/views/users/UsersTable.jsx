@@ -7,7 +7,7 @@ import { PermissionGate } from '../../components/PermissionGate';
 import { AdminerApi } from '../../services/adminer-api';
 import { API_CONFIG } from '../../config/api';
 import { formatDate } from '../../lib/utils';
-import { ExternalLink, UserCheck, UserX, KeyRound, Trash2, Mail, Layers } from 'lucide-react';
+import { ExternalLink, UserCheck, UserX, KeyRound, Trash2, Mail, Layers, Award } from 'lucide-react';
 
 export function UsersTable({
   users, loading, totalCount, page, perPage,
@@ -58,6 +58,15 @@ export function UsersTable({
       cell: (row) => (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
           <Layers className="h-3.5 w-3.5" /><span>{row.cohorts_count}</span>
+        </div>
+      )
+    },
+    {
+      header: 'Competencias',
+      sortKey: 'competencies',
+      cell: (row) => (
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
+          <Award className="h-3.5 w-3.5" /><span>{row.competencies_count ?? 0}</span>
         </div>
       )
     },

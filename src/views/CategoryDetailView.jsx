@@ -9,7 +9,8 @@ import { Dialog } from '../components/ui/Dialog';
 import { Select } from '../components/ui/Select';
 import { useToast } from '../components/ui/Toast';
 import { useAuth } from '../context/AuthContext';
-import { ChevronLeft, ChevronRight, FolderTree, CheckCircle, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FolderTree } from 'lucide-react';
+import { CategoryDetailKpis } from './categories/CategoryDetailKpis';
 import { CategoryCoursesTab } from './categories/CategoryCoursesTab';
 import { CategorySubcatsTab } from './categories/CategorySubcatsTab';
 import { navigateToDetail } from '../lib/navigation';
@@ -119,10 +120,8 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
 
   if (!data) return null;
 
-  // KPIs calculations
+  // Tab counters
   const totalCourses = data.courses?.length || 0;
-  const visibleCourses = data.courses?.filter(c => c.visible === 1).length || 0;
-  const hiddenCourses = data.courses?.filter(c => c.visible === 0).length || 0;
   const totalSubcats = data.subcategories?.length || 0;
 
   const handleToggleCategoryVisibility = async (id, isVisible) => {
@@ -164,24 +163,10 @@ export const CategoryDetailView = ({ categoryId, onBack, onNavigateToDetail, par
             </div>
           </div>
         </div>
-        
-        {/* KPI Cards */}
-        <div className="flex gap-4">
-           <div className="bg-card border border-border/80 rounded-xl p-4 flex flex-col items-center min-w-[120px] shadow-sm">
-             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Cursos</span>
-             <span className="text-2xl font-black text-foreground">{totalCourses}</span>
-             <div className="flex gap-2 text-[10px] mt-1 font-medium">
-                <span className="text-emerald-600 flex items-center gap-0.5"><CheckCircle className="h-3 w-3"/> {visibleCourses}</span>
-                <span className="text-amber-600 flex items-center gap-0.5"><EyeOff className="h-3 w-3"/> {hiddenCourses}</span>
-             </div>
-           </div>
-           <div className="bg-card border border-border/80 rounded-xl p-4 flex flex-col items-center min-w-[120px] shadow-sm">
-             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Subcategorías</span>
-             <span className="text-2xl font-black text-foreground">{totalSubcats}</span>
-             <span className="text-[10px] mt-1 text-muted-foreground font-medium">Anidadas</span>
-           </div>
-        </div>
       </div>
+
+      {/* KPIs Grid */}
+      <CategoryDetailKpis courses={data.courses || []} subcategories={data.subcategories || []} />
 
       {/* Tabs */}
       <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50">
