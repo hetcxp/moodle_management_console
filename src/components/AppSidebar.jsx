@@ -1,11 +1,13 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, Sparkles, DownloadCloud } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, SlidersHorizontal, DownloadCloud } from 'lucide-react';
 import { Link } from 'wouter';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { getTenantConfig } from '../config/tenant';
 
 export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose }) => {
   const { permissions } = useAuth();
+  const tenant = getTenantConfig();
 
   const navigationItems = [
     {
@@ -81,15 +83,23 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
         )}
       >
         {/* Brand Header */}
-        <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-primary/70 text-primary-foreground shadow-md">
-            <Sparkles className="h-5 w-5" />
+        <Link
+          href="/"
+          className="flex h-16 items-center gap-3 border-b border-sidebar-border px-6 hover:bg-sidebar-accent/10 transition-colors"
+          title={`${tenant.name || 'Moodle Console'} — ${tenant.subtitle || 'Management Studio'}`}
+        >
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-primary/70 text-primary-foreground shadow-md">
+            <SlidersHorizontal className="h-5 w-5" aria-hidden="true" />
           </div>
-          <div>
-            <span className="font-extrabold text-base tracking-tight text-sidebar-foreground">Moodle Adminer</span>
-            <span className="block text-[10px] uppercase font-bold tracking-widest text-sidebar-primary">Headless Studio</span>
+          <div className="min-w-0">
+            <span className="font-extrabold text-base tracking-tight text-sidebar-foreground block truncate">
+              {tenant.name || 'Moodle Console'}
+            </span>
+            <span className="block text-[10px] uppercase font-bold tracking-widest text-sidebar-primary truncate">
+              {tenant.subtitle || 'Management Studio'}
+            </span>
           </div>
-        </div>
+        </Link>
 
         {/* Navigation list */}
         <nav aria-label="Navegación principal" className="flex-1 space-y-1.5 p-4 overflow-y-auto">

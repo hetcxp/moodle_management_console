@@ -1,16 +1,60 @@
 import React from 'react';
+import { useLocation } from 'wouter';
 import { useAuth } from '../context/AuthContext';
-import { getTenantConfig } from '../config/tenant';
 import { AuthService } from '../services/auth';
 import { LogOut, User, ShieldCheck, HelpCircle } from 'lucide-react';
 import { Button } from './ui/Button';
 import { ThemeSelector } from './ThemeSelector';
 import { useHelp } from '../context/HelpContext';
 
+function resolveHeaderContext(pathname) {
+  if (!pathname || pathname === '/' || pathname === '/dashboard') {
+    return { section: 'Consola', title: 'Panel Principal' };
+  }
+  if (pathname.startsWith('/courses')) {
+    if (pathname.includes('/users/')) return { section: 'Cursos', title: 'Progreso de Usuario' };
+    if (pathname !== '/courses') return { section: 'Cursos', title: 'Detalle de Curso' };
+    return { section: 'Catálogo Curricular', title: 'Gestión de Cursos' };
+  }
+  if (pathname.startsWith('/categories')) {
+    if (pathname !== '/categories') return { section: 'Categorías', title: 'Detalle de Categoría' };
+    return { section: 'Catálogo Curricular', title: 'Gestión de Categorías' };
+  }
+  if (pathname.startsWith('/users')) {
+    if (pathname !== '/users') return { section: 'Directorio', title: 'Detalle de Usuario' };
+    return { section: 'Directorio', title: 'Gestión de Usuarios' };
+  }
+  if (pathname.startsWith('/cohorts')) {
+    if (pathname !== '/cohorts') return { section: 'Directorio', title: 'Detalle de Cohorte' };
+    return { section: 'Directorio', title: 'Gestión de Cohortes' };
+  }
+  if (pathname.startsWith('/learning-paths')) {
+    if (pathname !== '/learning-paths') return { section: 'Rutas Formativas', title: 'Detalle de Ruta' };
+    return { section: 'Rutas Formativas', title: 'Rutas de Aprendizaje' };
+  }
+  if (pathname.startsWith('/competencies')) {
+    if (pathname.startsWith('/competencies/scales')) return { section: 'Competencias', title: 'Escalas de Calificación' };
+    if (pathname.startsWith('/competencies/rubrics')) {
+      if (pathname.endsWith('/new')) return { section: 'Rúbricas', title: 'Nueva Rúbrica' };
+      if (pathname.endsWith('/edit')) return { section: 'Rúbricas', title: 'Editor de Rúbrica' };
+      if (pathname !== '/competencies/rubrics') return { section: 'Rúbricas', title: 'Detalle de Rúbrica' };
+      return { section: 'Competencias', title: 'Plantillas de Rúbricas' };
+    }
+    if (pathname.includes('/detail/')) return { section: 'Competencias', title: 'Detalle de Competencia' };
+    if (pathname !== '/competencies') return { section: 'Competencias', title: 'Marco de Competencias' };
+    return { section: 'Competencias', title: 'Marcos y Competencias' };
+  }
+  if (pathname.startsWith('/reports')) {
+    return { section: 'Analítica', title: 'Reportes y Auditoría' };
+  }
+  return { section: 'Consola', title: 'Panel de Control' };
+}
+
 export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectTheme }) => {
   const { user, logout, permissions } = useAuth();
-  const tenant = getTenantConfig();
   const { isOpen, toggle } = useHelp();
+  const [location] = useLocation();
+  const context = resolveHeaderContext(location);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-border/80 bg-background/80 px-6 backdrop-blur-md transition-colors">
@@ -27,13 +71,13 @@ export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectThe
           </svg>
         </button>
 
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-wider text-primary">
-            {tenant.name}
-          </div>
-          <div className="text-sm font-bold text-foreground">
-            {tenant.subtitle}
-          </div>
+        <div className="flex flex-col">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/80 leading-none">
+            {context.section}
+          </span>
+          <span className="text-sm font-bold text-foreground leading-tight mt-0.5">
+            {context.title}
+          </span>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 export const TENANTS = {
   default: {
-    name: 'Moodle Management Console',
+    name: 'Moodle Console',
     subtitle: 'Management Studio',
     moodleUrl: import.meta.env.VITE_MOODLE_URL || '/moodle',
     serviceName: import.meta.env.VITE_SERVICE_NAME || 'management_console_service',
