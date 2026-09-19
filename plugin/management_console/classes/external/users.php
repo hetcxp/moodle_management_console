@@ -33,6 +33,7 @@ use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
 use tool_management_console\repository\user_repository;
+use tool_management_console\repository\course_enrolment_repository;
 
 /**
  * Users external service class.
@@ -793,7 +794,6 @@ class users extends external_api {
      * @throws \required_capability_exception
      */
     public static function user_course_action($action, $userid, $courseids, $timestart = 0, $timeend = 0) {
-        global $DB;
         $context = context_system::instance();
         self::validate_context($context);
         
@@ -801,53 +801,16 @@ class users extends external_api {
             'action' => $action, 'userid' => $userid, 'courseids' => $courseids,
             'timestart' => $timestart, 'timeend' => $timeend
         ]);
-        
-        $enrol = enrol_get_plugin('manual');
-        if (!$enrol) {
-            return ['success' => false, 'message' => 'Manual enrolment plugin is disabled'];
-        }
-        
-        $affected = 0;
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            foreach ($params['courseids'] as $cid) {
-                $coursecontext = \context_course::instance($cid);
-                require_capability('enrol/manual:enrol', $coursecontext);
-                
-                $instances = enrol_get_instances($cid, true);
-                $manualinstance = null;
-                foreach ($instances as $instance) {
-                    if ($instance->enrol === 'manual') {
-                        $manualinstance = $instance;
-                        break;
-                    }
-                }
-                if ($manualinstance) {
-                    if ($params['action'] === 'add') {
-                        $roleid = user_repository::get_role_id_by_shortname('student');
-                        $enrol->enrol_user($manualinstance, $params['userid'], $roleid);
-                        $affected++;
-                    } else if ($params['action'] === 'remove') {
-                        $enrol->unenrol_user($manualinstance, $params['userid']);
-                        $affected++;
-                    } else if ($params['action'] === 'suspend') {
-                        $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_SUSPENDED);
-                        $affected++;
-                    } else if ($params['action'] === 'activate') {
-                        $enrol->update_user_enrol($manualinstance, $params['userid'], ENROL_USER_ACTIVE);
-                        $affected++;
-                    } else if ($params['action'] === 'update_dates') {
-                        $enrol->update_user_enrol($manualinstance, $params['userid'], NULL, $params['timestart'], $params['timeend']);
-                        $affected++;
-                    }
-                }
-            }
-            $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
-        }
-        return ['success' => true, 'message' => "Successfully processed $affected enrolments"];
+
+        return course_enrolment_repository::batch_user_course_enrolment(
+            $params['action'],
+            $params['userid'],
+            $params['courseids'],
+            [
+                'timestart' => $params['timestart'],
+                'timeend' => $params['timeend'],
+            ]
+        );
     }
 
     public static function user_course_action_returns() {

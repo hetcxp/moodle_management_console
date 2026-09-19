@@ -260,40 +260,66 @@ function useCompetencyColumns({
 
 export function CompetenciesTree({
   competencies,
-  loading,
-  totalCount,
-  page,
-  perPage,
-  sort,
-  dir,
-  onPageChange,
-  onSortChange,
-  onOpenCompetencyDetail,
-  onOpenCreateSubcomp,
-  onOpenReviewsForCompetency,
-  onOpenEdit,
-  onOpenDelete,
+  state,
+  actions,
+  ...legacyProps
 }) {
-  const columns = useCompetencyColumns({
-    onOpenCompetencyDetail,
-    onOpenCreateSubcomp,
-    onOpenReviewsForCompetency,
-    onOpenEdit,
-    onOpenDelete,
-  });
+  const resolvedState = useMemo(
+    () => ({
+      loading: state?.loading ?? legacyProps.loading,
+      totalCount: state?.totalCount ?? legacyProps.totalCount,
+      page: state?.page ?? legacyProps.page,
+      perPage: state?.perPage ?? legacyProps.perPage,
+      sort: state?.sort ?? legacyProps.sort,
+      dir: state?.dir ?? legacyProps.dir,
+      onPageChange: state?.onPageChange ?? state?.setPage ?? legacyProps.onPageChange,
+      onSortChange: state?.onSortChange ?? legacyProps.onSortChange,
+    }),
+    [
+      state,
+      legacyProps.loading,
+      legacyProps.totalCount,
+      legacyProps.page,
+      legacyProps.perPage,
+      legacyProps.sort,
+      legacyProps.dir,
+      legacyProps.onPageChange,
+      legacyProps.onSortChange,
+    ]
+  );
+
+  const resolvedActions = useMemo(
+    () => ({
+      onOpenCompetencyDetail: actions?.onOpenDetail || legacyProps.onOpenCompetencyDetail,
+      onOpenCreateSubcomp: actions?.onCreateSubcomp || legacyProps.onOpenCreateSubcomp,
+      onOpenReviewsForCompetency: actions?.onReviews || legacyProps.onOpenReviewsForCompetency,
+      onOpenEdit: actions?.onEdit || legacyProps.onOpenEdit,
+      onOpenDelete: actions?.onDelete || legacyProps.onOpenDelete,
+    }),
+    [
+      actions,
+      legacyProps.onOpenCompetencyDetail,
+      legacyProps.onOpenCreateSubcomp,
+      legacyProps.onOpenReviewsForCompetency,
+      legacyProps.onOpenEdit,
+      legacyProps.onOpenDelete,
+    ]
+  );
+
+  const columns = useCompetencyColumns(resolvedActions);
 
   return (
     <DataTable
       columns={columns}
-      data={competencies}
-      loading={loading}
-      totalCount={totalCount}
-      page={page}
-      perPage={perPage}
-      onPageChange={onPageChange}
-      sort={sort}
-      dir={dir}
-      onSortChange={onSortChange}
+      data={competencies || state?.competencies}
+      loading={resolvedState.loading}
+      totalCount={resolvedState.totalCount}
+      page={resolvedState.page}
+      perPage={resolvedState.perPage}
+      onPageChange={resolvedState.onPageChange}
+      sort={resolvedState.sort}
+      dir={resolvedState.dir}
+      onSortChange={resolvedState.onSortChange}
       selectable={false}
     />
   );

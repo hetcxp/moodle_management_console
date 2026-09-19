@@ -775,8 +775,6 @@ class courses extends external_api {
      * @throws \required_capability_exception
      */
     public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
-        global $DB, $CFG;
-        require_once($CFG->dirroot.'/group/lib.php');
         $context = context_system::instance();
         self::validate_context($context);
         
@@ -785,95 +783,17 @@ class courses extends external_api {
             'timeend' => $timeend, 'groupid' => $groupid, 'newgroupname' => $newgroupname, 'message_text' => $message_text
         ]);
 
-        $coursecontext = \context_course::instance($params['courseid']);
-        require_capability('enrol/manual:enrol', $coursecontext);
-        
-        $enrol = enrol_get_plugin('manual');
-        if (!$enrol) {
-            return ['success' => false, 'message' => 'Manual enrolment plugin disabled'];
-        }
-        
-        $instances = enrol_get_instances($params['courseid'], true);
-        $manualinstance = null;
-        foreach ($instances as $instance) {
-            if ($instance->enrol === 'manual') {
-                $manualinstance = $instance;
-                break;
-            }
-        }
-        
-        if (!$manualinstance && in_array($params['action'], ['add', 'remove', 'suspend', 'activate', 'set_expiration'])) {
-             return ['success' => false, 'message' => 'No manual enrolment instance found for course'];
-        }
-        
-        $affected = 0;
-        $roleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
-
-        $targetgroupid = $params['groupid'];
-
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            if ($params['action'] === 'setgroup' && $targetgroupid === 0 && !empty($params['newgroupname'])) {
-                $newgroup = new \stdClass();
-                $newgroup->courseid = $params['courseid'];
-                $newgroup->name = $params['newgroupname'];
-                $targetgroupid = groups_create_group($newgroup);
-            }
-            
-            foreach ($params['userids'] as $uid) {
-                if ($params['action'] === 'add') {
-                    $enrol->enrol_user($manualinstance, $uid, $roleid);
-                    $affected++;
-                } else if ($params['action'] === 'remove') {
-                    $enrol->unenrol_user($manualinstance, $uid);
-                    $affected++;
-                } else if ($params['action'] === 'suspend') {
-                    $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_SUSPENDED);
-                    $affected++;
-                } else if ($params['action'] === 'activate') {
-                    $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_ACTIVE);
-                    $affected++;
-                } else if ($params['action'] === 'set_expiration') {
-                    $enrol->update_user_enrol($manualinstance, $uid, NULL, NULL, $params['timeend']);
-                    $affected++;
-                } else if ($params['action'] === 'setgroup') {
-                    if ($targetgroupid > 0) {
-                        if (groups_add_member($targetgroupid, $uid)) {
-                            $affected++;
-                        }
-                    }
-                } else if ($params['action'] === 'message') {
-                    global $USER;
-                    $recipient = $DB->get_record('user', ['id' => $uid]);
-                    if ($recipient && !empty($params['message_text'])) {
-                        $message = new \core\message\message();
-                        $message->courseid          = $params['courseid'];
-                        $message->component         = 'moodle';
-                        $message->name              = 'instantmessage';
-                        $message->userfrom          = $USER;
-                        $message->userto            = $recipient;
-                        $clean_msg = clean_text(substr($params['message_text'], 0, 65535), FORMAT_HTML);
-                        $message->subject           = 'Mensaje';
-                        $message->fullmessage       = $clean_msg;
-                        $message->fullmessageformat = FORMAT_HTML;
-                        $message->fullmessagehtml   = $clean_msg;
-                        $message->smallmessage      = strip_tags($clean_msg);
-                        message_send($message);
-                        $affected++;
-                    }
-                }
-            }
-            $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
-        }
-
-        return [
-            'success'       => true,
-            'message'       => "Successfully processed $affected enrolments",
-            'affectedcount' => $affected
-        ];
+        return course_enrolment_repository::batch_course_user_enrolment(
+            $params['action'],
+            $params['courseid'],
+            $params['userids'],
+            [
+                'timeend' => $params['timeend'],
+                'groupid' => $params['groupid'],
+                'newgroupname' => $params['newgroupname'],
+                'message_text' => $params['message_text'],
+            ]
+        );
     }
 
     public static function course_user_action_returns() {

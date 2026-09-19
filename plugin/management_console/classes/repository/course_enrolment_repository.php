@@ -184,4 +184,174 @@ class course_enrolment_repository {
         }
         return [$firstaccess, $lastaccess];
     }
+
+    /**
+     * Executes batch manual enrolments for one user across multiple courses.
+     *
+     * @param string $action
+     * @param int $userid
+     * @param array $courseids
+     * @param array $options
+     * @return array
+     */
+    public static function batch_user_course_enrolment(string $action, int $userid, array $courseids, array $options = []): array {
+        global $DB;
+        $enrol = enrol_get_plugin('manual');
+        if (!$enrol) {
+            return ['success' => false, 'message' => 'Manual enrolment plugin is disabled'];
+        }
+
+        $timestart = $options['timestart'] ?? 0;
+        $timeend = $options['timeend'] ?? 0;
+        $affected = 0;
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            foreach ($courseids as $cid) {
+                $coursecontext = \context_course::instance($cid);
+                require_capability('enrol/manual:enrol', $coursecontext);
+
+                $instances = enrol_get_instances($cid, true);
+                $manualinstance = null;
+                foreach ($instances as $instance) {
+                    if ($instance->enrol === 'manual') {
+                        $manualinstance = $instance;
+                        break;
+                    }
+                }
+                if ($manualinstance) {
+                    if ($action === 'add') {
+                        $roleid = user_repository::get_role_id_by_shortname('student');
+                        $enrol->enrol_user($manualinstance, $userid, $roleid);
+                        $affected++;
+                    } else if ($action === 'remove') {
+                        $enrol->unenrol_user($manualinstance, $userid);
+                        $affected++;
+                    } else if ($action === 'suspend') {
+                        $enrol->update_user_enrol($manualinstance, $userid, ENROL_USER_SUSPENDED);
+                        $affected++;
+                    } else if ($action === 'activate') {
+                        $enrol->update_user_enrol($manualinstance, $userid, ENROL_USER_ACTIVE);
+                        $affected++;
+                    } else if ($action === 'update_dates') {
+                        $enrol->update_user_enrol($manualinstance, $userid, NULL, $timestart, $timeend);
+                        $affected++;
+                    }
+                }
+            }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
+        }
+        return ['success' => true, 'message' => "Successfully processed $affected enrolments"];
+    }
+
+    /**
+     * Executes batch manual enrolments for multiple users in a single course.
+     *
+     * @param string $action
+     * @param int $courseid
+     * @param array $userids
+     * @param array $options
+     * @return array
+     */
+    public static function batch_course_user_enrolment(string $action, int $courseid, array $userids, array $options = []): array {
+        global $DB, $CFG;
+        $coursecontext = \context_course::instance($courseid);
+        require_capability('enrol/manual:enrol', $coursecontext);
+
+        $enrol = enrol_get_plugin('manual');
+        if (!$enrol) {
+            return ['success' => false, 'message' => 'Manual enrolment plugin disabled'];
+        }
+
+        $instances = enrol_get_instances($courseid, true);
+        $manualinstance = null;
+        foreach ($instances as $instance) {
+            if ($instance->enrol === 'manual') {
+                $manualinstance = $instance;
+                break;
+            }
+        }
+
+        if (!$manualinstance && in_array($action, ['add', 'remove', 'suspend', 'activate', 'set_expiration'])) {
+            return ['success' => false, 'message' => 'No manual enrolment instance found for course'];
+        }
+
+        $timeend = $options['timeend'] ?? 0;
+        $groupid = $options['groupid'] ?? 0;
+        $newgroupname = $options['newgroupname'] ?? '';
+        $message_text = $options['message_text'] ?? '';
+        $affected = 0;
+        $roleid = $DB->get_field('role', 'id', ['shortname' => 'student']);
+
+        $targetgroupid = $groupid;
+
+        $transaction = $DB->start_delegated_transaction();
+        try {
+            if ($action === 'setgroup' && $targetgroupid === 0 && !empty($newgroupname)) {
+                require_once($CFG->dirroot . '/group/lib.php');
+                $newgroup = new \stdClass();
+                $newgroup->courseid = $courseid;
+                $newgroup->name = $newgroupname;
+                $targetgroupid = groups_create_group($newgroup);
+            }
+
+            foreach ($userids as $uid) {
+                if ($action === 'add') {
+                    $enrol->enrol_user($manualinstance, $uid, $roleid);
+                    $affected++;
+                } else if ($action === 'remove') {
+                    $enrol->unenrol_user($manualinstance, $uid);
+                    $affected++;
+                } else if ($action === 'suspend') {
+                    $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_SUSPENDED);
+                    $affected++;
+                } else if ($action === 'activate') {
+                    $enrol->update_user_enrol($manualinstance, $uid, ENROL_USER_ACTIVE);
+                    $affected++;
+                } else if ($action === 'set_expiration') {
+                    $enrol->update_user_enrol($manualinstance, $uid, NULL, NULL, $timeend);
+                    $affected++;
+                } else if ($action === 'setgroup') {
+                    require_once($CFG->dirroot . '/group/lib.php');
+                    if ($targetgroupid > 0) {
+                        if (groups_add_member($targetgroupid, $uid)) {
+                            $affected++;
+                        }
+                    }
+                } else if ($action === 'message') {
+                    global $USER;
+                    $recipient = $DB->get_record('user', ['id' => $uid]);
+                    if ($recipient && !empty($message_text)) {
+                        $message = new \core\message\message();
+                        $message->courseid          = $courseid;
+                        $message->component         = 'moodle';
+                        $message->name              = 'instantmessage';
+                        $message->userfrom          = $USER;
+                        $message->userto            = $recipient;
+                        $clean_msg = clean_text(substr($message_text, 0, 65535), FORMAT_HTML);
+                        $message->subject           = 'Mensaje';
+                        $message->fullmessage       = $clean_msg;
+                        $message->fullmessageformat = FORMAT_HTML;
+                        $message->fullmessagehtml   = $clean_msg;
+                        $message->smallmessage      = strip_tags($clean_msg);
+                        message_send($message);
+                        $affected++;
+                    }
+                }
+            }
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
+        }
+
+        return [
+            'success'       => true,
+            'message'       => "Successfully processed $affected enrolments",
+            'affectedcount' => $affected,
+        ];
+    }
 }
+

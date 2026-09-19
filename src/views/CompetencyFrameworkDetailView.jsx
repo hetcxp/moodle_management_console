@@ -45,24 +45,21 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
       />
 
       <CompetenciesTree
-        competencies={state.competencies}
-        loading={state.loading}
-        totalCount={state.totalCount}
-        page={state.page}
-        perPage={state.perPage}
-        sort={state.sort}
-        dir={state.dir}
-        onPageChange={state.setPage}
-        onSortChange={(newSort, newDir) => {
-          state.setSort(newSort);
-          state.setDir(newDir);
-          state.setPage(0);
+        state={{
+          ...state,
+          onSortChange: (newSort, newDir) => {
+            state.setSort(newSort);
+            state.setDir(newDir);
+            state.setPage(0);
+          },
         }}
-        onOpenCompetencyDetail={state.handleOpenCompetencyDetail}
-        onOpenCreateSubcomp={state.handleOpenCreateSubcomp}
-        onOpenReviewsForCompetency={state.handleOpenReviewsForCompetency}
-        onOpenEdit={state.handleOpenEdit}
-        onOpenDelete={state.handleOpenDelete}
+        actions={{
+          onOpenDetail: state.handleOpenCompetencyDetail,
+          onCreateSubcomp: state.handleOpenCreateSubcomp,
+          onReviews: state.handleOpenReviewsForCompetency,
+          onEdit: state.handleOpenEdit,
+          onDelete: state.handleOpenDelete,
+        }}
       />
 
       {/* Modal: Crear / Editar Competencia */}
