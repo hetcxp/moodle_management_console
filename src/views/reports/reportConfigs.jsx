@@ -1,5 +1,5 @@
 import React from 'react';
-import { FolderTree, Layers } from 'lucide-react';
+import { FolderTree, Layers, Award } from 'lucide-react';
 import { AdminerApi } from '../../services/adminer-api';
 import { I18N } from '../../config/i18n';
 import { formatDate } from '../../lib/utils';
@@ -266,6 +266,171 @@ export const REPORT_CONFIGS = {
       <div className="flex flex-col">
         <span className="font-semibold text-sm">{item.fullname}</span>
         <span className="text-xs text-muted-foreground">{item.email}</span>
+      </div>
+    )
+  },
+  competency: {
+    title: I18N.reports.competency.title,
+    description: I18N.reports.competency.description,
+    emptyTitle: I18N.reports.competency.emptyTitle,
+    emptyMessage: I18N.reports.competency.emptyMessage,
+    filename: I18N.reports.competency.filename,
+    fetchDetail: async (competencyid) => {
+      const [competency, coursesData, usersData] = await Promise.all([
+        AdminerApi.getCompetencyDetail(competencyid),
+        AdminerApi.getCompetencyCourses(competencyid),
+        AdminerApi.getCompetencyUsers(competencyid, { perpage: 200 }),
+      ]);
+      return { competency, coursesData, usersData };
+    },
+    processDetail: ({ competency, coursesData, usersData }, csvRows) => {
+      if (!competency) return;
+
+      const allCourses = [
+        ...(coursesData?.courses || []),
+        ...(coursesData?.subcompetencycourses || []),
+      ];
+
+      const users = usersData?.users || [];
+
+      const STATUS_MAP = {
+        0: I18N.reports.competency.strings.statusActive,
+        1: I18N.reports.competency.strings.statusWaiting,
+        2: I18N.reports.competency.strings.statusInReview,
+      };
+
+      if (allCourses.length === 0) {
+        csvRows.push({
+          marco: competency.frameworkname,
+          codigo_marco: competency.frameworkidnumber,
+          codigo_competencia: competency.idnumber,
+          competencia: competency.shortname,
+          curso: I18N.reports.competency.strings.noCourses,
+          codigo_curso: '',
+          usuario: '',
+          email: '',
+          estado_comp: '',
+          competente: '',
+          calificacion_comp: '',
+          progreso_curso: '',
+          tipo_evidencia: '',
+          autor_evidencia: '',
+          calificacion_ev: '',
+          fecha_evidencia: '',
+          nota_evidencia: '',
+        });
+        return;
+      }
+
+      allCourses.forEach((course) => {
+        const usersInCourse = users.filter((u) =>
+          u.courses && u.courses.some((uc) => uc.courseid === course.id)
+        );
+
+        if (usersInCourse.length === 0) {
+          csvRows.push({
+            marco: competency.frameworkname,
+            codigo_marco: competency.frameworkidnumber,
+            codigo_competencia: competency.idnumber,
+            competencia: competency.shortname,
+            curso: course.fullname,
+            codigo_curso: course.shortname,
+            usuario: I18N.reports.competency.strings.noUsers,
+            email: '',
+            estado_comp: '',
+            competente: '',
+            calificacion_comp: '',
+            progreso_curso: '',
+            tipo_evidencia: '',
+            autor_evidencia: '',
+            calificacion_ev: '',
+            fecha_evidencia: '',
+            nota_evidencia: '',
+          });
+          return;
+        }
+
+        usersInCourse.forEach((user) => {
+          const courseEntry = user.courses.find((uc) => uc.courseid === course.id);
+          const progreso = courseEntry ? courseEntry.progress : 0;
+          const competente = user.proficiency === 1 ? I18N.reports.competency.strings.proficientYes : I18N.reports.competency.strings.proficientNo;
+          const estadoComp = STATUS_MAP[user.status] || I18N.reports.competency.strings.statusActive;
+          const evidences = user.evidences || [];
+
+          if (evidences.length === 0) {
+            csvRows.push({
+              marco: competency.frameworkname,
+              codigo_marco: competency.frameworkidnumber,
+              codigo_competencia: competency.idnumber,
+              competencia: competency.shortname,
+              curso: course.fullname,
+              codigo_curso: course.shortname,
+              usuario: user.fullname,
+              email: user.email,
+              estado_comp: estadoComp,
+              competente,
+              calificacion_comp: user.gradename || '',
+              progreso_curso: progreso,
+              tipo_evidencia: I18N.reports.competency.strings.noEvidences,
+              autor_evidencia: '',
+              calificacion_ev: '',
+              fecha_evidencia: '',
+              nota_evidencia: '',
+            });
+          } else {
+            evidences.forEach((ev) => {
+              csvRows.push({
+                marco: competency.frameworkname,
+                codigo_marco: competency.frameworkidnumber,
+                codigo_competencia: competency.idnumber,
+                competencia: competency.shortname,
+                curso: course.fullname,
+                codigo_curso: course.shortname,
+                usuario: user.fullname,
+                email: user.email,
+                estado_comp: estadoComp,
+                competente,
+                calificacion_comp: user.gradename || '',
+                progreso_curso: progreso,
+                tipo_evidencia: ev.actionname,
+                autor_evidencia: ev.actionuserfullname,
+                calificacion_ev: ev.gradename || '',
+                fecha_evidencia: ev.timecreated ? formatDate(ev.timecreated) : '',
+                nota_evidencia: ev.note || '',
+              });
+            });
+          }
+        });
+      });
+    },
+    columns: [
+      { label: I18N.reports.competency.columns.framework, accessor: 'marco' },
+      { label: I18N.reports.competency.columns.frameworkCode, accessor: 'codigo_marco' },
+      { label: I18N.reports.competency.columns.competencyCode, accessor: 'codigo_competencia' },
+      { label: I18N.reports.competency.columns.competency, accessor: 'competencia' },
+      { label: I18N.reports.competency.columns.course, accessor: 'curso' },
+      { label: I18N.reports.competency.columns.courseCode, accessor: 'codigo_curso' },
+      { label: I18N.reports.competency.columns.user, accessor: 'usuario' },
+      { label: I18N.reports.competency.columns.email, accessor: 'email' },
+      { label: I18N.reports.competency.columns.competencyStatus, accessor: 'estado_comp' },
+      { label: I18N.reports.competency.columns.proficient, accessor: 'competente' },
+      { label: I18N.reports.competency.columns.grade, accessor: 'calificacion_comp' },
+      { label: I18N.reports.competency.columns.courseProgress, accessor: 'progreso_curso' },
+      { label: I18N.reports.competency.columns.evidenceType, accessor: 'tipo_evidencia' },
+      { label: I18N.reports.competency.columns.evidenceAuthor, accessor: 'autor_evidencia' },
+      { label: I18N.reports.competency.columns.evidenceGrade, accessor: 'calificacion_ev' },
+      { label: I18N.reports.competency.columns.evidenceDate, accessor: 'fecha_evidencia' },
+      { label: I18N.reports.competency.columns.evidenceNote, accessor: 'nota_evidencia' },
+    ],
+    renderItem: (item) => (
+      <div className="flex flex-col">
+        <span className="font-semibold text-sm flex items-center gap-2">
+          <Award className="h-3.5 w-3.5 text-primary/70" />
+          {item.shortname}
+        </span>
+        <span className="text-[10px] text-muted-foreground mt-0.5 ml-5">
+          {item.idnumber && `${item.idnumber} · `}{item.frameworkname}
+        </span>
       </div>
     )
   }

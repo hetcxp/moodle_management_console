@@ -707,7 +707,7 @@ export const helpRegistry = {
   },
   reports: {
     title: 'Generador de Reportes',
-    summary: 'Centro de exportación y análisis: métricas agregadas por cursos, usuarios, categorías y cohortes.',
+    summary: 'Centro de exportación y análisis: métricas agregadas por cursos, usuarios, categorías, cohortes y competencias.',
     actions: [
       {
         name: 'Exportar CSV Rápido',
@@ -724,7 +724,7 @@ export const helpRegistry = {
       {
         title: 'Auditoría y Exportación Periódica',
         steps: [
-          'Selecciona la entidad a auditar (Cursos, Usuarios, Categorías o Cohortes).',
+          'Selecciona la entidad a auditar (Cursos, Usuarios, Categorías, Cohortes o Competencias).',
           'Abre el detalle para filtrar por período o estado.',
           'Descarga el archivo CSV consolidado para análisis institucional.'
         ]

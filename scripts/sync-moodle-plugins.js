@@ -20,9 +20,10 @@ const args = process.argv.slice(2);
 const IS_CHECK_ONLY = args.includes('--check-only');
 const IS_FORCE = args.includes('--force') || process.env.FORCE_INSTALL === '1';
 const TARGET_PLUGIN = args.find((arg, i) => args[i - 1] === '--plugin') || null;
+const CLI_URL = args.find((arg, i) => args[i - 1] === '--url') || null;
 
 const CONFIG = {
-  baseUrl: (process.env.MOODLE_URL || 'https://lts.academyfactory.online').replace(/\/+$/, ''),
+  baseUrl: (CLI_URL || process.env.MOODLE_URL || 'https://lts.academyfactory.online').replace(/\/+$/, ''),
   user: process.env.MOODLE_USER || 'hteran',
   pass: process.env.MOODLE_PASS,
   chromeExecutable: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -187,11 +188,18 @@ async function installPluginViaWeb(page, plugin, zipPath) {
   await page.waitForSelector('.moodle-dialogue-bd, .fp-repo-upload, .fp-repo-area', { visible: true, timeout: 25000 });
 
   // Seleccionar repositorio "Subir un archivo"
-  const uploadTab = await page.$('.fp-repo-upload, [data-repo-id]');
-  if (uploadTab) {
-    await uploadTab.click();
-    await new Promise(r => setTimeout(r, 600));
-  }
+  console.log('  Seleccionando repositorio "Subir un archivo"...');
+  await page.evaluate(() => {
+    const repos = Array.from(document.querySelectorAll('.fp-repo, .fp-repo-name, .nav-item'));
+    const uploadRepo = repos.find(el => {
+      const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
+      return txt.includes('subir un archivo') || txt.includes('upload a file');
+    });
+    if (uploadRepo) {
+      uploadRepo.click();
+    }
+  });
+  await new Promise(r => setTimeout(r, 1200));
 
   // 3. Adjuntar ZIP
   console.log(`  Subiendo archivo: ${path.basename(zipPath)}...`);
@@ -294,7 +302,14 @@ async function installPluginViaWeb(page, plugin, zipPath) {
           const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
           return txt.includes('continuar') || txt.includes('continue');
         });
-        return continueBtn || null;
+        if (continueBtn) return continueBtn;
+
+        // 3. Botón de guardar cambios si aparece pantalla de ajustes
+        const saveBtn = candidates.find(el => {
+          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+          return txt.includes('guardar cambios') || txt.includes('save changes');
+        });
+        return saveBtn || null;
       });
 
       progressBtn = progressHandle.asElement();

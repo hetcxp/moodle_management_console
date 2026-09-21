@@ -25,10 +25,12 @@ describe('Smoke tests for views', () => {
     expect(screen.getByText('Directorio de Categorías')).toBeDefined();
     expect(screen.getByText('Listado de Usuarios')).toBeDefined();
     expect(screen.getByText('Listado de Cohortes')).toBeDefined();
+    expect(screen.getByText('Directorio de Competencias')).toBeDefined();
 
     const summaryButtons = screen.getAllByRole('button', { name: /Resumen/i });
-    expect(summaryButtons.length).toBeGreaterThanOrEqual(4);
+    expect(summaryButtons.length).toBeGreaterThanOrEqual(5);
     expect(screen.getByRole('button', { name: /Detalle de Curso/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Detalle de Competencia/i })).toBeDefined();
   });
 
   it('renders CategoriesView correctly', () => {

@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { DownloadCloud, BookOpen, FolderTree, Users, Layers, Loader2, ListTree } from 'lucide-react';
+import { DownloadCloud, BookOpen, FolderTree, Users, Layers, Loader2, ListTree, Award } from 'lucide-react';
 import { AdminerApi } from '../services/adminer-api';
 import { exportToCsv } from '../components/CsvExporter';
 import { useToast } from '../components/ui/Toast';
 import { fetchAllPaginated } from '../lib/fetch-all';
+import { runWithConcurrency } from '../lib/concurrency';
+import { REPORT_CONFIGS } from './reports/reportConfigs';
 import { CourseReportModal } from './reports/CourseReportModal';
 import { CategoryReportModal } from './reports/CategoryReportModal';
 import { UserReportModal } from './reports/UserReportModal';
 import { CohortReportModal } from './reports/CohortReportModal';
+import { CompetencyReportModal } from './reports/CompetencyReportModal';
 import { I18N } from '../config/i18n';
 import { formatDate } from '../lib/utils';
 
@@ -21,6 +24,7 @@ export function ReportsView() {
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [cohortModalOpen, setCohortModalOpen] = useState(false);
+  const [competencyModalOpen, setCompetencyModalOpen] = useState(false);
 
   const reports = React.useMemo(() => [
     {
@@ -117,6 +121,32 @@ export function ReportsView() {
       ],
       detailLabel: I18N.reports.dashboard.buttons.detailCohort,
       onOpenDetail: () => setCohortModalOpen(true)
+    },
+    {
+      id: 'competencies',
+      title: I18N.reports.dashboard.reports.competencies.title,
+      description: I18N.reports.dashboard.reports.competencies.description,
+      icon: Award,
+      fetchData: async () => {
+        const allRes = await AdminerApi.getAllCompetencies({ frameworkid: 0 });
+        const competencies = allRes.competencies || [];
+        if (competencies.length === 0) return [];
+
+        const compDetails = await runWithConcurrency(
+          competencies.map(c => c.id),
+          3,
+          REPORT_CONFIGS.competency.fetchDetail
+        );
+
+        const rows = [];
+        compDetails.forEach(detail => {
+          REPORT_CONFIGS.competency.processDetail(detail, rows);
+        });
+        return rows;
+      },
+      columns: REPORT_CONFIGS.competency.columns,
+      detailLabel: I18N.reports.dashboard.buttons.detailCompetency,
+      onOpenDetail: () => setCompetencyModalOpen(true)
     }
   ], []);
 
@@ -218,6 +248,7 @@ export function ReportsView() {
       {categoryModalOpen && <CategoryReportModal open={categoryModalOpen} onClose={() => setCategoryModalOpen(false)} />}
       {userModalOpen && <UserReportModal open={userModalOpen} onClose={() => setUserModalOpen(false)} />}
       {cohortModalOpen && <CohortReportModal open={cohortModalOpen} onClose={() => setCohortModalOpen(false)} />}
+      {competencyModalOpen && <CompetencyReportModal open={competencyModalOpen} onClose={() => setCompetencyModalOpen(false)} />}
     </div>
   );
 }

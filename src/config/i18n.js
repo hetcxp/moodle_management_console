@@ -96,6 +96,43 @@ export const I18N = {
         courses: "cursos"
       }
     },
+    competency: {
+      title: "Reporte Detallado de Competencias",
+      description: "Selecciona competencias para exportar el detalle de cursos vinculados, usuarios y sus evidencias de evaluación.",
+      emptyTitle: "Sin competencias",
+      emptyMessage: "No se encontraron competencias con los filtros actuales.",
+      filename: "detalle_competencias",
+      columns: {
+        framework: "Marco de Competencias",
+        frameworkCode: "Código Marco",
+        competencyCode: "Código Competencia",
+        competency: "Competencia",
+        course: "Curso Vinculado",
+        courseCode: "Código Curso",
+        user: "Usuario",
+        email: "Email",
+        competencyStatus: "Estado Competencia",
+        proficient: "Competente",
+        grade: "Calificación Competencia",
+        courseProgress: "Progreso Curso (%)",
+        evidenceType: "Tipo Evidencia",
+        evidenceAuthor: "Autor Evidencia",
+        evidenceGrade: "Calificación Evidencia",
+        evidenceDate: "Fecha Evidencia",
+        evidenceNote: "Nota / Retroalimentación"
+      },
+      strings: {
+        noUsers: "Sin usuarios matriculados",
+        noCourses: "Sin cursos vinculados",
+        noEvidences: "Sin evidencias registradas",
+        proficientYes: "Sí",
+        proficientNo: "No",
+        statusActive: "Sin revisión",
+        statusInReview: "En revisión",
+        statusWaiting: "Pendiente",
+        allFrameworks: "Todos los marcos"
+      }
+    },
     dashboard: {
       title: "Dashboard de Reportería",
       subtitle: "Descarga la información de la plataforma en formato CSV.",
@@ -104,7 +141,8 @@ export const I18N = {
         detailCourse: "Detalle de Curso",
         detailCategory: "Detalle de Categoría",
         detailUser: "Detalle de Usuario",
-        detailCohort: "Detalle de Cohorte"
+        detailCohort: "Detalle de Cohorte",
+        detailCompetency: "Detalle de Competencia"
       },
       messages: {
         noData: "No hay datos para exportar en este reporte",
@@ -174,6 +212,10 @@ export const I18N = {
             coursesCount: "Cursos Sincronizados",
             progress: "Progreso Promedio %"
           }
+        },
+        competencies: {
+          title: "Directorio de Competencias",
+          description: "Exporta todas las competencias de la plataforma con sus cursos vinculados, usuarios y evidencias de evaluación."
         }
       }
     }
