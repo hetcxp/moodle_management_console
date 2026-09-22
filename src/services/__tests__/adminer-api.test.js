@@ -531,4 +531,35 @@ describe('AdminerApi service', () => {
       expect(res.processed_count).toBe(2);
     });
   });
+
+  describe('MBZ Restore operations', () => {
+    it('getAvailableServerBackups calls tool_management_console_list_server_backups', async () => {
+      MoodleApi.call.mockResolvedValue([{ name: 'backup1.mbz', path: '/path/backup1.mbz', size: 1024, date: 1700000000 }]);
+      const res = await AdminerApi.getAvailableServerBackups();
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_list_server_backups');
+      expect(res).toHaveLength(1);
+      expect(res[0].name).toBe('backup1.mbz');
+    });
+
+    it('restoreCourseMbz calls tool_management_console_restore_course_mbz with params', async () => {
+      MoodleApi.call.mockResolvedValue({ success: true, courseid: 99, fullname: 'Restored', shortname: 'REST', url: 'http://test/course', warnings: [] });
+      const res = await AdminerApi.restoreCourseMbz({
+        backupfile: '/path/backup1.mbz',
+        categoryid: 2,
+        fullname: 'Curso Test',
+        shortname: 'CTEST',
+        courseid: 0,
+      });
+      expect(MoodleApi.call).toHaveBeenCalledWith('tool_management_console_restore_course_mbz', {
+        backupfile: '/path/backup1.mbz',
+        categoryid: 2,
+        fullname: 'Curso Test',
+        shortname: 'CTEST',
+        courseid: 0,
+      });
+      expect(res.success).toBe(true);
+      expect(res.courseid).toBe(99);
+    });
+  });
 });
+

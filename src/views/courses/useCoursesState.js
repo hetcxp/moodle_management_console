@@ -20,7 +20,7 @@ export function useCoursesState() {
     selectedIds, setSelectedIds, clearSelection,
     deleteLoading, setDeleteLoading,
     deleteConfirmOpen, setDeleteConfirmOpen,
-    itemsToDelete: coursesToDeleteRaw, setItemsToDelete: setCoursesToDelete,
+    itemsToDelete: coursesToDeleteRaw, setItemsToDelete: _setCoursesToDelete,
     openDelete: handleOpenDeleteModal,
   } = useEntityListState({ defaultSort: 'timecreated', defaultDir: 'DESC', defaultPerPage: 20 });
 

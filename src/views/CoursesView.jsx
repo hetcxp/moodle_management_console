@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useCoursesState } from './courses/useCoursesState';
 import { CoursesHeader } from './courses/CoursesHeader';
@@ -6,6 +6,7 @@ import { CoursesTable } from './courses/CoursesTable';
 import { CourseCreateModal } from './courses/CourseCreateModal';
 import { CourseMoveModal } from './courses/CourseMoveModal';
 import { CourseCsvModal } from './courses/CourseCsvModal';
+import { CourseRestoreModal } from './courses/CourseRestoreModal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Dialog } from '../components/ui/Dialog';
 import { Button } from '../components/ui/Button';
@@ -14,6 +15,7 @@ import { Select } from '../components/ui/Select';
 export const CoursesView = ({ onNavigateToDetail }) => {
   const [, setLocation] = useLocation();
   const state = useCoursesState();
+  const [restoreOpen, setRestoreOpen] = useState(false);
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -35,6 +37,7 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         onExport={() => state.setExportModalOpen(true)}
         onCreate={() => state.setCreateModalOpen(true)}
         onImportCsv={() => state.setCsvModalOpen(true)}
+        onRestoreMbz={() => setRestoreOpen(true)}
       />
 
       <CoursesTable
@@ -80,6 +83,16 @@ export const CoursesView = ({ onNavigateToDetail }) => {
         open={state.csvModalOpen}
         onClose={() => state.setCsvModalOpen(false)}
         onSuccess={() => state.setCsvModalOpen(false)}
+      />
+
+      <CourseRestoreModal
+        open={restoreOpen}
+        onClose={() => setRestoreOpen(false)}
+        onSuccess={() => {
+          state.refetch();
+        }}
+        categoriesList={state.categoriesList}
+        defaultCategoryId={state.categoryFilter !== '0' ? state.categoryFilter : undefined}
       />
 
       <ConfirmDialog

@@ -2,7 +2,7 @@ import React from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { FilterBar } from '../../components/FilterBar';
 import { KpiGrid } from '../../components/KpiGrid';
-import { Plus, Upload, Layers, Users, Activity, FolderInput } from 'lucide-react';
+import { Plus, Upload, Layers, Users, Activity, FolderInput, ArchiveRestore } from 'lucide-react';
 import { useHelp } from '../../context/HelpContext';
 
 export function CoursesHeader({
@@ -13,7 +13,7 @@ export function CoursesHeader({
   emptyOnly, onEmptyOnlyChange,
   categoriesList,
   hasCreateCourse,
-  onRefresh, onExport, onCreate, onImportCsv,
+  onRefresh, onExport, onCreate, onImportCsv, onRestoreMbz
 }) {
   const { helpData } = useHelp();
 
@@ -53,6 +53,10 @@ export function CoursesHeader({
         onExportCsv={onExport}
         primaryAction={hasCreateCourse ? { label: 'Crear Curso', onClick: onCreate, icon: <Plus className="h-4 w-4" /> } : null}
         secondaryAction={hasCreateCourse ? { label: 'Importar CSV', onClick: onImportCsv, icon: <Upload className="h-4 w-4" /> } : null}
+        extraActions={hasCreateCourse && onRestoreMbz ? [
+          { label: 'Restaurar MBZ', onClick: onRestoreMbz, icon: <ArchiveRestore className="h-4 w-4" /> }
+        ] : []}
+
         filters={[
           {
             id: 'category',

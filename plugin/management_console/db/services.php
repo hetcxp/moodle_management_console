@@ -428,6 +428,22 @@ $functions = [
         'capabilities' => 'moodle/course:enrolreview',
         'ajax'         => true,
     ],
+    'tool_management_console_list_server_backups' => [
+        'classname'    => 'tool_management_console\external\courses',
+        'methodname'   => 'list_server_backups',
+        'description'  => 'List authorized .mbz backups available on the server',
+        'type'         => 'read',
+        'capabilities' => 'moodle/course:create',
+        'ajax'         => true,
+    ],
+    'tool_management_console_restore_course_mbz' => [
+        'classname'    => 'tool_management_console\external\courses',
+        'methodname'   => 'restore_course_mbz',
+        'description'  => 'Restore a course from a .mbz backup file',
+        'type'         => 'write',
+        'capabilities' => 'moodle/course:create',
+        'ajax'         => true,
+    ],
 ];
 
 $services = [
@@ -486,10 +502,13 @@ $services = [
             'tool_management_console_delete_learning_path',
             'tool_management_console_manage_lp_enrolments',
             'tool_management_console_user_plan_action',
+            'tool_management_console_list_server_backups',
+            'tool_management_console_restore_course_mbz',
             'core_webservice_get_site_info',
         ],
         'restrictedusers' => 0,
         'enabled'         => 1,
+        'uploadfiles'     => 1,
         'shortname'       => 'management_console_service',
     ],
 ];

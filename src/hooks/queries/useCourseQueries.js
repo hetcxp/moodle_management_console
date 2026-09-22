@@ -62,3 +62,16 @@ export function useCourseUserDetail(courseId, userId) {
     staleTime: 30 * 1000,
   });
 }
+
+export function useRestoreCourseMbz() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (params) => AdminerApi.restoreCourseMbz(params),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    },
+  });
+}
+

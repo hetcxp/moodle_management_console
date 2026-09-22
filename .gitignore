@@ -20,6 +20,7 @@ scratch/
 .git_diff.tmp
 test-moodle.js
 users_test.csv
+moodle_backup.xml
 # Editor & IDEs
 .vscode/
 .idea/

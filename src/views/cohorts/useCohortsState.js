@@ -15,7 +15,7 @@ export const useCohortsState = () => {
     page, setPage, perPage, sort, setSort, dir, setDir, search, setSearch, filters, setFilters,
     selectedIds, setSelectedIds, clearSelection, deleteLoading, setDeleteLoading,
     modalOpen, setModalOpen, editingItem: editingCohort, openCreate: handleOpenCreate, openEdit: handleOpenEdit,
-    deleteConfirmOpen, setDeleteConfirmOpen, itemsToDelete: cohortsToDeleteRaw, setItemsToDelete: setCohortsToDelete,
+    deleteConfirmOpen, setDeleteConfirmOpen, itemsToDelete: cohortsToDeleteRaw, setItemsToDelete: _setCohortsToDelete,
     openDelete: handleOpenDelete, exportModalOpen, setExportModalOpen, exportOption, setExportOption,
   } = useEntityListState({ defaultSort: 'name', defaultDir: 'ASC', defaultPerPage: 50 });
 

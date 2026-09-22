@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:lts": "vite --mode lts",
+    "dev:viasano": "vite --mode viasano",
     "build": "vite build",
     "build:moodle": "vite build --mode moodle",
     "preview": "vite preview",

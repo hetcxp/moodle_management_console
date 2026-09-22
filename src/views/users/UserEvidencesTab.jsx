@@ -5,16 +5,12 @@ import {
   GraduationCap, 
   CheckCircle2, 
   ExternalLink, 
-  Clock, 
   User, 
   Award,
-  Calendar,
-  Search,
-  Filter
+  Calendar
 } from 'lucide-react';
 import { FilterBar } from '../../components/FilterBar';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
 import { exportToCsv } from '../../components/CsvExporter';
 
 const getActionMeta = (action) => {

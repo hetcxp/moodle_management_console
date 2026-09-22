@@ -61,6 +61,7 @@ export function useCoursesExport({ sort, dir, search, categoryFilter, visibility
             user_status: u.is_active === 1 ? 'Activo' : 'Suspendido', user_progress: u.progress || 0,
           }));
         } catch (e) {
+          // eslint-disable-next-line no-console
           if (import.meta.env.DEV) console.warn('[Export Detail Error] Course ID:', course.id, e);
           return [{
             course_id: course.id, course_fullname: course.fullname, course_shortname: course.shortname,

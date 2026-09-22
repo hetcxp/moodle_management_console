@@ -10,22 +10,24 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, '..');
 
-// Cargar variables de entorno desde .env si están disponibles
-loadEnv(projectRoot);
-
-// -------------------------------------------------------------
-// Configuración y Parámetros
-// -------------------------------------------------------------
 const args = process.argv.slice(2);
 const IS_CHECK_ONLY = args.includes('--check-only');
 const IS_FORCE = args.includes('--force') || process.env.FORCE_INSTALL === '1';
 const TARGET_PLUGIN = args.find((arg, i) => args[i - 1] === '--plugin') || null;
 const CLI_URL = args.find((arg, i) => args[i - 1] === '--url') || null;
+const CLI_USER = args.find((arg, i) => args[i - 1] === '--user') || null;
+const CLI_PASS = args.find((arg, i) => args[i - 1] === '--pass') || null;
 
+// Cargar variables de entorno desde .env según URL de destino si aplica
+loadEnv(projectRoot, CLI_URL);
+
+// -------------------------------------------------------------
+// Configuración y Parámetros
+// -------------------------------------------------------------
 const CONFIG = {
   baseUrl: (CLI_URL || process.env.MOODLE_URL || 'https://lts.academyfactory.online').replace(/\/+$/, ''),
-  user: process.env.MOODLE_USER || 'hteran',
-  pass: process.env.MOODLE_PASS,
+  user: CLI_USER || process.env.MOODLE_USER || 'hteran',
+  pass: CLI_PASS || process.env.MOODLE_PASS,
   chromeExecutable: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   headless: process.env.HEADLESS !== 'false'
 };
@@ -234,8 +236,14 @@ async function installPluginViaWeb(page, plugin, zipPath) {
   // 5. Pantalla de validación del paquete
   console.log(`  Evaluando validación de paquete en: ${page.url()}`);
   const validationError = await page.evaluate(() => {
-    const danger = document.querySelector('.alert-danger, .validation-error');
-    return danger ? danger.innerText.trim() : null;
+    const danger = document.querySelector('.alert-danger, .validation-error, .status-error');
+    if (danger) return danger.innerText.trim();
+    const text = document.body ? document.body.innerText : '';
+    if (text.includes('Instalación abortada') || text.includes('Installation aborted') || text.includes('Revisión de acceso de escritura')) {
+      const pre = document.querySelector('pre, .generalbox, .box');
+      return pre ? pre.innerText.trim() : 'Instalación abortada debido a falla en validación de Moodle';
+    }
+    return null;
   });
 
   if (validationError) {

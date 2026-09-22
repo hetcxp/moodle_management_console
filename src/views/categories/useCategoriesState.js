@@ -18,7 +18,7 @@ export const useCategoriesState = () => {
 
   const {
     modalOpen, setModalOpen,
-    editingItem: editingCategory, setEditingItem: setEditingCategory,
+    editingItem: editingCategory, setEditingItem: _setEditingCategory,
     openCreate: handleOpenCreate, openEdit: handleOpenEdit,
     deleteConfirmOpen, setDeleteConfirmOpen,
     itemsToDelete: categoryToDelete, setItemsToDelete: setCategoryToDelete,

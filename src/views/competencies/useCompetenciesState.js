@@ -23,7 +23,7 @@ export function useCompetenciesState() {
     deleteLoading, setDeleteLoading,
     modalOpen, setModalOpen, editingItem: editingFramework, setEditingItem: setEditingFramework,
     deleteConfirmOpen, setDeleteConfirmOpen,
-    itemsToDelete: frameworksToDeleteRaw, setItemsToDelete: setFrameworksToDelete,
+    itemsToDelete: frameworksToDeleteRaw, setItemsToDelete: _setFrameworksToDelete,
     openDelete: handleOpenDelete,
     exportModalOpen, setExportModalOpen,
   } = useEntityListState({ defaultSort: 'shortname', defaultDir: 'ASC', defaultPerPage: 50 });

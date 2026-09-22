@@ -48,6 +48,7 @@ export const useCategoriesExport = ({ filteredCategories = [], addToast }) => {
               course_progress: ''
             }];
           } catch (e) {
+            // eslint-disable-next-line no-console
             if (import.meta.env.DEV) console.error('Error fetching detail for category', cat.id, e);
             return [{
               cat_id: cat.id,

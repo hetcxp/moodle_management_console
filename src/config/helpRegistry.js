@@ -59,6 +59,11 @@ export const helpRegistry = {
         requiredRole: 'Gestor de Plataforma / Administrador'
       },
       {
+        name: 'Restaurar MBZ',
+        description: 'Importa un curso completo desde una copia de seguridad .mbz de Moodle, conservando actividades, recursos y secciones.',
+        requiredRole: 'Administrador del Sitio'
+      },
+      {
         name: 'Operaciones Masivas',
         description: 'Selecciona múltiples cursos para ocultar, mostrar, mover de categoría o eliminar en bloque.',
         requiredRole: 'Gestor de Plataforma / Administrador'
