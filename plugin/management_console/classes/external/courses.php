@@ -546,794 +546,84 @@ class courses extends external_api {
         ]);
     }
 
+    // ==========================================
+    // BACKWARD COMPATIBILITY PROXY DELEGATIONS
+    // ==========================================
+
+    // Course Cohort Actions -> course_enrollments
     public static function course_cohort_action_parameters() {
-        return new external_function_parameters([
-            'action' => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, set_group, set_expiration, message, sync'),
-            'courseid' => new external_value(PARAM_INT, 'Course ID'),
-            'cohortids' => new external_multiple_structure(new external_value(PARAM_INT, 'Cohort ID'), 'Array of cohort IDs'),
-            'groupid' => new external_value(PARAM_INT, 'Group ID', VALUE_DEFAULT, 0),
-            'newgroupname' => new external_value(PARAM_TEXT, 'New group name if creating', VALUE_DEFAULT, ''),
-            'timeend' => new external_value(PARAM_INT, 'Expiration time', VALUE_DEFAULT, 0),
-            'message_text' => new external_value(PARAM_RAW, 'Message text', VALUE_DEFAULT, ''),
-            'roleid' => new external_value(PARAM_INT, 'Role ID to assign (defaults to student)', VALUE_DEFAULT, 0),
-        ]);
+        return course_enrollments::course_cohort_action_parameters();
     }
 
-    /**
-     * Perform cohort actions on a course (add, remove, suspend, etc.).
-     *
-     * @param string $action
-     * @param int $courseid
-     * @param array $cohortids
-     * @param int $groupid
-     * @param string $newgroupname
-     * @param int $timeend
-     * @param string $message_text
-     * @param int $roleid
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
-     */
     public static function course_cohort_action($action, $courseid, $cohortids, $groupid = 0, $newgroupname = '', $timeend = 0, $message_text = '', $roleid = 0) {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
-        require_once($CFG->dirroot . '/group/lib.php');
-
-        $context = context_system::instance();
-        self::validate_context($context);
-
-        $params = self::validate_parameters(self::course_cohort_action_parameters(), [
-            'action' => $action,
-            'courseid' => $courseid,
-            'cohortids' => $cohortids,
-            'groupid' => $groupid,
-            'newgroupname' => $newgroupname,
-            'timeend' => $timeend,
-            'message_text' => $message_text,
-            'roleid' => $roleid,
-        ]);
-
-        $coursecontext = \context_course::instance($params['courseid']);
-        require_capability('moodle/course:enrolreview', $coursecontext);
-
-        $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
-        $enrolplugin = enrol_get_plugin('cohort');
-        if (!$enrolplugin) {
-            return ['success' => false, 'message' => 'Cohort enrol plugin is disabled.', 'affectedcount' => 0];
-        }
-
-        $affected = 0;
-        $finalgroupid = $params['groupid'];
-
-        $studentroleid = (int)\tool_management_console\repository\user_repository::get_role_id_by_shortname('student');
-        if (!$studentroleid) {
-            $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
-        }
-        $assignedroleid = !empty($params['roleid']) ? (int)$params['roleid'] : ($studentroleid ?: 5);
-
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            if (($params['action'] === 'add' || $params['action'] === 'set_group') && !empty($params['newgroupname'])) {
-                require_capability('moodle/course:managegroups', $coursecontext);
-                $newgroup = new \stdClass();
-                $newgroup->courseid = $course->id;
-                $newgroup->name = $params['newgroupname'];
-                $finalgroupid = groups_create_group($newgroup);
-            }
-
-            foreach ($params['cohortids'] as $cohortid) {
-                if ($params['action'] === 'add') {
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if (!$instance) {
-                        $enrolplugin->add_instance($course, [
-                            'customint1' => $cohortid,
-                            'customint2' => $finalgroupid,
-                            'roleid'     => $assignedroleid,
-                        ]);
-                        
-                        $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                        if ($instance && $params['timeend'] > 0) {
-                            $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
-                        }
-                        $affected++;
-                    } else {
-                        // Existing instance: repair missing role or update configuration.
-                        $needs_sync = false;
-                        if (empty($instance->roleid) || (int)$instance->roleid === 0) {
-                            $DB->set_field('enrol', 'roleid', $assignedroleid, ['id' => $instance->id]);
-                            $instance->roleid = $assignedroleid;
-                            $needs_sync = true;
-                        }
-                        if ($finalgroupid > 0 && empty($instance->customint2)) {
-                            $DB->set_field('enrol', 'customint2', $finalgroupid, ['id' => $instance->id]);
-                        }
-                        if ($params['timeend'] > 0) {
-                            $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
-                            $DB->execute("UPDATE {user_enrolments} SET timeend = ? WHERE enrolid = ?", [$params['timeend'], $instance->id]);
-                        }
-                        if ($needs_sync) {
-                            $trace = new \null_progress_trace();
-                            enrol_cohort_sync($trace, $course->id);
-                            $trace->finished();
-                        }
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'remove') {
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance) {
-                        $enrolplugin->delete_instance($instance);
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'suspend' || $params['action'] === 'activate') {
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance) {
-                        $status = ($params['action'] === 'suspend') ? ENROL_INSTANCE_SUSPENDED : ENROL_INSTANCE_ENABLED;
-                        $enrolplugin->update_status($instance, $status);
-                        if ($params['action'] === 'activate' && (empty($instance->roleid) || (int)$instance->roleid === 0)) {
-                            $DB->set_field('enrol', 'roleid', $assignedroleid, ['id' => $instance->id]);
-                            $trace = new \null_progress_trace();
-                            enrol_cohort_sync($trace, $course->id);
-                            $trace->finished();
-                        }
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'sync') {
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance) {
-                        if (empty($instance->roleid) || (int)$instance->roleid === 0) {
-                            $DB->set_field('enrol', 'roleid', $assignedroleid, ['id' => $instance->id]);
-                        }
-                        $trace = new \null_progress_trace();
-                        enrol_cohort_sync($trace, $course->id);
-                        $trace->finished();
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'set_group') {
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance) {
-                        $DB->set_field('enrol', 'customint2', $finalgroupid, ['id' => $instance->id]);
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'set_expiration') {
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance) {
-                        $DB->set_field('enrol', 'enrolenddate', $params['timeend'], ['id' => $instance->id]);
-                        $DB->execute("UPDATE {user_enrolments} SET timeend = ? WHERE enrolid = ?", [$params['timeend'], $instance->id]);
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'message') {
-                    global $USER;
-                    $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohortid]);
-                    if ($instance && !empty($params['message_text'])) {
-                        $users = $DB->get_records_menu('user_enrolments', ['enrolid' => $instance->id], '', 'userid, userid AS uid');
-                        foreach ($users as $uid) {
-                            $recipient = $DB->get_record('user', ['id' => $uid]);
-                            if ($recipient) {
-                                $message = new \core\message\message();
-                                $message->courseid          = $course->id;
-                                $message->component         = 'moodle';
-                                $message->name              = 'instantmessage';
-                                $message->userfrom          = $USER;
-                                $message->userto            = $recipient;
-                                $clean_msg = clean_text(substr($params['message_text'], 0, 65535), FORMAT_HTML);
-                                $message->subject           = 'Mensaje';
-                                $message->fullmessage       = $clean_msg;
-                                $message->fullmessageformat = FORMAT_HTML;
-                                $message->fullmessagehtml   = $clean_msg;
-                                $message->smallmessage      = strip_tags($clean_msg);
-                                message_send($message);
-                                $affected++;
-                            }
-                        }
-                    }
-                }
-            }
-            $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Cohorts updated.',
-            'affectedcount' => $affected
-        ];
+        return course_enrollments::course_cohort_action($action, $courseid, $cohortids, $groupid, $newgroupname, $timeend, $message_text, $roleid);
     }
 
     public static function course_cohort_action_returns() {
-        return new external_single_structure([
-            'success' => new external_value(PARAM_BOOL, 'Success'),
-            'message' => new external_value(PARAM_TEXT, 'Message'),
-            'affectedcount' => new external_value(PARAM_INT, 'Affected count'),
-        ]);
+        return course_enrollments::course_cohort_action_returns();
     }
+
+    // Course User Actions -> course_enrollments
     public static function course_user_action_parameters() {
-        return new external_function_parameters([
-            'action'   => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, set_expiration, setgroup, message'),
-            'courseid' => new external_value(PARAM_INT, 'Course ID'),
-            'userids'  => new external_multiple_structure(new external_value(PARAM_INT, 'User ID')),
-            'timeend'  => new external_value(PARAM_INT, 'Expiration time', VALUE_DEFAULT, 0),
-            'groupid'  => new external_value(PARAM_INT, 'Group ID', VALUE_DEFAULT, 0),
-            'newgroupname' => new external_value(PARAM_TEXT, 'New group name', VALUE_DEFAULT, ''),
-            'message_text' => new external_value(PARAM_RAW, 'Message text', VALUE_DEFAULT, ''),
-        ]);
+        return course_enrollments::course_user_action_parameters();
     }
 
-    /**
-     * Perform user actions within a course (enrol, suspend, group assignment, etc.).
-     *
-     * @param string $action
-     * @param int $courseid
-     * @param array $userids
-     * @param int $timeend
-     * @param int $groupid
-     * @param string $newgroupname
-     * @param string $message_text
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
-     */
     public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
-        $context = context_system::instance();
-        self::validate_context($context);
-        
-        $params = self::validate_parameters(self::course_user_action_parameters(), [
-            'action' => $action, 'courseid' => $courseid, 'userids' => $userids,
-            'timeend' => $timeend, 'groupid' => $groupid, 'newgroupname' => $newgroupname, 'message_text' => $message_text
-        ]);
-
-        return course_enrolment_repository::batch_course_user_enrolment(
-            $params['action'],
-            $params['courseid'],
-            $params['userids'],
-            [
-                'timeend' => $params['timeend'],
-                'groupid' => $params['groupid'],
-                'newgroupname' => $params['newgroupname'],
-                'message_text' => $params['message_text'],
-            ]
-        );
+        return course_enrollments::course_user_action($action, $courseid, $userids, $timeend, $groupid, $newgroupname, $message_text);
     }
 
     public static function course_user_action_returns() {
-        return new external_single_structure([
-            'success'       => new external_value(PARAM_BOOL, 'Success'),
-            'message'       => new external_value(PARAM_TEXT, 'Message'),
-            'affectedcount' => new external_value(PARAM_INT, 'Affected count'),
-        ]);
+        return course_enrollments::course_user_action_returns();
     }
 
+    // Course User Detail -> course_enrollments
     public static function get_course_user_detail_parameters() {
-        return new external_function_parameters([
-            'courseid' => new external_value(PARAM_INT, 'Course ID'),
-            'userid'   => new external_value(PARAM_INT, 'User ID'),
-        ]);
+        return course_enrollments::get_course_user_detail_parameters();
     }
 
     public static function get_course_user_detail($courseid, $userid) {
-        global $DB, $CFG;
-        require_once($CFG->libdir.'/completionlib.php');
-        require_once($CFG->libdir.'/gradelib.php');
-
-        $context = context_system::instance();
-        self::validate_context($context);
-        require_capability('moodle/course:view', $context);
-
-        $params = self::validate_parameters(self::get_course_user_detail_parameters(), [
-            'courseid' => $courseid,
-            'userid'   => $userid,
-        ]);
-
-        $course = course_repository::get_course($params['courseid']);
-        if (!$course) {
-            throw new \moodle_exception('error', 'moodle', '', 'Course not found. courseid=' . $params['courseid']);
-        }
-        $user = \tool_management_console\repository\user_repository::get_user($params['userid']);
-        if (!$user) {
-            throw new \moodle_exception('error', 'moodle', '', 'User not found. userid=' . $params['userid']);
-        }
-
-        // Basic Info
-        $userinfo = [
-            'id' => (int)$user->id,
-            'fullname' => fullname($user),
-            'email' => $user->email,
-        ];
-
-        // Enrolment Data
-        $enrolments_rs = course_repository::get_course_user_enrolments($course->id, $user->id);
-        $enrolments = [];
-        $status = 1; // Default suspended
-        $timestart = 0;
-        $timeend = 0;
-        foreach ($enrolments_rs as $ue) {
-            $enrolments[] = [
-                'method' => (string)$ue->method,
-                'status' => (int)$ue->status,
-                'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend
-            ];
-            if ($ue->status == 0) $status = 0;
-            if ($timestart == 0 || ($ue->timestart > 0 && $ue->timestart < $timestart)) {
-                $timestart = (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated;
-            }
-            if ($timeend == 0 || ($ue->timeend > 0 && $ue->timeend > $timeend)) {
-                $timeend = (int)$ue->timeend;
-            }
-        }
-
-        // Access Logs
-        list($firstaccess, $lastaccess) = course_repository::get_course_user_first_and_last_access($course->id, $user->id);
-
-        // Activities and Grades
-        $modinfo = get_fast_modinfo($course);
-        $cms = $modinfo->get_cms();
-        
-        $activities = [];
-        $completed_count = 0;
-        $total_tracked = 0;
-
-        $completion = new \completion_info($course);
-        
-        foreach ($cms as $cm) {
-            if (!$cm->uservisible) continue;
-            
-            $act = [
-                'id' => (int)$cm->id,
-                'name' => (string)$cm->name,
-                'modname' => (string)$cm->modname,
-                'completionstatus' => 0,
-                'grade' => ''
-            ];
-
-            if ($completion->is_enabled($cm) != COMPLETION_TRACKING_NONE) {
-                $total_tracked++;
-                $cdata = $completion->get_data($cm, false, $user->id);
-                $act['completionstatus'] = (int)$cdata->completionstate;
-                if ($cdata->completionstate == COMPLETION_COMPLETE || $cdata->completionstate == COMPLETION_COMPLETE_PASS) {
-                    $completed_count++;
-                }
-            }
-
-            if (plugin_supports('mod', $cm->modname, FEATURE_GRADE_HAS_GRADE, false)) {
-                $grade_item = \grade_item::fetch([
-                    'itemtype' => 'mod',
-                    'itemmodule' => $cm->modname,
-                    'iteminstance' => $cm->instance,
-                    'courseid' => $course->id
-                ]);
-                if ($grade_item) {
-                    $grade_grade = \grade_grade::fetch(['itemid' => $grade_item->id, 'userid' => $user->id]);
-                    if ($grade_grade && !is_null($grade_grade->finalgrade)) {
-                        $act['grade'] = (string)format_float($grade_grade->finalgrade, $grade_item->get_decimals());
-                    }
-                }
-            }
-
-            $activities[] = $act;
-        }
-
-        $progress = $total_tracked > 0 ? round(($completed_count / $total_tracked) * 100) : 0;
-
-        return [
-            'user' => $userinfo,
-            'status' => $status,
-            'timestart' => $timestart,
-            'timeend' => $timeend,
-            'firstaccess' => $firstaccess,
-            'lastaccess' => $lastaccess,
-            'progress' => (int)$progress,
-            'enrolments' => $enrolments,
-            'activities' => $activities
-        ];
+        return course_enrollments::get_course_user_detail($courseid, $userid);
     }
 
     public static function get_course_user_detail_returns() {
-        return new external_single_structure([
-            'user' => new external_single_structure([
-                'id' => new external_value(PARAM_INT, 'User ID'),
-                'fullname' => new external_value(PARAM_TEXT, 'Fullname'),
-                'email' => new external_value(PARAM_TEXT, 'Email'),
-            ]),
-            'status' => new external_value(PARAM_INT, 'Global enrol status (0=active, 1=suspended)'),
-            'timestart' => new external_value(PARAM_INT, 'Timestart'),
-            'timeend' => new external_value(PARAM_INT, 'Timeend'),
-            'firstaccess' => new external_value(PARAM_INT, 'First access timestamp'),
-            'lastaccess' => new external_value(PARAM_INT, 'Last access timestamp'),
-            'progress' => new external_value(PARAM_INT, 'Progress percentage'),
-            'enrolments' => new external_multiple_structure(
-                new external_single_structure([
-                    'method' => new external_value(PARAM_ALPHANUMEXT, 'Method'),
-                    'status' => new external_value(PARAM_INT, 'Status'),
-                    'timestart' => new external_value(PARAM_INT, 'Timestart'),
-                    'timeend' => new external_value(PARAM_INT, 'Timeend'),
-                ])
-            ),
-            'activities' => new external_multiple_structure(
-                new external_single_structure([
-                    'id' => new external_value(PARAM_INT, 'CM ID'),
-                    'name' => new external_value(PARAM_TEXT, 'Activity name'),
-                    'modname' => new external_value(PARAM_PLUGIN, 'Module name'),
-                    'completionstatus' => new external_value(PARAM_INT, 'Completion status'),
-                    'grade' => new external_value(PARAM_TEXT, 'Grade string'),
-                ])
-            )
-        ]);
+        return course_enrollments::get_course_user_detail_returns();
     }
 
+    // Bulk Course CSV Upload -> course_csv
     public static function upload_courses_csv_parameters() {
-        return new external_function_parameters([
-            'fileContent' => new external_value(PARAM_RAW, 'Base64 encoded CSV file content'),
-        ]);
+        return course_csv::upload_courses_csv_parameters();
     }
 
-    /**
-     * Bulk upload courses via base64 encoded CSV string.
-     *
-     * @param string $fileContent
-     * @return array
-     * @throws \moodle_exception
-     * @throws \required_capability_exception
-     */
     public static function upload_courses_csv($fileContent) {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/course/lib.php');
-
-        $context = context_system::instance();
-        self::validate_context($context);
-        
-        $params = self::validate_parameters(self::upload_courses_csv_parameters(), [
-            'fileContent' => $fileContent
-        ]);
-
-        $csvContent = base64_decode($params['fileContent'], true);
-        if ($csvContent === false) {
-            return ['success' => false, 'message' => 'Invalid base64 encoding'];
-        }
-
-        if (strlen($csvContent) > 5242880) { // 5MB limit
-            return ['success' => false, 'message' => 'File too large (limit 5MB)'];
-        }
-
-        $lines = explode("\n", str_replace("\r", "", $csvContent));
-        if (count($lines) < 2) {
-            return ['success' => false, 'message' => 'Empty CSV or missing header'];
-        }
-
-        $header = str_getcsv(array_shift($lines));
-        $header = array_map('trim', $header);
-
-        $shortnameIdx = array_search('shortname', $header);
-        $fullnameIdx = array_search('fullname', $header);
-        $categoryIdx = array_search('category', $header);
-
-        if ($shortnameIdx === false || $fullnameIdx === false || $categoryIdx === false) {
-            return ['success' => false, 'message' => 'Missing required columns: shortname, fullname, category'];
-        }
-
-        $successCount = 0;
-        $errorCount = 0;
-        $errors = [];
-        $processed_shortnames = [];
-
-        foreach ($lines as $lineNum => $line) {
-            $line = trim($line);
-            if (empty($line)) continue;
-
-            $data = str_getcsv($line);
-            if (count($data) < count($header)) {
-                $errorCount++;
-                $errors[] = "Row " . ($lineNum + 2) . ": Incomplete data";
-                continue;
-            }
-
-            $shortname = trim($data[$shortnameIdx]);
-            $fullname = trim($data[$fullnameIdx]);
-            $category = trim($data[$categoryIdx]);
-
-            if (isset($processed_shortnames[$shortname])) {
-                $errorCount++;
-                $errors[] = "Row " . ($lineNum + 2) . ": Duplicate shortname in CSV ($shortname)";
-                continue;
-            }
-            if ($DB->record_exists('course', ['shortname' => $shortname])) {
-                $errorCount++;
-                $errors[] = "Row " . ($lineNum + 2) . ": Shortname already exists ($shortname)";
-                continue;
-            }
-            
-            $processed_shortnames[$shortname] = true;
-
-            $courseData = new stdClass();
-            $courseData->shortname = $shortname;
-            $courseData->fullname = $fullname;
-            $courseData->category = (int)$category;
-            $courseData->visible = 1;
-
-            try {
-                $catcontext = \context_coursecat::instance($courseData->category);
-                require_capability('moodle/course:create', $catcontext);
-                
-                create_course($courseData);
-                $successCount++;
-            } catch (\Exception $e) {
-                $errorCount++;
-                $errors[] = "Row " . ($lineNum + 2) . " ($shortname): " . $e->getMessage();
-            }
-        }
-
-        $msg = "Created $successCount courses. ";
-        if ($errorCount > 0) {
-            $msg .= "$errorCount errors. " . implode("; ", array_slice($errors, 0, 3)) . (count($errors) > 3 ? "..." : "");
-        }
-
-        return [
-            'success' => $errorCount === 0,
-            'message' => $msg
-        ];
+        return course_csv::upload_courses_csv($fileContent);
     }
 
     public static function upload_courses_csv_returns() {
-        return new external_single_structure([
-            'success' => new external_value(PARAM_BOOL, 'True if operation completely succeeded'),
-            'message' => new external_value(PARAM_TEXT, 'Status description message'),
-        ]);
+        return course_csv::upload_courses_csv_returns();
     }
 
-    /**
-     * Parameter definition for list_server_backups.
-     *
-     * @return external_function_parameters
-     */
+    // Server Backups & Restore MBZ -> course_backups
     public static function list_server_backups_parameters() {
-        return new external_function_parameters([]);
+        return course_backups::list_server_backups_parameters();
     }
 
-    /**
-     * List authorized .mbz backup archives available on the server.
-     *
-     * @return array
-     */
     public static function list_server_backups() {
-        global $CFG;
-
-        $syscontext = context_system::instance();
-        self::validate_context($syscontext);
-        require_capability('moodle/course:create', $syscontext);
-
-        $scratchdir = realpath($CFG->dirroot . '/../Documents/moodle_management_console/scratch');
-        if (!$scratchdir || !is_dir($scratchdir)) {
-            $scratchdir = realpath(__DIR__ . '/../../../../scratch');
-        }
-
-        $results = [];
-        if ($scratchdir && is_dir($scratchdir)) {
-            $files = scandir($scratchdir);
-            foreach ($files as $file) {
-                if ($file === '.' || $file === '..') {
-                    continue;
-                }
-                if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mbz') {
-                    $filepath = $scratchdir . '/' . $file;
-                    $results[] = [
-                        'name' => $file,
-                        'path' => $filepath,
-                        'size' => (int)filesize($filepath),
-                        'date' => (int)filemtime($filepath),
-                    ];
-                }
-            }
-        }
-
-        usort($results, function ($a, $b) {
-            return $b['date'] <=> $a['date'];
-        });
-
-        return $results;
+        return course_backups::list_server_backups();
     }
 
-    /**
-     * Return definition for list_server_backups.
-     *
-     * @return external_multiple_structure
-     */
     public static function list_server_backups_returns() {
-        return new external_multiple_structure(
-            new external_single_structure([
-                'name' => new external_value(PARAM_TEXT, 'Backup file name'),
-                'path' => new external_value(PARAM_RAW, 'Absolute file path on server'),
-                'size' => new external_value(PARAM_INT, 'File size in bytes'),
-                'date' => new external_value(PARAM_INT, 'Last modified timestamp'),
-            ])
-        );
+        return course_backups::list_server_backups_returns();
     }
 
-    /**
-     * Parameter definition for restore_course_mbz.
-     *
-     * @return external_function_parameters
-     */
     public static function restore_course_mbz_parameters() {
-        return new external_function_parameters([
-            'backupfile' => new external_value(PARAM_RAW, 'Server path to the .mbz backup archive'),
-            'categoryid' => new external_value(PARAM_INT, 'Destination category ID'),
-            'fullname'   => new external_value(PARAM_TEXT, 'Course full name (optional)', VALUE_DEFAULT, ''),
-            'shortname'  => new external_value(PARAM_TEXT, 'Course short name (optional)', VALUE_DEFAULT, ''),
-            'courseid'   => new external_value(PARAM_INT, 'Target course ID if restoring into existing course (0 = new)', VALUE_DEFAULT, 0),
-        ]);
+        return course_backups::restore_course_mbz_parameters();
     }
 
-    /**
-     * Restore a course from an authorized .mbz backup archive.
-     *
-     * @param string $backupfile
-     * @param int $categoryid
-     * @param string $fullname
-     * @param string $shortname
-     * @param int $courseid
-     * @return array
-     */
     public static function restore_course_mbz($backupfile, $categoryid, $fullname = '', $shortname = '', $courseid = 0) {
-        global $CFG, $USER, $DB;
-
-        $params = self::validate_parameters(self::restore_course_mbz_parameters(), [
-            'backupfile' => $backupfile,
-            'categoryid' => $categoryid,
-            'fullname'   => $fullname,
-            'shortname'  => $shortname,
-            'courseid'   => $courseid,
-        ]);
-
-        $backupfile = $params['backupfile'];
-        $categoryid = (int)$params['categoryid'];
-        $fullname   = trim($params['fullname']);
-        $shortname  = trim($params['shortname']);
-        $courseid   = (int)$params['courseid'];
-
-        $syscontext = context_system::instance();
-        self::validate_context($syscontext);
-        require_capability('moodle/course:create', $syscontext);
-
-        $catcontext = \context_coursecat::instance($categoryid);
-        require_capability('moodle/course:create', $catcontext);
-
-        require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
-
-        $realbackupfile = realpath($backupfile);
-        if (!$realbackupfile || !file_exists($realbackupfile)) {
-            throw new \moodle_exception('filenotfound', 'error', '', null, $backupfile);
-        }
-
-        // Whitelist security check: only dataroot/temp/backup or project scratch/
-        $tempdir = realpath($CFG->dataroot . '/temp/backup');
-        $scratchdir = realpath($CFG->dirroot . '/../Documents/moodle_management_console/scratch');
-        if (!$scratchdir) {
-            $scratchdir = realpath(__DIR__ . '/../../../../scratch');
-        }
-
-        $is_allowed = false;
-        if ($tempdir && str_starts_with($realbackupfile, $tempdir)) {
-            $is_allowed = true;
-        }
-        if ($scratchdir && str_starts_with($realbackupfile, $scratchdir)) {
-            $is_allowed = true;
-        }
-
-        if (!$is_allowed) {
-            throw new \moodle_exception('error', 'tool_management_console', '', null, 'Unauthorized backup file path: ' . $realbackupfile);
-        }
-
-        // Prepare backup temporary extraction directory
-        $fp = get_file_packer('application/vnd.moodle.backup');
-        $backupdir = \restore_controller::get_tempdir_name(SITEID, $USER->id);
-        $path = make_backup_temp_directory($backupdir);
-
-        try {
-            $extracted = $fp->extract_to_pathname($realbackupfile, $path);
-            if (!$extracted) {
-                throw new \moodle_exception('cannotextractfile', 'error');
-            }
-
-            // Inspect moodle_backup.xml if fullname or shortname are omitted
-            $xmlfile = $path . '/moodle_backup.xml';
-            if (file_exists($xmlfile)) {
-                $xmlcontent = file_get_contents($xmlfile);
-                if (empty($fullname) && preg_match('/<detail[^>]*name="course_fullname"[^>]*>([^<]+)<\/detail>/i', $xmlcontent, $m)) {
-                    $fullname = trim($m[1]);
-                }
-                if (empty($shortname) && preg_match('/<detail[^>]*name="course_shortname"[^>]*>([^<]+)<\/detail>/i', $xmlcontent, $m)) {
-                    $shortname = trim($m[1]);
-                }
-            }
-
-            if (empty($fullname)) {
-                $fullname = 'Restored Course ' . date('Y-m-d H:i');
-            }
-            if (empty($shortname)) {
-                $shortname = 'REST_' . date('Ymd_His');
-            }
-
-            // Ensure shortname uniqueness
-            $orig_shortname = $shortname;
-            $counter = 1;
-            while ($DB->record_exists('course', ['shortname' => $shortname])) {
-                $shortname = $orig_shortname . '_' . $counter;
-                $counter++;
-            }
-
-            // Create container course if not restoring into existing
-            if (empty($courseid)) {
-                $courseid = \restore_dbops::create_new_course($fullname, $shortname, $categoryid);
-            }
-
-            $rc = new \restore_controller(
-                $backupdir,
-                $courseid,
-                \backup::INTERACTIVE_NO,
-                \backup::MODE_GENERAL,
-                $USER->id,
-                \backup::TARGET_NEW_COURSE
-            );
-
-            $precheck = $rc->execute_precheck();
-            $warnings = [];
-            if (!$precheck) {
-                $results = $rc->get_precheck_results();
-                if (!empty($results['errors'])) {
-                    $rc->destroy();
-                    throw new \moodle_exception('restoreerror', 'backup', '', null, implode(', ', $results['errors']));
-                }
-                if (!empty($results['warnings'])) {
-                    foreach ($results['warnings'] as $w) {
-                        $warnings[] = is_string($w) ? $w : json_encode($w);
-                    }
-                }
-            }
-
-            $rc->execute_plan();
-            $rc->destroy();
-
-            // Passive cleanup of uploaded temp file if it was inside temp/backup
-            if ($tempdir && str_starts_with($realbackupfile, $tempdir)) {
-                @unlink($realbackupfile);
-            }
-
-            $course = $DB->get_record('course', ['id' => $courseid]);
-            $courseurl = (new \moodle_url('/course/view.php', ['id' => $courseid]))->out(false);
-
-            return [
-                'success'   => true,
-                'courseid'  => (int)$courseid,
-                'fullname'  => $course ? $course->fullname : $fullname,
-                'shortname' => $course ? $course->shortname : $shortname,
-                'url'       => $courseurl,
-                'warnings'  => $warnings,
-            ];
-        } finally {
-            \fulldelete($path);
-        }
+        return course_backups::restore_course_mbz($backupfile, $categoryid, $fullname, $shortname, $courseid);
     }
 
-    /**
-     * Return definition for restore_course_mbz.
-     *
-     * @return external_single_structure
-     */
     public static function restore_course_mbz_returns() {
-        return new external_single_structure([
-            'success'   => new external_value(PARAM_BOOL, 'True if restore succeeded'),
-            'courseid'  => new external_value(PARAM_INT, 'ID of restored course'),
-            'fullname'  => new external_value(PARAM_TEXT, 'Full name of restored course'),
-            'shortname' => new external_value(PARAM_TEXT, 'Short name of restored course'),
-            'url'       => new external_value(PARAM_URL, 'URL to view the restored course'),
-            'warnings'  => new external_multiple_structure(
-                new external_value(PARAM_TEXT, 'Warning message'),
-                'List of non-blocking warnings',
-                VALUE_DEFAULT,
-                []
-            ),
-        ]);
+        return course_backups::restore_course_mbz_returns();
     }
 }
-

@@ -130,7 +130,7 @@ $functions = [
         'ajax'          => true,
     ],
     'tool_management_console_course_cohort_action' => [
-        'classname'     => 'tool_management_console\external\courses',
+        'classname'     => 'tool_management_console\external\course_enrollments',
         'methodname'    => 'course_cohort_action',
         'description'   => 'Add or remove cohorts from a course',
         'type'          => 'write',
@@ -193,7 +193,7 @@ $functions = [
         'ajax'          => true,
     ],
     'tool_management_console_course_user_action' => [
-        'classname'     => 'tool_management_console\external\courses',
+        'classname'     => 'tool_management_console\external\course_enrollments',
         'methodname'    => 'course_user_action',
         'description'   => 'Enroll or unenroll users in a course',
         'type'          => 'write',
@@ -201,7 +201,7 @@ $functions = [
         'ajax'          => true,
     ],
     'tool_management_console_upload_courses_csv' => [
-        'classname'     => 'tool_management_console\external\courses',
+        'classname'     => 'tool_management_console\external\course_csv',
         'methodname'    => 'upload_courses_csv',
         'description'   => 'Upload courses via CSV',
         'type'          => 'write',
@@ -217,7 +217,7 @@ $functions = [
         'ajax'          => true,
     ],
     'tool_management_console_get_course_user_detail' => [
-        'classname'     => 'tool_management_console\external\courses',
+        'classname'     => 'tool_management_console\external\course_enrollments',
         'methodname'    => 'get_course_user_detail',
         'description'   => 'Get user detail inside a course',
         'type'          => 'read',
@@ -429,7 +429,7 @@ $functions = [
         'ajax'         => true,
     ],
     'tool_management_console_list_server_backups' => [
-        'classname'    => 'tool_management_console\external\courses',
+        'classname'    => 'tool_management_console\external\course_backups',
         'methodname'   => 'list_server_backups',
         'description'  => 'List authorized .mbz backups available on the server',
         'type'         => 'read',
@@ -437,7 +437,7 @@ $functions = [
         'ajax'         => true,
     ],
     'tool_management_console_restore_course_mbz' => [
-        'classname'    => 'tool_management_console\external\courses',
+        'classname'    => 'tool_management_console\external\course_backups',
         'methodname'   => 'restore_course_mbz',
         'description'  => 'Restore a course from a .mbz backup file',
         'type'         => 'write',
