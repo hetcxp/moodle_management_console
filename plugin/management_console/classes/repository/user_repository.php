@@ -56,18 +56,21 @@ class user_repository {
                 CASE WHEN enr.enrolled > 0 THEN (COALESCE(cmp.completed, 0) * 100.0 / enr.enrolled) ELSE 0 END
             ), 1) AS avg_progress
             FROM (
-                SELECT ue.userid, COUNT(DISTINCT ue.id) AS enrolled 
+                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled 
                   FROM {user_enrolments} ue
+                  JOIN {enrol} e ON e.id = ue.enrolid
                   JOIN {user} u ON u.id = ue.userid
                  WHERE ue.status = 0 AND u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
                  GROUP BY ue.userid
             ) enr
             LEFT JOIN (
-                SELECT cc.userid, COUNT(DISTINCT cc.id) AS completed 
-                  FROM {course_completions} cc
-                  JOIN {user} u2 ON u2.id = cc.userid
-                 WHERE cc.timecompleted > 0 AND u2.deleted = 0 AND u2.id <> :adminid2 AND u2.id <> :guestid2
-                 GROUP BY cc.userid
+                SELECT ue2.userid, COUNT(DISTINCT e2.courseid) AS completed 
+                  FROM {user_enrolments} ue2
+                  JOIN {enrol} e2 ON e2.id = ue2.enrolid
+                  JOIN {course_completions} cc ON cc.userid = ue2.userid AND cc.course = e2.courseid
+                  JOIN {user} u2 ON u2.id = ue2.userid
+                 WHERE ue2.status = 0 AND cc.timecompleted > 0 AND u2.deleted = 0 AND u2.id <> :adminid2 AND u2.id <> :guestid2
+                 GROUP BY ue2.userid
             ) cmp ON cmp.userid = enr.userid
         ";
         $primaryadmin = get_admin();
@@ -201,17 +204,19 @@ class user_repository {
          ) coh ON coh.userid = u.id
          $comp_join
          LEFT JOIN (
-                SELECT ue.userid, COUNT(DISTINCT ue.id) AS enrolled_courses
+                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled_courses
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid
                  WHERE ue.status = 0
               GROUP BY ue.userid
          ) enr ON enr.userid = u.id
          LEFT JOIN (
-                SELECT userid, COUNT(DISTINCT course) AS completed_courses
-                  FROM {course_completions}
-                 WHERE timecompleted > 0
-              GROUP BY userid
+                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS completed_courses
+                  FROM {user_enrolments} ue
+                  JOIN {enrol} e ON e.id = ue.enrolid
+                  JOIN {course_completions} cc ON cc.userid = ue.userid AND cc.course = e.courseid
+                 WHERE ue.status = 0 AND cc.timecompleted > 0
+              GROUP BY ue.userid
          ) cmp ON cmp.userid = u.id
              WHERE $where
           ORDER BY $sortfield $direction, u.id DESC

@@ -77,13 +77,13 @@ export function UsersTable({
       cell: (row) => (
         <div className="space-y-1">
           <div className="flex justify-between text-xs font-semibold">
-            <span>{row.progress}% completado</span>
+            <span>{Math.min(row.progress || 0, 100)}% completado</span>
             <span className="text-muted-foreground">{row.completed_courses}/{row.enrolled_courses}</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${row.progress === 100 ? 'bg-emerald-500' : row.progress > 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
-              style={{ width: `${Math.min(row.progress, 100)}%` }}
+              className={`h-full rounded-full transition-all duration-300 ${(row.progress || 0) >= 100 ? 'bg-emerald-500' : (row.progress || 0) > 0 ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              style={{ width: `${Math.max(0, Math.min(row.progress || 0, 100))}%` }}
             />
           </div>
         </div>

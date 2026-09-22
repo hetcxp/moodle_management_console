@@ -130,8 +130,10 @@ class users extends external_api {
             $fullname = fullname($u);
             $enrolled = (int)$u->enrolled_courses;
             $completed = (int)$u->completed_courses;
-            $progress = ($enrolled > 0) ? round(($completed / $enrolled) * 100) : 0;
+            $progress = ($enrolled > 0) ? min(100, round(($completed / $enrolled) * 100)) : 0;
             $is_admin = in_array($u->id, $siteadmins);
+
+            $clean_email = trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$u->email));
 
             $users[] = [
                 'id'                 => (int)$u->id,
@@ -139,7 +141,7 @@ class users extends external_api {
                 'firstname'          => (string)$u->firstname,
                 'lastname'           => (string)$u->lastname,
                 'fullname'           => (string)$fullname,
-                'email'              => (string)$u->email,
+                'email'              => (string)$clean_email,
                 'suspended'          => (int)$u->suspended,
                 'is_active'          => empty($u->suspended) ? 1 : 0,
                 'is_admin'           => $is_admin ? 1 : 0,
@@ -172,7 +174,7 @@ class users extends external_api {
                     'firstname'          => new external_value(PARAM_TEXT, 'First name'),
                     'lastname'           => new external_value(PARAM_TEXT, 'Last name'),
                     'fullname'           => new external_value(PARAM_TEXT, 'Display full name'),
-                    'email'              => new external_value(PARAM_EMAIL, 'Email address'),
+                    'email'              => new external_value(PARAM_TEXT, 'Email address'),
                     'suspended'          => new external_value(PARAM_INT, '1 if suspended, 0 if active'),
                     'is_active'          => new external_value(PARAM_INT, '1 if active, 0 if suspended'),
                     'is_admin'           => new external_value(PARAM_INT, '1 if site admin, 0 otherwise'),
@@ -397,10 +399,11 @@ class users extends external_api {
             ];
         }
 
-        // Calculate progress summary
-        $enrolled_count = count($courses);
-        $completed_count = count(array_filter($courses, function($c) { return $c['progress'] == 100; }));
-        $progress = ($enrolled_count > 0) ? round(($completed_count / $enrolled_count) * 100) : 0;
+        // Calculate progress summary based only on active enrolled courses
+        $active_courses = array_filter($courses, function($c) { return isset($c['enrolstatus']) && (int)$c['enrolstatus'] === 0; });
+        $enrolled_count = count($active_courses);
+        $completed_count = count(array_filter($active_courses, function($c) { return (int)($c['progress'] ?? 0) === 100; }));
+        $progress = ($enrolled_count > 0) ? min(100, round(($completed_count / $enrolled_count) * 100)) : 0;
 
         global $CFG;
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
@@ -409,11 +412,13 @@ class users extends external_api {
         $system_roles = user_repository::get_user_system_roles($user->id);
         $competencies = user_repository::get_user_competencies($user->id);
 
+        $clean_email = trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$user->email));
+
         return [
             'id' => (int)$user->id,
             'username' => (string)$user->username,
             'fullname' => fullname($user),
-            'email' => (string)$user->email,
+            'email' => (string)$clean_email,
             'suspended' => (int)$user->suspended,
             'is_active' => empty($user->suspended) ? 1 : 0,
             'is_admin' => $is_admin,
@@ -434,7 +439,7 @@ class users extends external_api {
             'id' => new external_value(PARAM_INT, 'User ID'),
             'username' => new external_value(PARAM_TEXT, 'Username'),
             'fullname' => new external_value(PARAM_TEXT, 'Fullname'),
-            'email' => new external_value(PARAM_EMAIL, 'Email'),
+            'email' => new external_value(PARAM_TEXT, 'Email'),
             'suspended' => new external_value(PARAM_INT, 'Suspended status'),
             'is_active' => new external_value(PARAM_INT, 'Active status'),
             'is_admin' => new external_value(PARAM_INT, 'Is site admin'),

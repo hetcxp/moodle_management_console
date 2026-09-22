@@ -360,9 +360,9 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
             <p className="text-xs font-medium text-muted-foreground">Progreso Global</p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                <div className="h-full bg-blue-500" style={{ width: `${data.progress}%` }} />
+                <div className="h-full bg-blue-500" style={{ width: `${Math.max(0, Math.min(data.progress || 0, 100))}%` }} />
               </div>
-              <span className="text-sm font-bold text-foreground">{data.progress}%</span>
+              <span className="text-sm font-bold text-foreground">{Math.min(data.progress || 0, 100)}%</span>
             </div>
           </div>
         </div>
