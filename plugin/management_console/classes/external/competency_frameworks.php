@@ -32,7 +32,6 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
-use tool_management_console\repository\competency_repository;
 use tool_management_console\repository\competency_framework_repository;
 
 /**
@@ -282,429 +281,90 @@ class competency_frameworks extends external_api {
     }
 
     // ==========================================
-    // 6. COMPETENCY ACTION (CREATE/EDIT/DELETE/UPDATE_RULE)
+    // BACKWARD COMPATIBILITY PROXY DELEGATIONS
     // ==========================================
+
     public static function competency_action_parameters() {
-        return new external_function_parameters([
-            'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: create, edit, delete, update_rule'),
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete/update_rule)', VALUE_DEFAULT, 0),
-            'frameworkid'  => new external_value(PARAM_INT, 'Framework ID (required for create)', VALUE_DEFAULT, 0),
-            'parentid'     => new external_value(PARAM_INT, 'Parent competency ID (0 for root/level 1)', VALUE_DEFAULT, 0),
-            'shortname'    => new external_value(PARAM_TEXT, 'Competency name', VALUE_DEFAULT, ''),
-            'idnumber'     => new external_value(PARAM_TEXT, 'Competency ID number', VALUE_DEFAULT, ''),
-            'description'  => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
-            'ruletype'     => new external_value(PARAM_RAW, 'Rule type classname or empty for none', VALUE_DEFAULT, ''),
-            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)', VALUE_DEFAULT, 1),
-            'ruleconfig'   => new external_value(PARAM_RAW, 'Rule configuration JSON', VALUE_DEFAULT, ''),
-        ]);
+        return competencies::competency_action_parameters();
     }
 
-    /**
-     * Perform competency item mutation actions (create, edit, delete, move).
-     */
     public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $parentid = 0, $shortname = '', $idnumber = '', $description = '', $ruletype = '', $ruleoutcome = 1, $ruleconfig = '') {
-        global $USER;
-
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_manage_capability($context);
-
-        $params = self::validate_parameters(self::competency_action_parameters(), [
-            'action'       => $action,
-            'competencyid' => $competencyid,
-            'frameworkid'  => $frameworkid,
-            'parentid'     => $parentid,
-            'shortname'    => $shortname,
-            'idnumber'     => $idnumber,
-            'description'  => $description,
-            'ruletype'     => $ruletype,
-            'ruleoutcome'  => $ruleoutcome,
-            'ruleconfig'   => $ruleconfig,
-        ]);
-
-        return competency_repository::competency_action(
-            (string)$params['action'],
-            (int)$params['competencyid'],
-            (int)$params['frameworkid'],
-            (int)$params['parentid'],
-            (string)$params['shortname'],
-            (string)$params['idnumber'],
-            (string)$params['description'],
-            (string)($params['ruletype'] ?? ''),
-            (int)($params['ruleoutcome'] ?? 1),
-            (string)($params['ruleconfig'] ?? ''),
-            !empty($USER->id) ? (int)$USER->id : 0
-        );
+        return competencies::competency_action($action, $competencyid, $frameworkid, $parentid, $shortname, $idnumber, $description, $ruletype, $ruleoutcome, $ruleconfig);
     }
 
     public static function competency_action_returns() {
-        return new external_single_structure([
-            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
-            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
-            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected or new ID'),
-        ]);
+        return competencies::competency_action_returns();
     }
 
-    // ==========================================
-    // 7. GET COMPETENCY DETAIL
-    // ==========================================
     public static function get_competency_detail_parameters() {
-        return new external_function_parameters([
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
-        ]);
+        return competencies::get_competency_detail_parameters();
     }
 
     public static function get_competency_detail($competencyid) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_competency_detail_parameters(), [
-            'competencyid' => $competencyid,
-        ]);
-
-        $detail = competency_repository::get_competency_detail($params['competencyid']);
-        if (!$detail) {
-            throw new \moodle_exception('invalidrecord', 'error', '', 'competency');
-        }
-
-        return $detail;
+        return competencies::get_competency_detail($competencyid);
     }
 
     public static function get_competency_detail_returns() {
-        return new external_single_structure([
-            'id'                    => new external_value(PARAM_INT, 'Competency ID'),
-            'shortname'             => new external_value(PARAM_TEXT, 'Competency short name'),
-            'idnumber'              => new external_value(PARAM_TEXT, 'Competency ID number'),
-            'description'           => new external_value(PARAM_RAW, 'Competency description'),
-            'parentid'              => new external_value(PARAM_INT, 'Parent competency ID'),
-            'parentname'            => new external_value(PARAM_TEXT, 'Parent competency name', VALUE_DEFAULT, ''),
-            'path'                  => new external_value(PARAM_TEXT, 'Hierarchy path'),
-            'sortorder'             => new external_value(PARAM_INT, 'Sort order'),
-            'competencyframeworkid' => new external_value(PARAM_INT, 'Framework ID'),
-            'frameworkname'         => new external_value(PARAM_TEXT, 'Framework name'),
-            'frameworkidnumber'     => new external_value(PARAM_TEXT, 'Framework ID number'),
-            'frameworkvisible'      => new external_value(PARAM_INT, 'Framework visibility'),
-            'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
-            'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
-            'ruletype'              => new external_value(PARAM_RAW, 'Rule type classname', VALUE_DEFAULT, ''),
-            'ruleoutcome'           => new external_value(PARAM_INT, 'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)', VALUE_DEFAULT, 1),
-            'ruleconfig'            => new external_value(PARAM_RAW, 'Rule configuration JSON', VALUE_DEFAULT, ''),
-            'childrencount'         => new external_value(PARAM_INT, 'Number of direct children subcompetencies', VALUE_DEFAULT, 0),
-            'pendingreviewscount'   => new external_value(PARAM_INT, 'Pending reviews count', VALUE_DEFAULT, 0),
-            'timecreated'           => new external_value(PARAM_INT, 'Time created'),
-            'timemodified'          => new external_value(PARAM_INT, 'Time modified'),
-            'children'              => new external_multiple_structure(
-                new external_single_structure([
-                    'id'                  => new external_value(PARAM_INT, 'Subcompetency ID'),
-                    'shortname'           => new external_value(PARAM_TEXT, 'Subcompetency short name'),
-                    'idnumber'            => new external_value(PARAM_TEXT, 'Subcompetency ID number'),
-                    'description'         => new external_value(PARAM_RAW, 'Subcompetency description'),
-                    'parentid'            => new external_value(PARAM_INT, 'Parent ID'),
-                    'path'                => new external_value(PARAM_TEXT, 'Path'),
-                    'sortorder'           => new external_value(PARAM_INT, 'Sort order'),
-                    'coursescount'        => new external_value(PARAM_INT, 'Linked courses count', VALUE_DEFAULT, 0),
-                    'childrencount'       => new external_value(PARAM_INT, 'Nested subcompetencies count', VALUE_DEFAULT, 0),
-                    'ruletype'            => new external_value(PARAM_RAW, 'Rule type classname', VALUE_DEFAULT, ''),
-                    'ruleoutcome'         => new external_value(PARAM_INT, 'Rule outcome', VALUE_DEFAULT, 1),
-                    'pendingreviewscount' => new external_value(PARAM_INT, 'Pending reviews count', VALUE_DEFAULT, 0),
-                    'timecreated'         => new external_value(PARAM_INT, 'Time created'),
-                    'timemodified'        => new external_value(PARAM_INT, 'Time modified'),
-                ]),
-                'Direct subcompetencies list',
-                VALUE_DEFAULT,
-                []
-            ),
-        ]);
+        return competencies::get_competency_detail_returns();
     }
 
-    // ==========================================
-    // 8. GET COMPETENCY COURSES & ACTIVITIES
-    // ==========================================
     public static function get_competency_courses_parameters() {
-        return new external_function_parameters([
-            'competencyid'           => new external_value(PARAM_INT, 'Competency ID'),
-            'includesubcompetencies' => new external_value(PARAM_BOOL, 'Include courses from child subcompetencies', VALUE_DEFAULT, true),
-        ]);
+        return competency_courses::get_competency_courses_parameters();
     }
 
     public static function get_competency_courses($competencyid, $includesubcompetencies = true) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_competency_courses_parameters(), [
-            'competencyid'           => $competencyid,
-            'includesubcompetencies' => $includesubcompetencies,
-        ]);
-
-        $courses = competency_repository::get_competency_courses($params['competencyid']);
-        $subcompetencycourses = [];
-        if (!empty($params['includesubcompetencies'])) {
-            $subcompetencycourses = competency_repository::get_subcompetencies_courses($params['competencyid']);
-        }
-
-        return [
-            'courses'              => $courses,
-            'subcompetencycourses' => $subcompetencycourses,
-        ];
+        return competency_courses::get_competency_courses($competencyid, $includesubcompetencies);
     }
 
     public static function get_competency_courses_returns() {
-        return new external_single_structure([
-            'courses' => new external_multiple_structure(
-                new external_single_structure([
-                    'id'           => new external_value(PARAM_INT, 'Course ID'),
-                    'fullname'     => new external_value(PARAM_TEXT, 'Course full name'),
-                    'shortname'    => new external_value(PARAM_TEXT, 'Course short name'),
-                    'idnumber'     => new external_value(PARAM_RAW, 'Course ID number'),
-                    'visible'      => new external_value(PARAM_INT, 'Course visibility'),
-                    'category'     => new external_value(PARAM_INT, 'Category ID'),
-                    'categoryname' => new external_value(PARAM_TEXT, 'Category name'),
-                    'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion'),
-                    'sortorder'    => new external_value(PARAM_INT, 'Sort order in course'),
-                    'timecreated'  => new external_value(PARAM_INT, 'Linked time timestamp'),
-                    'activities'   => new external_multiple_structure(
-                        new external_single_structure([
-                            'id'          => new external_value(PARAM_INT, 'Module competency ID'),
-                            'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
-                            'modname'     => new external_value(PARAM_TEXT, 'Module type name'),
-                            'name'        => new external_value(PARAM_TEXT, 'Activity title'),
-                            'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on activity completion'),
-                            'sortorder'   => new external_value(PARAM_INT, 'Sort order'),
-                            'timecreated' => new external_value(PARAM_INT, 'Linked timestamp'),
-                        ]),
-                        'Linked activities within this course',
-                        VALUE_DEFAULT,
-                        []
-                    ),
-                ])
-            ),
-            'subcompetencycourses' => new external_multiple_structure(
-                new external_single_structure([
-                    'competencyid'       => new external_value(PARAM_INT, 'Subcompetency ID'),
-                    'competencyname'     => new external_value(PARAM_TEXT, 'Subcompetency name'),
-                    'competencyidnumber' => new external_value(PARAM_RAW, 'Subcompetency ID number'),
-                    'courses'            => new external_multiple_structure(
-                        new external_single_structure([
-                            'id'           => new external_value(PARAM_INT, 'Course ID'),
-                            'fullname'     => new external_value(PARAM_TEXT, 'Course full name'),
-                            'shortname'    => new external_value(PARAM_TEXT, 'Course short name'),
-                            'idnumber'     => new external_value(PARAM_RAW, 'Course ID number'),
-                            'visible'      => new external_value(PARAM_INT, 'Course visibility'),
-                            'category'     => new external_value(PARAM_INT, 'Category ID'),
-                            'categoryname' => new external_value(PARAM_TEXT, 'Category name'),
-                            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion'),
-                            'sortorder'    => new external_value(PARAM_INT, 'Sort order in course'),
-                            'timecreated'  => new external_value(PARAM_INT, 'Linked time timestamp'),
-                            'activities'   => new external_multiple_structure(
-                                new external_single_structure([
-                                    'id'          => new external_value(PARAM_INT, 'Module competency ID'),
-                                    'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
-                                    'modname'     => new external_value(PARAM_TEXT, 'Module type name'),
-                                    'name'        => new external_value(PARAM_TEXT, 'Activity title'),
-                                    'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on activity completion'),
-                                    'sortorder'   => new external_value(PARAM_INT, 'Sort order'),
-                                    'timecreated' => new external_value(PARAM_INT, 'Linked timestamp'),
-                                ]),
-                                'Linked activities within this course',
-                                VALUE_DEFAULT,
-                                []
-                            ),
-                        ]),
-                        'Courses linked to this subcompetency',
-                        VALUE_DEFAULT,
-                        []
-                    ),
-                ]),
-                'Courses grouped by child subcompetency',
-                VALUE_DEFAULT,
-                []
-            ),
-        ]);
+        return competency_courses::get_competency_courses_returns();
     }
 
-    // ==========================================
-    // 9. COMPETENCY COURSE ACTION (ADD/REMOVE/UPDATE_RULE)
-    // ==========================================
     public static function competency_course_action_parameters() {
-        return new external_function_parameters([
-            'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: add, remove, update_rule'),
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
-            'courseids'    => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs'),
-            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion (default 1)', VALUE_DEFAULT, 1),
-        ]);
+        return competency_courses::competency_course_action_parameters();
     }
 
-    /**
-     * Perform competency-course link actions (add, remove).
-     */
     public static function competency_course_action($action, $competencyid, $courseids, $ruleoutcome = 1) {
-        global $USER;
-
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_manage_capability($context);
-
-        $params = self::validate_parameters(self::competency_course_action_parameters(), [
-            'action'       => $action,
-            'competencyid' => $competencyid,
-            'courseids'    => $courseids,
-            'ruleoutcome'  => $ruleoutcome,
-        ]);
-
-        return competency_repository::competency_course_action(
-            (string)$params['action'],
-            (int)$params['competencyid'],
-            (array)$params['courseids'],
-            (int)$params['ruleoutcome'],
-            !empty($USER->id) ? (int)$USER->id : 0
-        );
+        return competency_courses::competency_course_action($action, $competencyid, $courseids, $ruleoutcome);
     }
 
     public static function competency_course_action_returns() {
-        return new external_single_structure([
-            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
-            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
-            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected'),
-        ]);
+        return competency_courses::competency_course_action_returns();
     }
 
-    // ==========================================
-    // 10. GET COURSE AVAILABLE ACTIVITIES
-    // ==========================================
     public static function get_course_available_activities_parameters() {
-        return new external_function_parameters([
-            'courseid'     => new external_value(PARAM_INT, 'Course ID'),
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID', VALUE_DEFAULT, 0),
-        ]);
+        return competency_courses::get_course_available_activities_parameters();
     }
 
     public static function get_course_available_activities($courseid, $competencyid = 0) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_course_available_activities_parameters(), [
-            'courseid'     => $courseid,
-            'competencyid' => $competencyid,
-        ]);
-
-        $activities = competency_repository::get_course_available_activities($params['courseid'], $params['competencyid']);
-        return ['activities' => $activities];
+        return competency_courses::get_course_available_activities($courseid, $competencyid);
     }
 
     public static function get_course_available_activities_returns() {
-        return new external_single_structure([
-            'activities' => new external_multiple_structure(
-                new external_single_structure([
-                    'cmid'        => new external_value(PARAM_INT, 'Course module ID'),
-                    'courseid'    => new external_value(PARAM_INT, 'Course ID'),
-                    'modname'     => new external_value(PARAM_TEXT, 'Module name'),
-                    'name'        => new external_value(PARAM_TEXT, 'Activity title'),
-                    'visible'     => new external_value(PARAM_INT, 'Visibility (1 or 0)'),
-                    'section'     => new external_value(PARAM_INT, 'Section number'),
-                    'islinked'    => new external_value(PARAM_INT, '1 if linked to competency, 0 otherwise'),
-                    'linkid'      => new external_value(PARAM_INT, 'Link ID if linked'),
-                    'ruleoutcome' => new external_value(PARAM_INT, 'Rule outcome on completion'),
-                ])
-            ),
-        ]);
+        return competency_courses::get_course_available_activities_returns();
     }
 
-    // ==========================================
-    // 11. MODULE COMPETENCY ACTION (ADD/REMOVE/UPDATE_RULE)
-    // ==========================================
     public static function module_competency_action_parameters() {
-        return new external_function_parameters([
-            'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: add, remove, update_rule'),
-            'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
-            'cmid'         => new external_value(PARAM_INT, 'Course module ID'),
-            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome on completion (default 1)', VALUE_DEFAULT, 1),
-        ]);
+        return competency_courses::module_competency_action_parameters();
     }
 
-    /**
-     * Perform module-competency link actions (add, remove, update_rule).
-     */
     public static function module_competency_action($action, $competencyid, $cmid, $ruleoutcome = 1) {
-        global $USER;
-
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_manage_capability($context);
-
-        $params = self::validate_parameters(self::module_competency_action_parameters(), [
-            'action'       => $action,
-            'competencyid' => $competencyid,
-            'cmid'         => $cmid,
-            'ruleoutcome'  => $ruleoutcome,
-        ]);
-
-        return competency_repository::module_competency_action(
-            (string)$params['action'],
-            (int)$params['competencyid'],
-            (int)$params['cmid'],
-            (int)$params['ruleoutcome'],
-            !empty($USER->id) ? (int)$USER->id : 0
-        );
+        return competency_courses::module_competency_action($action, $competencyid, $cmid, $ruleoutcome);
     }
 
     public static function module_competency_action_returns() {
-        return new external_single_structure([
-            'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
-            'message'       => new external_value(PARAM_TEXT, 'Status description message'),
-            'affectedcount' => new external_value(PARAM_INT, 'Number of records affected'),
-        ]);
+        return competency_courses::module_competency_action_returns();
     }
 
-    // ==========================================
-    // 16. GET ALL COMPETENCIES (FLAT BULK)
-    // ==========================================
     public static function get_all_competencies_parameters() {
-        return new external_function_parameters([
-            'frameworkid' => new external_value(PARAM_INT, 'Optional framework ID filter, 0 for all', VALUE_DEFAULT, 0),
-        ]);
+        return competencies::get_all_competencies_parameters();
     }
 
     public static function get_all_competencies($frameworkid = 0) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        self::check_view_capability($context);
-
-        $params = self::validate_parameters(self::get_all_competencies_parameters(), [
-            'frameworkid' => $frameworkid,
-        ]);
-
-        $competencies = competency_framework_repository::get_all_competencies_flat();
-
-        if (!empty($params['frameworkid'])) {
-            $competencies = array_values(array_filter($competencies, function($c) use ($params) {
-                return (int)$c['frameworkid'] === (int)$params['frameworkid'];
-            }));
-        }
-
-        return [
-            'competencies' => $competencies,
-            'total'        => count($competencies),
-        ];
+        return competencies::get_all_competencies($frameworkid);
     }
 
     public static function get_all_competencies_returns() {
-        return new external_single_structure([
-            'competencies' => new external_multiple_structure(
-                new external_single_structure([
-                    'id'                => new external_value(PARAM_INT, 'Competency ID'),
-                    'shortname'         => new external_value(PARAM_TEXT, 'Competency short name'),
-                    'idnumber'          => new external_value(PARAM_RAW, 'Competency ID number'),
-                    'description'       => new external_value(PARAM_RAW, 'Competency description'),
-                    'descriptionformat' => new external_value(PARAM_INT, 'Description format'),
-                    'frameworkid'       => new external_value(PARAM_INT, 'Framework ID'),
-                    'frameworkname'     => new external_value(PARAM_TEXT, 'Framework short name'),
-                    'frameworkidnumber' => new external_value(PARAM_RAW, 'Framework ID number'),
-                ])
-            ),
-            'total' => new external_value(PARAM_INT, 'Total competencies count'),
-        ]);
+        return competencies::get_all_competencies_returns();
     }
 }
