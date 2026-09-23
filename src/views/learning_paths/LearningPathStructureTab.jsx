@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -16,14 +16,22 @@ import {
   ArrowRight,
   Search,
   ExternalLink,
+  AlertCircle,
 } from 'lucide-react';
 import { useSearchCoursesForPath } from '../../hooks/useAdminerQueries';
 
-export function LearningPathStructureTab({ path, onSave, saving = false, onViewInMoodle }) {
+export function LearningPathStructureTab({
+  path,
+  onSave,
+  saving = false,
+  onViewInMoodle,
+  onDirtyChange,
+}) {
   const [coursesList, setCoursesList] = useState([]);
   const [enforceSequence, setEnforceSequence] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [courseSearch, setCourseSearch] = useState('');
+  const [initialSnapshot, setInitialSnapshot] = useState({ ids: [], enforceSequence: false });
 
   useEffect(() => {
     if (path?.sections) {
@@ -35,9 +43,32 @@ export function LearningPathStructureTab({ path, onSave, saving = false, onViewI
           shortname: s.subcourse_shortname || '',
         }));
       setCoursesList(initial);
-      setEnforceSequence(!!path.enforce_sequence);
+      const isSeq = !!path.enforce_sequence;
+      setEnforceSequence(isSeq);
+      setInitialSnapshot({
+        ids: initial.map((c) => c.id),
+        enforceSequence: isSeq,
+      });
     }
   }, [path]);
+
+  // Cálculo determinista de estado sucio (isDirty)
+  const isDirty = useMemo(() => {
+    const currentIds = coursesList.map((c) => c.id);
+    if (currentIds.length !== initialSnapshot.ids.length) return true;
+    if (currentIds.some((id, idx) => id !== initialSnapshot.ids[idx])) return true;
+    return enforceSequence !== initialSnapshot.enforceSequence;
+  }, [coursesList, enforceSequence, initialSnapshot]);
+
+  // Notificar al componente contenedor para salvaguardas de navegación
+  useEffect(() => {
+    if (onDirtyChange) {
+      onDirtyChange(isDirty, {
+        subcourse_course_ids: coursesList.map((c) => c.id),
+        enforce_sequence: enforceSequence,
+      });
+    }
+  }, [isDirty, coursesList, enforceSequence, onDirtyChange]);
 
   // Consulta de búsqueda de cursos para agregar
   const { data: searchData, isLoading: searching } = useSearchCoursesForPath({
@@ -83,12 +114,19 @@ export function LearningPathStructureTab({ path, onSave, saving = false, onViewI
     setCourseSearch('');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (onSave) {
-      onSave({
+      const payload = {
         subcourse_course_ids: coursesList.map((c) => c.id),
         enforce_sequence: enforceSequence,
-      });
+      };
+      const success = await onSave(payload);
+      if (success !== false) {
+        setInitialSnapshot({
+          ids: coursesList.map((c) => c.id),
+          enforceSequence,
+        });
+      }
     }
   };
 
@@ -98,7 +136,14 @@ export function LearningPathStructureTab({ path, onSave, saving = false, onViewI
       <Card className="p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-foreground">Reglas de Secuencia de Aprendizaje</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-bold text-foreground">Reglas de Secuencia de Aprendizaje</h3>
+              {isDirty && (
+                <Badge variant="warning" className="text-[11px] gap-1 animate-pulse">
+                  <AlertCircle className="h-3 w-3" /> Cambios sin guardar
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               Define el orden de avance pedagógico y si los estudiantes deben completar cada curso antes de desbloquear el siguiente.
             </p>
@@ -124,11 +169,13 @@ export function LearningPathStructureTab({ path, onSave, saving = false, onViewI
             </label>
 
             <Button
-              variant="primary"
+              variant={isDirty ? 'default' : 'outline'}
               size="sm"
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-1.5"
+              className={`flex items-center gap-1.5 ${
+                isDirty ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90' : ''
+              }`}
             >
               <Save className="h-4 w-4" />
               {saving ? 'Guardando...' : 'Guardar Estructura'}

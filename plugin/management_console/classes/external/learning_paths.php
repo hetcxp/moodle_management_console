@@ -174,6 +174,14 @@ class learning_paths extends external_api {
                 'name'         => new external_value(PARAM_TEXT, 'Cohort name'),
                 'member_count' => new external_value(PARAM_INT, 'Enrolled members count'),
             ])),
+            'users'            => new external_multiple_structure(new external_single_structure([
+                'id'           => new external_value(PARAM_INT, 'User ID'),
+                'fullname'     => new external_value(PARAM_TEXT, 'User full name'),
+                'email'        => new external_value(PARAM_TEXT, 'User email'),
+                'status'       => new external_value(PARAM_INT, 'Enrolment status (0=active, 1=suspended)'),
+                'enrol_method' => new external_value(PARAM_TEXT, 'Enrol method: manual, cohort, etc.'),
+                'timecreated'  => new external_value(PARAM_INT, 'Enrolment timestamp', VALUE_OPTIONAL, 0),
+            ]), 'Enrolled users list', VALUE_OPTIONAL),
             'progress_matrix'  => new external_multiple_structure(new external_single_structure([
                 'user_id'  => new external_value(PARAM_INT, 'User ID'),
                 'fullname' => new external_value(PARAM_TEXT, 'User full name'),
@@ -450,6 +458,26 @@ class learning_paths extends external_api {
                         $manualplugin->enrol_user($instance, $userid, $roleid);
                     } else if ($params['action'] === 'remove') {
                         $manualplugin->unenrol_user($instance, $userid);
+
+                        // Desmatricular también de los subcursos hijos si estuviera matriculado manualmente
+                        $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+                        if ($submodule_id) {
+                            $subcourses = $DB->get_records_sql("
+                                SELECT s.refcourse
+                                  FROM {course_modules} cm
+                                  JOIN {subcourse} s ON s.id = cm.instance
+                                 WHERE cm.course = :courseid AND cm.module = :submoduleid AND cm.deletioninprogress = 0
+                            ", ['courseid' => $course->id, 'submoduleid' => $submodule_id]);
+                            if ($subcourses) {
+                                foreach ($subcourses as $sc) {
+                                    $subcourseid = (int)$sc->refcourse;
+                                    $submanual = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $subcourseid]);
+                                    if ($submanual) {
+                                        $manualplugin->unenrol_user($submanual, $userid);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

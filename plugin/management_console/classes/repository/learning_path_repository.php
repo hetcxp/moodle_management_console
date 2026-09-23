@@ -304,6 +304,36 @@ class learning_path_repository {
             }
         }
 
+        // Usuarios matriculados en la ruta
+        $sql_enrolled_users = "
+            SELECT ue.id AS userenrolid, u.id, u.firstname, u.lastname, u.email,
+                   ue.status, ue.timecreated, e.enrol AS enrolmethod
+              FROM {user} u
+              JOIN {user_enrolments} ue ON ue.userid = u.id
+              JOIN {enrol} e ON e.id = ue.enrolid
+             WHERE e.courseid = :courseid AND u.deleted = 0
+          ORDER BY u.lastname ASC, u.firstname ASC
+        ";
+        $enrolled_user_records = $DB->get_records_sql($sql_enrolled_users, ['courseid' => $courseid]);
+        $enrolled_users = [];
+        if ($enrolled_user_records) {
+            foreach ($enrolled_user_records as $eur) {
+                $uid = (int)$eur->id;
+                if (!isset($enrolled_users[$uid])) {
+                    $enrolled_users[$uid] = [
+                        'id'           => $uid,
+                        'fullname'     => $eur->firstname . ' ' . $eur->lastname,
+                        'email'        => $eur->email,
+                        'status'       => (int)$eur->status,
+                        'enrol_method' => $eur->enrolmethod,
+                        'timecreated'  => (int)$eur->timecreated,
+                    ];
+                } else if ($eur->enrolmethod === 'manual') {
+                    $enrolled_users[$uid]['enrol_method'] = 'manual';
+                }
+            }
+        }
+
         $detail = new stdClass();
         $detail->id = (int)$course->id;
         $detail->fullname = $course->fullname;
@@ -315,6 +345,7 @@ class learning_path_repository {
         $detail->sections = $sections;
         $detail->enforce_sequence = $has_sequential_rules;
         $detail->cohorts = $cohorts;
+        $detail->users = array_values($enrolled_users);
         $detail->progress_matrix = $progress_matrix;
 
         return $detail;
