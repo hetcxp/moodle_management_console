@@ -7,6 +7,8 @@ import {
 import { usePermission } from '../../hooks/usePermission';
 import { useToast } from '../../components/ui/Toast';
 import { useEntityListState } from '../../hooks/useEntityListState';
+import { AdminerApi } from '../../services/adminer-api';
+import { API_CONFIG } from '../../config/api';
 
 export function useLearningPathsState() {
   const { addToast } = useToast();
@@ -106,6 +108,21 @@ export function useLearningPathsState() {
     }
   };
 
+  const handleViewInMoodle = async (courseId) => {
+    try {
+      const destination = `/course/view.php?id=${courseId}`;
+      const res = await AdminerApi.getAutologinUrl(destination);
+      if (res && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        window.open(`${API_CONFIG.baseUrl}${destination}`, '_blank');
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Error', message: 'No se pudo generar la URL de acceso directo a Moodle.' });
+      window.open(`${API_CONFIG.baseUrl}/course/view.php?id=${courseId}`, '_blank');
+    }
+  };
+
   return {
     paths,
     totalCount,
@@ -129,5 +146,6 @@ export function useLearningPathsState() {
     refetch,
     handleDeleteRequest,
     handleConfirmDelete,
+    handleViewInMoodle,
   };
 }

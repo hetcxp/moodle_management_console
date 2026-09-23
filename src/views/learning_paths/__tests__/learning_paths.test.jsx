@@ -97,6 +97,23 @@ describe('Learning Paths - Frontend Components', () => {
       fireEvent.click(enabledDeleteBtn);
       expect(onDelete).toHaveBeenCalledWith(mockPaths[1]);
     });
+
+    it('permite ver la ruta/curso en Moodle llamando a onViewInMoodle', () => {
+      const onViewInMoodle = vi.fn();
+      render(
+        <LearningPathsTable
+          paths={mockPaths}
+          totalCount={2}
+          onViewInMoodle={onViewInMoodle}
+        />
+      );
+
+      const viewBtns = screen.getAllByTitle('Ver en Moodle');
+      expect(viewBtns.length).toBe(2);
+
+      fireEvent.click(viewBtns[0]);
+      expect(onViewInMoodle).toHaveBeenCalledWith(mockPaths[0].id);
+    });
   });
 
   describe('LearningPathStructureTab - Secuenciación y Reordenamiento', () => {
@@ -152,6 +169,24 @@ describe('Learning Paths - Frontend Components', () => {
         subcourse_course_ids: [501, 502],
         enforce_sequence: true,
       });
+    });
+
+    it('permite ver el subcurso en Moodle desde la estructura', () => {
+      const onViewInMoodle = vi.fn();
+      render(
+        <LearningPathStructureTab
+          path={mockPath}
+          onSave={vi.fn()}
+          onViewInMoodle={onViewInMoodle}
+        />,
+        { wrapper: createWrapper() }
+      );
+
+      const viewBtns = screen.getAllByTitle('Ver curso en Moodle');
+      expect(viewBtns.length).toBe(2);
+
+      fireEvent.click(viewBtns[0]);
+      expect(onViewInMoodle).toHaveBeenCalledWith(501);
     });
   });
 });

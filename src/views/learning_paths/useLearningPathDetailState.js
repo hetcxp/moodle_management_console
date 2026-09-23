@@ -6,6 +6,8 @@ import {
   useDeleteLearningPath,
 } from '../../hooks/useAdminerQueries';
 import { useToast } from '../../components/ui/Toast';
+import { AdminerApi } from '../../services/adminer-api';
+import { API_CONFIG } from '../../config/api';
 
 export function useLearningPathDetailState(id, onNavigateBack) {
   const { addToast } = useToast();
@@ -132,6 +134,21 @@ export function useLearningPathDetailState(id, onNavigateBack) {
     }
   };
 
+  const handleViewInMoodle = async (courseId = id) => {
+    try {
+      const destination = `/course/view.php?id=${courseId}`;
+      const res = await AdminerApi.getAutologinUrl(destination);
+      if (res && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        window.open(`${API_CONFIG.baseUrl}${destination}`, '_blank');
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Error', message: 'No se pudo generar la URL de acceso directo a Moodle.' });
+      window.open(`${API_CONFIG.baseUrl}/course/view.php?id=${courseId}`, '_blank');
+    }
+  };
+
   return {
     path,
     loading: isLoading || isFetching,
@@ -148,6 +165,7 @@ export function useLearningPathDetailState(id, onNavigateBack) {
     handleRemoveCohort,
     handleDeleteRequest,
     handleConfirmDelete,
+    handleViewInMoodle,
     refetch,
   };
 }

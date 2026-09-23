@@ -28,6 +28,7 @@ export function LearningPathsView({ onNavigateToDetail }) {
     refetch,
     handleDeleteRequest,
     handleConfirmDelete,
+    handleViewInMoodle,
   } = useLearningPathsState();
 
   if (dependencies?.missing?.length > 0) {
@@ -63,6 +64,7 @@ export function LearningPathsView({ onNavigateToDetail }) {
             onNavigateToDetail('learning-path', row.id);
           }
         }}
+        onViewInMoodle={handleViewInMoodle}
         onDelete={handleDeleteRequest}
       />
 

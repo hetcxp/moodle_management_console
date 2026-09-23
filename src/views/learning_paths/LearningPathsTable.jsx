@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { BookOpen, Users, Layers, Trash2, Calendar, Eye, EyeOff } from 'lucide-react';
+import { BookOpen, Users, Layers, Trash2, Calendar, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { formatDateOnly } from '../../lib/utils';
 
 export function LearningPathsTable({
@@ -16,6 +16,7 @@ export function LearningPathsTable({
   onRowClick,
   onToggleVisibility,
   onDelete,
+  onViewInMoodle,
 }) {
   const columns = [
     {
@@ -87,6 +88,18 @@ export function LearningPathsTable({
         const hasStudents = row.enrolled_count > 0;
         return (
           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            {onViewInMoodle && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                title="Ver en Moodle"
+                aria-label="Ver en Moodle"
+                onClick={() => onViewInMoodle(row.id)}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            )}
             {onToggleVisibility && (
               <Button
                 variant="ghost"

@@ -401,6 +401,10 @@ class learning_path_repository {
     public static function update_structure(int $courseid, array $subcourse_ids, bool $enforce_sequence): void {
         global $DB, $CFG;
 
+        if (file_exists($CFG->dirroot . '/mod/subcourse/lib.php')) {
+            require_once($CFG->dirroot . '/mod/subcourse/lib.php');
+        }
+
         $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
         $total = count($subcourse_ids);
         self::sync_numsections($courseid, max(1, $total));
@@ -421,6 +425,7 @@ class learning_path_repository {
                 $newsec->summary = '';
                 $newsec->summaryformat = FORMAT_HTML;
                 $newsec->visible = 1;
+                $newsec->sequence = '';
                 $newsec->timemodified = time();
                 $section_id = (int)$DB->insert_record('course_sections', $newsec);
             } else {
@@ -445,6 +450,7 @@ class learning_path_repository {
                 if ($subcourse) {
                     $subcourse->refcourse = $refcourse_id;
                     $subcourse->name = $subc_name;
+                    $subcourse->completioncourse = 1;
                     $subcourse->timemodified = time();
                     $DB->update_record('subcourse', $subcourse);
                 }
@@ -455,6 +461,7 @@ class learning_path_repository {
                 $subcourse->refcourse = $refcourse_id;
                 $subcourse->intro = '';
                 $subcourse->introformat = FORMAT_HTML;
+                $subcourse->completioncourse = 1;
                 $subcourse->timecreated = time();
                 $subcourse->timemodified = time();
                 $subcourse_id = (int)$DB->insert_record('subcourse', $subcourse);
@@ -466,10 +473,21 @@ class learning_path_repository {
                 $newcm->section = $section_id;
                 $newcm->visible = 1;
                 $newcm->completion = 2; // Track completion when conditions met
-                $newcm->completionview = 1;
+                $newcm->completionview = 0;
                 $newcm->added = time();
                 $cm_id = (int)$DB->insert_record('course_modules', $newcm);
             }
+
+            // Actualizar grade item del subcurso si la función existe
+            if (function_exists('subcourse_grade_item_update')) {
+                $sc_record = $DB->get_record('subcourse', ['id' => $cm ? $cm->instance : $subcourse_id]);
+                if ($sc_record) {
+                    subcourse_grade_item_update($sc_record);
+                }
+            }
+
+            // Sincronizar campo sequence en course_sections para renderizado nativo en Moodle
+            $DB->set_field('course_sections', 'sequence', (string)$cm_id, ['id' => $section_id]);
 
             // 3. Availability rules
             if ($enforce_sequence && $previous_cm_id !== null) {
@@ -492,7 +510,7 @@ class learning_path_repository {
             $previous_cm_id = $cm_id;
         }
 
-        // Eliminar módulos sobrantes en secciones mayores a $total
+        // Eliminar módulos sobrantes y limpiar secuencias en secciones mayores a $total
         $sql_excess = "
             SELECT cm.id
               FROM {course_modules} cm
@@ -503,6 +521,16 @@ class learning_path_repository {
         if ($excess_cms) {
             foreach ($excess_cms as $ecm) {
                 $DB->set_field('course_modules', 'deletioninprogress', 1, ['id' => $ecm->id]);
+            }
+        }
+
+        $excess_sections = $DB->get_records_select('course_sections', 'course = :courseid AND section > :totalsec', [
+            'courseid' => $courseid,
+            'totalsec' => $total,
+        ]);
+        if ($excess_sections) {
+            foreach ($excess_sections as $esec) {
+                $DB->set_field('course_sections', 'sequence', '', ['id' => $esec->id]);
             }
         }
 

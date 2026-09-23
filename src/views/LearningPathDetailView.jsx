@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Trash2,
   BookOpen,
+  ExternalLink,
 } from 'lucide-react';
 import { formatDateOnly } from '../lib/utils';
 
@@ -44,6 +45,7 @@ export function LearningPathDetailView({
     handleRemoveCohort,
     handleDeleteRequest,
     handleConfirmDelete,
+    handleViewInMoodle,
   } = useLearningPathDetailState(id, handleBack);
 
   if (loading && !path) {
@@ -123,6 +125,16 @@ export function LearningPathDetailView({
             <Button
               variant="outline"
               size="sm"
+              className="text-xs"
+              onClick={() => handleViewInMoodle(path.id)}
+              title="Ver curso contenedor en Moodle"
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+              Ver en Moodle
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs"
               onClick={handleDeleteRequest}
               disabled={deleting}
@@ -182,6 +194,7 @@ export function LearningPathDetailView({
             path={path}
             onSave={handleSaveStructure}
             saving={savingStructure}
+            onViewInMoodle={handleViewInMoodle}
           />
         )}
 

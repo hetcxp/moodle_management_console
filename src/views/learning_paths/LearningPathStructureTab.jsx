@@ -15,10 +15,11 @@ import {
   BookOpen,
   ArrowRight,
   Search,
+  ExternalLink,
 } from 'lucide-react';
 import { useSearchCoursesForPath } from '../../hooks/useAdminerQueries';
 
-export function LearningPathStructureTab({ path, onSave, saving = false }) {
+export function LearningPathStructureTab({ path, onSave, saving = false, onViewInMoodle }) {
   const [coursesList, setCoursesList] = useState([]);
   const [enforceSequence, setEnforceSequence] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -191,6 +192,18 @@ export function LearningPathStructureTab({ path, onSave, saving = false }) {
                   </div>
 
                   <div className="flex items-center gap-1">
+                    {onViewInMoodle && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        title="Ver curso en Moodle"
+                        aria-label="Ver curso en Moodle"
+                        onClick={() => onViewInMoodle(c.id)}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
