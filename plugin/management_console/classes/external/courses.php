@@ -148,15 +148,15 @@ class courses extends external_api {
 
     public static function course_action_parameters() {
         return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: create, hide, show, delete, move, update, update_dates'),
-            'courseids'   => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs', VALUE_DEFAULT, []),
-            'categoryid'  => new external_value(PARAM_INT, 'Target category ID for move or create', VALUE_DEFAULT, 0),
-            'fullname'    => new external_value(PARAM_TEXT, 'Course fullname for create or update', VALUE_DEFAULT, ''),
-            'shortname'   => new external_value(PARAM_TEXT, 'Course shortname for create or update', VALUE_DEFAULT, ''),
-            'summary'     => new external_value(PARAM_RAW, 'Course summary for create or update', VALUE_DEFAULT, ''),
-            'visible'     => new external_value(PARAM_INT, 'Course visibility for create', VALUE_DEFAULT, 1),
-            'startdate'   => new external_value(PARAM_INT, 'Course start date', VALUE_DEFAULT, 0),
-            'enddate'     => new external_value(PARAM_INT, 'Course end date', VALUE_DEFAULT, 0),
+            'action'         => new external_value(PARAM_ALPHANUMEXT, 'Action: create, hide, show, delete, move, update, update_dates'),
+            'courseids'      => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs', VALUE_DEFAULT, []),
+            'categoryid'     => new external_value(PARAM_INT, 'Target category ID for move or create', VALUE_DEFAULT, 0),
+            'fullname'       => new external_value(PARAM_TEXT, 'Course fullname for create or update', VALUE_DEFAULT, ''),
+            'shortname'      => new external_value(PARAM_TEXT, 'Course shortname for create or update', VALUE_DEFAULT, ''),
+            'summary'        => new external_value(PARAM_RAW, 'Course summary for create or update', VALUE_DEFAULT, ''),
+            'visible'        => new external_value(PARAM_INT, 'Course visibility for create', VALUE_DEFAULT, 1),
+            'startdate'      => new external_value(PARAM_INT, 'Course start date', VALUE_DEFAULT, 0),
+            'enddate'        => new external_value(PARAM_INT, 'Course end date', VALUE_DEFAULT, 0),
         ]);
     }
 
@@ -185,15 +185,15 @@ class courses extends external_api {
         self::validate_context($context);
 
         $params = self::validate_parameters(self::course_action_parameters(), [
-            'action'     => $action,
-            'courseids'  => $courseids,
-            'categoryid' => $categoryid,
-            'fullname'   => $fullname,
-            'shortname'  => $shortname,
-            'summary'    => $summary,
-            'visible'    => $visible,
-            'startdate'  => $startdate,
-            'enddate'    => $enddate,
+            'action'         => $action,
+            'courseids'      => $courseids,
+            'categoryid'     => $categoryid,
+            'fullname'       => $fullname,
+            'shortname'      => $shortname,
+            'summary'        => $summary,
+            'visible'        => $visible,
+            'startdate'      => $startdate,
+            'enddate'        => $enddate,
         ]);
 
         $affected = 0;
