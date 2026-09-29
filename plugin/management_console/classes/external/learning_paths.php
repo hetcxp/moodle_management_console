@@ -296,6 +296,7 @@ class learning_paths extends external_api {
         $syscontext = context_system::instance();
         self::validate_context($syscontext);
         require_capability('moodle/course:create', $syscontext);
+        \tool_management_console\license_manager::require_active_license();
 
         $courseid = learning_path_repository::create_learning_path($params['fullname'], $params['shortname'], $params['startdate']);
 
@@ -335,6 +336,7 @@ class learning_paths extends external_api {
         $context = context_course::instance($params['courseid']);
         self::validate_context($context);
         require_capability('moodle/course:update', $context);
+        \tool_management_console\license_manager::require_active_license();
 
         learning_path_repository::update_structure(
             $params['courseid'],
@@ -368,6 +370,7 @@ class learning_paths extends external_api {
         $context = context_course::instance($params['courseid']);
         self::validate_context($context);
         require_capability('moodle/course:delete', $context);
+        \tool_management_console\license_manager::require_active_license();
 
         $has_students = learning_path_repository::has_enrolled_users($params['courseid']);
         if ($has_students) {
@@ -417,6 +420,7 @@ class learning_paths extends external_api {
         $context = context_course::instance($params['courseid']);
         self::validate_context($context);
         require_capability('moodle/course:enrolreview', $context);
+        \tool_management_console\license_manager::require_active_license();
 
         $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
         $enrolplugin = enrol_get_plugin('cohort');

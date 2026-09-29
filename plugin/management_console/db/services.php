@@ -444,6 +444,30 @@ $functions = [
         'capabilities' => 'moodle/course:create',
         'ajax'         => true,
     ],
+    'tool_management_console_save_license' => [
+        'classname'   => 'tool_management_console\external\license',
+        'methodname'  => 'save_license',
+        'description' => 'Save and validate a license activation key',
+        'type'        => 'write',
+        'capabilities'=> 'moodle/site:config',
+        'ajax'        => true,
+    ],
+    'tool_management_console_get_license_info' => [
+        'classname'   => 'tool_management_console\external\license',
+        'methodname'  => 'get_license_info',
+        'description' => 'Get current license status and metadata',
+        'type'        => 'read',
+        'capabilities'=> 'tool/management_console:access',
+        'ajax'        => true,
+    ],
+    'tool_management_console_remove_license' => [
+        'classname'   => 'tool_management_console\external\license',
+        'methodname'  => 'remove_license',
+        'description' => 'Remove and revoke the license activation key',
+        'type'        => 'write',
+        'capabilities'=> 'moodle/site:config',
+        'ajax'        => true,
+    ],
 ];
 
 $services = [
@@ -504,6 +528,9 @@ $services = [
             'tool_management_console_user_plan_action',
             'tool_management_console_list_server_backups',
             'tool_management_console_restore_course_mbz',
+            'tool_management_console_save_license',
+            'tool_management_console_get_license_info',
+            'tool_management_console_remove_license',
             'core_webservice_get_site_info',
             'core_auth_invalidate_tokens',
         ],

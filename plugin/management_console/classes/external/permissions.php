@@ -51,21 +51,30 @@ class permissions extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
 
-        return [
-            'is_siteadmin'          => is_siteadmin($USER->id) ? 1 : 0,
-            'can_config_site'       => has_capability('moodle/site:config', $context) ? 1 : 0,
-            'can_view_courses'      => has_capability('moodle/course:view', $context) ? 1 : 0,
-            'can_create_courses'    => has_capability('moodle/course:create', $context) ? 1 : 0,
-            'can_update_courses'    => (has_capability('moodle/course:update', $context) || has_capability('moodle/course:visibility', $context)) ? 1 : 0,
-            'can_delete_courses'    => has_capability('moodle/course:delete', $context) ? 1 : 0,
-            'can_manage_categories' => has_capability('moodle/category:manage', $context) ? 1 : 0,
-            'can_view_users'        => has_capability('moodle/user:viewalldetails', $context) ? 1 : 0,
-            'can_update_users'      => has_capability('moodle/user:update', $context) ? 1 : 0,
-            'can_delete_users'      => has_capability('moodle/user:delete', $context) ? 1 : 0,
-            'can_view_cohorts'      => has_capability('moodle/cohort:view', $context) ? 1 : 0,
-            'can_view_competencies' => (has_capability('moodle/competency:competencyview', $context) || has_capability('moodle/competency:competencymanage', $context) || is_siteadmin($USER->id)) ? 1 : 0,
+        $result = [
+            'is_siteadmin'           => is_siteadmin($USER->id) ? 1 : 0,
+            'can_config_site'        => has_capability('moodle/site:config', $context) ? 1 : 0,
+            'can_view_courses'       => has_capability('moodle/course:view', $context) ? 1 : 0,
+            'can_create_courses'     => has_capability('moodle/course:create', $context) ? 1 : 0,
+            'can_update_courses'     => (has_capability('moodle/course:update', $context) || has_capability('moodle/course:visibility', $context)) ? 1 : 0,
+            'can_delete_courses'     => has_capability('moodle/course:delete', $context) ? 1 : 0,
+            'can_manage_categories'  => has_capability('moodle/category:manage', $context) ? 1 : 0,
+            'can_view_users'         => has_capability('moodle/user:viewalldetails', $context) ? 1 : 0,
+            'can_update_users'       => has_capability('moodle/user:update', $context) ? 1 : 0,
+            'can_delete_users'       => has_capability('moodle/user:delete', $context) ? 1 : 0,
+            'can_view_cohorts'       => has_capability('moodle/cohort:view', $context) ? 1 : 0,
+            'can_view_competencies'  => (has_capability('moodle/competency:competencyview', $context) || has_capability('moodle/competency:competencymanage', $context) || is_siteadmin($USER->id)) ? 1 : 0,
             'can_manage_competencies' => (has_capability('moodle/competency:competencymanage', $context) || is_siteadmin($USER->id)) ? 1 : 0,
         ];
+
+        $license = \tool_management_console\license_manager::get_license_info();
+        $result['can_view_reports']   = has_capability('moodle/site:config', $context) ? 1 : 0;
+        $result['is_licensed']        = $license['valid'] ? 1 : 0;
+        $result['license_status']     = $license['status'];
+        $result['license_expires_at'] = $license['expires_at'] ?? 0;
+        $result['license_days_left']  = $license['days_left'] ?? 0;
+        $result['site_identifier']    = \tool_management_console\license_manager::get_site_identifier();
+        return $result;
     }
 
     public static function get_permissions_returns() {
@@ -81,8 +90,14 @@ class permissions extends external_api {
             'can_update_users'      => new external_value(PARAM_INT, '1 if user can edit/suspend users'),
             'can_delete_users'      => new external_value(PARAM_INT, '1 if user can delete users'),
             'can_view_cohorts'      => new external_value(PARAM_INT, '1 if user can view cohorts'),
-            'can_view_competencies' => new external_value(PARAM_INT, '1 if user can view competencies'),
-            'can_manage_competencies' => new external_value(PARAM_INT, '1 if user can manage competencies'),
+            'can_view_competencies'    => new external_value(PARAM_INT, '1 if user can view competencies'),
+            'can_manage_competencies'  => new external_value(PARAM_INT, '1 if user can manage competencies'),
+            'can_view_reports'         => new external_value(PARAM_INT, '1 if can view reports'),
+            'is_licensed'              => new external_value(PARAM_INT,  '1 if license active'),
+            'license_status'           => new external_value(PARAM_TEXT, 'License status string'),
+            'license_expires_at'       => new external_value(PARAM_INT,  'Unix expiry timestamp'),
+            'license_days_left'        => new external_value(PARAM_INT,  'Days remaining'),
+            'site_identifier'          => new external_value(PARAM_TEXT, 'Moodle siteidentifier'),
         ]);
     }
 }

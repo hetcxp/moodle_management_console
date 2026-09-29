@@ -64,15 +64,15 @@ class user_repository_test extends advanced_testcase {
         $strict = \tool_management_console\repository\user_repository::get_user_strict($user->id);
         $this->assertEquals($user->id, $strict->id);
 
-        // 3. Probar get_paginated_users
-        $paginated = \tool_management_console\repository\user_repository::get_paginated_users(0, 10, 'lastname', 'ASC', 'UserRepo');
-        $this->assertGreaterThanOrEqual(1, $paginated['totalcount']);
-        $this->assertEquals($user->id, $paginated['users'][0]['id']);
+        // 3. Probar get_users_filtered
+        list($records, $totalcount) = \tool_management_console\repository\user_repository::get_users_filtered(['page' => 0, 'perpage' => 10, 'sort' => 'lastname', 'dir' => 'ASC', 'search' => 'UserRepo']);
+        $this->assertGreaterThanOrEqual(1, $totalcount);
+        $this->assertArrayHasKey($user->id, $records);
 
         // 4. Probar cursos matriculados
         $courses = \tool_management_console\repository\user_repository::get_user_enrolled_courses($user->id);
         $this->assertCount(1, $courses);
-        $this->assertEquals($course->id, $courses[0]->id);
+        $this->assertEquals($course->id, reset($courses)->id);
 
         // 5. Probar get_users_kpi_stats
         $stats = \tool_management_console\repository\user_repository::get_users_kpi_stats();

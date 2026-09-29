@@ -231,6 +231,7 @@ class users extends external_api {
             switch ($act) {
                 case 'suspend':
                     require_capability('moodle/user:update', $context);
+                    \tool_management_console\license_manager::require_active_license();
                     foreach ($ids as $uid) {
                         if ($uid > 1 && !is_siteadmin($uid)) {
                             $user = user_repository::get_user($uid);
@@ -245,6 +246,7 @@ class users extends external_api {
 
                 case 'activate':
                     require_capability('moodle/user:update', $context);
+                    \tool_management_console\license_manager::require_active_license();
                     foreach ($ids as $uid) {
                         if ($uid > 1) {
                             $user = user_repository::get_user($uid);
@@ -259,6 +261,7 @@ class users extends external_api {
 
                 case 'delete':
                     require_capability('moodle/user:delete', $context);
+                    \tool_management_console\license_manager::require_active_license();
                     foreach ($ids as $uid) {
                         if ($uid > 1 && !is_siteadmin($uid)) {
                             $user = user_repository::get_user($uid);
@@ -271,6 +274,7 @@ class users extends external_api {
                     break;
 
                 case 'message':
+                    \tool_management_console\license_manager::require_active_license();
                     global $USER;
                     foreach ($ids as $uid) {
                         $recipient = user_repository::get_user($uid);
@@ -295,6 +299,7 @@ class users extends external_api {
                 case 'send_temp_password':
                 case 'reset_password':
                     require_capability('moodle/user:update', $context);
+                    \tool_management_console\license_manager::require_active_license();
                     foreach ($ids as $uid) {
                         if ($uid > 1) {
                             $user = user_repository::get_user($uid);
@@ -553,6 +558,7 @@ class users extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:manage', $context);
+        \tool_management_console\license_manager::require_active_license();
 
         $params = self::validate_parameters(self::user_cohort_action_parameters(), [
             'action' => $action,
@@ -631,7 +637,8 @@ class users extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/user:create', $context);
-        
+        \tool_management_console\license_manager::require_active_license();
+
         $params = self::validate_parameters(self::add_user_parameters(), [
             'username'       => $username, 
             'password'       => $password, 
@@ -701,7 +708,8 @@ class users extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/user:create', $context);
-        
+        \tool_management_console\license_manager::require_active_license();
+
         $params = self::validate_parameters(self::upload_users_csv_parameters(), ['fileContent' => $fileContent]);
         
         $csv = base64_decode($params['fileContent'], true);
@@ -801,11 +809,17 @@ class users extends external_api {
     public static function user_course_action($action, $userid, $courseids, $timestart = 0, $timeend = 0) {
         $context = context_system::instance();
         self::validate_context($context);
-        
+
         $params = self::validate_parameters(self::user_course_action_parameters(), [
             'action' => $action, 'userid' => $userid, 'courseids' => $courseids,
             'timestart' => $timestart, 'timeend' => $timeend
         ]);
+
+        foreach ($params['courseids'] as $cid) {
+            $coursecontext = \context_course::instance($cid);
+            require_capability('enrol/manual:enrol', $coursecontext);
+        }
+        \tool_management_console\license_manager::require_active_license();
 
         return course_enrolment_repository::batch_user_course_enrolment(
             $params['action'],

@@ -51,6 +51,11 @@ function xmldb_tool_management_console_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026092300, 'tool', 'management_console');
     }
 
+    if ($oldversion < 2026092902) {
+        // License system: no DB schema changes.
+        upgrade_plugin_savepoint(true, 2026092902, 'tool', 'management_console');
+    }
+
     return true;
 }
 

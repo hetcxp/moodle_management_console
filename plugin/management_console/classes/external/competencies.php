@@ -145,6 +145,7 @@ class competencies extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_manage_capability($context);
+        \tool_management_console\license_manager::require_active_license();
 
         $params = self::validate_parameters(self::competency_action_parameters(), [
             'action'       => $action,

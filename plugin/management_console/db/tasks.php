@@ -1,5 +1,5 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
+// This file is part of Moodle - https://moodle.org/
 //
 // Moodle is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Cache definitions for tool_management_console.
+ * Scheduled tasks definition for tool_management_console.
  *
  * @package    tool_management_console
  * @copyright  2026 Hector Teran
@@ -24,18 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$definitions = [
-    'kpis' => [
-        'mode'             => cache_store::MODE_APPLICATION,
-        'simplekeys'       => true,
-        'simpledata'       => true,
-        'ttl'              => 600, // 10 minutes TTL
-        'canuselocalstore' => true,
-    ],
-    'license_info' => [
-        'mode'       => cache_store::MODE_APPLICATION,
-        'simplekeys' => true,
-        'simpledata' => true,
-        'ttl'        => 60, // optimización únicamente, NO fuente de confianza
+$tasks = [
+    [
+        'classname' => '\tool_management_console\task\verify_license_task',
+        'blocking'  => 0,
+        'minute'    => '0',
+        'hour'      => '3',
+        'day'       => '*',
+        'month'     => '*',
+        'dayofweek' => '*',
     ],
 ];

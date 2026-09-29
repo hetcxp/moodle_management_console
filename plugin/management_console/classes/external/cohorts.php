@@ -148,6 +148,7 @@ class cohorts extends external_api {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:manage', $context);
+        \tool_management_console\license_manager::require_active_license();
 
         $params = self::validate_parameters(self::cohort_action_parameters(), [
             'action'      => $action,

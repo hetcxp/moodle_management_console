@@ -140,6 +140,14 @@ if (!has_capability('moodle/course:create', $syscontext, $user)) {
     exit;
 }
 
+try {
+    \tool_management_console\license_manager::require_active_license();
+} catch (\moodle_exception $e) {
+    http_response_code(403);
+    echo json_encode(['error' => 'An active license is required to perform this action.']);
+    exit;
+}
+
 if (empty($_FILES['mbzfile']) || !is_uploaded_file($_FILES['mbzfile']['tmp_name'])) {
     http_response_code(400);
     echo json_encode(['error' => 'No file was uploaded or file is not valid.']);

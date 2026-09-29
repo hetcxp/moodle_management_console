@@ -172,6 +172,7 @@ class course_backups extends external_api {
 
         $catcontext = \context_coursecat::instance($categoryid);
         require_capability('moodle/course:create', $catcontext);
+        \tool_management_console\license_manager::require_active_license();
 
         require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 

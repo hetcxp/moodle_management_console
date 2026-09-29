@@ -97,6 +97,8 @@ class user_plans extends external_api {
         $last_planid = 0;
         $any_already_existed = false;
 
+        \tool_management_console\license_manager::require_active_license();
+
         foreach ($uids as $uid) {
             $context = context_user::instance($uid);
             self::validate_context($context);

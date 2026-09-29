@@ -327,7 +327,7 @@ class external_services_test extends advanced_testcase {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
-        $res = \tool_management_console\external\competencies::get_competency_reviews(0, 20);
+        $res = \tool_management_console\external\competency_reviews::get_competency_reviews(0, 20);
         $this->assertIsArray($res);
         $this->assertArrayHasKey('reviews', $res);
         $this->assertArrayHasKey('totalcount', $res);

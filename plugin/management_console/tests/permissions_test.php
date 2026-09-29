@@ -94,7 +94,7 @@ class permissions_test extends advanced_testcase {
         $this->setUser($user);
 
         $this->expectException(\required_capability_exception::class);
-        \tool_management_console\external\competencies::competency_framework_action('create', 0, 'Test Framework');
+        \tool_management_console\external\competency_frameworks::competency_framework_action('create', 0, 'Test Framework');
     }
 
     public function test_action_with_nonexistent_ids() {

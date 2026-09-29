@@ -94,6 +94,7 @@ class course_enrollments extends external_api {
 
         $coursecontext = \context_course::instance($params['courseid']);
         require_capability('moodle/course:enrolreview', $coursecontext);
+        \tool_management_console\license_manager::require_active_license();
 
         $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
         $enrolplugin = enrol_get_plugin('cohort');
@@ -113,7 +114,8 @@ class course_enrollments extends external_api {
         switch ($params['action']) {
             case 'add':
                 require_capability('enrol/cohort:config', $coursecontext);
-                $roleid = !empty($params['roleid']) ? $params['roleid'] : 5; // default student
+                $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
+                $roleid = !empty($params['roleid']) ? $params['roleid'] : ($studentroleid ?: 5);
 
                 foreach ($params['cohortids'] as $cid) {
                     $existing = $DB->get_record('enrol', [
@@ -130,9 +132,13 @@ class course_enrollments extends external_api {
                         ]);
                         if ($instanceid) {
                             $instance = $DB->get_record('enrol', ['id' => $instanceid]);
-                            enrol_cohort_sync($instance);
+                            enrol_cohort_sync(new \null_progress_trace(), $course->id);
                             $affected++;
                         }
+                    } else if (empty($existing->roleid)) {
+                        $DB->set_field('enrol', 'roleid', $roleid, ['id' => $existing->id]);
+                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
+                        $affected++;
                     }
                 }
                 break;
@@ -192,7 +198,7 @@ class course_enrollments extends external_api {
                     ]);
                     foreach ($instances as $instance) {
                         $DB->set_field('enrol', 'customint2', $resolved_groupid, ['id' => $instance->id]);
-                        enrol_cohort_sync($instance);
+                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
                         $affected++;
                     }
                 }
@@ -214,7 +220,7 @@ class course_enrollments extends external_api {
                         } else if ($enrolend == 0) {
                             $DB->set_field('enrol', 'enrolperiod', 0, ['id' => $instance->id]);
                         }
-                        enrol_cohort_sync($instance);
+                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
                         $affected++;
                     }
                 }
@@ -229,7 +235,7 @@ class course_enrollments extends external_api {
                         'customint1' => $cid
                     ]);
                     foreach ($instances as $instance) {
-                        enrol_cohort_sync($instance);
+                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
                         $affected++;
                     }
                 }
@@ -320,11 +326,15 @@ class course_enrollments extends external_api {
     public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
         $context = context_system::instance();
         self::validate_context($context);
-        
+
         $params = self::validate_parameters(self::course_user_action_parameters(), [
             'action' => $action, 'courseid' => $courseid, 'userids' => $userids,
             'timeend' => $timeend, 'groupid' => $groupid, 'newgroupname' => $newgroupname, 'message_text' => $message_text
         ]);
+
+        $coursecontext = \context_course::instance($params['courseid']);
+        require_capability('enrol/manual:enrol', $coursecontext);
+        \tool_management_console\license_manager::require_active_license();
 
         return course_enrolment_repository::batch_course_user_enrolment(
             $params['action'],

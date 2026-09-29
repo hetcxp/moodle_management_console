@@ -211,6 +211,7 @@ class categories extends external_api {
                 case 'create':
                     $parentcontext = ($params['parent'] > 0) ? \context_coursecat::instance($params['parent']) : \context_system::instance();
                     require_capability('moodle/category:manage', $parentcontext);
+                    \tool_management_console\license_manager::require_active_license();
                     
                     if (empty($params['name'])) {
                         $transaction->allow_commit();
@@ -241,6 +242,7 @@ class categories extends external_api {
                             require_capability('moodle/category:manage', \context_coursecat::instance($params['parent']));
                         }
                     }
+                    \tool_management_console\license_manager::require_active_license();
                     
                     $cat = core_course_category::get($params['categoryid']);
                     $data = new stdClass();
@@ -260,6 +262,7 @@ class categories extends external_api {
                 case 'hide':
                     foreach ($ids as $cid) {
                         require_capability('moodle/category:manage', \context_coursecat::instance($cid));
+                        \tool_management_console\license_manager::require_active_license();
                         $cat = core_course_category::get($cid, IGNORE_MISSING);
                         if ($cat) {
                             $updatedata = new stdClass();
@@ -274,6 +277,7 @@ class categories extends external_api {
                 case 'show':
                     foreach ($ids as $cid) {
                         require_capability('moodle/category:manage', \context_coursecat::instance($cid));
+                        \tool_management_console\license_manager::require_active_license();
                         $cat = core_course_category::get($cid, IGNORE_MISSING);
                         if ($cat) {
                             $updatedata = new stdClass();
@@ -289,6 +293,7 @@ class categories extends external_api {
                     $undeleted = [];
                     foreach ($ids as $cid) {
                         require_capability('moodle/category:manage', \context_coursecat::instance($cid));
+                        \tool_management_console\license_manager::require_active_license();
                         $cat = core_course_category::get($cid, IGNORE_MISSING);
                         if ($cat) {
                             if ($cat->coursecount == 0) {

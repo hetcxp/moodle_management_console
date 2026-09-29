@@ -62,7 +62,8 @@ class course_csv extends external_api {
 
         $context = context_system::instance();
         self::validate_context($context);
-        
+        \tool_management_console\license_manager::require_active_license();
+
         $params = self::validate_parameters(self::upload_courses_csv_parameters(), [
             'fileContent' => $fileContent
         ]);

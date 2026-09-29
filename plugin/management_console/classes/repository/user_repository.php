@@ -35,8 +35,18 @@ defined('MOODLE_INTERNAL') || die();
  */
 class user_repository {
 
-    public static function get_users_kpi_stats($sqlparams) {
-        global $DB;
+    public static function get_users_kpi_stats(array $sqlparams = []) {
+        global $DB, $CFG;
+        if (empty($sqlparams)) {
+            $primaryadmin = get_admin();
+            $adminid = $primaryadmin ? (int)$primaryadmin->id : 1;
+            $guestid = $CFG->siteguest ?? 0;
+            $sqlparams = [
+                'adminid' => $adminid,
+                'guestid' => $guestid,
+                'recent'  => time() - (30 * 86400),
+            ];
+        }
         $sql_stats = "
             SELECT 
                 COUNT(u.id) AS total_users,

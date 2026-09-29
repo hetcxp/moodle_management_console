@@ -205,6 +205,7 @@ class courses extends external_api {
                 case 'create':
                     $catcontext = \context_coursecat::instance($params['categoryid']);
                     require_capability('moodle/course:create', $catcontext);
+                    \tool_management_console\license_manager::require_active_license();
                     if (empty($params['fullname']) || empty($params['shortname']) || empty($params['categoryid'])) {
                         $transaction->allow_commit();
                         return ['success' => false, 'message' => 'fullname, shortname and categoryid are required.', 'affectedcount' => 0];
@@ -235,7 +236,12 @@ class courses extends external_api {
                 case 'hide':
                     foreach ($params['courseids'] as $cid) {
                         if ($cid > 1) {
-                            require_capability('moodle/course:visibility', \context_course::instance($cid));
+                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
+                            if (!$cctx) {
+                                continue;
+                            }
+                            require_capability('moodle/course:visibility', $cctx);
+                            \tool_management_console\license_manager::require_active_license();
                             course_change_visibility($cid, false);
                             $affected++;
                         }
@@ -245,7 +251,12 @@ class courses extends external_api {
                 case 'show':
                     foreach ($params['courseids'] as $cid) {
                         if ($cid > 1) {
-                            require_capability('moodle/course:visibility', \context_course::instance($cid));
+                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
+                            if (!$cctx) {
+                                continue;
+                            }
+                            require_capability('moodle/course:visibility', $cctx);
+                            \tool_management_console\license_manager::require_active_license();
                             course_change_visibility($cid, true);
                             $affected++;
                         }
@@ -255,7 +266,12 @@ class courses extends external_api {
                 case 'delete':
                     foreach ($params['courseids'] as $cid) {
                         if ($cid > 1) {
-                            require_capability('moodle/course:delete', \context_course::instance($cid));
+                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
+                            if (!$cctx) {
+                                continue;
+                            }
+                            require_capability('moodle/course:delete', $cctx);
+                            \tool_management_console\license_manager::require_active_license();
                             $course = $DB->get_record('course', ['id' => $cid]);
                             if ($course) {
                                 delete_course($course, false);
@@ -272,11 +288,16 @@ class courses extends external_api {
                     }
                     $targetcatctx = \context_coursecat::instance($params['categoryid']);
                     require_capability('moodle/category:manage', $targetcatctx);
+                    \tool_management_console\license_manager::require_active_license();
                     
                     $validcids = [];
                     foreach ($params['courseids'] as $cid) {
                         if ($cid > 1) {
-                            require_capability('moodle/course:update', \context_course::instance($cid));
+                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
+                            if (!$cctx) {
+                                continue;
+                            }
+                            require_capability('moodle/course:update', $cctx);
                             $validcids[] = $cid;
                         }
                     }
@@ -292,7 +313,12 @@ class courses extends external_api {
                 case 'update_dates':
                     foreach ($params['courseids'] as $cid) {
                         if ($cid > 1) {
-                            require_capability('moodle/course:update', \context_course::instance($cid));
+                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
+                            if (!$cctx) {
+                                continue;
+                            }
+                            require_capability('moodle/course:update', $cctx);
+                            \tool_management_console\license_manager::require_active_license();
                             $course = $DB->get_record('course', ['id' => $cid]);
                             if ($course) {
                                 $data = new \stdClass();
