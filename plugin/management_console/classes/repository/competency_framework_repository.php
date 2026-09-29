@@ -246,8 +246,13 @@ class competency_framework_repository {
         $competencies = [];
         foreach ($comp_records as $c) {
             $clean_path = trim((string)$c->path, '/');
-            $depth = !empty($clean_path) ? substr_count($clean_path, '/') : 1;
-            $level = max(1, $depth);
+            $parts = array_filter(explode('/', $clean_path), function($p) {
+                return $p !== '' && $p !== '0';
+            });
+            $level = max(1, count($parts));
+            if ($level === 1 && (int)$c->parentid > 0) {
+                $level = 2;
+            }
 
             $competencies[] = [
                 'id'                  => (int)$c->id,

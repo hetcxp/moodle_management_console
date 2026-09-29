@@ -99,13 +99,23 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
     setReviewsModalOpen(true);
   };
 
+  const compLevel = useMemo(() => {
+    if (competency?.level) return competency.level;
+    if (competency?.path) {
+      const parts = competency.path.split('/').filter(p => p && p !== '0');
+      if (parts.length > 0) return parts.length;
+    }
+    return (competency?.parentid || 0) > 0 ? 2 : 1;
+  }, [competency]);
+
+  const canHaveSubcompetencies = compLevel < 3;
   const hasParent = (competency?.parentid || 0) > 0;
 
   useEffect(() => {
-    if (competency && (competency.parentid || 0) > 0 && !['courses', 'users'].includes(activeTab)) {
+    if (competency && !canHaveSubcompetencies && !['courses', 'users'].includes(activeTab)) {
       setActiveTab('courses');
     }
-  }, [competency, activeTab]);
+  }, [competency, canHaveSubcompetencies, activeTab]);
 
   const courses = useMemo(() => coursesData?.courses || [], [coursesData]);
   const subcompetencyCourses = useMemo(() => coursesData?.subcompetencycourses || [], [coursesData]);
@@ -180,7 +190,7 @@ export const CompetencyDetailView = ({ frameworkId, competencyId, onBack, onNavi
       />
 
       {/* Tabs Navigation */}
-      {!hasParent ? (
+      {canHaveSubcompetencies ? (
         <div className="inline-flex p-1 bg-muted/60 rounded-xl border border-border/50 overflow-x-auto max-w-full">
           <button
             type="button"

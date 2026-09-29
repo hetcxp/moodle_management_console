@@ -1,6 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { AdminerApi } from '../services/adminer-api';
 import { CompetencyFrameworkDetailView } from '../views/CompetencyFrameworkDetailView';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -314,6 +315,66 @@ describe('CompetencyFrameworkDetailView & CompetencyCoursesModal', () => {
     // Only 1 create subcompetency button should exist in table (for root competency 101, none for subcomp 102)
     const subcompButtons = screen.getAllByTitle('Crear subcompetencia hija para esta competencia');
     expect(subcompButtons.length).toBe(1);
+  });
+
+  it('supports 3-level hierarchy: displays subcompetency count on level 2 and allows creating level 3', async () => {
+    AdminerApi.getCompetencyFrameworkDetail.mockResolvedValueOnce({
+      id: 1,
+      shortname: 'Marco 3 Niveles',
+      idnumber: 'FW-3L',
+      visible: 1,
+      scaleid: 1,
+      competenciescount: 3,
+      competencies: [
+        {
+          id: 101,
+          shortname: 'Maestría Negociadora',
+          idnumber: 'NEF_CI_01',
+          parentid: 0,
+          childrencount: 1,
+        },
+        {
+          id: 102,
+          shortname: 'Inteligencia Relacional',
+          idnumber: 'NEF_CC_02',
+          parentid: 101,
+          parentname: 'Maestría Negociadora',
+          childrencount: 1,
+        },
+        {
+          id: 103,
+          shortname: 'Flexibilidad Cognitiva',
+          idnumber: 'NEF_CT_01',
+          parentid: 102,
+          parentname: 'Inteligencia Relacional',
+          childrencount: 0,
+        },
+      ],
+    });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Inteligencia Relacional')).toBeDefined();
+      expect(screen.getByText('Flexibilidad Cognitiva')).toBeDefined();
+    });
+
+    // Level 3 row should have "Nivel 3" badge
+    expect(screen.getByText('Nivel 3')).toBeDefined();
+
+    // Level 2 with children should have subcompetencias badge showing "1 subcompetencia(s)"
+    const badges = screen.getAllByText('1 subcompetencia(s)');
+    expect(badges.length).toBe(2);
+
+    // Level 2 should have button to create level 3 subcompetency
+    const createN3Btn = screen.getByTitle('Crear subcompetencia de tercer nivel para esta subcompetencia');
+    expect(createN3Btn).toBeDefined();
+
+    // Clicking create on Level 2 opens modal for Level 3
+    fireEvent.click(createN3Btn);
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Nueva Subcompetencia (Nivel 3)' })).toBeDefined();
+    });
   });
 });
 

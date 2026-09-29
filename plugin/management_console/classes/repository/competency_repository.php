@@ -97,6 +97,32 @@ class competency_repository {
             ];
         }
 
+        $clean_path = trim((string)$record->path, '/');
+        $parts = array_filter(explode('/', $clean_path), function($p) {
+            return $p !== '' && $p !== '0';
+        });
+        $level = max(1, count($parts));
+        if ($level === 1 && (int)$record->parentid > 0) {
+            $level = 2;
+            $parent_rec = $DB->get_record('competency', ['id' => $record->parentid], 'id, parentid');
+            if ($parent_rec && (int)$parent_rec->parentid > 0) {
+                $level = 3;
+            }
+        }
+
+        $grandparentname = '';
+        $grandparentid = 0;
+        if (!empty($record->parentid)) {
+            $parent_rec = $DB->get_record('competency', ['id' => $record->parentid], 'id, parentid');
+            if ($parent_rec && !empty($parent_rec->parentid)) {
+                $gp_rec = $DB->get_record('competency', ['id' => $parent_rec->parentid], 'id, shortname');
+                if ($gp_rec) {
+                    $grandparentid = (int)$gp_rec->id;
+                    $grandparentname = (string)$gp_rec->shortname;
+                }
+            }
+        }
+
         return [
             'id'                   => (int)$record->id,
             'shortname'            => (string)$record->shortname,
@@ -104,6 +130,9 @@ class competency_repository {
             'description'          => (string)($record->description ?? ''),
             'parentid'             => (int)$record->parentid,
             'parentname'           => (string)($record->parentname ?? ''),
+            'level'                => (int)$level,
+            'grandparentid'        => (int)$grandparentid,
+            'grandparentname'      => (string)$grandparentname,
             'path'                 => (string)$record->path,
             'sortorder'            => (int)$record->sortorder,
             'competencyframeworkid'=> (int)$record->competencyframeworkid,
@@ -984,11 +1013,16 @@ class competency_repository {
                         'competencyframeworkid' => $framework->id,
                     ], '*', MUST_EXIST);
                     if ((int)$parent->parentid > 0) {
-                        return [
-                            'success'       => false,
-                            'message'       => 'Solo se permiten 2 niveles de jerarquía. La competencia seleccionada ya es una subcompetencia.',
-                            'affectedcount' => 0,
-                        ];
+                        $grandparent = $DB->get_record('competency', [
+                            'id' => (int)$parent->parentid,
+                        ], 'id, parentid');
+                        if ($grandparent && (int)$grandparent->parentid > 0) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Solo se permiten hasta 3 niveles de jerarquía (competencia principal, subcompetencia y subcompetencia de tercer nivel).',
+                                'affectedcount' => 0,
+                            ];
+                        }
                     }
                 }
 
@@ -1049,24 +1083,51 @@ class competency_repository {
                         return ['success' => false, 'message' => 'Una competencia no puede ser padre de sí misma.', 'affectedcount' => 0];
                     }
                     if ($new_parentid > 0) {
-                        $has_children = $DB->record_exists('competency', ['parentid' => $existing->id]);
-                        if ($has_children) {
-                            return [
-                                'success'       => false,
-                                'message'       => 'Esta competencia tiene subcompetencias asociadas y no puede convertirse en subcompetencia.',
-                                'affectedcount' => 0,
-                            ];
-                        }
-
                         $parent = $DB->get_record('competency', [
                             'id'                    => $new_parentid,
                             'competencyframeworkid' => $existing->competencyframeworkid,
                         ], '*', MUST_EXIST);
 
-                        if ((int)$parent->parentid > 0) {
+                        // Determinar nivel del nuevo padre
+                        $parent_clean_path = trim((string)$parent->path, '/');
+                        $parent_parts = array_filter(explode('/', $parent_clean_path), function($p) {
+                            return $p !== '' && $p !== '0';
+                        });
+                        $parent_level = max(1, count($parent_parts));
+                        if ($parent_level === 1 && (int)$parent->parentid > 0) {
+                            $parent_level = 2;
+                            $gp = $DB->get_record('competency', ['id' => $parent->parentid], 'id, parentid');
+                            if ($gp && (int)$gp->parentid > 0) {
+                                $parent_level = 3;
+                            }
+                        }
+
+                        if ($parent_level >= 3) {
                             return [
                                 'success'       => false,
-                                'message'       => 'Solo se permiten 2 niveles de jerarquía. La competencia seleccionada ya es una subcompetencia.',
+                                'message'       => 'Solo se permiten hasta 3 niveles de jerarquía. La competencia de destino ya está en el nivel máximo.',
+                                'affectedcount' => 0,
+                            ];
+                        }
+
+                        // Verificar que los descendientes de la competencia no superen 3 niveles
+                        $has_children = $DB->record_exists('competency', ['parentid' => $existing->id]);
+                        if ($has_children && $parent_level >= 2) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Esta competencia tiene subcompetencias y no puede moverse al nivel 3 porque excedería el límite de 3 niveles.',
+                                'affectedcount' => 0,
+                            ];
+                        }
+
+                        $has_grandchildren = $DB->record_exists_sql(
+                            "SELECT 1 FROM {competency} c1 JOIN {competency} c2 ON c2.parentid = c1.id WHERE c1.parentid = :id",
+                            ['id' => $existing->id]
+                        );
+                        if ($has_grandchildren && $parent_level >= 1) {
+                            return [
+                                'success'       => false,
+                                'message'       => 'Esta competencia tiene subcompetencias de tercer nivel y no puede moverse debajo de otra competencia.',
                                 'affectedcount' => 0,
                             ];
                         }

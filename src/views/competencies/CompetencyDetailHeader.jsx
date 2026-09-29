@@ -25,6 +25,11 @@ export const CompetencyDetailHeader = ({
   onOpenReviews
 }) => {
   const hasParent = competency?.parentid > 0;
+  const compLevel = competency?.level || (
+    competency?.path
+      ? Math.max(1, competency.path.split('/').filter(p => p && p !== '0').length)
+      : (hasParent ? 2 : 1)
+  );
   const isRuleActive = competency?.ruletype === 'core_competency\\competency_rule_all_children';
 
   return (
@@ -40,6 +45,19 @@ export const CompetencyDetailHeader = ({
             >
               <ChevronLeft className="h-4 w-4 mr-1" /> {effectiveFrameworkName}
             </button>
+
+            {competency?.grandparentid > 0 && (
+              <>
+                <ChevronRight className="h-4 w-4 mx-2 opacity-50" />
+                <button
+                  type="button"
+                  onClick={() => onNavigateToDetail ? onNavigateToDetail('competency', { frameworkId: frameIdNum, competencyId: competency.grandparentid }) : null}
+                  className="hover:text-foreground transition-colors max-w-[200px] truncate"
+                >
+                  {competency.grandparentname || `Competencia #${competency.grandparentid}`}
+                </button>
+              </>
+            )}
 
             {hasParent && (
               <>
@@ -80,10 +98,16 @@ export const CompetencyDetailHeader = ({
                     Auto-completado Activo
                   </Badge>
                 )}
-                {hasParent && (
+                {compLevel === 2 && (
                   <Badge variant="outline" className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 border-indigo-500/30 text-xs">
                     <Layers className="h-3 w-3 mr-1" />
-                    Subcompetencia
+                    Subcompetencia (Nivel 2)
+                  </Badge>
+                )}
+                {compLevel >= 3 && (
+                  <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-xs">
+                    <Layers className="h-3 w-3 mr-1" />
+                    Subcompetencia (Nivel 3)
                   </Badge>
                 )}
               </div>
@@ -125,7 +149,7 @@ export const CompetencyDetailHeader = ({
 
       {/* Standalone KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {!hasParent ? (
+        {compLevel < 3 ? (
           <div className="bg-card/60 backdrop-blur-md rounded-2xl border border-border p-5 shadow-sm flex items-center gap-3.5">
             <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-600 dark:text-indigo-400">
               <Layers className="h-5 w-5" />

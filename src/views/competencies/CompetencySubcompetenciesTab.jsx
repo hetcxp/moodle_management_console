@@ -266,6 +266,11 @@ export const CompetencySubcompetenciesTab = ({
                             {subcomp.idnumber}
                           </Badge>
                         )}
+                        {(parentCompetency?.parentid || 0) > 0 && (
+                          <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 font-medium py-0 px-1.5">
+                            Nivel 3
+                          </Badge>
+                        )}
                         {hasRule && (
                           <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
                             <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
@@ -338,13 +343,21 @@ export const CompetencySubcompetenciesTab = ({
       <Dialog
         open={modalOpen}
         onClose={handleCloseModal}
-        title={editingSubcomp ? 'Editar Subcompetencia' : 'Nueva Subcompetencia'}
+        title={
+          editingSubcomp
+            ? 'Editar Subcompetencia'
+            : (parentCompetency?.parentid || 0) > 0
+            ? 'Nueva Subcompetencia (Nivel 3)'
+            : 'Nueva Subcompetencia'
+        }
       >
         <form onSubmit={handleSaveSubcompetency} className="space-y-4">
           <div className="p-3 bg-muted/40 rounded-lg border border-border text-xs flex items-center gap-2">
             <Layers className="h-4 w-4 text-primary shrink-0" />
             <span>
-              Competencia padre: <span className="font-semibold text-foreground">{parentCompetency?.shortname}</span>
+              Competencia padre:{' '}
+              <span className="font-semibold text-foreground">{parentCompetency?.shortname}</span>
+              {(parentCompetency?.parentid || 0) > 0 ? ' (Nivel 2)' : ' (Nivel 1)'}
             </span>
           </div>
 

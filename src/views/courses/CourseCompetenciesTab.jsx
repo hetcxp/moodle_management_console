@@ -4,6 +4,7 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
 import { PermissionGate } from '../../components/PermissionGate';
 import { AddActivityToCompetencyModal } from '../competencies/AddActivityToCompetencyModal';
@@ -11,6 +12,7 @@ import {
   useCompetencyCourseAction,
   useModuleCompetencyAction,
   useAllCompetencies,
+  useCompetencyFrameworks,
 } from '../../hooks/useAdminerQueries';
 import {
   Award,
@@ -47,6 +49,7 @@ export const CourseCompetenciesTab = ({
 
   const [addCompetencyOpen, setAddCompetencyOpen] = useState(false);
   const [addCompetencySearch, setAddCompetencySearch] = useState('');
+  const [addCompetencyFramework, setAddCompetencyFramework] = useState('all');
   const [pendingCompetency, setPendingCompetency] = useState(null);
   const [ruleOpen, setRuleOpen] = useState(false);
   const [addCompetencyRule, setAddCompetencyRule] = useState(3);
@@ -66,16 +69,43 @@ export const CourseCompetenciesTab = ({
   const { mutateAsync: competencyCourseAction } = useCompetencyCourseAction();
   const { mutateAsync: moduleCompetencyAction } = useModuleCompetencyAction();
 
-  const { data: allCompetenciesData } = useAllCompetencies();
+  const { data: allCompetenciesData, isLoading: loadingAllCompetencies } = useAllCompetencies();
+  const { data: frameworksData } = useCompetencyFrameworks({
+    perpage: 200,
+    sort: 'shortname',
+    dir: 'ASC',
+  });
+
   const allFrameworkCompetencies = useMemo(() => {
     return allCompetenciesData?.competencies || [];
   }, [allCompetenciesData]);
+
+  const availableModalFrameworks = useMemo(() => {
+    const map = new Map();
+    (frameworksData?.frameworks || []).forEach((f) => {
+      map.set(String(f.id), f.shortname || f.name || `Marco #${f.id}`);
+    });
+    allFrameworkCompetencies.forEach((c) => {
+      if (c.frameworkid && !map.has(String(c.frameworkid))) {
+        map.set(String(c.frameworkid), c.frameworkname || `Marco #${c.frameworkid}`);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [frameworksData, allFrameworkCompetencies]);
 
   const linkedIds = useMemo(() => new Set(competencies.map((c) => c.id)), [competencies]);
   const availableToAdd = useMemo(() => {
     const q = addCompetencySearch.toLowerCase().trim();
     return allFrameworkCompetencies.filter((c) => {
       if (linkedIds.has(c.id)) return false;
+      if (
+        addCompetencyFramework !== 'all' &&
+        String(c.frameworkid) !== String(addCompetencyFramework)
+      ) {
+        return false;
+      }
       if (!q) return true;
       return (
         (c.shortname || '').toLowerCase().includes(q) ||
@@ -83,7 +113,7 @@ export const CourseCompetenciesTab = ({
         (c.frameworkname || '').toLowerCase().includes(q)
       );
     });
-  }, [allFrameworkCompetencies, linkedIds, addCompetencySearch]);
+  }, [allFrameworkCompetencies, linkedIds, addCompetencySearch, addCompetencyFramework]);
 
   const uniqueFrameworks = useMemo(() => {
     const map = new Map();
@@ -158,10 +188,17 @@ export const CourseCompetenciesTab = ({
     setDetailModalOpen(true);
   };
 
+  const handleCloseAddModal = () => {
+    setAddCompetencyOpen(false);
+    setAddCompetencySearch('');
+    setAddCompetencyFramework('all');
+  };
+
   const handleSelectPendingCompetency = (comp) => {
     setPendingCompetency({ id: comp.id, shortname: comp.shortname });
     setAddCompetencyOpen(false);
     setAddCompetencySearch('');
+    setAddCompetencyFramework('all');
     setAddCompetencyRule(3);
     setRuleOpen(true);
   };
@@ -518,20 +555,24 @@ export const CourseCompetenciesTab = ({
         )}
         <Dialog
           open={addCompetencyOpen}
-          onClose={() => { setAddCompetencyOpen(false); setAddCompetencySearch(''); }}
+          onClose={handleCloseAddModal}
           title={
             <div className="flex items-center gap-2">
               <Award className="h-5 w-5 text-primary" />
               <span>Agregar Competencia al Curso</span>
             </div>
           }
-          maxWidth="max-w-lg"
+          maxWidth="max-w-xl"
         >
           <CompetencySelectorContent
             search={addCompetencySearch}
             onSearchChange={setAddCompetencySearch}
+            frameworkFilter={addCompetencyFramework}
+            onFrameworkFilterChange={setAddCompetencyFramework}
+            frameworks={availableModalFrameworks}
             available={availableToAdd}
             onSelect={handleSelectPendingCompetency}
+            loading={loadingAllCompetencies}
           />
         </Dialog>
         <RuleOutcomeDialog
@@ -621,20 +662,24 @@ export const CourseCompetenciesTab = ({
 
       <Dialog
         open={addCompetencyOpen}
-        onClose={() => { setAddCompetencyOpen(false); setAddCompetencySearch(''); }}
+        onClose={handleCloseAddModal}
         title={
           <div className="flex items-center gap-2">
             <Award className="h-5 w-5 text-primary" />
             <span>Agregar Competencia al Curso</span>
           </div>
         }
-        maxWidth="max-w-lg"
+        maxWidth="max-w-xl"
       >
         <CompetencySelectorContent
           search={addCompetencySearch}
           onSearchChange={setAddCompetencySearch}
+          frameworkFilter={addCompetencyFramework}
+          onFrameworkFilterChange={setAddCompetencyFramework}
+          frameworks={availableModalFrameworks}
           available={availableToAdd}
           onSelect={handleSelectPendingCompetency}
+          loading={loadingAllCompetencies}
         />
       </Dialog>
 
@@ -964,23 +1009,54 @@ export const CourseCompetenciesTab = ({
   );
 };
 
-const CompetencySelectorContent = ({ search, onSearchChange, available, onSelect }) => (
+const CompetencySelectorContent = ({
+  search,
+  onSearchChange,
+  frameworkFilter,
+  onFrameworkFilterChange,
+  frameworks = [],
+  available,
+  onSelect,
+  loading = false,
+}) => (
   <div className="space-y-3 pt-2">
-    <div className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-      <Input
-        placeholder="Buscar competencia por nombre o código..."
-        value={search}
-        onChange={(e) => onSearchChange(e.target.value)}
-        className="pl-9 h-9 text-sm"
-        autoFocus
-      />
+    <div className="flex flex-col sm:flex-row gap-2.5">
+      <div className="relative flex-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar competencia por nombre o código..."
+          value={search}
+          onChange={(e) => onSearchChange(e.target.value)}
+          className="pl-9 h-9 text-xs sm:text-sm"
+          autoFocus
+        />
+      </div>
+      <div className="w-full sm:w-52 shrink-0">
+        <Select
+          value={frameworkFilter}
+          onChange={(e) => onFrameworkFilterChange(e.target.value)}
+          className="h-9 text-xs"
+          aria-label="Filtrar por marco de competencia"
+        >
+          <option value="all">Todos los marcos</option>
+          {frameworks.map((fw) => (
+            <option key={fw.id} value={fw.id}>
+              {fw.name}
+            </option>
+          ))}
+        </Select>
+      </div>
     </div>
     <div className="max-h-72 overflow-y-auto rounded-xl border border-border/70 divide-y divide-border/50">
-      {available.length === 0 ? (
+      {loading ? (
+        <div className="py-8 flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          <span>Cargando competencias...</span>
+        </div>
+      ) : available.length === 0 ? (
         <div className="py-8 text-center text-xs text-muted-foreground">
-          {search
-            ? 'Sin resultados para esta búsqueda.'
+          {search || frameworkFilter !== 'all'
+            ? 'Sin resultados para los filtros aplicados.'
             : 'Todas las competencias ya están vinculadas o no hay marcos configurados.'}
         </div>
       ) : (
@@ -989,9 +1065,9 @@ const CompetencySelectorContent = ({ search, onSearchChange, available, onSelect
             key={comp.id}
             type="button"
             onClick={() => onSelect(comp)}
-            className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-start gap-3"
+            className="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors flex items-start gap-3 group"
           >
-            <Award className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+            <Award className="h-4 w-4 text-primary mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
             <div className="min-w-0">
               <div className="text-sm font-semibold text-foreground truncate">{comp.shortname}</div>
               <div className="flex items-center gap-2 mt-0.5">

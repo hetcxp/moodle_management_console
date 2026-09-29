@@ -12,22 +12,27 @@ import {
   Clock,
   CornerDownRight,
 } from 'lucide-react';
+import { buildCompetencyHierarchy } from './hierarchyHelper';
 
 function CompetencyNameCell({ row, onOpenCompetencyDetail }) {
   const hasRule = row.ruletype === 'core_competency\\competency_rule_all_children';
   const isSubcomp = (row.parentid || 0) > 0;
   const level = row.level || (isSubcomp ? 2 : 1);
-  const indentPadding = isSubcomp ? Math.min((level - 1) * 24, 48) : 0;
+  const indentPadding = level === 3 ? 52 : level === 2 ? 26 : 0;
 
   return (
     <button
       type="button"
-      className="flex items-center gap-3 cursor-pointer group text-left bg-transparent border-0 p-0"
+      className="flex items-center gap-3 cursor-pointer group text-left bg-transparent border-0 p-0 relative"
       style={{ paddingLeft: `${indentPadding}px` }}
       onClick={() => onOpenCompetencyDetail(row)}
     >
-      {isSubcomp ? (
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 font-bold dark:bg-indigo-500/20 dark:text-indigo-400 shrink-0">
+      {level === 3 ? (
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-500/10 text-purple-600 font-bold dark:bg-purple-500/20 dark:text-purple-400 shrink-0 border border-purple-500/20">
+          <CornerDownRight className="h-3.5 w-3.5" />
+        </div>
+      ) : level === 2 ? (
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-600 font-bold dark:bg-indigo-500/20 dark:text-indigo-400 shrink-0 border border-indigo-500/20">
           <CornerDownRight className="h-4 w-4" />
         </div>
       ) : (
@@ -41,6 +46,12 @@ function CompetencyNameCell({ row, onOpenCompetencyDetail }) {
           <span className="font-semibold text-foreground group-hover:text-primary transition-colors">
             {row.shortname}
           </span>
+
+          {level === 3 && (
+            <Badge variant="outline" className="text-[10px] bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 font-medium py-0 px-1.5">
+              Nivel 3
+            </Badge>
+          )}
 
           {hasRule && (
             <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30">
@@ -60,7 +71,7 @@ function CompetencyNameCell({ row, onOpenCompetencyDetail }) {
           </div>
 
           {isSubcomp && row.parentname && (
-            <div className="text-indigo-600 dark:text-indigo-400 font-medium">
+            <div className={level === 3 ? "text-purple-600 dark:text-purple-400 font-medium" : "text-indigo-600 dark:text-indigo-400 font-medium"}>
               Hija de: {row.parentname}
             </div>
           )}
@@ -71,29 +82,45 @@ function CompetencyNameCell({ row, onOpenCompetencyDetail }) {
 }
 
 function SubcompetenciasCell({ row, onOpenCompetencyDetail }) {
-  const isSubcomp = (row.parentid || 0) > 0;
-  if (isSubcomp) {
+  const level = row.level || ((row.parentid || 0) > 0 ? 2 : 1);
+  const count = row.childrencount || 0;
+
+  if (count > 0) {
     return (
-      <span className="text-xs text-muted-foreground italic">
-        —
-      </span>
+      <button
+        type="button"
+        onClick={() => onOpenCompetencyDetail(row)}
+        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
+          level >= 2
+            ? 'bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20'
+            : 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/20'
+        }`}
+        title="Ver subcompetencias hijas"
+      >
+        <Layers className="h-3.5 w-3.5" />
+        <span>{count} subcompetencia(s)</span>
+      </button>
     );
   }
-  const count = row.childrencount || 0;
+
+  if (level === 1) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpenCompetencyDetail(row)}
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors bg-muted text-muted-foreground hover:bg-muted/80"
+        title="Ver subcompetencias hijas"
+      >
+        <Layers className="h-3.5 w-3.5" />
+        <span>0 subcompetencia(s)</span>
+      </button>
+    );
+  }
+
   return (
-    <button
-      type="button"
-      onClick={() => onOpenCompetencyDetail(row)}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-        count > 0
-          ? 'bg-indigo-500/10 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-500/20'
-          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-      }`}
-      title="Ver subcompetencias hijas"
-    >
-      <Layers className="h-3.5 w-3.5" />
-      <span>{count} subcompetencia(s)</span>
-    </button>
+    <span className="text-xs text-muted-foreground italic">
+      —
+    </span>
   );
 }
 
@@ -127,17 +154,23 @@ function CompetencyActionsCell({
   onOpenEdit,
   onOpenDelete,
 }) {
-  const isSubcomp = (row.parentid || 0) > 0;
+  const level = row.level || ((row.parentid || 0) > 0 ? 2 : 1);
+  const canCreateChild = level < 3;
+
   return (
     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
       <PermissionGate capability="can_manage_competencies">
-        {!isSubcomp && (
+        {canCreateChild && (
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onOpenCreateSubcomp(row)}
-            title="Crear subcompetencia hija para esta competencia"
-            className="h-8 w-8 text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-500/10"
+            title={level === 1 ? "Crear subcompetencia hija para esta competencia" : "Crear subcompetencia de tercer nivel para esta subcompetencia"}
+            className={`h-8 w-8 ${
+              level === 1
+                ? 'text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-500/10'
+                : 'text-purple-600 dark:text-purple-400 hover:text-purple-700 hover:bg-purple-500/10'
+            }`}
           >
             <Layers className="h-4 w-4" />
           </Button>
@@ -307,11 +340,13 @@ export function CompetenciesTree({
   );
 
   const columns = useCompetencyColumns(resolvedActions);
+  const rawData = useMemo(() => competencies || state?.competencies || [], [competencies, state?.competencies]);
+  const treeData = useMemo(() => buildCompetencyHierarchy(rawData), [rawData]);
 
   return (
     <DataTable
       columns={columns}
-      data={competencies || state?.competencies}
+      data={treeData}
       loading={resolvedState.loading}
       totalCount={resolvedState.totalCount}
       page={resolvedState.page}

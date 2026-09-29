@@ -69,14 +69,26 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
         title={
           state.editingCompetency
             ? 'Editar Competencia'
-            : state.formData.parentid > 0
-            ? 'Nueva Subcompetencia'
-            : 'Nueva Competencia (Nivel 1)'
+            : (() => {
+                const targetParent = state.competencies.find(c => c.id === state.formData.parentid);
+                if (targetParent) {
+                  const pLevel = targetParent.level || ((targetParent.parentid || 0) > 0 ? 2 : 1);
+                  return pLevel >= 2 ? 'Nueva Subcompetencia (Nivel 3)' : 'Nueva Subcompetencia';
+                }
+                return 'Nueva Competencia (Nivel 1)';
+              })()
         }
         description={
-          state.formData.parentid > 0
-            ? 'Crea una subcompetencia jerárquica asociada a una competencia padre.'
-            : 'Define la competencia institucional dentro de este marco.'
+          (() => {
+            const targetParent = state.competencies.find(c => c.id === state.formData.parentid);
+            if (targetParent) {
+              const pLevel = targetParent.level || ((targetParent.parentid || 0) > 0 ? 2 : 1);
+              return pLevel >= 2
+                ? `Crea una subcompetencia de tercer nivel asociada a "${targetParent.shortname}".`
+                : `Crea una subcompetencia jerárquica asociada a "${targetParent.shortname}".`;
+            }
+            return 'Define la competencia institucional dentro de este marco.';
+          })()
         }
         footer={
           <>
@@ -98,29 +110,74 @@ export const CompetencyFrameworkDetailView = ({ frameworkId, onBack, onNavigateT
         <form onSubmit={state.handleSaveCompetency} className="space-y-4 pt-2">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">Jerarquía / Nivel</label>
-            {state.editingCompetency && (state.competencies.some((c) => c.parentid === state.editingCompetency.id) || (state.editingCompetency.childrencount || 0) > 0) ? (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300">
-                <span className="font-semibold">Nivel 1 (Competencia Principal)</span>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  Esta competencia tiene subcompetencias asociadas y no puede convertirse en subcompetencia.
-                </p>
-              </div>
-            ) : (
-              <select
-                value={state.formData.parentid}
-                onChange={(e) => state.setFormData({ ...state.formData, parentid: Number(e.target.value) })}
-                className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <option value="0">Nivel 1 (Competencia Principal)</option>
-                {state.competencies
-                  .filter((c) => (c.parentid || 0) === 0 && (!state.editingCompetency || c.id !== state.editingCompetency.id))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      Subcompetencia de: {c.shortname} {c.idnumber ? `(${c.idnumber})` : ''}
-                    </option>
-                  ))}
-              </select>
-            )}
+            {(() => {
+              const editing = state.editingCompetency;
+              const comps = state.competencies || [];
+
+              const hasDirectChildren = editing && (comps.some((c) => c.parentid === editing.id) || (editing.childrencount || 0) > 0);
+              const hasGrandchildren = editing && comps.some((c) => {
+                const parent = comps.find((p) => p.id === c.parentid);
+                return parent && parent.parentid === editing.id;
+              });
+
+              if (editing && hasGrandchildren) {
+                return (
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+                    <span className="font-semibold">Nivel 1 (Competencia Principal)</span>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Esta competencia tiene subcompetencias de tercer nivel asociadas y debe permanecer en el Nivel 1.
+                    </p>
+                  </div>
+                );
+              }
+
+              const descendantIds = new Set();
+              if (editing) {
+                descendantIds.add(editing.id);
+                let added = true;
+                while (added) {
+                  added = false;
+                  comps.forEach((c) => {
+                    if (c.parentid && descendantIds.has(c.parentid) && !descendantIds.has(c.id)) {
+                      descendantIds.add(c.id);
+                      added = true;
+                    }
+                  });
+                }
+              }
+
+              const level1Comps = comps.filter((c) => (c.parentid || 0) === 0 && !descendantIds.has(c.id));
+              const level2Comps = comps.filter((c) => {
+                if ((c.parentid || 0) === 0 || descendantIds.has(c.id)) return false;
+                const p = comps.find((comp) => comp.id === c.parentid);
+                return p && (p.parentid || 0) === 0;
+              });
+
+              return (
+                <select
+                  value={state.formData.parentid}
+                  onChange={(e) => state.setFormData({ ...state.formData, parentid: Number(e.target.value) })}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <option value="0">Nivel 1 (Competencia Principal)</option>
+                  {level1Comps.map((c1) => {
+                    const children = level2Comps.filter((c2) => c2.parentid === c1.id);
+                    return (
+                      <React.Fragment key={c1.id}>
+                        <option value={c1.id}>
+                          Subcompetencia de: [N1] {c1.shortname} {c1.idnumber ? `(${c1.idnumber})` : ''}
+                        </option>
+                        {!hasDirectChildren && children.map((c2) => (
+                          <option key={c2.id} value={c2.id}>
+                            &nbsp;&nbsp;&nbsp;&nbsp;↳ Subcompetencia N3 de: [N2] {c2.shortname} {c2.idnumber ? `(${c2.idnumber})` : ''}
+                          </option>
+                        ))}
+                      </React.Fragment>
+                    );
+                  })}
+                </select>
+              );
+            })()}
           </div>
 
           <div className="space-y-1.5">

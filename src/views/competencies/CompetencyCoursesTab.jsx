@@ -253,7 +253,7 @@ export const CompetencyCoursesTab = ({
           </div>
 
           {/* Sección 2: Cursos de Subcompetencias (Modo Lectura) */}
-          {!hasParent && (subcompetencyCourses.length > 0 || totalSubcompCourses > 0) && (
+          {(subcompetencyCourses.length > 0 || totalSubcompCourses > 0) && (
             <div className="space-y-4 pt-4 border-t border-border/70">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                 <div className="flex items-center gap-2.5">
