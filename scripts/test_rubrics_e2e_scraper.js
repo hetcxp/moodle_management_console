@@ -28,13 +28,16 @@ if (!fs.existsSync(SCRATCH_DIR)) {
   fs.mkdirSync(SCRATCH_DIR, { recursive: true });
 }
 
-const CHROME_PATH = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME_PATH = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const PHP_PATH = process.env.PHP_BIN || '/opt/homebrew/opt/php@8.3/bin/php';
+const MOODLE_CONFIG = process.env.MOODLE_CONFIG || path.resolve(ROOT_DIR, '../moodle-dev/public/config.php');
+const RUBRIC_REPO_FILE = path.resolve(ROOT_DIR, 'plugin/management_console/classes/repository/rubric_repository.php');
 const PORT = 3002;
 const BASE_URL = `http://localhost:${PORT}`;
 
 async function runCliPhp(code) {
   return new Promise((resolve, reject) => {
-    const proc = spawn('/opt/homebrew/opt/php@8.3/bin/php', ['-r', code], {
+    const proc = spawn(PHP_PATH, ['-r', code], {
       cwd: ROOT_DIR,
     });
     let stdout = '';
@@ -92,8 +95,8 @@ async function runSuite() {
   console.log('--- FASE 1: Verificación de Servicios Backend Moodle ---');
   const backendCheck = await runCliPhp(String.raw`
     define('CLI_SCRIPT', true);
-    require('/Users/hectorteran/Dev/moodle-dev/public/config.php');
-    require_once('/Users/hectorteran/Documents/moodle_management_console/plugin/management_console/classes/repository/rubric_repository.php');
+    require('${MOODLE_CONFIG}');
+    require_once('${RUBRIC_REPO_FILE}');
 
     use tool_management_console\repository\rubric_repository;
 
@@ -115,7 +118,7 @@ async function runSuite() {
 
   const activeToken = await runCliPhp(String.raw`
     define('CLI_SCRIPT', true);
-    require('/Users/hectorteran/Dev/moodle-dev/public/config.php');
+    require('${MOODLE_CONFIG}');
     global $DB;
     $rec = $DB->get_record_sql("SELECT token FROM {external_tokens} WHERE userid = 2 ORDER BY id DESC LIMIT 1");
     echo $rec ? $rec->token : '';

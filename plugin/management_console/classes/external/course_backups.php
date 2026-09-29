@@ -57,19 +57,36 @@ class course_backups extends external_api {
      * @return array
      */
     public static function list_server_backups() {
-        global $CFG;
+        global $CFG, $USER;
 
         $syscontext = context_system::instance();
         self::validate_context($syscontext);
         require_capability('moodle/course:create', $syscontext);
 
-        $tempdir = realpath($CFG->dataroot . '/temp/backup');
-
         $results = [];
-        if ($tempdir && is_dir($tempdir)) {
+        $directories = [];
+
+        // Isolated user upload directory
+        $userdir = $CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$USER->id;
+        if (is_dir($userdir)) {
+            $directories[] = realpath($userdir);
+        }
+
+        // Global or legacy dataroot/temp/backup only accessible to site admins
+        if (has_capability('moodle/site:config', $syscontext)) {
+            $admindir = realpath($CFG->dataroot . '/temp/backup');
+            if ($admindir && is_dir($admindir) && !in_array($admindir, $directories, true)) {
+                $directories[] = $admindir;
+            }
+        }
+
+        foreach ($directories as $tempdir) {
+            if (!$tempdir || !is_dir($tempdir)) {
+                continue;
+            }
             $files = scandir($tempdir);
             foreach ($files as $file) {
-                if ($file === '.' || $file === '..') {
+                if ($file === '.' || $file === '..' || is_dir($tempdir . '/' . $file)) {
                     continue;
                 }
                 if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mbz') {
@@ -158,12 +175,17 @@ class course_backups extends external_api {
 
         require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 
+        $userdir = realpath($CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$USER->id);
         $tempdir = realpath($CFG->dataroot . '/temp/backup');
 
-        // Resolve candidate path safely: support both direct filepath and opaque filename
-        $candidate = $backupfile;
-        if (!file_exists($candidate) && $tempdir && file_exists($tempdir . '/' . basename($backupfile))) {
+        // Resolve candidate path safely: support userdir first, then admin fallback
+        $candidate = '';
+        if ($userdir && file_exists($userdir . '/' . basename($backupfile))) {
+            $candidate = $userdir . '/' . basename($backupfile);
+        } else if (has_capability('moodle/site:config', $syscontext) && $tempdir && file_exists($tempdir . '/' . basename($backupfile))) {
             $candidate = $tempdir . '/' . basename($backupfile);
+        } else if (file_exists($backupfile)) {
+            $candidate = $backupfile;
         }
 
         $realbackupfile = realpath($candidate);
@@ -171,12 +193,11 @@ class course_backups extends external_api {
             throw new \moodle_exception('filenotfound', 'error');
         }
 
-        // Whitelist security check: only dataroot/temp/backup with boundary separator
+        // Whitelist security check: candidate MUST be within $userdir (or $tempdir if site admin)
         $is_allowed = false;
-        if ($tempdir && (
-            $realbackupfile === $tempdir ||
-            str_starts_with($realbackupfile, $tempdir . DIRECTORY_SEPARATOR)
-        )) {
+        if ($userdir && str_starts_with($realbackupfile, $userdir . DIRECTORY_SEPARATOR)) {
+            $is_allowed = true;
+        } else if (has_capability('moodle/site:config', $syscontext) && $tempdir && str_starts_with($realbackupfile, $tempdir . DIRECTORY_SEPARATOR)) {
             $is_allowed = true;
         }
 
@@ -189,6 +210,7 @@ class course_backups extends external_api {
         $backupdir = \restore_controller::get_tempdir_name(SITEID, $USER->id);
         $path = make_backup_temp_directory($backupdir);
 
+        $created_new_course = false;
         try {
             $extracted = $fp->extract_to_pathname($realbackupfile, $path);
             if (!$extracted) {
@@ -225,6 +247,7 @@ class course_backups extends external_api {
             // Create container course if not restoring into existing
             if (empty($courseid)) {
                 $courseid = \restore_dbops::create_new_course($fullname, $shortname, $categoryid);
+                $created_new_course = true;
             }
 
             $rc = new \restore_controller(
@@ -242,6 +265,9 @@ class course_backups extends external_api {
                 $results = $rc->get_precheck_results();
                 if (!empty($results['errors'])) {
                     $rc->destroy();
+                    if ($created_new_course && !empty($courseid)) {
+                        delete_course($courseid, false);
+                    }
                     throw new \moodle_exception('restoreerror', 'backup', '', null, implode(', ', $results['errors']));
                 }
                 if (!empty($results['warnings'])) {
@@ -270,6 +296,11 @@ class course_backups extends external_api {
                 'url'       => $courseurl,
                 'warnings'  => $warnings,
             ];
+        } catch (\Throwable $e) {
+            if ($created_new_course && !empty($courseid)) {
+                delete_course($courseid, false);
+            }
+            throw $e;
         } finally {
             \fulldelete($path);
         }

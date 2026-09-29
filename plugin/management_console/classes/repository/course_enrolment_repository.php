@@ -35,7 +35,7 @@ defined('MOODLE_INTERNAL') || die();
  */
 class course_enrolment_repository {
 
-    public static function get_course_enrolled_users_detail($courseid) {
+    public static function get_course_enrolled_users_detail($courseid, $limitfrom = 0, $limitnum = 0) {
         global $DB;
         $sql_users = "
             SELECT u.id, u.firstname, u.lastname, u.email, 
@@ -50,8 +50,9 @@ class course_enrolment_repository {
          LEFT JOIN {course_completions} ccmp ON ccmp.userid = u.id AND ccmp.course = e.courseid
              WHERE e.courseid = :courseid AND u.deleted = 0
           GROUP BY u.id, u.firstname, u.lastname, u.email, ccmp.timecompleted
+          ORDER BY u.lastname ASC, u.firstname ASC
         ";
-        return $DB->get_records_sql($sql_users, ['courseid' => $courseid]);
+        return $DB->get_records_sql($sql_users, ['courseid' => $courseid], $limitfrom, $limitnum);
     }
 
     public static function get_course_user_cohort_map($courseid) {

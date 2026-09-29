@@ -280,12 +280,9 @@ export const CompetencySubcompetenciesTab = ({
                       </div>
 
                       {subcomp.description && (
-                        <p
-                          className="text-xs text-muted-foreground line-clamp-1 mt-1 font-normal"
-                          dangerouslySetInnerHTML={{
-                            __html: subcomp.description.replace(/<[^>]*>?/gm, '')
-                          }}
-                        />
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-1 font-normal">
+                          {subcomp.description.replace(/<[^>]*>?/gm, '')}
+                        </p>
                       )}
 
                       <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">

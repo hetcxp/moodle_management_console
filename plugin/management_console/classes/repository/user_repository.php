@@ -253,7 +253,7 @@ class user_repository {
         return $DB->get_record('user', ['id' => $userid], '*', MUST_EXIST);
     }
 
-    public static function get_user_enrolled_courses($userid) {
+    public static function get_user_enrolled_courses($userid, $limitfrom = 0, $limitnum = 0) {
         global $DB;
         $sql_courses = "
             SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod, MIN(ue.status) as enrolstatus
@@ -262,30 +262,33 @@ class user_repository {
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
              WHERE ue.userid = :userid
           GROUP BY c.id, c.fullname, c.shortname
+          ORDER BY c.fullname ASC
         ";
-        return $DB->get_records_sql($sql_courses, ['userid' => $userid]);
+        return $DB->get_records_sql($sql_courses, ['userid' => $userid], $limitfrom, $limitnum);
     }
 
-    public static function get_user_all_enrolments($userid) {
+    public static function get_user_all_enrolments($userid, $limitfrom = 0, $limitnum = 0) {
         global $DB;
         $sql_all_enrolments = "
             SELECT ue.id, e.courseid, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
               FROM {user_enrolments} ue
               JOIN {enrol} e ON e.id = ue.enrolid
              WHERE ue.userid = :userid
+          ORDER BY ue.timecreated DESC
         ";
-        return $DB->get_records_sql($sql_all_enrolments, ['userid' => $userid]);
+        return $DB->get_records_sql($sql_all_enrolments, ['userid' => $userid], $limitfrom, $limitnum);
     }
 
-    public static function get_user_cohorts($userid) {
+    public static function get_user_cohorts($userid, $limitfrom = 0, $limitnum = 0) {
         global $DB;
         $sql_cohorts = "
             SELECT c.id, c.name, c.idnumber
               FROM {cohort} c
               JOIN {cohort_members} cm ON cm.cohortid = c.id
              WHERE cm.userid = :userid
+          ORDER BY c.name ASC
         ";
-        return $DB->get_records_sql($sql_cohorts, ['userid' => $userid]);
+        return $DB->get_records_sql($sql_cohorts, ['userid' => $userid], $limitfrom, $limitnum);
     }
 
     public static function get_role_id_by_shortname($shortname = 'student') {

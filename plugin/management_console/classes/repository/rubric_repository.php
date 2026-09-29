@@ -129,7 +129,7 @@ class rubric_repository {
                     $levelsbycriteria[$lvl->criterionid][] = [
                         'id'               => (int)$lvl->id,
                         'score'            => (float)$lvl->score,
-                        'definition'       => (string)$lvl->definition,
+                        'definition'       => clean_text((string)$lvl->definition, (int)$lvl->definitionformat),
                         'definitionformat' => (int)$lvl->definitionformat,
                     ];
                 }
@@ -142,7 +142,7 @@ class rubric_repository {
                 $criteriabydef[$crit->definitionid][] = [
                     'id'                => (int)$crit->id,
                     'sortorder'         => (int)$crit->sortorder,
-                    'description'       => (string)$crit->description,
+                    'description'       => clean_text((string)$crit->description, (int)$crit->descriptionformat),
                     'descriptionformat' => (int)$crit->descriptionformat,
                     'levels'            => $critlevels,
                 ];
@@ -170,7 +170,7 @@ class rubric_repository {
                     'id'                => (int)$row->id,
                     'areaid'            => (int)$row->areaid,
                     'name'              => (string)$row->name,
-                    'description'       => (string)$row->description,
+                    'description'       => clean_text((string)$row->description, (int)$row->descriptionformat),
                     'descriptionformat' => (int)$row->descriptionformat,
                     'status'            => (int)$row->status,
                     'criteria_count'    => count($critlist),

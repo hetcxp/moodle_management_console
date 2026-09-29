@@ -1,6 +1,7 @@
 import React from 'react';
 import { Award, Layers, CheckCircle2 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
+import { SafeHtml } from '../../components/ui/SafeHtml';
 
 export const RubricMatrixTable = ({
   rubric,
@@ -76,11 +77,9 @@ export const RubricMatrixTable = ({
                             </span>
                           </div>
 
-                          <div
+                          <SafeHtml
+                            html={criterion.description || `Criterio ${cIdx + 1}`}
                             className="font-semibold text-foreground text-sm leading-snug prose prose-sm dark:prose-invert"
-                            dangerouslySetInnerHTML={{
-                              __html: criterion.description || `Criterio ${cIdx + 1}`,
-                            }}
                           />
                         </div>
                       </td>
@@ -116,11 +115,9 @@ export const RubricMatrixTable = ({
                               </div>
 
                               {/* Level Definition Text */}
-                              <div
+                              <SafeHtml
+                                html={level.definition || 'Sin descripción'}
                                 className="text-xs text-foreground/90 leading-relaxed flex-1 prose prose-xs dark:prose-invert"
-                                dangerouslySetInnerHTML={{
-                                  __html: level.definition || 'Sin descripción',
-                                }}
                               />
                             </div>
                           </td>
@@ -171,11 +168,9 @@ export const RubricMatrixTable = ({
                         Puntaje Máximo: {maxCritScore} pts
                       </span>
                     </div>
-                    <div
+                    <SafeHtml
+                      html={criterion.description || `Criterio ${cIdx + 1}`}
                       className="text-base font-bold text-foreground prose prose-sm dark:prose-invert"
-                      dangerouslySetInnerHTML={{
-                        __html: criterion.description || `Criterio ${cIdx + 1}`,
-                      }}
                     />
                   </div>
                 </div>
@@ -214,11 +209,9 @@ export const RubricMatrixTable = ({
                             </Badge>
                           </div>
 
-                          <div
+                          <SafeHtml
+                            html={level.definition || 'Sin descripción'}
                             className="text-xs text-foreground/90 leading-relaxed prose prose-xs dark:prose-invert"
-                            dangerouslySetInnerHTML={{
-                              __html: level.definition || 'Sin descripción',
-                            }}
                           />
                         </div>
 

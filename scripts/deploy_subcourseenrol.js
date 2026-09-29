@@ -1,25 +1,33 @@
 import fs from 'fs';
 import path from 'path';
 import puppeteer from 'puppeteer-core';
-import { loadEnv } from '/Users/hectorteran/Documents/moodle_management_console/scripts/env-helper.js';
-import { loginMoodle, takeScreenshot } from '/Users/hectorteran/Documents/moodle_management_console/scripts/automation-helper.js';
+import { loadEnv } from './env-helper.js';
+import { loginMoodle, takeScreenshot } from './automation-helper.js';
 
-loadEnv('/Users/hectorteran/Documents/moodle_management_console');
+const ROOT_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
+loadEnv(ROOT_DIR);
 
 const COMPONENT = 'local_subcourseenrol';
 const EXPECTED_VERSION = 2026092100;
 const EXPECTED_RELEASE = '2.1.2';
-const ZIP_PATH = '/Users/hectorteran/Documents/moodle_subcourses_learning_plan/local_subcourseenrol_v2.1.2.zip';
-const SCRATCH_DIR = '/Users/hectorteran/.gemini/antigravity-ide/brain/90e0020c-53e3-4ad3-a137-d2ca81a3d4a8/scratch';
+const ZIP_PATH = process.env.SUBCOURSE_ZIP_PATH || path.resolve(ROOT_DIR, 'scratch/local_subcourseenrol_v2.1.2.zip');
+const SCRATCH_DIR = process.env.SCRATCH_DIR || path.resolve(ROOT_DIR, 'scratch');
 
 if (!fs.existsSync(ZIP_PATH)) {
-  console.error(`ERROR: Zip file not found at ${ZIP_PATH}`);
+  console.error(`ERROR: Zip file not found at ${ZIP_PATH}. Set SUBCOURSE_ZIP_PATH environment variable.`);
   process.exit(1);
 }
 
-const TARGET_SITES = process.argv.slice(2).length > 0
-  ? process.argv.slice(2)
-  : ['https://lts.academyfactory.online', 'https://campus.escuelamusk.com'];
+const rawTargets = process.argv.slice(2).filter((arg) => !arg.startsWith('--'));
+const hasConfirm = process.argv.includes('--confirm-target');
+
+if (rawTargets.length === 0 || !hasConfirm) {
+  console.error('ERROR: Target URL and --confirm-target are mandatory. Accidental remote mutation prevented.');
+  console.error('Usage: node scripts/deploy_subcourseenrol.js <url> --confirm-target');
+  process.exit(1);
+}
+
+const TARGET_SITES = rawTargets;
 
 async function deployToSite(baseUrl) {
   console.log(`\n===============================================================`);
@@ -27,7 +35,7 @@ async function deployToSite(baseUrl) {
   console.log(`===============================================================`);
 
   const browser = await puppeteer.launch({
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    executablePath: process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });

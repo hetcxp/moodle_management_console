@@ -16,6 +16,7 @@ import {
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { SafeHtml } from '../../components/ui/SafeHtml';
 
 export const RubricDetailHeader = ({
   rubric,
@@ -246,9 +247,9 @@ export const RubricDetailHeader = ({
               <Info className="h-3.5 w-3.5 text-primary" />
               Descripción Metodológica e Instruccional
             </span>
-            <div
+            <SafeHtml
+              html={rubric.description}
               className="text-sm text-foreground/90 leading-relaxed prose prose-sm dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: rubric.description }}
             />
           </div>
         )}

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { SafeHtml } from '../../components/ui/SafeHtml';
 import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
@@ -829,9 +830,9 @@ export const CourseCompetenciesTab = ({
             {selectedCompetency.description && (
               <div className="space-y-1.5">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Descripción</h4>
-                <div
+                <SafeHtml
+                  html={selectedCompetency.description}
                   className="p-3.5 rounded-xl bg-muted/30 border border-border/50 text-xs text-foreground/90 leading-relaxed max-h-40 overflow-y-auto competency-description-content"
-                  dangerouslySetInnerHTML={{ __html: selectedCompetency.description }}
                 />
               </div>
             )}

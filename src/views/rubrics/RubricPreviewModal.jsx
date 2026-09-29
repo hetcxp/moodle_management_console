@@ -2,6 +2,7 @@ import React from 'react';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { SafeHtml } from '../../components/ui/SafeHtml';
 import { Award, Layers, User, Calendar } from 'lucide-react';
 
 export const RubricPreviewModal = ({
@@ -49,9 +50,9 @@ export const RubricPreviewModal = ({
               </span>
             </div>
             {rubric.description && (
-              <div
+              <SafeHtml
+                html={rubric.description}
                 className="text-xs text-muted-foreground prose prose-sm dark:prose-invert max-w-none pt-1"
-                dangerouslySetInnerHTML={{ __html: rubric.description }}
               />
             )}
           </div>
@@ -97,9 +98,9 @@ export const RubricPreviewModal = ({
                           <span className="inline-block text-[10px] font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
                             Criterio {crit.sortorder || cIdx + 1}
                           </span>
-                          <div
+                          <SafeHtml
+                            html={crit.description || `Criterio ${cIdx + 1}`}
                             className="font-semibold text-foreground prose prose-xs dark:prose-invert"
-                            dangerouslySetInnerHTML={{ __html: crit.description || `Criterio ${cIdx + 1}` }}
                           />
                         </div>
                       </td>
@@ -112,9 +113,9 @@ export const RubricPreviewModal = ({
                               key={lvl.id || lIdx}
                               className="p-3 rounded-lg border border-border/80 bg-card/60 flex flex-col justify-between hover:border-primary/40 transition-colors space-y-2 min-h-[100px]"
                             >
-                              <div
+                              <SafeHtml
+                                html={lvl.definition || 'Sin descripción'}
                                 className="text-foreground prose prose-xs dark:prose-invert leading-relaxed"
-                                dangerouslySetInnerHTML={{ __html: lvl.definition || 'Sin descripción' }}
                               />
                               <div className="pt-2 border-t border-border/50 flex items-center justify-between">
                                 <span className="text-[10px] text-muted-foreground font-medium">Nivel {lIdx + 1}</span>

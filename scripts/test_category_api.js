@@ -50,7 +50,7 @@ async function runTests() {
     
     // 1. Test de Métricas (Recursivas si aplica)
     console.log(`1. Test: Obtener detalles de la categoría (ID: ${testCategoryId})`);
-    const categoryDetail = await callMoodleApi('local_adminer_get_category_detail', { categoryid: testCategoryId });
+    const categoryDetail = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: testCategoryId });
     
     assert(categoryDetail, 'La respuesta de get_category_detail es nula');
     assert(typeof categoryDetail.name === 'string', 'La categoría debe tener un nombre');
@@ -68,14 +68,14 @@ async function runTests() {
 
       // 2. Test de Acción Masiva: Hide/Show
       console.log(`2. Test: Acción masiva (${targetVisibility}) en curso ID: ${testCourseId}`);
-      await callMoodleApi('local_adminer_course_action', { 
+      await callMoodleApi('tool_management_console_course_action', { 
         action: targetVisibility, 
         'courseids': [testCourseId] 
       });
       console.log(`✅ Acción enviada. Verificando estado...`);
 
       // Verificamos si cambió
-      const updatedCategory = await callMoodleApi('local_adminer_get_category_detail', { categoryid: testCategoryId });
+      const updatedCategory = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: testCategoryId });
       const updatedCourse = updatedCategory.courses.find(c => c.id === testCourseId);
       
       const expectedVisible = targetVisibility === 'hide' ? 0 : 1;
@@ -83,33 +83,33 @@ async function runTests() {
       console.log(`✅ Visibilidad actualizada correctamente a ${expectedVisible}.`);
       
       // Restauramos
-      await callMoodleApi('local_adminer_course_action', { 
+      await callMoodleApi('tool_management_console_course_action', { 
         action: initialVisibility === 1 ? 'show' : 'hide', 
         'courseids': [testCourseId] 
       });
       console.log(`✅ Estado restaurado a ${initialVisibility}.`);
       
       // 3. Test de Movimiento (Si hay más de 1 categoría)
-      const allCategories = await callMoodleApi('local_adminer_get_categories_flat');
+      const allCategories = await callMoodleApi('tool_management_console_get_categories_flat');
       const otherCategory = allCategories.categories.find(c => c.id != testCategoryId);
       
       if (otherCategory) {
         console.log(`3. Test: Mover curso ID: ${testCourseId} a categoría ID: ${otherCategory.id}`);
-        await callMoodleApi('local_adminer_course_action', {
+        await callMoodleApi('tool_management_console_course_action', {
           action: 'move',
           'courseids': [testCourseId],
           categoryid: otherCategory.id
         });
         
         // Verificar que ya no está en la original
-        const afterMoveCategory = await callMoodleApi('local_adminer_get_category_detail', { categoryid: testCategoryId });
+        const afterMoveCategory = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: testCategoryId });
         const isStillThere = afterMoveCategory.courses.some(c => c.id === testCourseId);
         assert(!isStillThere, 'El curso sigue en la categoría original tras moverlo');
         
         console.log(`✅ Curso movido exitosamente.`);
         
         // Restaurarlo
-        await callMoodleApi('local_adminer_course_action', {
+        await callMoodleApi('tool_management_console_course_action', {
           action: 'move',
           'courseids': [testCourseId],
           categoryid: testCategoryId

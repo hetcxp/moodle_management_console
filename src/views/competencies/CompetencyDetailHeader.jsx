@@ -1,5 +1,6 @@
 import React from 'react';
 import { Badge } from '../../components/ui/Badge';
+import { SafeHtml } from '../../components/ui/SafeHtml';
 import {
   Award,
   ChevronLeft,
@@ -141,9 +142,9 @@ export const CompetencyDetailHeader = ({
 
       {/* Description if present */}
       {competency?.description && (
-        <div
+        <SafeHtml
+          html={competency.description}
           className="rounded-2xl border border-border/70 bg-card/60 p-4 shadow-sm text-sm text-muted-foreground max-w-none prose dark:prose-invert prose-sm competency-description-content overflow-hidden"
-          dangerouslySetInnerHTML={{ __html: competency.description }}
         />
       )}
 

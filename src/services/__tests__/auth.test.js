@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { AuthService } from '../auth.js';
+import { AuthService, TOKEN_TTL_MS } from '../auth.js';
 
-describe('AuthService', () => {
+describe('AuthService (TD-SEC-004)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -27,24 +27,28 @@ describe('AuthService', () => {
       expect(AuthService.getToken()).toBe('adminer-token');
     });
 
-    it('falls back to sessionStorage or localStorage', () => {
+    it('reads token exclusively from sessionStorage and purges legacy localStorage token', () => {
+      localStorage.setItem('adminer_token', 'leak-token');
       sessionStorage.setItem('adminer_token', 'sess-token');
-      expect(AuthService.getToken()).toBe('sess-token');
 
-      sessionStorage.clear();
-      localStorage.setItem('adminer_token', 'local-token');
-      expect(AuthService.getToken()).toBe('local-token');
+      expect(AuthService.getToken()).toBe('sess-token');
+      expect(localStorage.getItem('adminer_token')).toBeNull();
     });
 
-    it('getUser parses stored json correctly', () => {
+    it('getUser parses stored json safely and handles corrupted storage gracefully', () => {
       expect(AuthService.getUser()).toBeNull();
 
-      localStorage.setItem('adminer_user', JSON.stringify({ userid: 1, fullname: 'Admin' }));
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1, fullname: 'Admin' }));
       expect(AuthService.getUser()).toEqual({ userid: 1, fullname: 'Admin' });
+
+      // Corrupt JSON test
+      sessionStorage.setItem('adminer_user', '{corrupted_json_string');
+      expect(AuthService.getUser()).toBeNull();
+      expect(sessionStorage.getItem('adminer_user')).toBeNull();
     });
   });
 
-  describe('isAuthenticated', () => {
+  describe('isAuthenticated and TTL alignment', () => {
     it('returns true when window config has a token', () => {
       window.MANAGEMENT_CONSOLE_CONFIG = { token: 'config-token' };
       expect(AuthService.isAuthenticated()).toBe(true);
@@ -53,27 +57,36 @@ describe('AuthService', () => {
     it('returns false when no token or no user stored', () => {
       expect(AuthService.isAuthenticated()).toBe(false);
 
-      localStorage.setItem('adminer_token', 'my-token');
+      sessionStorage.setItem('adminer_token', 'my-token');
       expect(AuthService.isAuthenticated()).toBe(false);
     });
 
-    it('returns false and logs out if token is expired (> 12 weeks)', () => {
-      localStorage.setItem('adminer_token', 'old-token');
-      localStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
+    it('returns false and logs out if token is expired (> 8 hours)', () => {
+      sessionStorage.setItem('adminer_token', 'old-token');
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
       
-      const thirteenWeeksAgo = Date.now() - (13 * 7 * 24 * 60 * 60 * 1000);
-      localStorage.setItem('adminer_token_date', thirteenWeeksAgo.toString());
+      const nineHoursAgo = Date.now() - (9 * 60 * 60 * 1000);
+      sessionStorage.setItem('adminer_token_date', nineHoursAgo.toString());
 
       expect(AuthService.isAuthenticated()).toBe(false);
-      expect(localStorage.getItem('adminer_token')).toBeNull();
+      expect(sessionStorage.getItem('adminer_token')).toBeNull();
     });
 
-    it('returns true when token and user are valid and not expired', () => {
-      localStorage.setItem('adminer_token', 'valid-token');
-      localStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
-      localStorage.setItem('adminer_token_date', Date.now().toString());
+    it('returns false if token has no timestamp', () => {
+      sessionStorage.setItem('adminer_token', 'untimestamped-token');
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
+
+      expect(AuthService.isAuthenticated()).toBe(false);
+      expect(sessionStorage.getItem('adminer_token')).toBeNull();
+    });
+
+    it('returns true when token and user are valid within 8 hours', () => {
+      sessionStorage.setItem('adminer_token', 'valid-token');
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
+      sessionStorage.setItem('adminer_token_date', (Date.now() - (2 * 60 * 60 * 1000)).toString());
 
       expect(AuthService.isAuthenticated()).toBe(true);
+      expect(TOKEN_TTL_MS).toBe(8 * 60 * 60 * 1000);
     });
   });
 
@@ -91,7 +104,7 @@ describe('AuthService', () => {
       await expect(AuthService.login('admin', 'bad')).rejects.toThrow('Invalid credentials');
     });
 
-    it('login successfully obtains token and site info and saves to storage', async () => {
+    it('login saves token and user in sessionStorage and never in localStorage', async () => {
       globalThis.fetch = vi.fn()
         .mockResolvedValueOnce({
           ok: true,
@@ -109,13 +122,14 @@ describe('AuthService', () => {
 
       const res = await AuthService.login('admin', 'secret', true);
       expect(res).toBe(true);
-      expect(localStorage.getItem('adminer_token')).toBe('new-token');
-      expect(JSON.parse(localStorage.getItem('adminer_user'))).toEqual(
+      expect(sessionStorage.getItem('adminer_token')).toBe('new-token');
+      expect(localStorage.getItem('adminer_token')).toBeNull();
+      expect(JSON.parse(sessionStorage.getItem('adminer_user'))).toEqual(
         expect.objectContaining({ userid: 2, username: 'admin' })
       );
     });
 
-    it('validateToken returns user object on success', async () => {
+    it('validateToken stores in sessionStorage and returns user object', async () => {
       globalThis.fetch = vi.fn().mockResolvedValue({
         ok: true,
         json: () => Promise.resolve({
@@ -127,16 +141,25 @@ describe('AuthService', () => {
 
       const user = await AuthService.validateToken('token-123');
       expect(user).toEqual(expect.objectContaining({ userid: 3, username: 'teacher' }));
+      expect(sessionStorage.getItem('adminer_token')).toBe('token-123');
+      expect(localStorage.getItem('adminer_token')).toBeNull();
     });
 
-    it('logout clears tokens and users from storage', () => {
-      localStorage.setItem('adminer_token', 'token');
-      localStorage.setItem('adminer_user', 'user');
+    it('setManualToken stores token in sessionStorage with timestamp', () => {
+      AuthService.setManualToken('manual-token', { username: 'test' });
+      expect(sessionStorage.getItem('adminer_token')).toBe('manual-token');
+      expect(sessionStorage.getItem('adminer_token_date')).not.toBeNull();
+      expect(localStorage.getItem('adminer_token')).toBeNull();
+    });
+
+    it('logout clears tokens and users from all storages', () => {
       sessionStorage.setItem('adminer_token', 'token');
+      sessionStorage.setItem('adminer_user', 'user');
+      localStorage.setItem('adminer_token', 'leak');
       
       AuthService.logout();
-      expect(localStorage.getItem('adminer_token')).toBeNull();
       expect(sessionStorage.getItem('adminer_token')).toBeNull();
+      expect(localStorage.getItem('adminer_token')).toBeNull();
     });
   });
 });

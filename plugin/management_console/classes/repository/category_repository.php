@@ -50,7 +50,11 @@ class category_repository {
           ORDER BY cc.sortorder ASC, cc.name ASC
         ";
         $limitfrom = $page * $perpage;
-        return $DB->get_records_sql($sql, [], $limitfrom, $perpage);
+        $records = $DB->get_records_sql($sql, [], $limitfrom, $perpage);
+        foreach ($records as $rec) {
+            $rec->description = clean_text((string)$rec->description, FORMAT_HTML);
+        }
+        return $records;
     }
 
     public static function get_flat_categories() {

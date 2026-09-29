@@ -1,12 +1,21 @@
 import { API_CONFIG } from '../config/api.js';
 
+// Maximum client session TTL aligned with Moodle token validity (8 hours)
+export const TOKEN_TTL_MS = 8 * 60 * 60 * 1000;
+
 export const AuthService = {
   getToken() {
     if (typeof window !== 'undefined') {
       const configToken = window.MANAGEMENT_CONSOLE_CONFIG?.token || window.ADMINER_CONFIG?.token;
       if (configToken) return configToken;
     }
-    return sessionStorage.getItem('adminer_token') || localStorage.getItem('adminer_token');
+    // Clean up any legacy token accidentally stored in localStorage
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('adminer_token')) {
+      localStorage.removeItem('adminer_token');
+      localStorage.removeItem('adminer_user');
+      localStorage.removeItem('adminer_token_date');
+    }
+    return typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('adminer_token') : null;
   },
   
   getUser() {
@@ -14,8 +23,17 @@ export const AuthService = {
       const configUser = window.MANAGEMENT_CONSOLE_CONFIG?.user || window.ADMINER_CONFIG?.user;
       if (configUser) return configUser;
     }
-    const userStr = sessionStorage.getItem('adminer_user') || localStorage.getItem('adminer_user');
-    return userStr ? JSON.parse(userStr) : null;
+    const userStr = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('adminer_user') : null;
+    if (!userStr) return null;
+    try {
+      return JSON.parse(userStr);
+    } catch {
+      // Safe fallback on corrupt session data
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem('adminer_user');
+      }
+      return null;
+    }
   },
 
   _buildUserFromSiteInfo(infoData) {
@@ -38,19 +56,22 @@ export const AuthService = {
     const user = this.getUser();
     if (!token || !user) return false;
     
-    // Check token expiration (12 weeks)
-    const tokenDate = sessionStorage.getItem('adminer_token_date') || localStorage.getItem('adminer_token_date');
+    // Check token expiration aligned with Moodle's 8 hours TTL
+    const tokenDate = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('adminer_token_date') : null;
     if (tokenDate) {
-      const twelveWeeks = 12 * 7 * 24 * 60 * 60 * 1000;
-      if (Date.now() - parseInt(tokenDate, 10) > twelveWeeks) {
+      if (Date.now() - parseInt(tokenDate, 10) > TOKEN_TTL_MS) {
         this.logout();
         return false;
       }
+    } else {
+      // Token without timestamp is considered expired for safety
+      this.logout();
+      return false;
     }
     return true;
   },
 
-  async login(username, password, remember = true) {
+  async login(username, password, _remember = false) {
     const tokenUrl = new URL(API_CONFIG.baseUrl + API_CONFIG.endpoints.login, window.location.origin);
     const bodyParams = new URLSearchParams();
     bodyParams.append('username', username);
@@ -84,13 +105,18 @@ export const AuthService = {
     
     if (infoData.exception) throw new Error(infoData.message);
     
-    const storage = remember ? localStorage : sessionStorage;
-    storage.setItem('adminer_token_date', Date.now().toString());
-
-    // Save session
-    storage.setItem('adminer_token', token);
-    storage.setItem('adminer_user', JSON.stringify(this._buildUserFromSiteInfo(infoData)));
+    // Security TD-SEC-004: Persist exclusively in sessionStorage, never in localStorage
+    sessionStorage.setItem('adminer_token_date', Date.now().toString());
+    sessionStorage.setItem('adminer_token', token);
+    sessionStorage.setItem('adminer_user', JSON.stringify(this._buildUserFromSiteInfo(infoData)));
     
+    // Ensure localStorage is cleared of any remnants
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('adminer_token');
+      localStorage.removeItem('adminer_user');
+      localStorage.removeItem('adminer_token_date');
+    }
+
     return true;
   },
 
@@ -105,23 +131,37 @@ export const AuthService = {
     
     if (infoData.exception) throw new Error(infoData.message);
 
-    localStorage.setItem('adminer_token', token);
-    localStorage.setItem('adminer_token_date', Date.now().toString());
     const user = this._buildUserFromSiteInfo(infoData);
-    localStorage.setItem('adminer_user', JSON.stringify(user));
+    sessionStorage.setItem('adminer_token', token);
+    sessionStorage.setItem('adminer_token_date', Date.now().toString());
+    sessionStorage.setItem('adminer_user', JSON.stringify(user));
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('adminer_token');
+      localStorage.removeItem('adminer_user');
+      localStorage.removeItem('adminer_token_date');
+    }
+
     return user;
   },
 
   setManualToken(token, user = { fullname: 'Usuario', username: 'user' }) {
-    localStorage.setItem('adminer_token', token);
-    localStorage.setItem('adminer_user', JSON.stringify(user));
+    sessionStorage.setItem('adminer_token', token);
+    sessionStorage.setItem('adminer_token_date', Date.now().toString());
+    sessionStorage.setItem('adminer_user', JSON.stringify(user));
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('adminer_token');
+      localStorage.removeItem('adminer_user');
+      localStorage.removeItem('adminer_token_date');
+    }
   },
 
   logout() {
     if (!this.isEmbedded()) {
       try {
         const token = this.getToken();
-        const moodleUrl = API_CONFIG.baseUrl || localStorage.getItem('moodle_url');
+        const moodleUrl = API_CONFIG.baseUrl || (typeof localStorage !== 'undefined' ? localStorage.getItem('moodle_url') : null);
         if (token && moodleUrl) {
           const invalidateUrl = new URL(moodleUrl + API_CONFIG.endpoints.rest, window.location.origin);
           invalidateUrl.searchParams.append('wstoken', token);
@@ -135,15 +175,21 @@ export const AuthService = {
         }
       } catch { /* silent fallback */ }
     }
-    sessionStorage.removeItem('adminer_token');
-    sessionStorage.removeItem('adminer_user');
-    sessionStorage.removeItem('adminer_token_date');
-    localStorage.removeItem('adminer_token');
-    localStorage.removeItem('adminer_user');
-    localStorage.removeItem('adminer_token_date');
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('adminer_token');
+      sessionStorage.removeItem('adminer_user');
+      sessionStorage.removeItem('adminer_token_date');
+    }
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('adminer_token');
+      localStorage.removeItem('adminer_user');
+      localStorage.removeItem('adminer_token_date');
+    }
   },
 
   isEmbedded() {
-    return typeof window !== 'undefined' && !!(window.MANAGEMENT_CONSOLE_CONFIG?.embedded || window.ADMINER_CONFIG?.embedded);
+    return typeof window !== 'undefined' && Boolean(
+      window.MANAGEMENT_CONSOLE_CONFIG?.token || window.ADMINER_CONFIG?.token
+    );
   }
 };

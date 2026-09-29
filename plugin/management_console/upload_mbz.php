@@ -111,6 +111,20 @@ if (!empty($tokenrecord->validuntil) && $tokenrecord->validuntil < time()) {
     exit;
 }
 
+// Security TD-SEC-002: Verify token belongs to management_console_service
+$service = $DB->get_record('external_services', ['id' => $tokenrecord->externalserviceid, 'enabled' => 1]);
+if (!$service || $service->shortname !== 'management_console_service') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Token is not authorized for management_console_service.']);
+    exit;
+}
+
+if (!empty($tokenrecord->iprestriction) && !address_in_subnet(getremoteaddr(), $tokenrecord->iprestriction)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'IP restriction violation for token.']);
+    exit;
+}
+
 $user = $DB->get_record('user', ['id' => $tokenrecord->userid, 'deleted' => 0, 'suspended' => 0]);
 if (!$user) {
     http_response_code(403);
@@ -157,12 +171,13 @@ if ($ext !== 'mbz') {
     exit;
 }
 
-$tempdir = $CFG->dataroot . '/temp/backup';
+// Security TD-SEC-003: Isolate uploaded backups in a dedicated per-user namespace
+$tempdir = $CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$user->id;
 if (!is_dir($tempdir)) {
     mkdir($tempdir, 0750, true);
 }
 
-// Passive housekeeping: remove mbz_* files older than 2 hours in $tempdir
+// Passive housekeeping: remove mbz_* files older than 2 hours in user's $tempdir
 $now = time();
 $twohoursago = $now - (2 * 3600);
 if ($handle = opendir($tempdir)) {
@@ -177,7 +192,7 @@ if ($handle = opendir($tempdir)) {
     closedir($handle);
 }
 
-$filename = 'mbz_' . uniqid('', true) . '.mbz';
+$filename = 'mbz_' . (int)$user->id . '_' . bin2hex(random_bytes(16)) . '.mbz';
 $destfile = $tempdir . '/' . $filename;
 if (!move_uploaded_file($file['tmp_name'], $destfile)) {
     http_response_code(500);

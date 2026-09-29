@@ -263,9 +263,13 @@ class course_repository {
         return $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
     }
 
-    public static function get_enrolled_users($sql_users, $courseid) {
+    public static function get_enrolled_users($sql_users_or_courseid, $courseid = null) {
         global $DB;
-        return $DB->get_records_sql($sql_users, ['courseid' => $courseid]);
+        if ($courseid === null) {
+            $cid = (int)$sql_users_or_courseid;
+            return array_values(course_enrolment_repository::get_course_enrolled_users_detail($cid));
+        }
+        return $DB->get_records_sql($sql_users_or_courseid, ['courseid' => $courseid]);
     }
 
     public static function get_user_cohorts($sql_user_cohorts, $courseid) {

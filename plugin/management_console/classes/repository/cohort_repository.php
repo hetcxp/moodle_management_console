@@ -282,7 +282,7 @@ class cohort_repository {
         return $DB->get_record('cohort', ['id' => $cohortid], '*', MUST_EXIST);
     }
 
-    public static function get_cohort_synced_courses($cohortid) {
+    public static function get_cohort_synced_courses($cohortid, $limitfrom = 0, $limitnum = 0) {
         global $DB;
         $sql_courses = "
             SELECT c.*, e.id as enrolid,
@@ -290,19 +290,21 @@ class cohort_repository {
               FROM {course} c
               JOIN {enrol} e ON e.courseid = c.id
              WHERE e.customint1 = :cohortid AND e.enrol = 'cohort'
+          ORDER BY c.fullname ASC
         ";
-        return $DB->get_records_sql($sql_courses, ['cohortid' => $cohortid]);
+        return $DB->get_records_sql($sql_courses, ['cohortid' => $cohortid], $limitfrom, $limitnum);
     }
 
-    public static function get_cohort_members($cohortid) {
+    public static function get_cohort_members($cohortid, $limitfrom = 0, $limitnum = 0) {
         global $DB;
         $sql_members = "
             SELECT u.id, u.firstname, u.lastname, u.email, u.lastaccess, u.suspended
               FROM {user} u
               JOIN {cohort_members} cm ON cm.userid = u.id
              WHERE cm.cohortid = :cohortid AND u.deleted = 0
+          ORDER BY u.lastname ASC, u.firstname ASC
         ";
-        return $DB->get_records_sql($sql_members, ['cohortid' => $cohortid]);
+        return $DB->get_records_sql($sql_members, ['cohortid' => $cohortid], $limitfrom, $limitnum);
     }
 
     public static function get_kpis() {
