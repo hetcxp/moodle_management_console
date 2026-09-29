@@ -39,6 +39,31 @@ use moodle_exception;
 class learning_path_repository {
 
     /**
+     * Obtiene el ID de la categoría de rutas de aprendizaje sin mutación colateral opcionalmente.
+     *
+     * @param bool $create_if_missing Si es true, crea la categoría si no existe.
+     * @return int ID de la categoría (0 si no existe y no se fuerza creación).
+     */
+    public static function get_lp_category_id(bool $create_if_missing = false): int {
+        global $DB;
+        $catname = get_config('tool_management_console', 'tool_management_console_lp_category_name');
+        if (empty($catname)) {
+            $catname = 'Rutas de Aprendizaje';
+        }
+
+        $cat = $DB->get_record('course_categories', ['name' => $catname]);
+        if ($cat) {
+            return (int)$cat->id;
+        }
+
+        if ($create_if_missing) {
+            return self::get_or_create_lp_category();
+        }
+
+        return 0;
+    }
+
+    /**
      * Obtiene o crea la categoría de rutas de aprendizaje.
      * Lee el ajuste configurable 'tool_management_console_lp_category_name'.
      *
@@ -86,7 +111,10 @@ class learning_path_repository {
     public static function get_learning_paths(array $params): array {
         global $DB;
 
-        $lp_categoryid = self::get_or_create_lp_category();
+        $lp_categoryid = self::get_lp_category_id(false);
+        if (!$lp_categoryid) {
+            return [];
+        }
 
         $page = isset($params['page']) ? (int)$params['page'] : 0;
         $perpage = isset($params['perpage']) ? (int)$params['perpage'] : 20;

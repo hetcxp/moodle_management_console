@@ -112,7 +112,7 @@ export const AuthService = {
     return user;
   },
 
-  setManualToken(token, user = { fullname: 'Administrador', username: 'admin' }) {
+  setManualToken(token, user = { fullname: 'Usuario', username: 'user' }) {
     localStorage.setItem('adminer_token', token);
     localStorage.setItem('adminer_user', JSON.stringify(user));
   },

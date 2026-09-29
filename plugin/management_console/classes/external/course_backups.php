@@ -63,23 +63,20 @@ class course_backups extends external_api {
         self::validate_context($syscontext);
         require_capability('moodle/course:create', $syscontext);
 
-        $scratchdir = realpath($CFG->dirroot . '/../Documents/moodle_management_console/scratch');
-        if (!$scratchdir || !is_dir($scratchdir)) {
-            $scratchdir = realpath(__DIR__ . '/../../../../scratch');
-        }
+        $tempdir = realpath($CFG->dataroot . '/temp/backup');
 
         $results = [];
-        if ($scratchdir && is_dir($scratchdir)) {
-            $files = scandir($scratchdir);
+        if ($tempdir && is_dir($tempdir)) {
+            $files = scandir($tempdir);
             foreach ($files as $file) {
                 if ($file === '.' || $file === '..') {
                     continue;
                 }
                 if (strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'mbz') {
-                    $filepath = $scratchdir . '/' . $file;
+                    $filepath = $tempdir . '/' . $file;
                     $results[] = [
                         'name' => $file,
-                        'path' => $filepath,
+                        'path' => $file,
                         'size' => (int)filesize($filepath),
                         'date' => (int)filemtime($filepath),
                     ];
@@ -161,28 +158,30 @@ class course_backups extends external_api {
 
         require_once($CFG->dirroot . '/backup/util/includes/restore_includes.php');
 
-        $realbackupfile = realpath($backupfile);
-        if (!$realbackupfile || !file_exists($realbackupfile)) {
-            throw new \moodle_exception('filenotfound', 'error', '', null, $backupfile);
-        }
-
-        // Whitelist security check: only dataroot/temp/backup or project scratch/
         $tempdir = realpath($CFG->dataroot . '/temp/backup');
-        $scratchdir = realpath($CFG->dirroot . '/../Documents/moodle_management_console/scratch');
-        if (!$scratchdir) {
-            $scratchdir = realpath(__DIR__ . '/../../../../scratch');
+
+        // Resolve candidate path safely: support both direct filepath and opaque filename
+        $candidate = $backupfile;
+        if (!file_exists($candidate) && $tempdir && file_exists($tempdir . '/' . basename($backupfile))) {
+            $candidate = $tempdir . '/' . basename($backupfile);
         }
 
-        $is_allowed = false;
-        if ($tempdir && str_starts_with($realbackupfile, $tempdir)) {
-            $is_allowed = true;
+        $realbackupfile = realpath($candidate);
+        if (!$realbackupfile || !file_exists($realbackupfile)) {
+            throw new \moodle_exception('filenotfound', 'error');
         }
-        if ($scratchdir && str_starts_with($realbackupfile, $scratchdir)) {
+
+        // Whitelist security check: only dataroot/temp/backup with boundary separator
+        $is_allowed = false;
+        if ($tempdir && (
+            $realbackupfile === $tempdir ||
+            str_starts_with($realbackupfile, $tempdir . DIRECTORY_SEPARATOR)
+        )) {
             $is_allowed = true;
         }
 
         if (!$is_allowed) {
-            throw new \moodle_exception('error', 'tool_management_console', '', null, 'Unauthorized backup file path: ' . $realbackupfile);
+            throw new \moodle_exception('error', 'tool_management_console', '', null, 'Unauthorized backup file path or location.');
         }
 
         // Prepare backup temporary extraction directory

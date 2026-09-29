@@ -49,14 +49,30 @@ if ($configpath) {
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Enable CORS for Vite dev server if requested
+// Validate CORS: allow only origin matching Moodle wwwroot or explicit local dev origins
 if (isset($_SERVER['HTTP_ORIGIN'])) {
-    header("Access-Control-Allow-Origin: {$_SERVER['HTTP_ORIGIN']}");
-    header("Access-Control-Allow-Credentials: true");
-    header("Access-Control-Allow-Methods: POST, OPTIONS");
-    header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    $origin = $_SERVER['HTTP_ORIGIN'];
+    $allowed_origins = [
+        rtrim($CFG->wwwroot, '/'),
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:3001',
+    ];
+    $parsed_www = parse_url($CFG->wwwroot);
+    if (!empty($parsed_www['scheme']) && !empty($parsed_www['host'])) {
+        $allowed_origins[] = $parsed_www['scheme'] . '://' . $parsed_www['host'] . (!empty($parsed_www['port']) ? ':' . $parsed_www['port'] : '');
+    }
+
+    if (in_array($origin, $allowed_origins, true)) {
+        header("Access-Control-Allow-Origin: {$origin}");
+        header("Access-Control-Allow-Credentials: true");
+        header("Access-Control-Allow-Methods: POST, OPTIONS");
+        header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
+    }
+
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        http_response_code(200);
+        http_response_code(in_array($origin, $allowed_origins, true) ? 200 : 403);
         exit(0);
     }
 }
@@ -143,7 +159,7 @@ if ($ext !== 'mbz') {
 
 $tempdir = $CFG->dataroot . '/temp/backup';
 if (!is_dir($tempdir)) {
-    mkdir($tempdir, 0777, true);
+    mkdir($tempdir, 0750, true);
 }
 
 // Passive housekeeping: remove mbz_* files older than 2 hours in $tempdir
@@ -161,7 +177,8 @@ if ($handle = opendir($tempdir)) {
     closedir($handle);
 }
 
-$destfile = $tempdir . '/mbz_' . uniqid('', true) . '.mbz';
+$filename = 'mbz_' . uniqid('', true) . '.mbz';
+$destfile = $tempdir . '/' . $filename;
 if (!move_uploaded_file($file['tmp_name'], $destfile)) {
     http_response_code(500);
     echo json_encode(['error' => 'Failed to move uploaded file to temporary backup storage.']);
@@ -170,5 +187,6 @@ if (!move_uploaded_file($file['tmp_name'], $destfile)) {
 
 echo json_encode([
     'success' => true,
-    'tempfile' => $destfile
+    'filename' => $filename,
+    'tempfile' => $filename, // Returns opaque filename instead of leaking full server path
 ]);

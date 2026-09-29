@@ -505,6 +505,7 @@ $services = [
             'tool_management_console_list_server_backups',
             'tool_management_console_restore_course_mbz',
             'core_webservice_get_site_info',
+            'core_auth_invalidate_tokens',
         ],
         'restrictedusers' => 0,
         'enabled'         => 1,

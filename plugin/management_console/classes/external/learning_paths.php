@@ -54,7 +54,9 @@ class learning_paths extends external_api {
     }
 
     public static function check_dependencies() {
-        self::validate_context(context_system::instance());
+        $context = context_system::instance();
+        self::validate_context($context);
+        require_capability('tool/management_console:access', $context);
         return learning_path_repository::check_dependencies();
     }
 
@@ -83,25 +85,30 @@ class learning_paths extends external_api {
             'search'  => $search,
         ]);
 
-        self::validate_context(context_system::instance());
+        $context = context_system::instance();
+        self::validate_context($context);
+        require_capability('tool/management_console:access', $context);
 
         global $DB;
         $items = learning_path_repository::get_learning_paths($params);
 
-        $lp_categoryid = learning_path_repository::get_or_create_lp_category();
-        $where = "category = :lpcat AND id <> 1";
-        $sqlparams = ['lpcat' => $lp_categoryid];
-        if (!empty($params['search'])) {
-            $where .= " AND (" . $DB->sql_like('fullname', ':search1', false, false) .
-                      " OR " . $DB->sql_like('shortname', ':search2', false, false) . ")";
-            $sqlparams['search1'] = '%' . $params['search'] . '%';
-            $sqlparams['search2'] = '%' . $params['search'] . '%';
+        $lp_categoryid = learning_path_repository::get_lp_category_id(false);
+        $total = 0;
+        if ($lp_categoryid) {
+            $where = "category = :lpcat AND id <> 1";
+            $sqlparams = ['lpcat' => $lp_categoryid];
+            if (!empty($params['search'])) {
+                $where .= " AND (" . $DB->sql_like('fullname', ':search1', false, false) .
+                          " OR " . $DB->sql_like('shortname', ':search2', false, false) . ")";
+                $sqlparams['search1'] = '%' . $params['search'] . '%';
+                $sqlparams['search2'] = '%' . $params['search'] . '%';
+            }
+            $total = (int)$DB->count_records_select('course', $where, $sqlparams);
         }
-        $total = $DB->count_records_select('course', $where, $sqlparams);
 
         return [
             'items'   => $items,
-            'total'   => (int)$total,
+            'total'   => $total,
             'page'    => (int)$params['page'],
             'perpage' => (int)$params['perpage'],
         ];
@@ -142,6 +149,7 @@ class learning_paths extends external_api {
 
         $context = context_course::instance($params['courseid']);
         self::validate_context($context);
+        require_capability('tool/management_console:access', context_system::instance());
 
         return (array)learning_path_repository::get_learning_path_detail($params['courseid']);
     }
@@ -214,10 +222,20 @@ class learning_paths extends external_api {
             'perpage'         => $perpage,
         ]);
 
-        self::validate_context(context_system::instance());
+        $context = context_system::instance();
+        self::validate_context($context);
+        require_capability('tool/management_console:access', $context);
 
         global $DB;
-        $lp_categoryid = learning_path_repository::get_or_create_lp_category();
+        $lp_categoryid = learning_path_repository::get_lp_category_id(false);
+        if (!$lp_categoryid) {
+            return [
+                'items'   => [],
+                'total'   => 0,
+                'page'    => (int)$params['page'],
+                'perpage' => (int)$params['perpage'],
+            ];
+        }
 
         $exclude_ids = [];
         if ($params['exclude_path_id'] > 0) {

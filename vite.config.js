@@ -39,7 +39,7 @@ export default defineConfig(({ mode }) => {
         '^/moodle(/|$)': {
           target: proxyTarget,
           changeOrigin: true,
-          secure: false,
+          secure: env.VITE_PROXY_SECURE === 'true' || (proxyTarget.startsWith('https') && env.VITE_PROXY_SECURE !== 'false'),
           rewrite: (path) => path.replace(/^\/moodle/, '') || '/'
         }
       }

@@ -65,12 +65,14 @@ if (!$service) {
         <p>Ve a <strong>Administración → Servidor → Servicios web → Servicios externos</strong> y activa el servicio.</p>
     </body></html>');
 }
-// Buscar token existente o crear uno nuevo
+// Buscar token existente o crear uno nuevo con validez acotada (8 horas de sesión)
+$validuntil = time() + (8 * 3600);
 $token = external_generate_token(
     EXTERNAL_TOKEN_PERMANENT,
     $service,
     $USER->id,
-    $context
+    $context,
+    $validuntil
 );
 
 // Registrar evento de log de acceso
@@ -138,15 +140,16 @@ if (is_https() && str_starts_with($moodleurl, 'http://')) {
     $moodleurl = 'https://' . substr($moodleurl, 7);
 }
 
-// Inyectar config JS global (ANTES del bundle)
+// Inyectar config JS global (ANTES del bundle) con escape contextual estricto
+$jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
 echo "<script nonce=\"{$nonce}\">\n";
 echo "window.MANAGEMENT_CONSOLE_CONFIG = {\n";
-echo "    token: " . json_encode($token) . ",\n";
-echo "    moodleUrl: " . json_encode($moodleurl) . ",\n";
+echo "    token: " . json_encode($token, $jsonflags) . ",\n";
+echo "    moodleUrl: " . json_encode($moodleurl, $jsonflags) . ",\n";
 echo "    serviceName: \"management_console_service\",\n";
-echo "    basePath: " . json_encode((new moodle_url('/admin/tool/management_console/index.php'))->out_as_local_url(false)) . ",\n";
+echo "    basePath: " . json_encode((new moodle_url('/admin/tool/management_console/index.php'))->out_as_local_url(false), $jsonflags) . ",\n";
 echo "    embedded: true,\n";
-echo "    user: " . json_encode($userinfo) . "\n";
+echo "    user: " . json_encode($userinfo, $jsonflags) . "\n";
 echo "};\n";
 echo "window.ADMINER_CONFIG = window.MANAGEMENT_CONSOLE_CONFIG;\n";
 echo "</script>";
