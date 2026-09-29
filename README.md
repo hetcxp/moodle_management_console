@@ -1,4 +1,4 @@
-# 🚀 Moodle Adminer
+# 🚀 Moodle Management Console (Consola de Administración)
 
 [![Version](https://img.shields.io/badge/version-1.2.8-blue.svg)](package.json)
 [![Moodle](https://img.shields.io/badge/moodle-4.5%2B%20LTS-orange.svg)](plugin/management_console/version.php)
@@ -8,7 +8,7 @@
 
 **La nueva era en la administración de Moodle.** 
 
-Moodle Adminer transforma la experiencia de gestión de plataformas Moodle, ofreciendo una interfaz moderna, rápida y unificada. Dile adiós a los clics innecesarios y a las pantallas lentas: con Moodle Adminer tienes el control total de tu plataforma (usuarios, cursos, cohortes, competencias y reportes) desde una sola aplicación intuitiva.
+**Moodle Management Console** (Consola de Administración y Gestión Centralizada) transforma la experiencia de gestión de plataformas Moodle, ofreciendo una interfaz moderna, rápida y unificada. Dile adiós a los clics innecesarios y a las pantallas lentas: con la Consola de Administración tienes el control total de tu plataforma (usuarios, cursos, cohortes, competencias y reportes) desde una sola aplicación intuitiva.
 
 ---
 
@@ -33,7 +33,7 @@ Moodle Adminer transforma la experiencia de gestión de plataformas Moodle, ofre
 
 ## 🛠️ Arquitectura y Tecnologías (Para Desarrolladores)
 
-Moodle Adminer está compuesto por dos grandes piezas: una moderna Single Page Application (SPA) en el frontend y plugins de Moodle en el backend que exponen servicios web y repositorios dedicados.
+**Moodle Management Console** está compuesta por dos grandes piezas: una moderna Single Page Application (SPA) en el frontend y el plugin de Moodle (`tool_management_console`) en el backend que expone servicios web y repositorios dedicados.
 
 ### Stack Tecnológico
 

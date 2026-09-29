@@ -1,12 +1,12 @@
-# Manual de Estilo y Guía de Arquitectura UI — Moodle Adminer
+# Manual de Estilo y Guía de Arquitectura UI — Moodle Management Console
 
-Este documento define los estándares visuales, tokens de diseño, patrones de componentes y lineamientos de arquitectura frontend para **Moodle Adminer**. Su objetivo es garantizar la consistencia visual y de experiencia de usuario (UX) cada vez que se agreguen, modifiquen o refactoricen vistas en el proyecto.
+Este documento define los estándares visuales, tokens de diseño, patrones de componentes y lineamientos de arquitectura frontend para **Moodle Management Console** (Consola de Administración). Su objetivo es garantizar la consistencia visual y de experiencia de usuario (UX) cada vez que se agreguen, modifiquen o refactoricen vistas en el proyecto.
 
 ---
 
 ## 1. Principios de Diseño y Filosofía Visual
 
-Moodle Adminer está diseñado bajo el concepto de **"Modern Management Studio"**:
+**Moodle Management Console** está diseñada bajo el concepto de **"Modern Management Studio"**:
 - **Densidad de Información Óptima:** Interfaces limpias y profesionales con espaciado balanceado (`gap-4` a `gap-6`), diseñadas para administradores y gestores que necesitan visualizar métricas y listas densas sin sobrecarga cognitiva.
 - **Glassmorphism y Elevaciones Sutiles:** Fondos con efecto de desenfoque (`bg-card/60 backdrop-blur-md`, `.glass-panel`), bordes semitransparentes (`border-border/70` o `border-border/80`) y sombras suaves (`shadow-sm`, `shadow-md`, `shadow-xl`).
 - **Dark Mode y Multi-Tenant Nativo:** Todo componente utiliza tokens semánticos HSL de CSS variables compatibles con los 4 temas del sistema (Claro `light`, Oscuro `dark`, Gold & Teal `gold-teal`, Mint Fresh `mint-fresh`), así como personalización dinámica por tenant (`src/config/tenant.js`).
