@@ -2,6 +2,7 @@ import React from 'react';
 import { Eye, Trash2, Layers, Award, User, Calendar, Pencil } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { LicensedActionButton } from '../../components/PermissionGate';
 
 export const RubricsTable = ({
   templates = [],
@@ -140,7 +141,8 @@ export const RubricsTable = ({
                         </Button>
 
                         {hasManageCompetencies && onOpenEdit && (
-                          <Button
+                          <LicensedActionButton
+                            capability="can_manage_competencies"
                             variant="ghost"
                             size="sm"
                             onClick={() => onOpenEdit(template)}
@@ -149,11 +151,12 @@ export const RubricsTable = ({
                             aria-label={`Editar ${template.name}`}
                           >
                             <Pencil className="h-4 w-4" />
-                          </Button>
+                          </LicensedActionButton>
                         )}
 
                         {hasManageCompetencies && (
-                          <Button
+                          <LicensedActionButton
+                            capability="can_manage_competencies"
                             variant="ghost"
                             size="sm"
                             onClick={() => onOpenDelete(template)}
@@ -162,7 +165,7 @@ export const RubricsTable = ({
                             aria-label={`Eliminar ${template.name}`}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </LicensedActionButton>
                         )}
                       </div>
                     </td>

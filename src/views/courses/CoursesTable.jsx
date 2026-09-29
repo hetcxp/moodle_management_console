@@ -2,8 +2,7 @@ import React from 'react';
 import { Link } from 'wouter';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Eye, EyeOff, FolderInput, Trash2, ExternalLink, Users, Layers, Award } from 'lucide-react';
 
 export function CoursesTable({
@@ -101,24 +100,24 @@ export function CoursesTable({
           </button>
           <PermissionGate capability="can_update_courses">
             {row.visible === 1 ? (
-              <Button variant="ghost" size="icon" title="Ocultar curso" onClick={() => onBulkHide([row.id])} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30">
+              <LicensedActionButton capability="can_update_courses" variant="ghost" size="icon" title="Ocultar curso" onClick={() => onBulkHide([row.id])} className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30">
                 <EyeOff className="h-4 w-4" />
-              </Button>
+              </LicensedActionButton>
             ) : (
-              <Button variant="ghost" size="icon" title="Hacer visible" onClick={() => onBulkShow([row.id])} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
+              <LicensedActionButton capability="can_update_courses" variant="ghost" size="icon" title="Hacer visible" onClick={() => onBulkShow([row.id])} className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
                 <Eye className="h-4 w-4" />
-              </Button>
+              </LicensedActionButton>
             )}
           </PermissionGate>
           <PermissionGate capability="can_manage_categories">
-            <Button variant="ghost" size="icon" title="Mover de categoría" onClick={() => onOpenMoveModal([row.id])} className="h-8 w-8 text-muted-foreground hover:text-foreground">
+            <LicensedActionButton capability="can_manage_categories" variant="ghost" size="icon" title="Mover de categoría" onClick={() => onOpenMoveModal([row.id])} className="h-8 w-8 text-muted-foreground hover:text-foreground">
               <FolderInput className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
           <PermissionGate capability="can_delete_courses">
-            <Button variant="ghost" size="icon" title="Eliminar curso" onClick={() => onOpenDeleteModal([row.id])} className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+            <LicensedActionButton capability="can_delete_courses" variant="ghost" size="icon" title="Eliminar curso" onClick={() => onOpenDeleteModal([row.id])} className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30">
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       )

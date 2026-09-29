@@ -13,6 +13,8 @@ import { HelpProvider } from './context/HelpContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginView } from './views/LoginView';
 import { Loader2 } from 'lucide-react';
+import { LicenseUiProvider } from './context/LicenseUiContext';
+import { LicenseBanner } from './components/LicenseBanner';
 
 const DashboardView = lazy(() => import('./views/DashboardView').then(m => ({ default: m.DashboardView })));
 const CoursesView = lazy(() => import('./views/CoursesView').then(m => ({ default: m.CoursesView })));
@@ -113,6 +115,7 @@ const AdminerApp = () => {
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           sidebarOpen={sidebarOpen}
         />
+        <LicenseBanner />
 
         <main id="main-content" tabIndex={-1} className="flex-1 p-6 md:p-8 max-w-7xl w-full mx-auto">
           <ErrorBoundary key={location} viewName={activeTab ? activeTab.charAt(0).toUpperCase() + activeTab.slice(1) : undefined}>
@@ -302,11 +305,13 @@ export default function App() {
     <Router base={base}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <AdminerApp />
-            </ToastProvider>
-          </ThemeProvider>
+          <LicenseUiProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <AdminerApp />
+              </ToastProvider>
+            </ThemeProvider>
+          </LicenseUiProvider>
         </AuthProvider>
       </QueryClientProvider>
     </Router>

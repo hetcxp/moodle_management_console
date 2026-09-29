@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { Badge } from '../../components/ui/Badge';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
@@ -108,14 +109,15 @@ export function LearningPathUsersTab({
             </div>
           )}
 
-          <Button
+          <LicensedActionButton
             variant="default"
             size="sm"
             onClick={() => setUserModalOpen(true)}
+            title="Matricular Usuario(s)"
             className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <UserPlus className="h-3.5 w-3.5" /> Matricular Usuario(s)
-          </Button>
+          </LicensedActionButton>
         </div>
       </div>
 
@@ -130,14 +132,15 @@ export function LearningPathUsersTab({
             Matricula usuarios individuales o asigna cohortes para concederles acceso formativo.
           </p>
           {!userSearch && (
-            <Button
+            <LicensedActionButton
               variant="outline"
               size="sm"
               onClick={() => setUserModalOpen(true)}
+              title="Matricular Usuario(s)"
               className="inline-flex items-center gap-1.5 text-xs"
             >
               <UserPlus className="h-3.5 w-3.5" /> Matricular Usuario(s)
-            </Button>
+            </LicensedActionButton>
           )}
         </Card>
       ) : (
@@ -196,7 +199,7 @@ export function LearningPathUsersTab({
                             <ShieldAlert className="h-3.5 w-3.5" /> Vía Cohorte
                           </span>
                         ) : (
-                          <Button
+                          <LicensedActionButton
                             variant="ghost"
                             size="sm"
                             className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -205,7 +208,7 @@ export function LearningPathUsersTab({
                             onClick={() => setUserToDelete(u)}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </LicensedActionButton>
                         )}
                       </td>
                     </tr>

@@ -5,8 +5,8 @@ import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
 import { Checkbox } from '../../components/ui/Checkbox';
 import { SelectorModal } from '../../components/ui/SelectorModal';
-import { PermissionGate } from '../../components/PermissionGate';
 import { useToast } from '../../components/ui/Toast';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import {
   useCompetencyCourses,
   useCompetencyCourseAction
@@ -179,28 +179,26 @@ export const CompetencyCoursesModal = ({
             </div>
             <div className="flex items-center gap-2">
               {selectedCourseIds.length > 0 && (
-                <PermissionGate capability="can_manage_competencies">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleBulkUnlink}
-                    className="h-9"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1.5" />
-                    Desvincular ({selectedCourseIds.length})
-                  </Button>
-                </PermissionGate>
-              )}
-              <PermissionGate capability="can_manage_competencies">
-                <Button
+                <LicensedActionButton
+                  capability="can_manage_competencies"
+                  variant="destructive"
                   size="sm"
-                  onClick={() => setSelectorOpen(true)}
+                  onClick={handleBulkUnlink}
                   className="h-9"
                 >
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Vincular Cursos
-                </Button>
-              </PermissionGate>
+                  <Trash2 className="h-4 w-4 mr-1.5" />
+                  Desvincular ({selectedCourseIds.length})
+                </LicensedActionButton>
+              )}
+              <LicensedActionButton
+                capability="can_manage_competencies"
+                size="sm"
+                onClick={() => setSelectorOpen(true)}
+                className="h-9"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Vincular Cursos
+              </LicensedActionButton>
             </div>
           </div>
 
@@ -221,11 +219,13 @@ export const CompetencyCoursesModal = ({
                 <p className="text-xs text-muted-foreground max-w-xs mt-1 mb-4">
                   Esta competencia aún no está vinculada a ningún curso del catálogo.
                 </p>
-                <PermissionGate capability="can_manage_competencies">
-                  <Button size="sm" onClick={() => setSelectorOpen(true)}>
-                    <Plus className="h-4 w-4 mr-1.5" /> Vincular Cursos Ahora
-                  </Button>
-                </PermissionGate>
+                <LicensedActionButton
+                  capability="can_manage_competencies"
+                  size="sm"
+                  onClick={() => setSelectorOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1.5" /> Vincular Cursos Ahora
+                </LicensedActionButton>
               </div>
             ) : filteredCourses.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center h-full my-auto">
@@ -309,17 +309,16 @@ export const CompetencyCoursesModal = ({
                                   <ExternalLink className="h-4 w-4" />
                                 </Button>
                               )}
-                              <PermissionGate capability="can_manage_competencies">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                                  onClick={() => handleUnlinkCourse(c.id)}
-                                  title="Desvincular curso"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </PermissionGate>
+                              <LicensedActionButton
+                                capability="can_manage_competencies"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                                onClick={() => handleUnlinkCourse(c.id)}
+                                title="Desvincular curso"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </LicensedActionButton>
                             </div>
                           </td>
                         </tr>

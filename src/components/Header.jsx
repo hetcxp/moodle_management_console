@@ -1,8 +1,9 @@
 import React from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../context/AuthContext';
+import { useLicenseUi } from '../context/LicenseUiContext';
 import { AuthService } from '../services/auth';
-import { LogOut, User, ShieldCheck, HelpCircle } from 'lucide-react';
+import { LogOut, User, ShieldCheck, HelpCircle, KeyRound } from 'lucide-react';
 import { Button } from './ui/Button';
 import { ThemeSelector } from './ThemeSelector';
 import { useHelp } from '../context/HelpContext';
@@ -51,7 +52,8 @@ function resolveHeaderContext(pathname) {
 }
 
 export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectTheme }) => {
-  const { user, logout, permissions } = useAuth();
+  const { user, logout, permissions, isLicensed, licenseDaysLeft } = useAuth();
+  const { openLicenseModal } = useLicenseUi();
   const { isOpen, toggle } = useHelp();
   const [location] = useLocation();
   const context = resolveHeaderContext(location);
@@ -87,6 +89,32 @@ export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectThe
           currentTheme={currentTheme}
           onSelectTheme={onSelectTheme}
         />
+
+        {/* Disparador permanente de Licencia para administradores */}
+        {(permissions?.is_siteadmin === 1 || permissions?.can_config_site === 1) && (
+          <button
+            type="button"
+            onClick={openLicenseModal}
+            aria-label="Gestionar licencia"
+            title="Gestionar licencia del sistema"
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors focus:outline-none focus:ring-2 focus:ring-primary ${
+              isLicensed
+                ? licenseDaysLeft <= 7
+                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
+                  : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20'
+                : 'border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20'
+            }`}
+          >
+            <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden md:inline">
+              {isLicensed
+                ? licenseDaysLeft <= 7
+                  ? `Licencia (${licenseDaysLeft}d)`
+                  : 'Licencia'
+                : 'Activar Licencia'}
+            </span>
+          </button>
+        )}
 
         {/* Botón de Ayuda Contextual */}
         <button

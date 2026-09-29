@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { CompetencyCourseCard } from './CompetencyCourseCard';
 import {
   Search,
@@ -130,15 +130,17 @@ export const CompetencyCoursesTab = ({
           </div>
 
           <PermissionGate capability="can_manage_competencies">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_competencies"
               variant="default"
               size="sm"
               onClick={() => setSelectorOpen(true)}
+              title="Vincular Cursos"
               className="h-9 gap-1.5 shadow-sm text-xs"
             >
               <Plus className="h-3.5 w-3.5" />
               <span>Vincular Cursos</span>
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       </div>
@@ -165,15 +167,17 @@ export const CompetencyCoursesTab = ({
                 </div>
 
                 <PermissionGate capability="can_manage_competencies">
-                  <Button
+                  <LicensedActionButton
+                    capability="can_manage_competencies"
                     variant="outline"
                     size="sm"
                     onClick={() => setSelectorOpen(true)}
+                    title="Vincular Curso"
                     className="text-xs gap-1.5 h-8"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Vincular Curso
-                  </Button>
+                  </LicensedActionButton>
                 </PermissionGate>
               </div>
             )}
@@ -191,14 +195,16 @@ export const CompetencyCoursesTab = ({
                       : 'Esta subcompetencia aún no está vinculada a ningún curso de la plataforma.'}
                   </p>
                   <PermissionGate capability="can_manage_competencies">
-                    <Button
+                    <LicensedActionButton
+                      capability="can_manage_competencies"
                       variant="default"
                       onClick={() => setSelectorOpen(true)}
+                      title="Vincular Cursos Ahora"
                       className="gap-2"
                     >
                       <Plus className="h-4 w-4" />
                       Vincular Cursos Ahora
-                    </Button>
+                    </LicensedActionButton>
                   </PermissionGate>
                 </div>
               ) : (
@@ -221,15 +227,17 @@ export const CompetencyCoursesTab = ({
                     </div>
                   </div>
                   <PermissionGate capability="can_manage_competencies">
-                    <Button
+                    <LicensedActionButton
+                      capability="can_manage_competencies"
                       variant="outline"
                       size="sm"
                       onClick={() => setSelectorOpen(true)}
+                      title="Vincular Curso Directo"
                       className="text-xs gap-1.5 shrink-0"
                     >
                       <Plus className="h-3.5 w-3.5" />
                       Vincular Curso Directo
-                    </Button>
+                    </LicensedActionButton>
                   </PermissionGate>
                 </div>
               )

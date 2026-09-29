@@ -1,8 +1,7 @@
 import React from 'react';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Award, Layers, Edit, Trash2, Eye, EyeOff, Sliders } from 'lucide-react';
 
 export function CompetenciesTable({
@@ -67,7 +66,8 @@ export function CompetenciesTable({
       cell: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <PermissionGate capability="can_manage_competencies">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_competencies"
               variant="ghost"
               size="icon"
               onClick={() => onToggleVisibility(row)}
@@ -80,8 +80,9 @@ export function CompetenciesTable({
               ) : (
                 <Eye className="h-4 w-4 text-emerald-600" />
               )}
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_competencies"
               variant="ghost"
               size="icon"
               onClick={() => onOpenEdit(row)}
@@ -90,8 +91,9 @@ export function CompetenciesTable({
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_competencies"
               variant="ghost"
               size="icon"
               onClick={() => onOpenDelete([row.id])}
@@ -100,7 +102,7 @@ export function CompetenciesTable({
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       ),

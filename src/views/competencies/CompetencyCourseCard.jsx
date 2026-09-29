@@ -1,7 +1,6 @@
 import React from 'react';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import {
   ChevronDown,
   ChevronRight,
@@ -157,7 +156,8 @@ export const CompetencyCourseCard = ({
           <div className="flex items-center gap-1.5">
             {!isReadOnly && (
               <PermissionGate capability="can_manage_competencies">
-                <Button
+                <LicensedActionButton
+                  capability="can_manage_competencies"
                   variant="ghost"
                   size="sm"
                   onClick={() => onOpenAddActivityModal(course)}
@@ -166,9 +166,10 @@ export const CompetencyCourseCard = ({
                 >
                   <Plus className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Actividad</span>
-                </Button>
+                </LicensedActionButton>
 
-                <Button
+                <LicensedActionButton
+                  capability="can_manage_competencies"
                   variant="ghost"
                   size="icon"
                   onClick={() => onRequestUnlinkCourse(course)}
@@ -176,7 +177,7 @@ export const CompetencyCourseCard = ({
                   title="Desvincular curso"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                </LicensedActionButton>
               </PermissionGate>
             )}
 
@@ -207,17 +208,17 @@ export const CompetencyCourseCard = ({
             </div>
 
             {!isReadOnly && (
-              <PermissionGate capability="can_manage_competencies">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onOpenAddActivityModal(course)}
-                  className="h-7 text-xs gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  Asociar Actividad
-                </Button>
-              </PermissionGate>
+              <LicensedActionButton
+                capability="can_manage_competencies"
+                variant="outline"
+                size="sm"
+                onClick={() => onOpenAddActivityModal(course)}
+                className="h-7 text-xs gap-1"
+                title="Asociar Actividad"
+              >
+                <Plus className="h-3 w-3" />
+                Asociar Actividad
+              </LicensedActionButton>
             )}
           </div>
 
@@ -233,17 +234,17 @@ export const CompetencyCourseCard = ({
                   <p className="text-[11px] text-muted-foreground/80 mt-0.5">
                     Puedes asociar exámenes o tareas clave para que al completarlas se registre la competencia.
                   </p>
-                  <PermissionGate capability="can_manage_competencies">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onOpenAddActivityModal(course)}
-                      className="mt-2 text-xs text-primary gap-1"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Vincular Primera Actividad
-                    </Button>
-                  </PermissionGate>
+                  <LicensedActionButton
+                    capability="can_manage_competencies"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onOpenAddActivityModal(course)}
+                    className="mt-2 text-xs text-primary gap-1"
+                    title="Vincular Primera Actividad"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Vincular Primera Actividad
+                  </LicensedActionButton>
                 </>
               )}
             </div>
@@ -316,7 +317,8 @@ export const CompetencyCourseCard = ({
 
                       {!isReadOnly && (
                         <PermissionGate capability="can_manage_competencies">
-                          <Button
+                          <LicensedActionButton
+                            capability="can_manage_competencies"
                             variant="ghost"
                             size="icon"
                             onClick={() => onRequestUnlinkActivity(act)}
@@ -324,7 +326,7 @@ export const CompetencyCourseCard = ({
                             title="Desvincular actividad"
                           >
                             <Trash2 className="h-3 w-3" />
-                          </Button>
+                          </LicensedActionButton>
                         </PermissionGate>
                       )}
                     </div>

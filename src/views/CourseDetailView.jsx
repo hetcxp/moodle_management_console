@@ -8,7 +8,7 @@ import { SelectorModal } from '../components/ui/SelectorModal';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 import { ChevronLeft, ChevronRight, BookOpen, CalendarClock, Calendar, Edit3, Users, Award } from 'lucide-react';
-import { PermissionGate } from '../components/PermissionGate';
+import { LicensedActionButton } from '../components/PermissionGate';
 import { formatDateOnly } from '../lib/utils';
 import { CourseUsersTab } from './courses/CourseUsersTab';
 import { CourseCohortsTab } from './courses/CourseCohortsTab';
@@ -172,16 +172,16 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.fullname}</h1>
-                <PermissionGate capability="can_update_courses">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
-                    onClick={() => setCourseEditModalOpen(true)}
-                  >
-                    <Edit3 className="h-3.5 w-3.5 mr-1" /> Editar curso
-                  </Button>
-                </PermissionGate>
+                <LicensedActionButton 
+                  capability="can_update_courses"
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                  onClick={() => setCourseEditModalOpen(true)}
+                  title="Editar curso"
+                >
+                  <Edit3 className="h-3.5 w-3.5 mr-1" /> Editar curso
+                </LicensedActionButton>
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
                 <span className="font-mono">{data.shortname}</span>

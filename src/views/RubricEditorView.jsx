@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
+import { LicensedActionButton } from '../components/PermissionGate';
 import { RubricEditorHeader } from './rubrics/RubricEditorHeader';
 import { RubricCriterionCard } from './rubrics/RubricCriterionCard';
 import { useRubricEditorState } from './rubrics/useRubricEditorState';
@@ -246,8 +247,9 @@ export const RubricEditorView = ({
             >
               Cancelar
             </Button>
-            <Button
+            <LicensedActionButton
               type="button"
+              capability="can_manage_competencies"
               onClick={state.handleSave}
               disabled={state.saving}
               className="text-xs font-bold h-9 px-4 gap-2 shadow-sm"
@@ -263,7 +265,7 @@ export const RubricEditorView = ({
                   <span>{state.isEditing ? 'Guardar Cambios' : 'Crear Plantilla'}</span>
                 </>
               )}
-            </Button>
+            </LicensedActionButton>
           </div>
         </div>
       </div>

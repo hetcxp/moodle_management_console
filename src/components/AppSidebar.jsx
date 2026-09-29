@@ -1,12 +1,14 @@
 import React from 'react';
-import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, SlidersHorizontal, DownloadCloud } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, SlidersHorizontal, DownloadCloud, KeyRound } from 'lucide-react';
 import { Link } from 'wouter';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import { useLicenseUi } from '../context/LicenseUiContext';
 import { getTenantConfig } from '../config/tenant';
 
 export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose }) => {
-  const { permissions } = useAuth();
+  const { permissions, isLicensed, licenseDaysLeft } = useAuth();
+  const { openLicenseModal } = useLicenseUi();
   const tenant = getTenantConfig();
 
   const navigationItems = [
@@ -154,7 +156,33 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
         </nav>
 
         {/* Bottom system status */}
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-2">
+          {(permissions?.is_siteadmin === 1 || permissions?.can_config_site === 1) && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose?.();
+                openLicenseModal();
+              }}
+              aria-label="Gestionar licencia del sistema"
+              className="flex w-full items-center justify-between rounded-xl bg-sidebar-accent/40 hover:bg-sidebar-accent p-2.5 text-xs text-sidebar-foreground transition-colors group cursor-pointer"
+            >
+              <div className="flex items-center gap-2.5 truncate">
+                <KeyRound className="h-4 w-4 text-primary shrink-0 transition-transform group-hover:rotate-45" />
+                <span className="font-medium text-xs truncate">Licencia</span>
+              </div>
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                isLicensed
+                  ? licenseDaysLeft <= 7
+                    ? 'bg-amber-500/20 text-amber-500 dark:text-amber-400'
+                    : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-rose-500/20 text-rose-500 dark:text-rose-400'
+              }`}>
+                {isLicensed ? (licenseDaysLeft <= 7 ? `${licenseDaysLeft}d` : 'Activa') : 'Requerida'}
+              </span>
+            </button>
+          )}
+
           <div className="flex items-center gap-3 rounded-xl bg-sidebar-accent/50 p-3 text-xs">
             <Shield className="h-4 w-4 text-emerald-400 shrink-0" />
             <div className="truncate">

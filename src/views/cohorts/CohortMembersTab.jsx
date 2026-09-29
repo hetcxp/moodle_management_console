@@ -3,7 +3,7 @@ import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Dialog } from '../../components/ui/Dialog';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Users, Clock, Trash2, User, Download } from 'lucide-react';
 import { formatDate } from '../../lib/utils';
 import { exportToCsv } from '../../components/CsvExporter';
@@ -141,14 +141,16 @@ export const CohortMembersTab = ({
       className: 'text-right',
       cell: (row) => (
         <PermissionGate capability="can_manage_cohorts">
-          <Button
+          <LicensedActionButton
+            capability="can_manage_cohorts"
             variant="ghost"
             size="sm"
             onClick={(e) => { e.stopPropagation(); handleUnlinkUser(row.id); }}
             className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+            title="Remover de la cohorte"
           >
             <Trash2 className="h-4 w-4 mr-1" /> Remover
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       )
     }
@@ -161,9 +163,9 @@ export const CohortMembersTab = ({
           <Download className="h-4 w-4 mr-2" /> Exportar CSV
         </Button>
         <PermissionGate capability="can_manage_cohorts">
-          <Button onClick={() => setSelectorType('users')}>
+          <LicensedActionButton capability="can_manage_cohorts" onClick={() => setSelectorType('users')}>
             <User className="h-4 w-4 mr-2" /> Añadir Usuario(s)
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       </div>
       <DataTable

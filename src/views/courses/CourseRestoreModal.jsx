@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
@@ -244,7 +245,8 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
             >
               Cancelar
             </Button>
-            <Button 
+            <LicensedActionButton 
+              capability="can_create_courses"
               onClick={handleRestore} 
               disabled={
                 phase === 'uploading' || 
@@ -273,7 +275,7 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                 </>
               )}
               {phase === 'idle' && 'Restaurar Curso'}
-            </Button>
+            </LicensedActionButton>
           </>
         )
       }

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import {
   Layers,
   Edit,
@@ -161,7 +161,8 @@ function CompetencyActionsCell({
     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
       <PermissionGate capability="can_manage_competencies">
         {canCreateChild && (
-          <Button
+          <LicensedActionButton
+            capability="can_manage_competencies"
             variant="ghost"
             size="icon"
             onClick={() => onOpenCreateSubcomp(row)}
@@ -173,7 +174,7 @@ function CompetencyActionsCell({
             }`}
           >
             <Layers className="h-4 w-4" />
-          </Button>
+          </LicensedActionButton>
         )}
       </PermissionGate>
       <Button
@@ -200,7 +201,8 @@ function CompetencyActionsCell({
         )}
       </Button>
       <PermissionGate capability="can_manage_competencies">
-        <Button
+        <LicensedActionButton
+          capability="can_manage_competencies"
           variant="ghost"
           size="icon"
           onClick={() => onOpenEdit(row)}
@@ -208,8 +210,9 @@ function CompetencyActionsCell({
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
         >
           <Edit className="h-4 w-4" />
-        </Button>
-        <Button
+        </LicensedActionButton>
+        <LicensedActionButton
+          capability="can_manage_competencies"
           variant="ghost"
           size="icon"
           onClick={() => onOpenDelete(row)}
@@ -217,7 +220,7 @@ function CompetencyActionsCell({
           className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </LicensedActionButton>
       </PermissionGate>
     </div>
   );

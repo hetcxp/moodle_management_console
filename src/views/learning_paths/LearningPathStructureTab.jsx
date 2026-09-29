@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { Badge } from '../../components/ui/Badge';
 import { Input } from '../../components/ui/Input';
 import { Dialog } from '../../components/ui/Dialog';
@@ -19,6 +20,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { useSearchCoursesForPath } from '../../hooks/useAdminerQueries';
+import { useAuth } from '../../context/AuthContext';
+import { cn } from '../../lib/utils';
 
 export function LearningPathStructureTab({
   path,
@@ -26,7 +29,22 @@ export function LearningPathStructureTab({
   saving = false,
   onViewInMoodle,
   onDirtyChange,
+  readOnly = false,
 }) {
+  let isLicensed = true;
+  try {
+    const auth = useAuth();
+    if (auth?.isLicensed !== undefined) {
+      isLicensed = Boolean(auth.isLicensed);
+    } else if (auth?.permissions?.is_licensed !== undefined) {
+      isLicensed = auth.permissions.is_licensed === 1;
+    }
+  } catch {
+    isLicensed = true;
+  }
+
+  const isEditable = isLicensed && !readOnly;
+
   const [coursesList, setCoursesList] = useState([]);
   const [enforceSequence, setEnforceSequence] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
@@ -83,7 +101,7 @@ export function LearningPathStructureTab({
   );
 
   const moveUp = (index) => {
-    if (index === 0) return;
+    if (!isEditable || index === 0) return;
     setCoursesList((prev) => {
       const copy = [...prev];
       const temp = copy[index - 1];
@@ -94,7 +112,7 @@ export function LearningPathStructureTab({
   };
 
   const moveDown = (index) => {
-    if (index >= coursesList.length - 1) return;
+    if (!isEditable || index >= coursesList.length - 1) return;
     setCoursesList((prev) => {
       const copy = [...prev];
       const temp = copy[index + 1];
@@ -105,16 +123,19 @@ export function LearningPathStructureTab({
   };
 
   const removeCourse = (index) => {
+    if (!isEditable) return;
     setCoursesList((prev) => prev.filter((_, i) => i !== index));
   };
 
   const addCourse = (course) => {
+    if (!isEditable) return;
     setCoursesList((prev) => [...prev, course]);
     setSearchModalOpen(false);
     setCourseSearch('');
   };
 
   const handleSave = async () => {
+    if (!isEditable) return;
     if (onSave) {
       const payload = {
         subcourse_course_ids: coursesList.map((c) => c.id),
@@ -150,12 +171,26 @@ export function LearningPathStructureTab({
           </div>
 
           <div className="flex items-center gap-3">
-            <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-foreground bg-muted/60 px-3 py-2 rounded-lg border border-border">
+            <label
+              className={cn(
+                'flex items-center gap-2 select-none text-xs font-semibold text-foreground bg-muted/60 px-3 py-2 rounded-lg border border-border transition-colors',
+                !isEditable ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-muted/80'
+              )}
+              title={!isEditable ? (!isLicensed ? 'Acción no disponible: requiere activación de licencia' : 'Acción no disponible: modo solo lectura') : undefined}
+            >
               <input
                 type="checkbox"
                 checked={enforceSequence}
-                onChange={(e) => setEnforceSequence(e.target.checked)}
-                className="rounded text-primary focus:ring-primary h-4 w-4"
+                disabled={!isEditable}
+                onChange={(e) => {
+                  if (isEditable) {
+                    setEnforceSequence(e.target.checked);
+                  }
+                }}
+                className={cn(
+                  'rounded text-primary focus:ring-primary h-4 w-4',
+                  !isEditable && 'cursor-not-allowed opacity-60'
+                )}
               />
               {enforceSequence ? (
                 <span className="flex items-center gap-1.5 text-primary">
@@ -168,18 +203,19 @@ export function LearningPathStructureTab({
               )}
             </label>
 
-            <Button
+            <LicensedActionButton
               variant={isDirty ? 'default' : 'outline'}
               size="sm"
               onClick={handleSave}
-              disabled={saving}
+              disabled={!isEditable || saving}
+              title={!isEditable ? (!isLicensed ? 'Acción no disponible: requiere activación de licencia' : 'Acción no disponible: modo solo lectura') : 'Guardar Estructura'}
               className={`flex items-center gap-1.5 ${
                 isDirty ? 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90' : ''
               }`}
             >
               <Save className="h-4 w-4" />
               {saving ? 'Guardando...' : 'Guardar Estructura'}
-            </Button>
+            </LicensedActionButton>
           </div>
         </div>
       </Card>
@@ -196,15 +232,16 @@ export function LearningPathStructureTab({
             )}
           </h4>
 
-          <Button
+          <LicensedActionButton
             variant="outline"
             size="sm"
             onClick={() => setSearchModalOpen(true)}
+            title="Agregar Curso"
             className="flex items-center gap-1 text-xs"
           >
             <Plus className="h-3.5 w-3.5" />
             Agregar Curso
-          </Button>
+          </LicensedActionButton>
         </div>
 
         {coursesList.length === 0 ? (
@@ -214,14 +251,15 @@ export function LearningPathStructureTab({
             <p className="text-xs text-muted-foreground mt-1 mb-4">
               Agrega los cursos del catálogo que formarán los módulos de la ruta.
             </p>
-            <Button
+            <LicensedActionButton
               variant="outline"
               size="sm"
               onClick={() => setSearchModalOpen(true)}
               className="inline-flex items-center gap-1.5 text-xs"
+              title="Vincular Primer Curso"
             >
               <Plus className="h-3.5 w-3.5" /> Vincular Primer Curso
-            </Button>
+            </LicensedActionButton>
           </Card>
         ) : (
           <div className="space-y-2.5">
@@ -254,24 +292,24 @@ export function LearningPathStructureTab({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-8 p-0"
-                      disabled={index === 0}
-                      onClick={() => moveUp(index)}
-                      title="Mover arriba"
+                      className={cn('h-8 w-8 p-0', !isEditable && 'opacity-40 cursor-not-allowed')}
+                      disabled={!isEditable || index === 0}
+                      onClick={() => isEditable && moveUp(index)}
+                      title={!isEditable ? 'Acción no disponible: requiere activación de licencia' : 'Mover arriba'}
                     >
                       <ArrowUp className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-8 p-0"
-                      disabled={index === coursesList.length - 1}
-                      onClick={() => moveDown(index)}
-                      title="Mover abajo"
+                      className={cn('h-8 w-8 p-0', !isEditable && 'opacity-40 cursor-not-allowed')}
+                      disabled={!isEditable || index === coursesList.length - 1}
+                      onClick={() => isEditable && moveDown(index)}
+                      title={!isEditable ? 'Acción no disponible: requiere activación de licencia' : 'Mover abajo'}
                     >
                       <ArrowDown className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <LicensedActionButton
                       variant="ghost"
                       size="sm"
                       className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
@@ -279,7 +317,7 @@ export function LearningPathStructureTab({
                       title="Eliminar de la ruta"
                     >
                       <Trash2 className="h-4 w-4" />
-                    </Button>
+                    </LicensedActionButton>
                   </div>
                 </div>
 
@@ -343,14 +381,15 @@ export function LearningPathStructureTab({
                       <span>{ac.categoryname}</span>
                     </div>
                   </div>
-                  <Button
+                  <LicensedActionButton
                     variant="outline"
                     size="sm"
                     className="text-xs h-7 px-2.5"
                     onClick={() => addCourse(ac)}
+                    title="Vincular"
                   >
                     Vincular
-                  </Button>
+                  </LicensedActionButton>
                 </div>
               ))
             )}

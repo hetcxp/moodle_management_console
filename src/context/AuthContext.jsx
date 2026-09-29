@@ -57,6 +57,11 @@ export const AuthProvider = ({ children }) => {
         can_view_competencies: 0,
         can_manage_competencies: 0,
         can_view_reports: 0,
+        is_licensed: 0,
+        license_status: 'missing',
+        license_expires_at: 0,
+        license_days_left: 0,
+        site_identifier: '',
       });
     }
   }, []);
@@ -156,6 +161,18 @@ export const AuthProvider = ({ children }) => {
     setPermissionsError(false);
   };
 
+  const activateLicense = async (key) => {
+    const result = await AdminerApi.saveLicense(key.trim());
+    if (result.valid) await fetchPermissions(false);
+    return result;
+  };
+
+  const removeLicense = async () => {
+    const result = await AdminerApi.removeLicense();
+    await fetchPermissions(false);
+    return result;
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -167,7 +184,14 @@ export const AuthProvider = ({ children }) => {
       login,
       loginWithToken,
       logout,
-      reloadPermissions: () => fetchPermissions(true)
+      reloadPermissions: () => fetchPermissions(true),
+      activateLicense,
+      removeLicense,
+      isLicensed:       permissions?.is_licensed === 1,
+      licenseStatus:    permissions?.license_status ?? 'missing',
+      licenseExpiresAt: permissions?.license_expires_at ?? 0,
+      licenseDaysLeft:  permissions?.license_days_left ?? 0,
+      siteId:           permissions?.site_identifier ?? '',
     }}>
       {children}
     </AuthContext.Provider>

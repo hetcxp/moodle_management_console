@@ -7,7 +7,7 @@ import { Dialog } from '../components/ui/Dialog';
 import { Badge } from '../components/ui/Badge';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { ChevronLeft, ChevronRight, GraduationCap, Clock, BookOpen, User, ExternalLink, MessageSquare, UserCheck, UserX, KeyRound, Shield, Award } from 'lucide-react';
-import { PermissionGate } from '../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../components/PermissionGate';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatDate } from '../lib/utils';
 import { API_CONFIG } from '../config/api';
@@ -290,19 +290,28 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
           {/* Acciones colocadas debajo del nombre y la imagen */}
           <div className="flex items-center gap-2 flex-wrap mt-4 pt-1">
             <PermissionGate capability="can_update_users">
-              <Button
+              <LicensedActionButton
+                capability="can_update_users"
                 variant="outline"
                 className={data.is_active ? "text-rose-600 hover:text-rose-700 hover:bg-rose-50" : "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"}
                 onClick={handleToggleSuspend}
               >
                 {data.is_active ? <><UserX className="h-4 w-4 mr-2" /> Suspender</> : <><UserCheck className="h-4 w-4 mr-2" /> Activar</>}
-              </Button>
-              <Button variant="outline" onClick={() => setMessageModalOpen(true)}>
+              </LicensedActionButton>
+              <LicensedActionButton
+                capability="can_update_users"
+                variant="outline"
+                onClick={() => setMessageModalOpen(true)}
+              >
                 <MessageSquare className="h-4 w-4 mr-2" /> Mensaje
-              </Button>
-              <Button variant="outline" onClick={() => setTempPassConfirmOpen(true)}>
+              </LicensedActionButton>
+              <LicensedActionButton
+                capability="can_update_users"
+                variant="outline"
+                onClick={() => setTempPassConfirmOpen(true)}
+              >
                 <KeyRound className="h-4 w-4 mr-2" /> Clave Temporal
-              </Button>
+              </LicensedActionButton>
             </PermissionGate>
             <Button
               variant="outline"

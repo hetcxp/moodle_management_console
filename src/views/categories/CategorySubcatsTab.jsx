@@ -8,7 +8,7 @@ import { Badge } from '../../components/ui/Badge';
 import { FolderTree, BookOpen, Eye, EyeOff, Edit, Trash2, Plus } from 'lucide-react';
 import { useCategoryAction } from '../../hooks/useAdminerQueries';
 import { useToast } from '../../components/ui/Toast';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 
 export const CategorySubcatsTab = ({
   subcategories,
@@ -155,31 +155,37 @@ export const CategorySubcatsTab = ({
       cell: (row) => (
         <div className="flex items-center justify-center gap-1">
           <PermissionGate capability="can_manage_categories">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_categories"
               variant="ghost"
               size="icon"
               onClick={(e) => { e.stopPropagation(); handleToggleCategoryVisibility(row.id, row.visible === 1); }}
+              title={row.visible === 1 ? 'Ocultar categoría' : 'Hacer visible'}
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               {row.visible === 1 ? <EyeOff className="h-4 w-4 text-amber-600" /> : <Eye className="h-4 w-4 text-emerald-600" />}
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_categories"
               variant="ghost"
               size="icon"
               onClick={(e) => { e.stopPropagation(); handleOpenEditSubcategory(row); }}
+              title="Editar categoría"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_categories"
               variant="ghost"
               size="icon"
               onClick={(e) => { e.stopPropagation(); setCategoryToDelete(row); setDeleteConfirmOpen(true); }}
               disabled={row.coursecount > 0}
+              title={row.coursecount > 0 ? 'No se puede eliminar porque contiene cursos' : 'Eliminar categoría'}
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-30"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       )
@@ -225,18 +231,36 @@ export const CategorySubcatsTab = ({
             </span>
             <div className="ml-auto flex items-center gap-2">
               {isAllVisible && (
-                <Button size="sm" variant="outline" onClick={() => handleBulkSubmit('hide', selectedSubcatIds)} className="h-8 gap-1">
+                <LicensedActionButton
+                  capability="can_manage_categories"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkSubmit('hide', selectedSubcatIds)}
+                  className="h-8 gap-1"
+                >
                   <EyeOff className="h-3.5 w-3.5" /> Ocultar
-                </Button>
+                </LicensedActionButton>
               )}
               {isAllHidden && (
-                <Button size="sm" variant="outline" onClick={() => handleBulkSubmit('show', selectedSubcatIds)} className="h-8 gap-1">
+                <LicensedActionButton
+                  capability="can_manage_categories"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkSubmit('show', selectedSubcatIds)}
+                  className="h-8 gap-1"
+                >
                   <Eye className="h-3.5 w-3.5" /> Mostrar
-                </Button>
+                </LicensedActionButton>
               )}
-              <Button size="sm" variant="outline" onClick={() => handleBulkSubmit('delete', selectedSubcatIds)} className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200">
+              <LicensedActionButton
+                capability="can_manage_categories"
+                size="sm"
+                variant="outline"
+                onClick={() => handleBulkSubmit('delete', selectedSubcatIds)}
+                className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
+              >
                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
-              </Button>
+              </LicensedActionButton>
             </div>
           </div>
         );

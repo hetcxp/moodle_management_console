@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { FilterBar } from '../../components/FilterBar';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { Badge } from '../../components/ui/Badge';
@@ -166,7 +167,8 @@ export const CategoryCoursesTab = ({
             <ExternalLink className="h-4 w-4" />
           </Button>
           {hasUpdateCourse && (
-             <Button
+             <LicensedActionButton
+               capability="can_update_courses"
                variant="ghost"
                size="icon"
                onClick={(e) => {
@@ -177,7 +179,7 @@ export const CategoryCoursesTab = ({
                className="h-8 w-8 text-muted-foreground hover:text-foreground"
              >
                {row.visible === 1 ? <EyeOff className="h-4 w-4 text-amber-600" /> : <Eye className="h-4 w-4 text-emerald-600" />}
-             </Button>
+             </LicensedActionButton>
           )}
         </div>
       )
@@ -228,18 +230,35 @@ export const CategoryCoursesTab = ({
             </span>
             <div className="ml-auto flex items-center gap-2">
               {isAllVisible && (
-                <Button size="sm" variant="outline" onClick={() => handleBulkSubmit('hide', selectedCourseIds)} className="h-8 gap-1">
+                <LicensedActionButton
+                  capability="can_update_courses"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkSubmit('hide', selectedCourseIds)}
+                  className="h-8 gap-1"
+                >
                   <EyeOff className="h-3.5 w-3.5" /> Ocultar
-                </Button>
+                </LicensedActionButton>
               )}
               {isAllHidden && (
-                <Button size="sm" variant="outline" onClick={() => handleBulkSubmit('show', selectedCourseIds)} className="h-8 gap-1">
+                <LicensedActionButton
+                  capability="can_update_courses"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleBulkSubmit('show', selectedCourseIds)}
+                  className="h-8 gap-1"
+                >
                   <Eye className="h-3.5 w-3.5" /> Mostrar
-                </Button>
+                </LicensedActionButton>
               )}
-              <Button size="sm" onClick={() => handleMoveSubmit(selectedCourseIds)} className="h-8 gap-1">
+              <LicensedActionButton
+                capability="can_manage_categories"
+                size="sm"
+                onClick={() => handleMoveSubmit(selectedCourseIds)}
+                className="h-8 gap-1"
+              >
                 <FolderInput className="h-3.5 w-3.5" /> Mover
-              </Button>
+              </LicensedActionButton>
             </div>
           </div>
         );

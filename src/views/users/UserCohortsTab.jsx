@@ -3,7 +3,7 @@ import { Layers, Trash2 } from 'lucide-react';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
 
 export const UserCohortsTab = ({
@@ -119,15 +119,17 @@ export const UserCohortsTab = ({
       header: 'Acciones',
       className: 'text-right',
       cell: (row) => (
-        <PermissionGate capability="can_view_cohorts">
-          <Button
+        <PermissionGate capability="can_manage_cohorts">
+          <LicensedActionButton
+            capability="can_manage_cohorts"
             variant="ghost"
             size="sm"
             onClick={(e) => { e.stopPropagation(); handleUnlinkCohort(row.id); }}
             className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+            title="Remover de la cohorte"
           >
             <Trash2 className="h-4 w-4 mr-1" /> Remover
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       )
     }
@@ -137,9 +139,9 @@ export const UserCohortsTab = ({
     <div className="space-y-4">
       <div className="flex justify-end">
         <PermissionGate capability="can_manage_cohorts">
-          <Button onClick={onOpenSelector}>
+          <LicensedActionButton capability="can_manage_cohorts" onClick={onOpenSelector}>
             <Layers className="h-4 w-4 mr-2" /> Vincular a Cohorte
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       </div>
       <DataTable

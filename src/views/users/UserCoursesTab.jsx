@@ -4,7 +4,7 @@ import { DataTable } from '../../components/DataTable';
 import { FilterBar } from '../../components/FilterBar';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { formatDate } from '../../lib/utils';
@@ -223,7 +223,8 @@ export const UserCoursesTab = ({
       cell: (row) => (
         <PermissionGate capability="can_update_courses">
           <div className="flex justify-end gap-1">
-            <Button
+            <LicensedActionButton
+              capability="can_update_courses"
               variant="ghost"
               size="sm"
               disabled={row.enrolmethod !== 'manual'}
@@ -236,8 +237,9 @@ export const UserCoursesTab = ({
               title={row.enrolmethod !== 'manual' ? "Sólo manual" : (row.enrolstatus === 0 ? 'Suspender' : 'Activar')}
             >
               {row.enrolstatus === 0 ? <Ban className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_update_courses"
               variant="ghost"
               size="sm"
               disabled={row.enrolmethod !== 'manual'}
@@ -262,7 +264,7 @@ export const UserCoursesTab = ({
               title={row.enrolmethod !== 'manual' ? "Sólo manual" : "Configurar Fechas"}
             >
               <CalendarClock className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
             <Button
               variant="ghost"
               size="sm"
@@ -277,13 +279,16 @@ export const UserCoursesTab = ({
             >
               <UserCheck className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm"
+            <LicensedActionButton
+              capability="can_update_courses"
+              variant="ghost"
+              size="sm"
               onClick={(e) => { e.stopPropagation(); handleUnenrollCourse(row.id); }}
               className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-2"
               title="Desmatricular"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </div>
         </PermissionGate>
       )

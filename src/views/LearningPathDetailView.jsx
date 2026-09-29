@@ -9,6 +9,7 @@ import { LearningPathProgressTab } from './learning_paths/LearningPathProgressTa
 import { UnsavedChangesDialog } from './learning_paths/UnsavedChangesDialog';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Button } from '../components/ui/Button';
+import { LicensedActionButton } from '../components/PermissionGate';
 import { Badge } from '../components/ui/Badge';
 import {
   ChevronLeft,
@@ -29,6 +30,7 @@ export function LearningPathDetailView({
   onBack,
   _onNavigateToDetail,
   parentLabel = 'Rutas de Aprendizaje',
+  readOnly = false,
 }) {
   const [, setLocation] = useLocation();
   const fallbackBack = useCallback(() => setLocation('/learning-paths'), [setLocation]);
@@ -199,16 +201,17 @@ export function LearningPathDetailView({
               <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
               Ver en Moodle
             </Button>
-            <Button
+            <LicensedActionButton
               variant="outline"
               size="sm"
               className="text-destructive hover:bg-destructive/10 hover:text-destructive text-xs"
               onClick={handleDeleteRequest}
               disabled={deleting}
+              title="Eliminar Ruta"
             >
               <Trash2 className="h-3.5 w-3.5 mr-1.5" />
               Eliminar Ruta
-            </Button>
+            </LicensedActionButton>
           </div>
         </div>
       </div>
@@ -284,6 +287,7 @@ export function LearningPathDetailView({
             onSave={handleSaveStructure}
             saving={savingStructure}
             onViewInMoodle={handleViewInMoodle}
+            readOnly={readOnly}
             onDirtyChange={(dirty, payload) => {
               setIsStructureDirty(dirty);
               setStructureDraft(payload);

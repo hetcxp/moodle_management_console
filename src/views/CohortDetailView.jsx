@@ -8,7 +8,7 @@ import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 import { SelectorModal } from '../components/ui/SelectorModal';
 import { ChevronLeft, ChevronRight, GraduationCap, Users, Layers, Trash2, BookOpen, Edit } from 'lucide-react';
-import { PermissionGate } from '../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../components/PermissionGate';
 import { CohortMembersTab } from './cohorts/CohortMembersTab';
 import { CohortCoursesTab } from './cohorts/CohortCoursesTab';
 import { runWithConcurrency } from '../lib/concurrency';
@@ -177,7 +177,8 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
           {/* Acciones Header debajo del nombre */}
           <div className="flex items-center gap-2 flex-wrap mt-4 pt-1">
             <PermissionGate capability="can_manage_cohorts">
-              <Button
+              <LicensedActionButton
+                capability="can_manage_cohorts"
                 variant="outline"
                 onClick={() => {
                   setFormData({ name: data.name, idnumber: data.idnumber, description: data.description });
@@ -185,14 +186,15 @@ export const CohortDetailView = ({ cohortId, onBack, onNavigateToDetail, parentL
                 }}
               >
                 <Edit className="h-4 w-4 mr-2" /> Editar
-              </Button>
-              <Button
+              </LicensedActionButton>
+              <LicensedActionButton
+                capability="can_manage_cohorts"
                 variant="outline"
                 className="text-rose-600 hover:text-rose-700 hover:bg-rose-50"
                 onClick={() => setDeleteConfirmOpen(true)}
               >
                 <Trash2 className="h-4 w-4 mr-2" /> Eliminar
-              </Button>
+              </LicensedActionButton>
             </PermissionGate>
           </div>
         </div>

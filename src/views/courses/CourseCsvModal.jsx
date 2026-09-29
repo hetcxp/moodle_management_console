@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dialog } from '../../components/ui/Dialog';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { useToast } from '../../components/ui/Toast';
 import { AdminerApi } from '../../services/adminer-api';
 
@@ -69,9 +70,13 @@ export const CourseCsvModal = ({ open, onClose, onSuccess }) => {
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleUploadCsv} disabled={csvLoading || !csvFile}>
+          <LicensedActionButton
+            capability="can_create_courses"
+            onClick={handleUploadCsv}
+            disabled={csvLoading || !csvFile}
+          >
             {csvLoading ? 'Importando...' : 'Subir Archivo'}
-          </Button>
+          </LicensedActionButton>
         </>
       }
     >

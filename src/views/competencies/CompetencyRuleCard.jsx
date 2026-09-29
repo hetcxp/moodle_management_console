@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { LicensedActionButton } from '../../components/PermissionGate';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../components/ui/Toast';
 import { useCompetencyAction } from '../../hooks/useAdminerQueries';
 import {
@@ -21,6 +22,18 @@ import {
 export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
   const { addToast } = useToast();
   const { mutateAsync: performCompetencyAction, isLoading: isSaving } = useCompetencyAction();
+
+  let isLicensed = true;
+  try {
+    const auth = useAuth();
+    if (auth?.isLicensed !== undefined) {
+      isLicensed = Boolean(auth.isLicensed);
+    } else if (auth?.permissions?.is_licensed !== undefined) {
+      isLicensed = auth.permissions.is_licensed === 1;
+    }
+  } catch {
+    isLicensed = true;
+  }
 
   const isRuleActive = competency?.ruletype === COMPETENCY_RULE_ALL_CHILDREN;
   const _currentOutcome = isRuleActive ? (competency?.ruleoutcome ?? 2) : 0;
@@ -103,7 +116,8 @@ export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
           </div>
 
           {hasManagePermission && (
-            <Button
+            <LicensedActionButton
+              capability="can_manage_competencies"
               size="sm"
               onClick={handleSaveRule}
               disabled={!hasChanges || isSaving}
@@ -111,7 +125,7 @@ export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
             >
               <Save className="h-4 w-4" />
               {isSaving ? 'Guardando...' : 'Guardar Regla'}
-            </Button>
+            </LicensedActionButton>
           )}
         </div>
       </CardHeader>
@@ -140,14 +154,14 @@ export const CompetencyRuleCard = ({ competency, hasManagePermission }) => {
                 key={`${rule.ruletype}-${rule.ruleoutcome}`}
                 type="button"
                 id={`rule-btn-${rule.ruleoutcome}`}
-                disabled={!hasManagePermission}
+                disabled={!hasManagePermission || !isLicensed}
                 aria-describedby={!hasManagePermission ? `rule-${rule.ruleoutcome}-reason` : undefined}
                 onClick={() => handleSelectRule(rule)}
                 className={`text-left p-4 rounded-xl border transition-all flex flex-col justify-between ${
                   isSelected
                     ? 'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/30'
                     : 'border-border bg-card hover:bg-muted/40 hover:border-border/80'
-                } ${!hasManagePermission ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
+                } ${!hasManagePermission || !isLicensed ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
               >
                 {!hasManagePermission && (
                   <span id={`rule-${rule.ruleoutcome}-reason`} className="sr-only">

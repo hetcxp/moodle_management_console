@@ -1,8 +1,7 @@
 import React from 'react';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Layers, Users, BookOpen, Edit, Trash2 } from 'lucide-react';
 
 export const CohortsTable = ({
@@ -102,7 +101,8 @@ export const CohortsTable = ({
       cell: (row) => (
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <PermissionGate capability="can_manage_cohorts">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_cohorts"
               variant="ghost"
               size="icon"
               onClick={() => onOpenEdit(row)}
@@ -111,8 +111,9 @@ export const CohortsTable = ({
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_cohorts"
               variant="ghost"
               size="icon"
               onClick={() => onOpenDelete([row.id])}
@@ -121,7 +122,7 @@ export const CohortsTable = ({
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       )
@@ -136,14 +137,15 @@ export const CohortsTable = ({
             {selectedIds.length} cohorte(s) seleccionada(s)
           </span>
           <div className="ml-auto flex items-center gap-2">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_cohorts"
               size="sm"
               variant="outline"
               onClick={() => onOpenDelete(selectedIds)}
               className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
             >
               <Trash2 className="h-3.5 w-3.5" /> Eliminar seleccionadas
-            </Button>
+            </LicensedActionButton>
           </div>
         </div>
       )}

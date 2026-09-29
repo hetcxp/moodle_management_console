@@ -3,6 +3,7 @@ import { Award, BookOpen, FileText, CheckCircle2, Clock, AlertCircle, ExternalLi
 import { DataTable } from '../../components/DataTable';
 import { FilterBar } from '../../components/FilterBar';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { Badge } from '../../components/ui/Badge';
 import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
@@ -301,7 +302,8 @@ export const UserCompetenciesTab = ({
         const isBlocked = Number(row.enrolled_in_linked_course) === 1;
         return (
           <div className="flex justify-end">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_competencies"
               variant="outline"
               size="sm"
               disabled={isBlocked || removingComp}
@@ -315,7 +317,7 @@ export const UserCompetenciesTab = ({
               className={isBlocked ? 'opacity-50 cursor-not-allowed h-8 px-2 text-xs' : 'text-destructive hover:bg-destructive/10 border-destructive/20 h-8 px-2 text-xs'}
             >
               <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            </LicensedActionButton>
           </div>
         );
       }

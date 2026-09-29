@@ -13,6 +13,17 @@ export const AdminerApi = {
     return await MoodleApi.call('tool_management_console_get_permissions');
   },
 
+  // 2b. License
+  async saveLicense(key) {
+    return await MoodleApi.call('tool_management_console_save_license', { key });
+  },
+  async getLicenseInfo() {
+    return await MoodleApi.call('tool_management_console_get_license_info');
+  },
+  async removeLicense() {
+    return await MoodleApi.call('tool_management_console_remove_license');
+  },
+
   // 3. Courses
   async getCourses({ page = 0, perpage = 20, sort = 'timecreated', dir = 'DESC', search = '', category = 0, visibility = -1, filters = {} } = {}) {
     return await MoodleApi.call('tool_management_console_get_courses', {

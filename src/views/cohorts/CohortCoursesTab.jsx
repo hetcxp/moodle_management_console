@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { DataTable } from '../../components/DataTable';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Users, Trash2, BookOpen } from 'lucide-react';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
 
@@ -71,14 +71,16 @@ export const CohortCoursesTab = ({
       className: 'text-right',
       cell: (row) => (
         <PermissionGate capability="can_manage_courses">
-          <Button
+          <LicensedActionButton
+            capability="can_manage_courses"
             variant="ghost"
             size="sm"
             onClick={(e) => { e.stopPropagation(); handleUnlinkCourse(row.id); }}
             className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+            title="Desvincular curso"
           >
             <Trash2 className="h-4 w-4 mr-1" /> Desvincular
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       )
     }
@@ -88,9 +90,9 @@ export const CohortCoursesTab = ({
     <div className="space-y-4">
       <div className="flex justify-end">
         <PermissionGate capability="can_manage_courses">
-          <Button onClick={() => setSelectorType('courses')}>
+          <LicensedActionButton capability="can_manage_courses" onClick={() => setSelectorType('courses')}>
             <BookOpen className="h-4 w-4 mr-2" /> Sincronizar Curso
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       </div>
       <DataTable

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { Badge } from '../../components/ui/Badge';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
@@ -83,14 +84,15 @@ export function LearningPathCohortsTab({
           <Badge variant="secondary">{assignedCohorts.length}</Badge>
         </div>
 
-        <Button
+        <LicensedActionButton
           variant="outline"
           size="sm"
           onClick={() => setCohortModalOpen(true)}
+          title="Asignar Cohorte"
           className="flex items-center gap-1.5 text-xs"
         >
           <Plus className="h-3.5 w-3.5" /> Asignar Cohorte
-        </Button>
+        </LicensedActionButton>
       </div>
 
       {/* Lista / Grid de Cohortes Asignadas */}
@@ -101,14 +103,15 @@ export function LearningPathCohortsTab({
           <p className="text-xs text-muted-foreground mt-1 mb-4">
             Asigna una cohorte para matricular en bloque a grupos de estudiantes en todos los cursos de la ruta.
           </p>
-          <Button
+          <LicensedActionButton
             variant="outline"
             size="sm"
             onClick={() => setCohortModalOpen(true)}
+            title="Asignar Cohorte"
             className="inline-flex items-center gap-1.5 text-xs"
           >
             <Plus className="h-3.5 w-3.5" /> Asignar Cohorte
-          </Button>
+          </LicensedActionButton>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -127,7 +130,7 @@ export function LearningPathCohortsTab({
                 </div>
               </div>
 
-              <Button
+              <LicensedActionButton
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0"
@@ -136,7 +139,7 @@ export function LearningPathCohortsTab({
                 onClick={() => setCohortToDelete(coh)}
               >
                 <Trash2 className="h-4 w-4" />
-              </Button>
+              </LicensedActionButton>
             </Card>
           ))}
         </div>

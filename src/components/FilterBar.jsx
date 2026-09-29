@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, memo } from 'react';
 import { Search, X, RotateCw, Plus, Download } from 'lucide-react';
 import { Input } from './ui/Input';
 import { Button } from './ui/Button';
+import { LicensedActionButton } from './PermissionGate';
 
 export const FilterBar = memo(({
   searchValue = '',
@@ -79,29 +80,31 @@ export const FilterBar = memo(({
         {/* Actions */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           {secondaryAction && (
-            <Button
+            <LicensedActionButton
               variant={secondaryAction.variant || 'outline'}
               onClick={secondaryAction.onClick}
+              capability={secondaryAction.capability}
               className={`gap-2 h-10 shadow-sm ${secondaryAction.className || ''}`}
               aria-label={secondaryAction.label}
             >
               {secondaryAction.icon}
               <span>{secondaryAction.label}</span>
-            </Button>
+            </LicensedActionButton>
           )}
 
           {Array.isArray(extraActions) && extraActions.map((action, idx) => (
             action && (
-              <Button
+              <LicensedActionButton
                 key={action.key || action.label || idx}
                 variant={action.variant || 'outline'}
                 onClick={action.onClick}
+                capability={action.capability}
                 className={`gap-2 h-10 shadow-sm ${action.className || ''}`}
                 aria-label={action.label}
               >
                 {action.icon}
                 <span>{action.label}</span>
-              </Button>
+              </LicensedActionButton>
             )
           ))}
 
@@ -123,15 +126,16 @@ export const FilterBar = memo(({
           )}
 
           {primaryAction && (
-            <Button
+            <LicensedActionButton
               variant={primaryAction.variant || 'default'}
               onClick={primaryAction.onClick}
+              capability={primaryAction.capability}
               className={`gap-2 h-10 shadow-sm font-semibold ${primaryAction.className || ''}`}
               aria-label={primaryAction.label}
             >
               {primaryAction.icon || <Plus className="h-4 w-4" aria-hidden="true" />}
               <span>{primaryAction.label}</span>
-            </Button>
+            </LicensedActionButton>
           )}
         </div>
       </div>

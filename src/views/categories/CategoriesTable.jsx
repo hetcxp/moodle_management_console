@@ -1,8 +1,7 @@
 import React from 'react';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
-import { Button } from '../../components/ui/Button';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { FolderTree, BookOpen, Eye, EyeOff, Edit, Trash2 } from 'lucide-react';
 
 export const CategoriesTable = ({
@@ -70,7 +69,8 @@ export const CategoriesTable = ({
       cell: (row) => (
         <div className="flex items-center justify-center gap-1">
           <PermissionGate capability="can_manage_categories">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_categories"
               variant="ghost"
               size="icon"
               onClick={(e) => {
@@ -85,9 +85,10 @@ export const CategoriesTable = ({
               ) : (
                 <Eye className="h-4 w-4 text-emerald-600" />
               )}
-            </Button>
+            </LicensedActionButton>
 
-            <Button
+            <LicensedActionButton
+              capability="can_manage_categories"
               variant="ghost"
               size="icon"
               onClick={(e) => {
@@ -98,9 +99,10 @@ export const CategoriesTable = ({
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Edit className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
 
-            <Button
+            <LicensedActionButton
+              capability="can_manage_categories"
               variant="ghost"
               size="icon"
               onClick={(e) => {
@@ -112,7 +114,7 @@ export const CategoriesTable = ({
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30 disabled:opacity-30"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       )
@@ -133,33 +135,36 @@ export const CategoriesTable = ({
             </span>
             <div className="ml-auto flex items-center gap-2">
               {isAllVisible && (
-                <Button
+                <LicensedActionButton
+                  capability="can_manage_categories"
                   size="sm"
                   variant="outline"
                   onClick={() => onBulkAction('hide', selectedIds)}
                   className="h-8 gap-1"
                 >
                   <EyeOff className="h-3.5 w-3.5" /> Ocultar
-                </Button>
+                </LicensedActionButton>
               )}
               {isAllHidden && (
-                <Button
+                <LicensedActionButton
+                  capability="can_manage_categories"
                   size="sm"
                   variant="outline"
                   onClick={() => onBulkAction('show', selectedIds)}
                   className="h-8 gap-1"
                 >
                   <Eye className="h-3.5 w-3.5" /> Mostrar
-                </Button>
+                </LicensedActionButton>
               )}
-              <Button
+              <LicensedActionButton
+                capability="can_manage_categories"
                 size="sm"
                 variant="outline"
                 onClick={() => onBulkAction('delete', selectedIds)}
                 className="h-8 gap-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200"
               >
                 <Trash2 className="h-3.5 w-3.5" /> Eliminar
-              </Button>
+              </LicensedActionButton>
             </div>
           </div>
         );

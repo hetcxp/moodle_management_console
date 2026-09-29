@@ -5,8 +5,8 @@ import {
   Trash2,
   CheckCircle2,
 } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { LicensedActionButton } from '../../components/PermissionGate';
 
 export const ScalesTable = ({
   filteredScales = [],
@@ -114,7 +114,8 @@ export const ScalesTable = ({
                     {hasManageCompetencies && (
                       <td className="px-5 py-4 align-top text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1">
-                          <Button
+                          <LicensedActionButton
+                            capability="can_manage_competencies"
                             variant="ghost"
                             size="sm"
                             onClick={() => onOpenEdit(scale)}
@@ -123,8 +124,9 @@ export const ScalesTable = ({
                             aria-label={`Editar escala ${scale.name}`}
                           >
                             <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
+                          </LicensedActionButton>
+                          <LicensedActionButton
+                            capability="can_manage_competencies"
                             variant="ghost"
                             size="sm"
                             onClick={() => onOpenDelete(scale)}
@@ -140,7 +142,7 @@ export const ScalesTable = ({
                             aria-label={`Eliminar escala ${scale.name}`}
                           >
                             <Trash2 className="h-4 w-4" />
-                          </Button>
+                          </LicensedActionButton>
                         </div>
                       </td>
                     )}

@@ -3,6 +3,7 @@ import { Link } from 'wouter';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { BookOpen, Users, Layers, Trash2, Calendar, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { formatDateOnly } from '../../lib/utils';
 
@@ -101,7 +102,8 @@ export function LearningPathsTable({
               </Button>
             )}
             {onToggleVisibility && (
-              <Button
+              <LicensedActionButton
+                capability="can_manage_competencies"
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0"
@@ -114,9 +116,10 @@ export function LearningPathsTable({
                 ) : (
                   <Eye className="h-4 w-4 text-muted-foreground" />
                 )}
-              </Button>
+              </LicensedActionButton>
             )}
-            <Button
+            <LicensedActionButton
+              capability="can_manage_competencies"
               variant="ghost"
               size="sm"
               className={`h-8 w-8 p-0 ${hasStudents ? 'opacity-40 cursor-not-allowed' : 'text-destructive hover:text-destructive'}`}
@@ -131,7 +134,7 @@ export function LearningPathsTable({
               }}
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </div>
         );
       },

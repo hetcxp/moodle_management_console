@@ -6,7 +6,7 @@ import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers } from 'lucide-react';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { useCourseUserActions } from '../../hooks/useCourseUserActions';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
 import { formatDate } from '../../lib/utils';
@@ -191,7 +191,8 @@ export const CourseUsersTab = ({
       cell: (row) => (
         <PermissionGate capability="can_manage_courses">
           <div className="flex justify-center gap-1">
-            <Button
+            <LicensedActionButton
+              capability="can_manage_courses"
               variant="ghost"
               size="sm"
               onClick={(e) => { 
@@ -203,8 +204,9 @@ export const CourseUsersTab = ({
               title={row.status === 0 ? 'Suspender' : 'Activar'}
             >
               {row.status === 0 ? <Ban className="h-4 w-4" /> : <Check className="h-4 w-4" />}
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_courses"
               variant="ghost"
               size="sm"
               onClick={(e) => { 
@@ -218,8 +220,9 @@ export const CourseUsersTab = ({
               title="Asignar a Grupo"
             >
               <Users className="h-4 w-4" />
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_courses"
               variant="ghost"
               size="sm"
               onClick={(e) => { 
@@ -232,8 +235,9 @@ export const CourseUsersTab = ({
               title="Enviar Mensaje"
             >
               <MessageSquare className="h-4 w-4" />
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_courses"
               variant="ghost"
               size="sm"
               onClick={(e) => { 
@@ -252,8 +256,9 @@ export const CourseUsersTab = ({
               title="Configurar Expiración"
             >
               <CalendarClock className="h-4 w-4" />
-            </Button>
-            <Button
+            </LicensedActionButton>
+            <LicensedActionButton
+              capability="can_manage_courses"
               variant="ghost"
               size="sm"
               onClick={(e) => { 
@@ -265,7 +270,7 @@ export const CourseUsersTab = ({
               title="Desmatricular"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </div>
         </PermissionGate>
       )
@@ -300,9 +305,9 @@ export const CourseUsersTab = ({
           <Download className="h-4 w-4 mr-2" /> Exportar CSV
         </Button>
         <PermissionGate capability="can_manage_courses">
-          <Button onClick={onOpenSelector}>
+          <LicensedActionButton capability="can_manage_courses" onClick={onOpenSelector}>
             <Users className="h-4 w-4 mr-2" /> Matricular Usuarios
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       </div>
       

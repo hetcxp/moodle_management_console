@@ -7,7 +7,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
 import { Select } from '../../components/ui/Select';
 import { useToast } from '../../components/ui/Toast';
-import { PermissionGate } from '../../components/PermissionGate';
+import { LicensedActionButton } from '../../components/PermissionGate';
 import { AddActivityToCompetencyModal } from '../competencies/AddActivityToCompetencyModal';
 import {
   useCompetencyCourseAction,
@@ -429,27 +429,23 @@ export const CourseCompetenciesTab = ({
               </div>
             )}
             {courseId ? (
-              <PermissionGate
+              <LicensedActionButton
                 capability="can_update_courses"
                 fallback={
                   count === 0 ? (
                     <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Sin actividades</span>
                   ) : null
                 }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActivityLinkTarget({ id: row.id, shortname: row.shortname });
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-sky-500/50 dark:border-sky-400/60 bg-sky-500/15 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 hover:bg-sky-500/25 dark:hover:bg-sky-500/35 hover:text-sky-950 dark:hover:text-white transition-all shadow-xs"
+                title="Vincular actividad del curso a esta competencia"
               >
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setActivityLinkTarget({ id: row.id, shortname: row.shortname });
-                  }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border border-sky-500/50 dark:border-sky-400/60 bg-sky-500/15 dark:bg-sky-500/25 text-sky-800 dark:text-sky-200 hover:bg-sky-500/25 dark:hover:bg-sky-500/35 hover:text-sky-950 dark:hover:text-white transition-all shadow-xs cursor-pointer"
-                  title="Vincular actividad del curso a esta competencia"
-                >
-                  <BookCopy className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300 shrink-0" />
-                  <span>Vincular actividad</span>
-                </button>
-              </PermissionGate>
+                <BookCopy className="h-3.5 w-3.5 text-sky-600 dark:text-sky-300 shrink-0" />
+                <span>Vincular actividad</span>
+              </LicensedActionButton>
             ) : (
               count === 0 && (
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Sin actividades</span>
@@ -477,36 +473,34 @@ export const CourseCompetenciesTab = ({
             <Eye className="h-4 w-4" />
           </Button>
           {courseId && (
-            <PermissionGate capability="can_update_courses">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setActivityLinkTarget({ id: row.id, shortname: row.shortname });
-                }}
-                className="h-8 w-8 text-purple-600 hover:bg-purple-500/10"
-                title="Vincular actividad del curso a esta competencia"
-              >
-                <BookCopy className="h-4 w-4" />
-              </Button>
-            </PermissionGate>
+            <LicensedActionButton
+              capability="can_update_courses"
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActivityLinkTarget({ id: row.id, shortname: row.shortname });
+              }}
+              className="h-8 w-8 text-purple-600 hover:bg-purple-500/10"
+              title="Vincular actividad del curso a esta competencia"
+            >
+              <BookCopy className="h-4 w-4" />
+            </LicensedActionButton>
           )}
           {courseId && (
-            <PermissionGate capability="can_update_courses">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setUnlinkCompetencyTarget(row);
-                }}
-                className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                title="Desvincular competencia de este curso"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </PermissionGate>
+            <LicensedActionButton
+              capability="can_update_courses"
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                setUnlinkCompetencyTarget(row);
+              }}
+              className="h-8 w-8 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              title="Desvincular competencia de este curso"
+            >
+              <Trash2 className="h-4 w-4" />
+            </LicensedActionButton>
           )}
           {onNavigateToDetail && (
             <Button
@@ -542,17 +536,16 @@ export const CourseCompetenciesTab = ({
           plataforma.
         </p>
         {courseId && (
-          <PermissionGate capability="can_update_courses">
-            <Button
-              variant="default"
-              size="sm"
-              className="mt-5 gap-2"
-              onClick={() => setAddCompetencyOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Agregar Competencia
-            </Button>
-          </PermissionGate>
+          <LicensedActionButton
+            capability="can_update_courses"
+            variant="default"
+            size="sm"
+            className="mt-5 gap-2"
+            onClick={() => setAddCompetencyOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            Agregar Competencia
+          </LicensedActionButton>
         )}
         <Dialog
           open={addCompetencyOpen}
@@ -632,17 +625,16 @@ export const CourseCompetenciesTab = ({
             ))}
           </select>
           {courseId && (
-            <PermissionGate capability="can_update_courses">
-              <Button
-                variant="default"
-                size="sm"
-                className="gap-2 h-9"
-                onClick={() => setAddCompetencyOpen(true)}
-              >
-                <Plus className="h-4 w-4" />
-                Agregar Competencia
-              </Button>
-            </PermissionGate>
+            <LicensedActionButton
+              capability="can_update_courses"
+              variant="default"
+              size="sm"
+              className="gap-2 h-9"
+              onClick={() => setAddCompetencyOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Agregar Competencia
+            </LicensedActionButton>
           )}
         </div>
       </div>
@@ -741,16 +733,15 @@ export const CourseCompetenciesTab = ({
                 </Button>
               )}
               {courseId && selectedCompetency && (
-                <PermissionGate capability="can_update_courses">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setUnlinkCompetencyTarget(selectedCompetency)}
-                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1.5" /> Desvincular del Curso
-                  </Button>
-                </PermissionGate>
+                <LicensedActionButton
+                  capability="can_update_courses"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setUnlinkCompetencyTarget(selectedCompetency)}
+                  className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 border-rose-200 dark:border-rose-900/50 dark:hover:bg-rose-950/40"
+                >
+                  <Trash2 className="h-4 w-4 mr-1.5" /> Desvincular del Curso
+                </LicensedActionButton>
               )}
             </div>
             <Button variant="ghost" onClick={() => setDetailModalOpen(false)}>
@@ -874,20 +865,19 @@ export const CourseCompetenciesTab = ({
                             <span>{actRule.label}</span>
                           </div>
                           {courseId && (
-                            <PermissionGate capability="can_update_courses">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setUnlinkActivityTarget(act);
-                                }}
-                                className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                                title="Desvincular actividad de esta competencia"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </PermissionGate>
+                            <LicensedActionButton
+                              capability="can_update_courses"
+                              variant="ghost"
+                              size="icon"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUnlinkActivityTarget(act);
+                              }}
+                              className="h-7 w-7 text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                              title="Desvincular actividad de esta competencia"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </LicensedActionButton>
                           )}
                         </div>
                       </div>

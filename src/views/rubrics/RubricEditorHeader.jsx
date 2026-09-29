@@ -2,6 +2,7 @@ import React from 'react';
 import { ArrowLeft, Award, Layers, Save, Loader2, ChevronRight, HelpCircle } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { HelpTooltip } from '../../components/ui/HelpTooltip';
+import { LicensedActionButton } from '../../components/PermissionGate';
 
 export const RubricEditorHeader = ({
   isEditing,
@@ -102,8 +103,9 @@ export const RubricEditorHeader = ({
             Cancelar
           </Button>
 
-          <Button
+          <LicensedActionButton
             type="button"
+            capability="can_manage_competencies"
             onClick={onSave}
             disabled={saving}
             className="h-10 px-5 text-xs font-bold gap-2 shadow-sm"
@@ -119,7 +121,7 @@ export const RubricEditorHeader = ({
                 <span>{isEditing ? 'Guardar Cambios' : 'Crear Plantilla'}</span>
               </>
             )}
-          </Button>
+          </LicensedActionButton>
         </div>
       </div>
     </div>

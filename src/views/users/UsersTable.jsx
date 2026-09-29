@@ -3,7 +3,7 @@ import { Link } from 'wouter';
 import { DataTable } from '../../components/DataTable';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { AdminerApi } from '../../services/adminer-api';
 import { API_CONFIG } from '../../config/api';
 import { formatDate } from '../../lib/utils';
@@ -113,38 +113,38 @@ export function UsersTable({
             <ExternalLink className="h-4 w-4" />
           </Button>
           <PermissionGate capability="can_update_users">
-            <Button variant="ghost" size="icon" title="Enviar link de contraseña temporal"
+            <LicensedActionButton capability="can_update_users" variant="ghost" size="icon" title="Enviar link de contraseña temporal"
               onClick={(e) => { e.stopPropagation(); onOpenTempPassConfirm([row.id]); }}
               disabled={row.is_admin === 1}
               className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
             >
               <KeyRound className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
             {row.is_active === 1 ? (
-              <Button variant="ghost" size="icon" title="Suspender usuario"
+              <LicensedActionButton capability="can_update_users" variant="ghost" size="icon" title="Suspender usuario"
                 onClick={(e) => { e.stopPropagation(); onBulkSuspend([row.id]); }}
                 disabled={row.is_admin === 1}
                 className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
               >
                 <UserX className="h-4 w-4" />
-              </Button>
+              </LicensedActionButton>
             ) : (
-              <Button variant="ghost" size="icon" title="Activar usuario"
+              <LicensedActionButton capability="can_update_users" variant="ghost" size="icon" title="Activar usuario"
                 onClick={(e) => { e.stopPropagation(); onBulkActivate([row.id]); }}
                 className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
               >
                 <UserCheck className="h-4 w-4" />
-              </Button>
+              </LicensedActionButton>
             )}
           </PermissionGate>
           <PermissionGate capability="can_delete_users">
-            <Button variant="ghost" size="icon" title="Eliminar usuario"
+            <LicensedActionButton capability="can_delete_users" variant="ghost" size="icon" title="Eliminar usuario"
               onClick={(e) => { e.stopPropagation(); onOpenDelete([row.id]); }}
               disabled={row.is_admin === 1}
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
             >
               <Trash2 className="h-4 w-4" />
-            </Button>
+            </LicensedActionButton>
           </PermissionGate>
         </div>
       )

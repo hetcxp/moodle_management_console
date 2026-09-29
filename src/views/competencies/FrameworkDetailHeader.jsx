@@ -1,9 +1,8 @@
 import React from 'react';
 import { ArrowLeft, Award, Eye, EyeOff, Layers, Sliders, Calendar, Clock, Plus } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { FilterBar } from '../../components/FilterBar';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { formatDate } from '../../lib/utils';
 
 export function FrameworkDetailHeader({
@@ -60,7 +59,8 @@ export function FrameworkDetailHeader({
         {framework && (
           <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap mt-4 sm:mt-0">
             <PermissionGate capability="can_manage_competencies">
-              <Button
+              <LicensedActionButton
+                capability="can_manage_competencies"
                 variant="outline"
                 onClick={onToggleVisibility}
                 title={framework.visible === 1 ? 'Ocultar marco' : 'Hacer visible'}
@@ -74,7 +74,7 @@ export function FrameworkDetailHeader({
                     <Eye className="h-4 w-4 mr-2 text-emerald-600" /> Hacer Visible
                   </>
                 )}
-              </Button>
+              </LicensedActionButton>
             </PermissionGate>
           </div>
         )}
@@ -127,14 +127,16 @@ export function FrameworkDetailHeader({
                 <h4 className="text-xl font-bold text-foreground">{framework.pendingreviewscount || 0}</h4>
               </div>
             </div>
-            <Button
+            <LicensedActionButton
+              capability="can_manage_competencies"
               size="sm"
               variant="outline"
               onClick={onOpenFrameworkReviews}
+              title="Revisiones de competencias"
               className="text-xs text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 shrink-0"
             >
               {(framework.pendingreviewscount || 0) > 0 ? 'Revisar' : 'Ver'}
-            </Button>
+            </LicensedActionButton>
           </div>
         </div>
       )}

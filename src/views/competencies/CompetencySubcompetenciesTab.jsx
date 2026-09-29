@@ -5,7 +5,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Dialog } from '../../components/ui/Dialog';
 import { useToast } from '../../components/ui/Toast';
 import { useCompetencyAction } from '../../hooks/useAdminerQueries';
-import { PermissionGate } from '../../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import {
   Layers,
   Plus,
@@ -201,14 +201,16 @@ export const CompetencySubcompetenciesTab = ({
         </div>
 
         <PermissionGate capability="can_manage_competencies">
-          <Button
+          <LicensedActionButton
+            capability="can_manage_competencies"
             size="sm"
             onClick={handleOpenCreate}
+            title="Nueva Subcompetencia"
             className="w-full sm:w-auto gap-1.5 shrink-0 bg-primary hover:bg-primary/90 shadow-sm"
           >
             <Plus className="h-4 w-4" />
             Nueva Subcompetencia
-          </Button>
+          </LicensedActionButton>
         </PermissionGate>
       </div>
 
@@ -228,10 +230,16 @@ export const CompetencySubcompetenciesTab = ({
           </p>
           {!search && (
             <PermissionGate capability="can_manage_competencies">
-              <Button size="sm" onClick={handleOpenCreate} className="gap-1.5">
+              <LicensedActionButton
+                capability="can_manage_competencies"
+                size="sm"
+                onClick={handleOpenCreate}
+                className="gap-1.5"
+                title="Crear primera subcompetencia"
+              >
                 <Plus className="h-4 w-4" />
                 Crear primera subcompetencia
-              </Button>
+              </LicensedActionButton>
             </PermissionGate>
           )}
         </div>
@@ -300,7 +308,8 @@ export const CompetencySubcompetenciesTab = ({
                   {/* Actions */}
                   <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
                     <PermissionGate capability="can_manage_competencies">
-                      <Button
+                      <LicensedActionButton
+                        capability="can_manage_competencies"
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
@@ -308,8 +317,9 @@ export const CompetencySubcompetenciesTab = ({
                         title="Editar subcompetencia"
                       >
                         <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
+                      </LicensedActionButton>
+                      <LicensedActionButton
+                        capability="can_manage_competencies"
                         variant="ghost"
                         size="sm"
                         className="h-8 w-8 p-0 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
@@ -317,7 +327,7 @@ export const CompetencySubcompetenciesTab = ({
                         title="Eliminar subcompetencia"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      </LicensedActionButton>
                     </PermissionGate>
                     <Button
                       variant="ghost"

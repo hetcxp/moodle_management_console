@@ -8,7 +8,7 @@ import { DataTable } from '../components/DataTable';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
 import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText, ExternalLink, BookOpen } from 'lucide-react';
-import { PermissionGate } from '../components/PermissionGate';
+import { PermissionGate, LicensedActionButton } from '../components/PermissionGate';
 import { navigateToDetail } from '../lib/navigation';
 import { formatDate as formatAppDate } from '../lib/utils';
 
@@ -254,15 +254,17 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
           {/* Botones de acción colocados debajo del nombre e imagen */}
           <PermissionGate capability="can_manage_courses">
             <div className="flex items-center gap-2 flex-wrap mt-4 pt-1">
-              <Button
+              <LicensedActionButton
+                capability="can_manage_courses"
                 variant="outline"
                 size="sm"
                 onClick={() => { setMessageText(''); setMessageModalOpen(true); }}
               >
                 <Mail className="h-4 w-4 mr-1.5" /> Mensaje
-              </Button>
+              </LicensedActionButton>
               
-              <Button
+              <LicensedActionButton
+                capability="can_manage_courses"
                 variant="outline"
                 size="sm"
                 onClick={() => {
@@ -276,9 +278,10 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
                 }}
               >
                 <CalendarClock className="h-4 w-4 mr-1.5" /> Expiración
-              </Button>
+              </LicensedActionButton>
               
-              <Button
+              <LicensedActionButton
+                capability="can_manage_courses"
                 variant={data.status === 0 ? "outline" : "default"}
                 size="sm"
                 className={data.status === 0 ? "text-amber-600 hover:text-amber-700 hover:bg-amber-50 border-amber-200" : "bg-emerald-600 hover:bg-emerald-700 text-white"}
@@ -289,15 +292,16 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
                 ) : (
                   <><Check className="h-4 w-4 mr-1.5" /> Activar</>
                 )}
-              </Button>
+              </LicensedActionButton>
               
-              <Button
+              <LicensedActionButton
+                capability="can_manage_courses"
                 variant="destructive"
                 size="sm"
                 onClick={() => setUnenrollConfirmOpen(true)}
               >
                 <Trash2 className="h-4 w-4 mr-1.5" /> Desmatricular
-              </Button>
+              </LicensedActionButton>
             </div>
           </PermissionGate>
         </div>

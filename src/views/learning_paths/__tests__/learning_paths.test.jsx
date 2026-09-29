@@ -11,6 +11,7 @@ import { LearningPathDetailKpis } from '../LearningPathDetailKpis';
 import { UnsavedChangesDialog } from '../UnsavedChangesDialog';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ToastProvider } from '../../../components/ui/Toast';
+import * as AuthContextModule from '../../../context/AuthContext';
 
 const createWrapper = () => {
   const queryClient = new QueryClient({
@@ -197,6 +198,56 @@ describe('Learning Paths - Frontend Components', () => {
 
       fireEvent.click(viewBtns[0]);
       expect(onViewInMoodle).toHaveBeenCalledWith(501);
+    });
+
+    it('deshabilita el toggle de prelación secuencial y previene mutaciones en modo solo lectura', () => {
+      const onSave = vi.fn();
+      render(
+        <LearningPathStructureTab
+          path={mockPath}
+          onSave={onSave}
+          readOnly={true}
+        />,
+        { wrapper: createWrapper() }
+      );
+
+      const checkbox = screen.getByRole('checkbox');
+      expect(checkbox.disabled).toBe(true);
+      expect(checkbox.checked).toBe(false);
+
+      const label = checkbox.closest('label');
+      expect(label.getAttribute('title')).toContain('Acción no disponible');
+      expect(label.className).toContain('cursor-not-allowed');
+
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(false);
+
+      // El botón de guardar o acciones de mutación están deshabilitados
+      const saveBtn = screen.getByRole('button', { name: /Guardar Estructura/i });
+      expect(saveBtn.disabled).toBe(true);
+    });
+
+    it('deshabilita el toggle de prelación secuencial cuando la licencia está inactiva', () => {
+      vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+        isLicensed: false,
+        permissions: { is_licensed: 0 },
+      });
+
+      render(
+        <LearningPathStructureTab path={mockPath} onSave={vi.fn()} />,
+        { wrapper: createWrapper() }
+      );
+
+      const checkbox = screen.getByRole('checkbox');
+      expect(checkbox.disabled).toBe(true);
+
+      const label = checkbox.closest('label');
+      expect(label.getAttribute('title')).toBe('Acción no disponible: requiere activación de licencia');
+
+      fireEvent.click(checkbox);
+      expect(checkbox.checked).toBe(false);
+
+      vi.restoreAllMocks();
     });
   });
 
