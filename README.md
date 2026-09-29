@@ -1,9 +1,9 @@
 # 🚀 Moodle Management Console (Consola de Administración)
 
-[![Version](https://img.shields.io/badge/version-1.2.9-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](package.json)
 [![Moodle](https://img.shields.io/badge/moodle-4.5%2B%20LTS-orange.svg)](plugin/management_console/version.php)
 [![PHP](https://img.shields.io/badge/php-8.1%20%7C%208.2%20%7C%208.3-777bb4.svg)](plugin/management_console/version.php)
-[![Tests](https://img.shields.io/badge/tests-328%20passed%20(49%20suites)-brightgreen.svg)](src/__tests__)
+[![Tests](https://img.shields.io/badge/tests-348%20passed%20(50%20suites)-brightgreen.svg)](src/__tests__)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](plugin/management_console/version.php)
 
 **La nueva era en la administración de Moodle.** 
@@ -23,6 +23,9 @@
 - ⚖️ **Gestión de Escalas de Calificación:** Administra escalas estándar y personalizadas para marcos de competencias, identificando escalas por defecto y niveles configurables.
 - 📋 **Plantillas y Editor Visual de Rúbricas:** Catálogo institucional de rúbricas, vista detallada de matriz interactiva de criterios/niveles y constructor ergonómico a ancho completo con reordenamiento, validación reactiva y KPIs de puntaje acumulado en tiempo real.
 - 🛤️ **Rutas de Aprendizaje (Learning Paths):** Diseño de itinerarios formativos secuenciales con control de prerrequisitos entre cursos, matriculación masiva de cohortes y analítica de progreso paso a paso sin efectos colaterales en consultas de lectura.
+- 🔑 **Sistema de Licenciamiento y Activación Criptográfica:** Verificación asimétrica basada en firmas Ed25519 (PHP Sodium), control anti-manipulación de reloj (anti-tampering), banner preventivo configurable (`LicenseBanner`), modal de activación inmediata (`LicenseModal`) y control granular de acciones con deshabilitación reactiva en `PermissionGate` y barras de herramientas.
+- 🛡️ **Auditoría Automatizada en Cron:** Tarea programada (`verify_license_task`) y eventos de seguridad auditables (`license_clock_tampered`, `license_status_warning`) para monitoreo continuo.
+- 🌐 **Soporte Bilingüe Completo (i18n):** Localización nativa en Español (`es`) e Inglés (`en`) tanto en cadenas de backend Moodle como en la interfaz de usuario.
 - 🔒 **Seguridad y Hardening Corporativo:** Sanitización reactiva anti-XSS contextual (`SafeHtml` y `sanitizer.js`), tokens de sesión en `sessionStorage` con vigencia estricta de 8 horas y purga automática de credenciales obsoletas, carga determinista de assets Vite e inmutabilidad de contratos de servicios web.
 - 💡 **Sistema de Ayuda Contextual Integrado:** Tooltips interactivos y panel lateral accesible (`HelpDrawer`) disponible en cada vista o presionando el atajo `?`, con guías paso a paso, atajos y enlaces a documentación oficial.
 - 📈 **Reportes y Exportaciones:** Genera y exporta reportes detallados en CSV de usuarios, cursos, competencias y progreso.
@@ -48,19 +51,21 @@
 - **Iconografía:** `lucide-react`
 
 **Backend (Moodle Plugin)**
-- **`tool_management_console`**: Plugin de administración de Moodle (`admin/tool/management_console`, PHP) que consolida la API de servicios web externos (`external_api`), una arquitectura de repositorios especializados (`category_repository`, `cohort_repository`, `competency_framework_repository`, `competency_repository`, `competency_review_repository`, `course_enrolment_repository`, `course_repository`, `learning_path_repository`, `rubric_repository`, `user_repository`) para consultas de alta velocidad y control granular de capacidades RBAC, integrando además la SPA React compilada en `app/`.
+- **`tool_management_console`**: Plugin de administración de Moodle (`admin/tool/management_console`, PHP) que consolida la API de servicios web externos (`external_api`), gestor criptográfico de licencias (`license_manager`), tarea programada (`verify_license_task`), y una arquitectura de repositorios especializados (`category_repository`, `cohort_repository`, `competency_framework_repository`, `competency_repository`, `competency_review_repository`, `course_enrolment_repository`, `course_repository`, `learning_path_repository`, `rubric_repository`, `user_repository`) para consultas de alta velocidad y control granular de capacidades RBAC, integrando además la SPA React compilada en `app/`.
 
 ### Estructura del Workspace
 
 ```text
 moodle_management_console/
+├── cli/                      # Herramientas de administración CLI
+│   └── generate_license.php  # Generador y emisor de licencias Ed25519
 ├── src/                      # Código fuente de la aplicación React (Vite + Tailwind)
-│   ├── __tests__/            # Suite de pruebas unitarias e integración (Vitest)
-│   ├── components/           # Componentes UI reutilizables (Botones, Tablas, Modales, PermissionGate)
+│   ├── __tests__/            # Suite de pruebas unitarias e integración (Vitest - 50 suites, 348 tests)
+│   ├── components/           # Componentes UI reutilizables (Botones, Tablas, Modales, PermissionGate, LicenseBanner, LicenseModal)
 │   ├── config/               # Configuración multi-tenant, endpoints y helpRegistry
-│   ├── context/              # Contextos globales (AuthContext, ThemeContext, HelpContext)
+│   ├── context/              # Contextos globales (AuthContext, ThemeContext, HelpContext, LicenseUiContext)
 │   ├── hooks/                # Custom hooks (Queries API, mutaciones, selección masiva)
-│   ├── lib/                  # Utilidades, navegación y helpers de formato
+│   ├── lib/                  # Utilidades, navegación, i18n y helpers de formato
 │   ├── services/             # Integración y llamadas a la API de Moodle
 │   └── views/                # Vistas principales de la consola
 │       ├── categories/       # Pestañas y modales del módulo de categorías
@@ -73,8 +78,20 @@ moodle_management_console/
 │       └── users/            # Pestañas y gestión de usuarios
 ├── plugin/                   
 │   └── management_console/   # Plugin de administración Moodle (admin/tool/management_console)
+│       ├── app/              # SPA React compilada y optimizada
+│       ├── classes/          # Repositorios, endpoints externos, tareas y gestor de licencias
+│       │   ├── event/        # Eventos (license_clock_tampered, license_status_warning)
+│       │   ├── external/     # Servicios Web (incluye license.php)
+│       │   ├── repository/   # Repositorios optimizados
+│       │   ├── task/         # Tareas programadas (verify_license_task)
+│       │   └── license_manager.php # Verificación de firmas Ed25519 y anti-tampering
+│       ├── db/               # Servicios WS, tareas de cron (tasks.php) y caches
+│       ├── lang/             # Paquetes de idioma (en, es)
+│       ├── license.php       # Panel administrativo de activación de licencias Moodle
+│       ├── phpunit.xml       # Configuración de pruebas PHPUnit
+│       └── tests/            # Pruebas PHPUnit (incluye license_manager_test.php)
 ├── scripts/                  # Scripts de utilidades, sincronización LTS y pruebas headless
-├── package.json              # Dependencias y scripts del frontend
+├── package.json              # Dependencias y scripts del frontend (v1.3.0)
 └── vite.config.js            # Configuración de compilación de Vite
 ```
 
@@ -84,7 +101,7 @@ moodle_management_console/
 
 ### 1. Requisitos Previos
 - Node.js (v22+)
-- Moodle (Instancia local o remota de desarrollo con PHP 8.1+) con acceso a instalación de plugins.
+- Moodle (Instancia local o remota de desarrollo con PHP 8.1+) con extensión `sodium` habilitada.
 
 ### 2. Instalación del Plugin en Moodle
 Copia o vincula simbólicamente la carpeta `plugin/management_console` dentro de `admin/tool/management_console` de tu instalación de Moodle y ejecuta la actualización de la base de datos:
@@ -131,16 +148,30 @@ npm run moodle:sync
 npm run dev:lts
 ```
 
+### 6. Gestión de Licencias (CLI)
+Para emitir y validar licencias criptográficas Ed25519:
+
+```bash
+# Generar par de claves (privada / pública):
+php cli/generate_license.php --generate-keypair
+
+# Emitir una licencia para un sitio por días:
+php cli/generate_license.php --private-key=<b64> --site=<siteidentifier> --days=365 --client="Institución Ejemplo"
+
+# Emitir una licencia indicando fecha exacta de vencimiento:
+php cli/generate_license.php --private-key=<b64> --site=<siteidentifier> --expires=2027-12-31 --client="Institución Ejemplo"
+```
+
 ---
 
 ## 🎨 Guía de Estilo UI y Arquitectura
-Para consultar los lineamientos de diseño, tokens Tailwind, catálogo de componentes (`FilterBar`, `DataTable`, `HelpDrawer`, `ScaleSelector`) y reglas de accesibilidad, consulta [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md).
+Para consultar los lineamientos de diseño, tokens Tailwind, catálogo de componentes (`FilterBar`, `DataTable`, `HelpDrawer`, `ScaleSelector`, `LicenseBanner`, `LicenseModal`) y reglas de accesibilidad, consulta [docs/UI_GUIDELINES.md](docs/UI_GUIDELINES.md).
 
 ---
 
 ## 🧪 Testing y Cobertura
 
-Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (328 tests en 49 suites):
+Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (348 tests en 50 suites):
 
 ```bash
 npm run test
@@ -164,10 +195,17 @@ Para verificar contratos externos de la API sin dependencias de base de datos ac
 python3 scripts/test_api_contract.py
 ```
 
-Para validar la sintaxis de todos los archivos PHP del plugin:
+Para validar la sintaxis de todos los archivos PHP del plugin y herramientas CLI:
 
 ```bash
 find plugin/management_console -type f -name '*.php' -exec php -l {} +
+find cli -type f -name '*.php' -exec php -l {} +
+```
+
+Para ejecutar las pruebas PHPUnit del módulo de licenciamiento:
+
+```bash
+vendor/bin/phpunit --configuration plugin/management_console/phpunit.xml plugin/management_console/tests/license_manager_test.php
 ```
 
 Los scripts automatizados para el API (headless) se encuentran en la carpeta `scripts/` (ej. `node scripts/test_category_api.js`).
