@@ -28,8 +28,8 @@ Plugin de administración y consola de gestión centralizada (`admin/tool/manage
 ## Información de Versión
 
 - **Componente:** `tool_management_console`
-- **Versión:** `2026092401`
-- **Release:** `1.2.8`
+- **Versión:** `2026092901`
+- **Release:** `1.2.9`
 - **Maturity:** `MATURITY_STABLE`
 - **Requires:** Moodle 4.5+ (`2024100700`)
 

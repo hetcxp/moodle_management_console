@@ -1,6 +1,6 @@
 # 🚀 Moodle Management Console (Consola de Administración)
 
-[![Version](https://img.shields.io/badge/version-1.2.8-blue.svg)](package.json)
+[![Version](https://img.shields.io/badge/version-1.2.9-blue.svg)](package.json)
 [![Moodle](https://img.shields.io/badge/moodle-4.5%2B%20LTS-orange.svg)](plugin/management_console/version.php)
 [![PHP](https://img.shields.io/badge/php-8.1%20%7C%208.2%20%7C%208.3-777bb4.svg)](plugin/management_console/version.php)
 [![Tests](https://img.shields.io/badge/tests-328%20passed%20(49%20suites)-brightgreen.svg)](src/__tests__)
