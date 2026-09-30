@@ -63,8 +63,8 @@ class autologin extends external_api {
         $context = \context_system::instance();
         self::validate_context($context);
         require_login(null, false);
-        if (!is_siteadmin() && !has_capability('tool/management_console:view', $context)) {
-            throw new \required_capability_exception($context, 'tool/management_console:view', 'nopermissions', '');
+        if (!is_siteadmin() && !has_capability('tool/management_console:access', $context)) {
+            throw new \required_capability_exception($context, 'tool/management_console:access', 'nopermissions', '');
         }
 
         // Security TD-AUTH-001: Validate destination to prevent open redirect

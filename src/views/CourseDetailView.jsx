@@ -172,10 +172,10 @@ export const CourseDetailView = ({ courseId, onBack, onNavigateToDetail, parentL
             <div>
               <div className="flex items-center gap-3">
                 <h1 className="text-2xl font-bold tracking-tight text-foreground">{data.fullname}</h1>
-                <LicensedActionButton 
+                <LicensedActionButton
                   capability="can_update_courses"
-                  variant="ghost" 
-                  size="sm" 
+                  variant="ghost"
+                  size="sm"
                   className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
                   onClick={() => setCourseEditModalOpen(true)}
                   title="Editar curso"

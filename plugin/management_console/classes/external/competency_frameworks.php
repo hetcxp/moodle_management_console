@@ -281,4 +281,3 @@ class competency_frameworks extends external_api {
         ]);
     }
 }
-

@@ -45,7 +45,7 @@ describe('HTML Sanitization (TD-SEC-001)', () => {
   it('SafeHtml component renders sanitized HTML without executable sinks', () => {
     const dirty = '<span>Safe text <img src="x" onerror="evil()" /></span>';
     const { container } = render(<SafeHtml html={dirty} className="custom-class" />);
-    
+
     expect(container.querySelector('.custom-class')).not.toBeNull();
     expect(container.innerHTML).toContain('Safe text');
     expect(container.innerHTML).not.toContain('onerror');

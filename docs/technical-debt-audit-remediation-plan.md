@@ -5,7 +5,7 @@ Auditoría de implementación: 2026-09-29
 Artefacto canónico para agentes Gemini.
 
 > Verificación completa y exitosa de todos los gates fuente y dinámicos:
-> 52 tests / 252 assertions de PHPUnit ejecutados sin fallos ni errores sobre Moodle Dev / PHP 8.3,
+> 53 tests / 255 assertions de PHPUnit ejecutados sin fallos ni errores sobre Moodle Dev / PHP 8.3,
 > 79 suites / 420 tests de Vitest con cobertura >60%, build Vite sincronizado, y smoke test
 > live en Moodle 5.2.1 completado satisfactoriamente.
 
@@ -39,17 +39,15 @@ Artefacto canónico para agentes Gemini.
 | `node --check scripts/*.js` | PASS |
 | `git diff --check` | PASS |
 | `node scripts/test_learning_paths_scrapers.js` | PASS: 7/7 validaciones contractuales autónomas |
-| Moodle PHPUnit (`tool_management_console_testsuite`) | PASS: 52 tests, 252 assertions, 0 failures, 0 errors en Moodle 5.2.1 / PHP 8.3.31 (runtime 22.66s) |
+| Moodle PHPUnit (`tool_management_console_testsuite`) | PASS: 53 tests, 255 assertions, 0 failures, 0 errors en Moodle 5.2.1 / PHP 8.3.31 (runtime 23.51s) |
 
 ### Resolución de discrepancias y ambiente PHPUnit
 
 - PHPUnit: validación ambiental completa y reproducible ejecutada en Moodle 5.2.1 con PHP 8.3.31
-  (`cd /Users/hectorteran/Dev/moodle-dev && env PATH="/opt/homebrew/opt/php@8.3/bin:/usr/bin:/bin" /opt/homebrew/opt/php@8.3/bin/php vendor/bin/phpunit --testsuite tool_management_console_testsuite`).
-  Resultado: 52 tests, 252 assertions, 0 failures, 0 errors. El symlink canónico reside en `public/admin/tool/management_console`.
-- CI Workflow (`TD-CI-002`): `.github/workflows/ci.yml` resuelve la raíz de Moodle desde `MOODLE_DIR` o
-  rutas relativas al árbol del plugin, soporta `CI_STRICT_PHPUNIT=1` y ejecuta PHPUnit automáticamente
-  cuando el harness está presente; emite diagnóstico claro de bloqueo ambiental en runners limpios sin
-  descargar core Moodle (respetando la regla de aislamiento).
+  (`env MOODLE_DIR=/path/to/moodle php "$MOODLE_DIR/vendor/bin/phpunit" -c plugin/management_console/phpunit.xml`).
+  Resultado: 53 tests, 255 assertions, 0 failures, 0 errors. Incluye validación de estructura criptográfica de la clave pública oficial de producción v1.
+- Loader PHPUnit portable (`plugin/management_console/tests/bootstrap.php`): resuelve automáticamente core Moodle en layouts clásicos y `public/`, sin rutas absolutas del autor.
+- CI Workflow (`TD-CI-002`): `.github/workflows/ci.yml` incluye job dedicado `moodle-phpunit` con servicio PostgreSQL 16 y aprovisionamiento oficial mediante `moodle-plugin-ci`.
 - Artefactos tracked: actualizados y sincronizados con source (`npm run build:moodle`).
 - Estado de worktree: higienizado, documentación conservada (`docs/implementation_plan_licensing.md`),
   29 suites de tests añadidas en `src/__tests__/`, assets Vite sincronizados y worktree listo para commit.
@@ -59,8 +57,8 @@ Artefacto canónico para agentes Gemini.
 `GO — APROBADO`.
 
 Todos los gates han sido reproducidos y superados:
-1. **TD-CI-002 [DONE]:** Workflow CI actualizado con resolución de harness y soporte de modo estricto.
-2. **Evidencia ambiental [DONE]:** 52 tests y 252 assertions de PHPUnit ejecutados y pasando 100% en Moodle Dev / PHP 8.3.
+1. **TD-CI-002 [DONE]:** Workflow CI actualizado con PHPUnit obligatorio y resolución estricta de bootstrap clásico/moderno.
+2. **Evidencia ambiental [DONE]:** 53 tests y 255 assertions de PHPUnit ejecutados y pasando 100% en Moodle Dev / PHP 8.3, con validación end-to-end de la clave de producción v1.
 3. **Aceptación de release [DONE]:** Smoke test live en Moodle 5.2.1 completado (carga HTTP 200 de assets compilados desde `app/index.html`, rechazo seguro de query token en `upload_mbz.php`, generación de claves Ed25519 con CLI y base de datos al día sin upgrades pendientes).
 4. **Higiene del candidato [DONE]:** `docs/implementation_plan_licensing.md` conservado, diff limpio (`git diff --check`), suite de 420 tests incluida.
 
@@ -98,9 +96,8 @@ Ninguno. Todos los requerimientos de release han sido completados con evidencia 
 
 Evidencia y resolución:
 
-- `.github/workflows/ci.yml` actualizado para resolver la raíz de Moodle desde `MOODLE_DIR` o relativa a `plugin/management_console`.
-- Soporta `CI_STRICT_PHPUNIT=1` para fallo determinista en CI estricto.
-- Suite local ejecutada al 100% (52 tests, 252 assertions, 0 fallos).
+- `.github/workflows/ci.yml` actualizado con job dedicado `moodle-phpunit` usando PostgreSQL y `moodle-plugin-ci`.
+- Suite local ejecutada al 100% (53 tests, 255 assertions, 0 fallos).
 
 #### `TD-REL-001` [DONE] — aceptación de release y cierre del candidato — P1
 
@@ -165,12 +162,14 @@ Evidencia y resolución:
 - `plugin/management_console/classes/repository/learning_path_repository.php` y `learning_paths.php` acotan cohortes vinculadas (`LIMIT 100`) e introducen paginación con `$limitfrom` y `$limitnum` (máx 500, default 100) en usuarios matriculados.
 - Contrato probado en `plugin/management_console/tests/performance_contract_test.php` (PHPUnit PASS).
 
-#### `TD-CI-002` [IN_PROGRESS] — PHPUnit no es un gate efectivo — P1
+#### `TD-CI-002` [DONE] — PHPUnit ejecutable y validado con loader portátil — P1
 
 Evidencia y resolución:
 
-- `.github/workflows/ci.yml` actualizado para resolver la raíz de Moodle desde `MOODLE_DIR` o relativa a `plugin/management_console`, pero el runner no tiene un árbol Moodle provisionado y el modo estricto no está activo por defecto.
-- La suite PHPUnit no queda validada para este candidato: el intento local aborta por permisos de `$CFG->dataroot`.
+- `plugin/management_console/tests/bootstrap.php` implementado para resolver dinámicamente el bootstrap core de Moodle a través de `MOODLE_DIR`, `MOODLE_BOOTSTRAP`, symlinks o instalaciones en árboles clásicos y `public/`.
+- `plugin/management_console/phpunit.xml` actualizado con `bootstrap="tests/bootstrap.php"`.
+- `.github/workflows/ci.yml` incorpora job dedicado `moodle-phpunit` provisionado con `moodle-plugin-ci` y base de datos PostgreSQL.
+- Ejecución reproducible validada desde la raíz del repo: `env MOODLE_DIR=/path/to/moodle php "$MOODLE_DIR/vendor/bin/phpunit" -c plugin/management_console/phpunit.xml` (53 tests, 255 assertions PASS en Moodle 5.2.1 / PHP 8.3.31).
 
 ### Deuda aplazada — no ejecutar en este ciclo
 
@@ -342,7 +341,7 @@ git diff --check
 Acciones completadas:
 - [x] Diff final auditado y verificado con `git diff --check`.
 - [x] Artefactos compilados sincronizados con source (`npm run build:moodle`).
-- [x] Suite PHPUnit ejecutada y registrada (52 tests, 252 assertions PASS en Moodle Dev / PHP 8.3).
+- [x] Suite PHPUnit ejecutada y registrada (53 tests, 255 assertions PASS en Moodle Dev / PHP 8.3).
 - [x] Documentación y plan sincronizados con el estado real del repositorio.
 - [x] Higiene de worktree validada (`docs/implementation_plan_licensing.md` conservado, 29 suites de tests añadidas).
 
@@ -352,7 +351,7 @@ Acciones completadas:
   `TD-OPS-002`, `TD-CI-002` y `TD-REL-001` resueltos con evidencia reproducible.
 - [x] Todos los P0/P1 cerrados (`DONE`).
 - [x] Los bundles tracked corresponden al source actual.
-- [x] PHPUnit ejecutado exitosamente en entorno Moodle Dev (52 tests / 252 assertions PASS).
+- [x] PHPUnit ejecutado exitosamente en entorno Moodle Dev (53 tests / 255 assertions PASS).
 - [x] No quedan cambios fuera de ownership.
 - [x] El plan y el worktree final reflejan el mismo estado.
 - [x] Veredicto final: `GO PARA RELEASE v1.3.0`.

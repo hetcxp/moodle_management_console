@@ -245,7 +245,7 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
             >
               Cancelar
             </Button>
-            <LicensedActionButton 
+            <LicensedActionButton
               capability="can_create_courses"
               onClick={handleRestore} 
               disabled={

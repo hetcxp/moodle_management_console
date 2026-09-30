@@ -16,7 +16,7 @@ Implementar el mecanismo de activación para `tool_management_console`. Por defe
 Clase estática `\tool_management_console\license_manager`. Implementar los siguientes métodos con estas firmas y contratos exactos:
 
 ```
-CONSTANTE: PUBLIC_KEY_B64 = '<placeholder — se sustituye al generar keypair>'
+CONSTANTE: PUBLIC_KEY_B64 (embebida oficialmente en license_manager.php; clave privada resguardada fuera del repositorio)
 
 get_site_identifier(): string
   → return $CFG->siteidentifier

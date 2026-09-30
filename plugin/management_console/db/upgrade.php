@@ -56,6 +56,11 @@ function xmldb_tool_management_console_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026092902, 'tool', 'management_console');
     }
 
+    if ($oldversion < 2026092903) {
+        // Security hardening and release gates remediation.
+        upgrade_plugin_savepoint(true, 2026092903, 'tool', 'management_console');
+    }
+
     return true;
 }
 

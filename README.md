@@ -3,10 +3,10 @@
 [![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](package.json)
 [![Moodle](https://img.shields.io/badge/moodle-4.5%2B%20LTS-orange.svg)](plugin/management_console/version.php)
 [![PHP](https://img.shields.io/badge/php-8.1%20%7C%208.2%20%7C%208.3-777bb4.svg)](plugin/management_console/version.php)
-[![Tests](https://img.shields.io/badge/tests-348%20passed%20(50%20suites)-brightgreen.svg)](src/__tests__)
+[![Tests](https://img.shields.io/badge/tests-420%20passed%20(79%20suites)-brightgreen.svg)](src/__tests__)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green.svg)](plugin/management_console/version.php)
 
-**La nueva era en la administración de Moodle.** 
+**La nueva era en la administración de Moodle.**
 
 **Moodle Management Console** (Consola de Administración y Gestión Centralizada) transforma la experiencia de gestión de plataformas Moodle, ofreciendo una interfaz moderna, rápida y unificada. Dile adiós a los clics innecesarios y a las pantallas lentas: con la Consola de Administración tienes el control total de tu plataforma (usuarios, cursos, cohortes, competencias y reportes) desde una sola aplicación intuitiva.
 
@@ -60,7 +60,7 @@ moodle_management_console/
 ├── cli/                      # Herramientas de administración CLI
 │   └── generate_license.php  # Generador y emisor de licencias Ed25519
 ├── src/                      # Código fuente de la aplicación React (Vite + Tailwind)
-│   ├── __tests__/            # Suite de pruebas unitarias e integración (Vitest - 50 suites, 348 tests)
+│   ├── __tests__/            # Suite de pruebas unitarias e integración (Vitest - 79 suites, 420 tests)
 │   ├── components/           # Componentes UI reutilizables (Botones, Tablas, Modales, PermissionGate, LicenseBanner, LicenseModal)
 │   ├── config/               # Configuración multi-tenant, endpoints y helpRegistry
 │   ├── context/              # Contextos globales (AuthContext, ThemeContext, HelpContext, LicenseUiContext)
@@ -171,7 +171,7 @@ Para consultar los lineamientos de diseño, tokens Tailwind, catálogo de compon
 
 ## 🧪 Testing y Cobertura
 
-Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (348 tests en 50 suites):
+Para ejecutar la batería completa de pruebas unitarias y de integración del frontend (420 tests en 79 suites):
 
 ```bash
 npm run test

@@ -80,24 +80,24 @@ async function runTests() {
 
       // 2. Test de Acción Masiva: Hide/Show
       console.log(`2. Test: Acción masiva (${targetVisibility}) en curso ID: ${testCourseId}`);
-      await callMoodleApi('tool_management_console_course_action', { 
-        action: targetVisibility, 
-        'courseids': [testCourseId] 
+      await callMoodleApi('tool_management_console_course_action', {
+        action: targetVisibility,
+        'courseids': [testCourseId]
       });
       console.log(`✅ Acción enviada. Verificando estado...`);
 
       // Verificamos si cambió
       const updatedCategory = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: testCategoryId });
       const updatedCourse = updatedCategory.courses.find(c => c.id === testCourseId);
-      
+
       const expectedVisible = targetVisibility === 'hide' ? 0 : 1;
       assert.strictEqual(updatedCourse.visible, expectedVisible, `El curso no cambió su visibilidad a ${expectedVisible}`);
       console.log(`✅ Visibilidad actualizada correctamente a ${expectedVisible}.`);
-      
+
       // Restauramos
-      await callMoodleApi('tool_management_console_course_action', { 
-        action: initialVisibility === 1 ? 'show' : 'hide', 
-        'courseids': [testCourseId] 
+      await callMoodleApi('tool_management_console_course_action', {
+        action: initialVisibility === 1 ? 'show' : 'hide',
+        'courseids': [testCourseId]
       });
       console.log(`✅ Estado restaurado a ${initialVisibility}.`);
       

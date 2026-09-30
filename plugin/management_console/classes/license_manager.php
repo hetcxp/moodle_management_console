@@ -34,11 +34,11 @@ namespace tool_management_console;
  */
 class license_manager {
     /**
-     * Known public keys indexed by key_id.
-     * Replace the placeholder value with the real Ed25519 public key (Base64Url, no padding).
+     * Trusted official Ed25519 public keys indexed by key_id (Base64Url, no padding).
+     * Used to verify offline cryptographic licenses signed by the vendor private key.
      */
     const PUBLIC_KEYS = [
-        'v1'   => 'YfTpPpcFjSRqT1dAoak8CHZN1O4WYgxE7dy5fLYbTbg',
+        'v1'   => 'mcdxxp0Md3W5lT7BFJiDJK3s_H8wd86_eEC2DWFBcvg',
     ];
 
     /**

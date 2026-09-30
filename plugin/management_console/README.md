@@ -22,7 +22,7 @@ Plugin de administración y consola de gestión centralizada (`admin/tool/manage
   - Detección anti-tampering de saltos temporales en el reloj del servidor mediante marca de agua monótona en base de datos.
   - Eventos de auditoría de seguridad: `license_clock_tampered` y `license_status_warning`.
   - Tarea programada (Scheduled Task) `verify_license_task` (`\tool_management_console\task\verify_license_task`) registrada en `db/tasks.php` para monitoreo continuo en cron.
-  - Endpoint externo `external/license.php` con métodos para consultar estado (`get_license_info`), ingresar clave (`set_license_key`) y revocar (`clear_license_key`).
+  - Endpoint externo `external/license.php` con métodos para consultar estado (`get_license_info`) e ingresar o limpiar clave (`save_license`).
   - Interfaz de activación administrativa en `license.php`.
 - **Copia de Seguridad y Restauración MBZ:** Endpoints dedicados (`course_backups.php`, `upload_mbz.php`) para carga segura de archivos `.mbz`, exploración de respaldos en servidor y restauración directa de cursos en categorías con verificación estricta de rutas.
 - **Soporte Bilingüe Nativo (i18n):**

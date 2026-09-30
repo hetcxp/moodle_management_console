@@ -348,4 +348,3 @@ export const LicenseModal = ({ isOpen, onClose }) => {
     </>
   );
 };
-

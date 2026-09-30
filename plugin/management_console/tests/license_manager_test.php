@@ -104,6 +104,18 @@ class license_manager_test extends \advanced_testcase {
     }
 
     /**
+     * Test that official production public key v1 is present and is a valid 32-byte Ed25519 key.
+     * Ensures production key integrity without requiring vendor secret keys in source.
+     */
+    public function test_production_v1_public_key_structure(): void {
+        $keys = license_manager::PUBLIC_KEYS;
+        $this->assertArrayHasKey('v1', $keys);
+        $this->assertNotEmpty($keys['v1']);
+        $pubkey = sodium_base642bin($keys['v1'], SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
+        $this->assertEquals(SODIUM_CRYPTO_SIGN_PUBLICKEYBYTES, strlen($pubkey), 'v1 must be a valid 32-byte Ed25519 public key');
+    }
+
+    /**
      * Test verifying invalid format strings.
      */
     public function test_verify_license_invalid_format(): void {
