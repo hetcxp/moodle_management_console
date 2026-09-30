@@ -76,21 +76,43 @@ export const AuthProvider = ({ children }) => {
           const configUser = window.MANAGEMENT_CONSOLE_CONFIG?.user || window.ADMINER_CONFIG?.user;
 
           if (configToken) {
-            setToken(configToken);
-            let currentUser = configUser || AuthService.getUser();
-            if (!currentUser) {
-              try {
-                currentUser = await AuthService.validateToken(configToken);
-              } catch (err) {
-                // eslint-disable-next-line no-console
-                if (import.meta.env.DEV) console.warn('Could not validate token via webservice, using fallback admin user:', err);
-                currentUser = { username: 'moodle_admin', fullname: 'Administrador Moodle' };
+            let validatedUser = null;
+            try {
+              validatedUser = await AuthService.validateToken(configToken);
+            } catch (err) {
+              // eslint-disable-next-line no-console
+              if (import.meta.env.DEV) console.warn('Could not validate embedded token via webservice, failing closed:', err);
+              validatedUser = null;
+            }
+
+            let isConsistent = Boolean(validatedUser && validatedUser.userid && validatedUser.username);
+            if (validatedUser && configUser) {
+              if (configUser.username && validatedUser.username && configUser.username !== validatedUser.username) {
+                isConsistent = false;
+              }
+              if (configUser.userid && validatedUser.userid && Number(configUser.userid) !== Number(validatedUser.userid)) {
+                isConsistent = false;
               }
             }
-            if (isCurrent) {
-              setUser(currentUser);
+
+            if (isConsistent && isCurrent) {
+              const effectiveUser = { ...configUser, ...validatedUser };
+              setToken(configToken);
+              setUser(effectiveUser);
               await fetchPermissions();
+            } else if (isCurrent) {
+              AuthService.logout();
+              setToken(null);
+              setUser(null);
+              setPermissions(null);
+              setPermissionsError(null);
             }
+          } else if (isCurrent) {
+            AuthService.logout();
+            setToken(null);
+            setUser(null);
+            setPermissions(null);
+            setPermissionsError(null);
           }
         } else {
           const curToken = AuthService.getToken();

@@ -392,11 +392,12 @@ export const AdminerApi = {
     }
 
     const baseUrl = API_CONFIG.baseUrl || '';
-    const uploadUrl = `${baseUrl}/admin/tool/management_console/upload_mbz.php?token=${encodeURIComponent(token)}`;
+    const uploadUrl = `${baseUrl}/admin/tool/management_console/upload_mbz.php`;
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', uploadUrl);
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 
       if (xhr.upload && typeof onProgress === 'function') {
         xhr.upload.onprogress = (event) => {

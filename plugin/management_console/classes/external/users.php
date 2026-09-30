@@ -343,25 +343,33 @@ class users extends external_api {
 
     public static function get_user_detail_parameters() {
         return new external_function_parameters([
-            'userid' => new external_value(PARAM_INT, 'User ID'),
+            'userid'    => new external_value(PARAM_INT, 'User ID'),
+            'limitfrom' => new external_value(PARAM_INT, 'Offset for enrolled courses', VALUE_DEFAULT, 0),
+            'limitnum'  => new external_value(PARAM_INT, 'Limit for enrolled courses (max 500, default 200)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function get_user_detail($userid) {
+    public static function get_user_detail($userid, $limitfrom = 0, $limitnum = 0) {
         global $CFG;
 
-        $context = context_system::instance();
-        self::validate_context($context);
-        require_capability('moodle/user:viewalldetails', $context);
-
         $params = self::validate_parameters(self::get_user_detail_parameters(), [
-            'userid' => $userid,
+            'userid'    => $userid,
+            'limitfrom' => $limitfrom,
+            'limitnum'  => $limitnum,
         ]);
 
         $user = user_repository::get_user_strict($params['userid']);
+        $context = \context_user::instance($user->id);
+        self::validate_context($context);
+        require_capability('moodle/user:viewdetails', $context);
 
-        $enrolled_courses = user_repository::get_user_enrolled_courses($user->id);
-        $all_enrolments = user_repository::get_user_all_enrolments($user->id);
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        $offset = max(0, (int)$params['limitfrom']);
+        $reqlimit = (int)$params['limitnum'];
+        $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
+
+        $enrolled_courses = user_repository::get_user_enrolled_courses($user->id, $offset, $limit);
+        $all_enrolments = user_repository::get_user_all_enrolments($user->id, 0, 500);
         
         $course_enrolments_map = [];
         foreach ($all_enrolments as $ue) {
@@ -392,8 +400,8 @@ class users extends external_api {
             ];
         }
 
-        // Cohortes a las que pertenece
-        $linked_cohorts = user_repository::get_user_cohorts($user->id);
+        // Cohortes a las que pertenece (acotadas a 100)
+        $linked_cohorts = user_repository::get_user_cohorts($user->id, 0, 100);
 
         $cohorts = [];
         foreach ($linked_cohorts as $coh) {
@@ -410,14 +418,14 @@ class users extends external_api {
         $completed_count = count(array_filter($active_courses, function($c) { return (int)($c['progress'] ?? 0) === 100; }));
         $progress = ($enrolled_count > 0) ? min(100, round(($completed_count / $enrolled_count) * 100)) : 0;
 
-        global $CFG;
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
         $is_admin = in_array($user->id, $siteadmins) ? 1 : 0;
 
         $system_roles = user_repository::get_user_system_roles($user->id);
         $competencies = user_repository::get_user_competencies($user->id);
 
-        $clean_email = trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$user->email));
+        $can_view_email = is_siteadmin() || has_capability('moodle/user:viewalldetails', \context_system::instance());
+        $clean_email = $can_view_email ? trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$user->email)) : '';
 
         return [
             'id' => (int)$user->id,
@@ -518,7 +526,7 @@ class users extends external_api {
                             'actionuserfullname' => new external_value(PARAM_TEXT, 'Author or action user fullname'),
                             'descidentifier' => new external_value(PARAM_TEXT, 'Description identifier', VALUE_OPTIONAL),
                             'note' => new external_value(PARAM_RAW, 'Evidence note', VALUE_OPTIONAL),
-                            'url' => new external_value(PARAM_RAW, 'Evidence URL', VALUE_OPTIONAL),
+                            'url' => new external_value(PARAM_URL, 'Evidence URL', VALUE_DEFAULT, ''),
                             'grade' => new external_value(PARAM_INT, 'Grade value', VALUE_OPTIONAL),
                             'timecreated' => new external_value(PARAM_INT, 'Timestamp created'),
                             'timecreated_str' => new external_value(PARAM_TEXT, 'Formatted creation date', VALUE_OPTIONAL),

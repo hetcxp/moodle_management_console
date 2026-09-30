@@ -19,6 +19,8 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 
+import { getChromeExecutable, getPhpExecutable } from './env-helper.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
@@ -28,8 +30,8 @@ if (!fs.existsSync(SCRATCH_DIR)) {
   fs.mkdirSync(SCRATCH_DIR, { recursive: true });
 }
 
-const CHROME_PATH = process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const PHP_PATH = process.env.PHP_BIN || '/opt/homebrew/opt/php@8.3/bin/php';
+const CHROME_PATH = getChromeExecutable();
+const PHP_PATH = getPhpExecutable();
 const MOODLE_CONFIG = process.env.MOODLE_CONFIG || path.resolve(ROOT_DIR, '../moodle-dev/public/config.php');
 const RUBRIC_REPO_FILE = path.resolve(ROOT_DIR, 'plugin/management_console/classes/repository/rubric_repository.php');
 const PORT = 3002;
@@ -143,12 +145,12 @@ async function runSuite() {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
 
-    // Inyectar token de sesión en localStorage para pasar LoginView y cargar permisos reales
+    // Inyectar token de sesión en sessionStorage para pasar LoginView y cargar permisos reales
     await page.goto(`${BASE_URL}/`, { waitUntil: 'domcontentloaded' });
     await page.evaluate((tok) => {
-      localStorage.setItem('adminer_token', tok);
-      localStorage.setItem('adminer_token_date', String(Date.now()));
-      localStorage.setItem('adminer_user', JSON.stringify({
+      sessionStorage.setItem('adminer_token', tok);
+      sessionStorage.setItem('adminer_token_date', String(Date.now()));
+      sessionStorage.setItem('adminer_user', JSON.stringify({
         userid: 2,
         username: 'admin',
         fullname: 'Administrador Moodle',

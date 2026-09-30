@@ -41,3 +41,55 @@ export function loadEnv(projectRoot, targetUrl = null) {
     }
   }
 }
+
+/**
+ * Portable resolver for Chrome/Chromium binary.
+ *
+ * @returns {string} Absolute path to executable
+ */
+export function getChromeExecutable() {
+  const candidates = [
+    process.env.CHROME_BIN,
+    process.env.CHROME_PATH,
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium'
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  throw new Error(
+    'No se encontró ejecutable de Chrome/Chromium. Configura CHROME_BIN o CHROME_PATH en tu entorno.'
+  );
+}
+
+/**
+ * Portable resolver for PHP CLI binary.
+ *
+ * @returns {string} Absolute path to PHP binary
+ */
+export function getPhpExecutable() {
+  const candidates = [
+    process.env.PHP_BIN,
+    process.env.PHP_PATH,
+    '/opt/homebrew/opt/php@8.3/bin/php',
+    '/opt/homebrew/opt/php/bin/php',
+    '/opt/homebrew/bin/php',
+    '/usr/local/bin/php',
+    '/usr/bin/php'
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  throw new Error(
+    'No se encontró ejecutable de PHP. Configura PHP_BIN o PHP_PATH en tu entorno.'
+  );
+}

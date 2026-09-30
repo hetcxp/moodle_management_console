@@ -29,8 +29,12 @@ export async function takeScreenshot(page, prefix, scratchDir = path.resolve(pro
  * @param {object} [config] Parámetros de conexión (baseUrl, user, pass).
  */
 export async function loginMoodle(page, config = {}) {
-  const baseUrl = (config.baseUrl || process.env.MOODLE_URL || 'https://lts.academyfactory.online').replace(/\/+$/, '');
-  const user = config.user || process.env.MOODLE_USER || 'hteran';
+  const rawBaseUrl = config.baseUrl || process.env.MOODLE_URL;
+  if (!rawBaseUrl) {
+    throw new Error('URL de Moodle no configurada. Especifica config.baseUrl o define la variable MOODLE_URL.');
+  }
+  const baseUrl = rawBaseUrl.replace(/\/+$/, '');
+  const user = config.user || process.env.MOODLE_USER || 'admin';
   const pass = config.pass || process.env.MOODLE_PASS;
 
   if (!pass) {

@@ -49,9 +49,14 @@ describe('AuthService (TD-SEC-004)', () => {
   });
 
   describe('isAuthenticated and TTL alignment', () => {
-    it('returns true when window config has a token', () => {
-      window.MANAGEMENT_CONSOLE_CONFIG = { token: 'config-token' };
+    it('returns true when window config has a token and user', () => {
+      window.MANAGEMENT_CONSOLE_CONFIG = { token: 'config-token', user: { userid: 1 } };
       expect(AuthService.isAuthenticated()).toBe(true);
+    });
+
+    it('returns false when window config has a token but no user', () => {
+      window.MANAGEMENT_CONSOLE_CONFIG = { token: 'config-token' };
+      expect(AuthService.isAuthenticated()).toBe(false);
     });
 
     it('returns false when no token or no user stored', () => {
@@ -70,6 +75,27 @@ describe('AuthService (TD-SEC-004)', () => {
 
       expect(AuthService.isAuthenticated()).toBe(false);
       expect(sessionStorage.getItem('adminer_token')).toBeNull();
+    });
+
+    it('returns false and logs out if token timestamp is NaN, negative, or in the future', () => {
+      sessionStorage.setItem('adminer_token', 'nan-token');
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
+
+      sessionStorage.setItem('adminer_token_date', 'not-a-number');
+      expect(AuthService.isAuthenticated()).toBe(false);
+      expect(sessionStorage.getItem('adminer_token')).toBeNull();
+
+      // Negative timestamp
+      sessionStorage.setItem('adminer_token', 'neg-token');
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
+      sessionStorage.setItem('adminer_token_date', '-1000');
+      expect(AuthService.isAuthenticated()).toBe(false);
+
+      // Future timestamp
+      sessionStorage.setItem('adminer_token', 'future-token');
+      sessionStorage.setItem('adminer_user', JSON.stringify({ userid: 1 }));
+      sessionStorage.setItem('adminer_token_date', String(Date.now() + 1000000));
+      expect(AuthService.isAuthenticated()).toBe(false);
     });
 
     it('returns false if token has no timestamp', () => {
@@ -143,6 +169,50 @@ describe('AuthService (TD-SEC-004)', () => {
       expect(user).toEqual(expect.objectContaining({ userid: 3, username: 'teacher' }));
       expect(sessionStorage.getItem('adminer_token')).toBe('token-123');
       expect(localStorage.getItem('adminer_token')).toBeNull();
+    });
+
+    it('validateToken throws error on HTTP failure and does not store credentials (TD-AUTH-004)', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+      });
+
+      await expect(AuthService.validateToken('bad-token')).rejects.toThrow('Error de conexión HTTP: 401');
+      expect(sessionStorage.getItem('adminer_token')).toBeNull();
+      expect(sessionStorage.getItem('adminer_user')).toBeNull();
+      expect(localStorage.getItem('adminer_token')).toBeNull();
+    });
+
+    it('validateToken throws error on incomplete user identity and does not store credentials (TD-AUTH-004)', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          sitename: 'Moodle Dev',
+          // missing userid and username
+        }),
+      });
+
+      await expect(AuthService.validateToken('partial-token')).rejects.toThrow(
+        'Identidad de usuario incompleta en la respuesta de validación.'
+      );
+      expect(sessionStorage.getItem('adminer_token')).toBeNull();
+      expect(sessionStorage.getItem('adminer_user')).toBeNull();
+      expect(localStorage.getItem('adminer_token')).toBeNull();
+    });
+
+    it('validateToken throws error when response contains exception (TD-AUTH-004)', async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({
+          exception: 'moodle_exception',
+          errorcode: 'invalidtoken',
+          message: 'Token de acceso no válido',
+        }),
+      });
+
+      await expect(AuthService.validateToken('invalid-token')).rejects.toThrow('Token de acceso no válido');
+      expect(sessionStorage.getItem('adminer_token')).toBeNull();
+      expect(sessionStorage.getItem('adminer_user')).toBeNull();
     });
 
     it('setManualToken stores token in sessionStorage with timestamp', () => {

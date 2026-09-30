@@ -60,6 +60,30 @@ class autologin extends external_api {
             'destination' => $destination
         ]);
 
+        $context = \context_system::instance();
+        self::validate_context($context);
+        require_login(null, false);
+        if (!is_siteadmin() && !has_capability('tool/management_console:view', $context)) {
+            throw new \required_capability_exception($context, 'tool/management_console:view', 'nopermissions', '');
+        }
+
+        // Security TD-AUTH-001: Validate destination to prevent open redirect
+        $dest = trim($params['destination']);
+        $allowed = false;
+        if (str_starts_with($dest, '/') && !str_starts_with($dest, '//') && !str_starts_with($dest, '/\\')) {
+            $allowed = true;
+        } else {
+            $parsed_dest = parse_url($dest);
+            $parsed_www = parse_url($CFG->wwwroot);
+            if (!empty($parsed_dest['host']) && !empty($parsed_www['host']) &&
+                strcasecmp($parsed_dest['host'], $parsed_www['host']) === 0) {
+                $allowed = true;
+            }
+        }
+        if (!$allowed) {
+            throw new \invalid_parameter_exception('The destination redirect URL must be internal to this Moodle site.');
+        }
+
         require_once($CFG->dirroot . '/user/lib.php');
 
         $key = get_user_key('tool/management_console', $USER->id);
@@ -70,7 +94,7 @@ class autologin extends external_api {
         // Endpoint de autologin en plugin root: admin/tool/management_console/autologin.php
         $autologin_url = new \moodle_url('/admin/tool/management_console/autologin.php', [
             'token' => $key,
-            'redirect' => $params['destination']
+            'redirect' => $dest
         ]);
 
         return [

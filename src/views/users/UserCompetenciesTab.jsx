@@ -9,6 +9,7 @@ import { Dialog } from '../../components/ui/Dialog';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { AssignCompetencyModal } from '../../components/ui/AssignCompetencyModal';
 import { exportToCsv } from '../../components/CsvExporter';
+import { sanitizeUrl } from '../../lib/sanitizer';
 
 export const UserCompetenciesTab = ({
   competencies = [],
@@ -438,11 +439,11 @@ export const UserCompetenciesTab = ({
                   </div>
                 )}
 
-                {ev.url && (
+                {sanitizeUrl(ev.url) && (
                   <a
-                    href={ev.url}
+                    href={sanitizeUrl(ev.url)}
                     target="_blank"
-                    rel="noreferrer"
+                    rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-primary hover:underline pt-1"
                   >
                     Ver recurso <ExternalLink className="h-3 w-3" />

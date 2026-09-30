@@ -195,12 +195,21 @@ class learning_path_repository {
      * @return stdClass Detalle de la ruta.
      * @throws moodle_exception Si el curso no existe o no pertenece a la categoría LP.
      */
-    public static function get_learning_path_detail(int $courseid): stdClass {
+    /**
+     * Obtiene el detalle de una ruta de aprendizaje por ID de curso contenedor.
+     *
+     * @param int $courseid ID del curso contenedor.
+     * @param int $limitfrom Offset para paginación de usuarios.
+     * @param int $limitnum Límite de usuarios (máx 500, default 100).
+     * @return stdClass Detalle de la ruta.
+     */
+    public static function get_learning_path_detail(int $courseid, int $limitfrom = 0, int $limitnum = 100): stdClass {
         global $DB;
 
-        $lp_categoryid = self::get_or_create_lp_category();
+        // Read-only check: do not create missing categories during read operations (TD-READ-001).
+        $lp_categoryid = self::get_lp_category_id(false);
         $course = $DB->get_record('course', ['id' => $courseid]);
-        if (!$course || (int)$course->category !== $lp_categoryid) {
+        if (!$course || ($lp_categoryid > 0 && (int)$course->category !== $lp_categoryid)) {
             throw new moodle_exception('invalidcourseid', 'error');
         }
 
@@ -255,7 +264,7 @@ class learning_path_repository {
             }
         }
 
-        // Cohortes asignadas al contenedor
+        // Cohortes asignadas al contenedor (acotado a 100)
         $sql_cohorts = "
             SELECT e.id AS enrolid, e.customint1 AS cohortid, coh.name AS cohortname,
                    COUNT(DISTINCT ue.userid) AS membercount
@@ -264,8 +273,9 @@ class learning_path_repository {
          LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
              WHERE e.courseid = :courseid AND e.enrol = 'cohort'
           GROUP BY e.id, e.customint1, coh.name
+          ORDER BY coh.name ASC
         ";
-        $cohort_records = $DB->get_records_sql($sql_cohorts, ['courseid' => $courseid]);
+        $cohort_records = $DB->get_records_sql($sql_cohorts, ['courseid' => $courseid], 0, 100);
         $cohorts = [];
         if ($cohort_records) {
             $cohorts = array_values(array_map(function($c) {
@@ -332,7 +342,9 @@ class learning_path_repository {
             }
         }
 
-        // Usuarios matriculados en la ruta
+        // Usuarios matriculados en la ruta con límite y offset (TD-DATA-001 / TD-PERF-001)
+        $offset = max(0, $limitfrom);
+        $limit = ($limitnum > 0 && $limitnum <= 500) ? $limitnum : 100;
         $sql_enrolled_users = "
             SELECT ue.id AS userenrolid, u.id, u.firstname, u.lastname, u.email,
                    ue.status, ue.timecreated, e.enrol AS enrolmethod
@@ -342,7 +354,7 @@ class learning_path_repository {
              WHERE e.courseid = :courseid AND u.deleted = 0
           ORDER BY u.lastname ASC, u.firstname ASC
         ";
-        $enrolled_user_records = $DB->get_records_sql($sql_enrolled_users, ['courseid' => $courseid]);
+        $enrolled_user_records = $DB->get_records_sql($sql_enrolled_users, ['courseid' => $courseid], $offset, $limit);
         $enrolled_users = [];
         if ($enrolled_user_records) {
             foreach ($enrolled_user_records as $eur) {

@@ -1,10 +1,23 @@
 import assert from 'assert';
 
-const MOODLE_URL = process.env.MOODLE_URL || 'http://localhost/moodle';
-const TOKEN = process.env.MOODLE_TOKEN || 'tu_token_aqui';
+const MOODLE_URL = process.env.MOODLE_URL;
+const TOKEN = process.env.MOODLE_TOKEN;
+const IS_CONFIRMED = process.argv.includes('--confirm-target') || process.env.CONFIRM_TARGET === '1';
 
-if (TOKEN === 'tu_token_aqui') {
-  console.warn('⚠️ Advertencia: MOODLE_TOKEN no está configurado.');
+if (!MOODLE_URL) {
+  console.error('ERROR: MOODLE_URL no configurada.');
+  process.exit(1);
+}
+
+if (!TOKEN || TOKEN === 'tu_token_aqui') {
+  console.error('ERROR: MOODLE_TOKEN válido requerido para la prueba.');
+  process.exit(1);
+}
+
+if (!IS_CONFIRMED) {
+  console.error('ERROR: Mutación de cursos bloqueada. Debes incluir --confirm-target.');
+  console.error('Uso: node scripts/headless_test_move.js --confirm-target');
+  process.exit(1);
 }
 
 async function callMoodleApi(wsfunction, params = {}) {
@@ -34,7 +47,7 @@ async function callMoodleApi(wsfunction, params = {}) {
 async function runTest() {
   console.log('--- Iniciando Prueba Headless: Mover Curso y Restaurar ---\n');
   try {
-    const categoriesRes = await callMoodleApi('local_adminer_get_categories_flat');
+    const categoriesRes = await callMoodleApi('tool_management_console_get_categories_flat');
     const categories = categoriesRes.categories;
     if (categories.length < 2) {
       console.log('No hay suficientes categorías para probar (se necesitan al menos 2).');
@@ -47,7 +60,7 @@ async function runTest() {
     let targetCategory = null;
 
     for (let cat of categories) {
-      const detail = await callMoodleApi('local_adminer_get_category_detail', { categoryid: cat.id });
+      const detail = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: cat.id });
       if (detail.courses && detail.courses.length > 0) {
         courseToMove = detail.courses[0];
         originalCategory = cat;
@@ -67,7 +80,7 @@ async function runTest() {
 
     // 1. Mover el curso
     console.log(`1️⃣  Moviendo curso a categoría destino...`);
-    await callMoodleApi('local_adminer_course_action', {
+    await callMoodleApi('tool_management_console_course_action', {
       action: 'move',
       'courseids': [courseToMove.id],
       categoryid: targetCategory.id
@@ -75,19 +88,19 @@ async function runTest() {
     console.log(`✅ Curso movido exitosamente.`);
 
     // 2. Verificar que ya no está en la categoría original
-    const detailOriginal = await callMoodleApi('local_adminer_get_category_detail', { categoryid: originalCategory.id });
+    const detailOriginal = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: originalCategory.id });
     const isStillThere = detailOriginal.courses.some(c => c.id === courseToMove.id);
     assert(!isStillThere, 'El curso sigue en la categoría original.');
 
     // 3. Verificar que está en la categoría destino
-    const detailTarget = await callMoodleApi('local_adminer_get_category_detail', { categoryid: targetCategory.id });
+    const detailTarget = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: targetCategory.id });
     const isAtTarget = detailTarget.courses.some(c => c.id === courseToMove.id);
     assert(isAtTarget, 'El curso no aparece en la categoría destino.');
     console.log(`✅ Verificación exitosa: El curso está ahora en el destino.`);
 
     // 4. Restaurar a la categoría original
     console.log(`\n2️⃣  Restaurando curso a su categoría original...`);
-    await callMoodleApi('local_adminer_course_action', {
+    await callMoodleApi('tool_management_console_course_action', {
       action: 'move',
       'courseids': [courseToMove.id],
       categoryid: originalCategory.id
@@ -95,7 +108,7 @@ async function runTest() {
     console.log(`✅ Curso restaurado exitosamente.`);
 
     // 5. Verificación final
-    const detailFinal = await callMoodleApi('local_adminer_get_category_detail', { categoryid: originalCategory.id });
+    const detailFinal = await callMoodleApi('tool_management_console_get_category_detail', { categoryid: originalCategory.id });
     const isRestored = detailFinal.courses.some(c => c.id === courseToMove.id);
     assert(isRestored, 'El curso no se restauró correctamente en su categoría original.');
     console.log(`✅ Verificación final exitosa: El curso volvió a su origen.`);

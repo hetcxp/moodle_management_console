@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import puppeteer from 'puppeteer-core';
-import { loadEnv } from './env-helper.js';
+import { loadEnv, getChromeExecutable } from './env-helper.js';
 import { loginMoodle, takeScreenshot } from './automation-helper.js';
 
 const ROOT_DIR = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
@@ -35,7 +35,7 @@ async function deployToSite(baseUrl) {
   console.log(`===============================================================`);
 
   const browser = await puppeteer.launch({
-    executablePath: process.env.CHROME_BIN || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    executablePath: getChromeExecutable(),
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });

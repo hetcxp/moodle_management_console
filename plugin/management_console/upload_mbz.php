@@ -83,16 +83,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$token = optional_param('token', '', PARAM_ALPHANUM);
-if (empty($token) && isset($_SERVER['HTTP_AUTHORIZATION'])) {
-    if (preg_match('/Bearer\s+(.*)$/i', $_SERVER['HTTP_AUTHORIZATION'], $matches)) {
-        $token = clean_param($matches[1], PARAM_ALPHANUM);
-    }
+// Security TD-BKP-001: Strictly reject authentication tokens passed via query or body parameters.
+if (isset($_GET['token']) || isset($_POST['token'])) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Passing authentication tokens via query or body parameters is strictly forbidden. Use the Authorization: Bearer <token> header.']);
+    exit;
+}
+
+$token = '';
+$authheader = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
+if (!empty($authheader) && preg_match('/Bearer\s+([a-zA-Z0-9]+)/i', trim($authheader), $matches)) {
+    $token = clean_param($matches[1], PARAM_ALPHANUM);
 }
 
 if (empty($token)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'Missing authentication token.']);
+    http_response_code(401);
+    echo json_encode(['error' => 'Missing or invalid Authorization header.']);
     exit;
 }
 
@@ -171,25 +177,91 @@ if ($file['error'] !== UPLOAD_ERR_OK) {
     exit;
 }
 
+// Security TD-BKP-002: Verify file extension
 $orig_name = $file['name'];
 $ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
 if ($ext !== 'mbz') {
+    @unlink($file['tmp_name']);
     http_response_code(400);
     echo json_encode(['error' => 'Invalid file extension. Only .mbz files are permitted.']);
+    exit;
+}
+
+// Security TD-BKP-002: Server-side file size ceiling check
+require_once($CFG->libdir . '/filelib.php');
+$maxbytes = get_max_upload_file_size($CFG->maxbytes);
+if (!empty($maxbytes) && $file['size'] > $maxbytes) {
+    @unlink($file['tmp_name']);
+    http_response_code(400);
+    echo json_encode(['error' => "Uploaded file exceeds the maximum allowed size ({$maxbytes} bytes)."]);
+    exit;
+}
+
+// Security TD-BKP-002: MIME validation via finfo
+$finfo = finfo_open(FILEINFO_MIME_TYPE);
+$mimetype = $finfo ? finfo_file($finfo, $file['tmp_name']) : '';
+if ($finfo) {
+    finfo_close($finfo);
+}
+
+$allowed_mimes = [
+    'application/gzip',
+    'application/x-gzip',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-tar',
+    'application/octet-stream',
+];
+if (!empty($mimetype) && !in_array($mimetype, $allowed_mimes, true)) {
+    @unlink($file['tmp_name']);
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid file MIME type for MBZ backup archive.']);
+    exit;
+}
+
+// Security TD-BKP-002: Verify archive magic bytes signature (gzip: \x1f\x8b, zip: PK)
+$handle = @fopen($file['tmp_name'], 'rb');
+if (!$handle) {
+    @unlink($file['tmp_name']);
+    http_response_code(500);
+    echo json_encode(['error' => 'Cannot read uploaded file for archive validation.']);
+    exit;
+}
+$magic = fread($handle, 4);
+fclose($handle);
+
+$is_gzip = (substr($magic, 0, 2) === "\x1f\x8b");
+$is_zip = (substr($magic, 0, 2) === "PK");
+if (!$is_gzip && !$is_zip) {
+    @unlink($file['tmp_name']);
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid MBZ archive format: missing gzip/zip compression signature.']);
     exit;
 }
 
 // Security TD-SEC-003: Isolate uploaded backups in a dedicated per-user namespace
 $tempdir = $CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$user->id;
 if (!is_dir($tempdir)) {
-    mkdir($tempdir, 0750, true);
+    if (!mkdir($tempdir, 0750, true)) {
+        @unlink($file['tmp_name']);
+        http_response_code(500);
+        echo json_encode(['error' => 'Failed to initialize secure upload destination directory.']);
+        exit;
+    }
+}
+
+if (!is_writable($tempdir)) {
+    @unlink($file['tmp_name']);
+    http_response_code(500);
+    echo json_encode(['error' => 'Destination directory is not writable.']);
+    exit;
 }
 
 // Passive housekeeping: remove mbz_* files older than 2 hours in user's $tempdir
 $now = time();
 $twohoursago = $now - (2 * 3600);
-if ($handle = opendir($tempdir)) {
-    while (false !== ($entry = readdir($handle))) {
+if ($dirhandle = opendir($tempdir)) {
+    while (false !== ($entry = readdir($dirhandle))) {
         if (str_starts_with($entry, 'mbz_') && str_ends_with($entry, '.mbz')) {
             $entrypath = $tempdir . '/' . $entry;
             if (is_file($entrypath) && filemtime($entrypath) < $twohoursago) {
@@ -197,12 +269,13 @@ if ($handle = opendir($tempdir)) {
             }
         }
     }
-    closedir($handle);
+    closedir($dirhandle);
 }
 
 $filename = 'mbz_' . (int)$user->id . '_' . bin2hex(random_bytes(16)) . '.mbz';
 $destfile = $tempdir . '/' . $filename;
 if (!move_uploaded_file($file['tmp_name'], $destfile)) {
+    @unlink($file['tmp_name']);
     http_response_code(500);
     echo json_encode(['error' => 'Failed to move uploaded file to temporary backup storage.']);
     exit;

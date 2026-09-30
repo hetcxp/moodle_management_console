@@ -33,9 +33,19 @@ namespace tool_management_console;
  * @covers     \tool_management_console\external\license
  */
 class license_manager_test extends \advanced_testcase {
+    protected function setUp(): void {
+        parent::setUp();
+        license_manager::set_test_public_key('test', 'tMVPyBxJgiMuZqjI-h1HQHxvzIn_TpGUINfGiWVsyxI');
+    }
+
+    protected function tearDown(): void {
+        license_manager::reset_test_public_keys();
+        parent::tearDown();
+    }
+
     /**
      * Return deterministic secret key for Ed25519 signing in tests.
-     * Matches the test public key in license_manager::PUBLIC_KEYS['test'].
+     * Matches the test public key injected during PHPUnit runs.
      *
      * @return string
      */
@@ -298,5 +308,29 @@ class license_manager_test extends \advanced_testcase {
         $this->assertIsArray($removeres);
         $this->assertTrue($removeres['success']);
         $this->assertEquals('missing', license_manager::get_license_info()['status']);
+    }
+
+    /**
+     * Test that 'test' key_id is strictly rejected when not injected (production default).
+     */
+    public function test_verify_license_rejects_test_key_without_injection(): void {
+        $this->resetAfterTest(true);
+        license_manager::reset_test_public_keys();
+
+        $key = $this->create_test_license_key();
+        $res = license_manager::verify_license($key);
+
+        $this->assertFalse($res['valid']);
+        $this->assertEquals('invalid_format', $res['status']);
+    }
+
+    /**
+     * Test that get_public_keys returns only production keys by default.
+     */
+    public function test_get_public_keys_production_defaults(): void {
+        license_manager::reset_test_public_keys();
+        $keys = license_manager::get_public_keys();
+        $this->assertArrayHasKey('v1', $keys);
+        $this->assertArrayNotHasKey('test', $keys);
     }
 }

@@ -39,8 +39,55 @@ class license_manager {
      */
     const PUBLIC_KEYS = [
         'v1'   => 'YfTpPpcFjSRqT1dAoak8CHZN1O4WYgxE7dy5fLYbTbg',
-        'test' => 'tMVPyBxJgiMuZqjI-h1HQHxvzIn_TpGUINfGiWVsyxI',
     ];
+
+    /**
+     * Ephemeral test public keys injected strictly during PHPUnit execution.
+     *
+     * @var array<string, string>
+     */
+    private static array $test_public_keys = [];
+
+    /**
+     * Return all active public keys, including test keys ONLY if running under PHPUnit.
+     *
+     * @return array<string, string>
+     */
+    public static function get_public_keys(): array {
+        $keys = self::PUBLIC_KEYS;
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST && !empty(self::$test_public_keys)) {
+            $keys = array_merge($keys, self::$test_public_keys);
+        }
+        return $keys;
+    }
+
+    /**
+     * Inject a test public key.
+     * STRICT INVARIANT: Permitted exclusively in PHPUnit test execution context.
+     *
+     * @param string $key_id
+     * @param string $pubkey
+     * @throws \coding_exception If invoked outside PHPUnit execution context.
+     */
+    public static function set_test_public_key(string $key_id, string $pubkey): void {
+        if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
+            throw new \coding_exception('Test keys cannot be injected outside PHPUnit execution.');
+        }
+        self::$test_public_keys[$key_id] = $pubkey;
+    }
+
+    /**
+     * Reset injected test public keys.
+     * STRICT INVARIANT: Permitted exclusively in PHPUnit test execution context.
+     *
+     * @throws \coding_exception If invoked outside PHPUnit execution context.
+     */
+    public static function reset_test_public_keys(): void {
+        if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
+            throw new \coding_exception('Test keys cannot be manipulated outside PHPUnit execution.');
+        }
+        self::$test_public_keys = [];
+    }
 
     /**
      * Return the Moodle site identifier used to bind licenses to this installation.
@@ -167,10 +214,11 @@ class license_manager {
             }
 
             // 4. key_id lookup.
-            if (!array_key_exists($payload['key_id'], self::PUBLIC_KEYS)) {
+            $keys = self::get_public_keys();
+            if (!array_key_exists($payload['key_id'], $keys)) {
                 return self::empty_result('invalid_format');
             }
-            $pubkeyb64 = self::PUBLIC_KEYS[$payload['key_id']];
+            $pubkeyb64 = $keys[$payload['key_id']];
             $pubkeyraw = sodium_base642bin($pubkeyb64, SODIUM_BASE64_VARIANT_URLSAFE_NO_PADDING);
 
             // 5. Signature verification.

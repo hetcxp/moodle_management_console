@@ -149,4 +149,45 @@ class competency_repository_test extends advanced_testcase {
         $count = \tool_management_console\repository\competency_repository::count_pending_reviews_by_framework($framework->id);
         $this->assertEquals(0, $count);
     }
+
+    /**
+     * Test competency_review_repository::sanitize_url with valid and dangerous schemes (TD-URL-002).
+     */
+    public function test_sanitize_url() {
+        // Valid HTTPS and HTTP URLs.
+        $this->assertEquals(
+            'https://example.com/evidence.pdf',
+            \tool_management_console\repository\competency_review_repository::sanitize_url('https://example.com/evidence.pdf')
+        );
+        $this->assertEquals(
+            'http://example.org/path?a=1&b=2#frag',
+            \tool_management_console\repository\competency_review_repository::sanitize_url('http://example.org/path?a=1&b=2#frag')
+        );
+
+        // Valid root-relative paths with and without query params.
+        $this->assertEquals(
+            '/pluginfile.php/123/mod_assign/intro/test.pdf',
+            \tool_management_console\repository\competency_review_repository::sanitize_url('/pluginfile.php/123/mod_assign/intro/test.pdf')
+        );
+        $this->assertEquals(
+            '/mod/assign/view.php?id=45&action=view',
+            \tool_management_console\repository\competency_review_repository::sanitize_url('/mod/assign/view.php?id=45&action=view')
+        );
+
+        // Dangerous schemes must be rejected.
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('javascript:alert(1)'));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('JAVASCRIPT:alert(1)'));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('vbscript:msgbox(1)'));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('data:text/html;base64,PHNjcmlwdD4='));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('file:///etc/passwd'));
+
+        // Protocol-relative and malicious hosts must be rejected.
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('//evil.com/phish'));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url("https://example.com\x00evil"));
+
+        // Empty / null inputs.
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(''));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('   '));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(null));
+    }
 }

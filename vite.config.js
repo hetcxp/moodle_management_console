@@ -27,9 +27,14 @@ export default defineConfig(({ mode }) => {
       setupFiles: './src/__tests__/setup.js',
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'lcov'],
+        reporter: ['text', 'lcov', 'json-summary'],
         include: ['src/**/*.{js,jsx}'],
         exclude: ['src/__tests__/**', 'src/**/*.test.*', 'src/main.jsx'],
+        thresholds: {
+          statements: 60,
+          lines: 60,
+          branches: 55,
+        },
       },
     },
     server: {

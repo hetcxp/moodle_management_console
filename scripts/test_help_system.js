@@ -3,20 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import puppeteer from 'puppeteer-core';
 import { takeScreenshot } from './automation-helper.js';
-
-const CHROME_PATHS = [
-  process.env.CHROME_PATH,
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium-browser'
-].filter(Boolean);
-
-function getChromeExecutable() {
-  for (const p of CHROME_PATHS) {
-    if (fs.existsSync(p)) return p;
-  }
-  throw new Error('No se encontró ejecutable de Chrome/Chromium.');
-}
+import { getChromeExecutable } from './env-helper.js';
 
 // Parse CLI args
 const args = process.argv.slice(2);
@@ -118,13 +105,13 @@ async function setupPage(browser) {
   });
 
   await page.evaluateOnNewDocument(() => {
-    localStorage.setItem('adminer_token', 'valid_test_token');
-    localStorage.setItem('adminer_user', JSON.stringify({
+    sessionStorage.setItem('adminer_token', 'valid_test_token');
+    sessionStorage.setItem('adminer_user', JSON.stringify({
       userid: 2,
       username: 'admin',
       fullname: 'Administrador'
     }));
-    localStorage.setItem('adminer_token_date', String(Date.now()));
+    sessionStorage.setItem('adminer_token_date', String(Date.now()));
   });
 
   return page;

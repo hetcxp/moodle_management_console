@@ -108,26 +108,23 @@ if (file_exists($appindex)) {
     }
 }
 
-// Fallback to latest asset by filemtime if index.html was missing
-if ((!$jsfile || !$cssfile) && is_dir($appdir)) {
-    $candidates_js = [];
-    $candidates_css = [];
-    foreach (scandir($appdir) as $file) {
-        if (str_starts_with($file, 'index-') && str_ends_with($file, '.js')) {
-            $candidates_js[$file] = filemtime($appdir . '/' . $file);
-        }
-        if (str_starts_with($file, 'index-') && str_ends_with($file, '.css')) {
-            $candidates_css[$file] = filemtime($appdir . '/' . $file);
-        }
-    }
-    if (!$jsfile && !empty($candidates_js)) {
-        arsort($candidates_js);
-        $jsfile = array_key_first($candidates_js);
-    }
-    if (!$cssfile && !empty($candidates_css)) {
-        arsort($candidates_css);
-        $cssfile = array_key_first($candidates_css);
-    }
+// Security TD-OPS-001: Fail-closed on missing or invalid canonical assets; no non-deterministic filemtime fallback.
+if (!$jsfile || !$cssfile || !file_exists($appdir . '/' . $jsfile) || !file_exists($appdir . '/' . $cssfile)) {
+    http_response_code(503);
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>Application Build Error</title>
+    <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:2rem;text-align:center;background:#f8fafc;color:#1e293b;}</style>
+</head>
+<body>
+    <h1>Error de interfaz SPA</h1>
+    <p>Los artefactos compilados canónicos no están disponibles. Ejecute <code>npm run build:moodle</code> para regenerarlos.</p>
+</body>
+</html>';
+    exit;
 }
 
 // 5. Render: We skip $OUTPUT->header() to avoid Moodle's CSS interfering with the SPA's Tailwind CSS.

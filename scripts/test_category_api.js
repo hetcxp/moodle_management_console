@@ -1,11 +1,23 @@
 import assert from 'assert';
 
-// Configuración inicial - Reemplazar con variables de entorno o parámetros reales
-const MOODLE_URL = process.env.MOODLE_URL || 'http://localhost/moodle';
-const TOKEN = process.env.MOODLE_TOKEN || 'tu_token_aqui';
+const MOODLE_URL = process.env.MOODLE_URL;
+const TOKEN = process.env.MOODLE_TOKEN;
+const IS_CONFIRMED = process.argv.includes('--confirm-target') || process.env.CONFIRM_TARGET === '1';
 
-if (TOKEN === 'tu_token_aqui') {
-  console.warn('⚠️ Advertencia: MOODLE_TOKEN no está configurado. El test podría fallar.');
+if (!MOODLE_URL) {
+  console.error('ERROR: MOODLE_URL no configurada. Especifica MOODLE_URL en el entorno.');
+  process.exit(1);
+}
+
+if (!TOKEN || TOKEN === 'tu_token_aqui') {
+  console.error('ERROR: MOODLE_TOKEN válido requerido para la prueba.');
+  process.exit(1);
+}
+
+if (!IS_CONFIRMED) {
+  console.error('ERROR: Mutación de categorías y cursos bloqueada por seguridad. Se requiere el flag --confirm-target.');
+  console.error('Uso: MOODLE_URL=<url> MOODLE_TOKEN=<token> node scripts/test_category_api.js --confirm-target');
+  process.exit(1);
 }
 
 // Función auxiliar para llamar a la API de Moodle

@@ -111,4 +111,71 @@ class performance_contract_test extends advanced_testcase {
         $courses_paged = user_repository::get_user_enrolled_courses($user->id, 0, 2);
         $this->assertCount(2, $courses_paged);
     }
+
+    /**
+     * Test course maps bounded by userids (TD-DATA-001 / TD-PERF-001).
+     */
+    public function test_course_detail_maps_bounded_by_userids() {
+        global $DB;
+
+        $course = $this->getDataGenerator()->create_course();
+        $cohort = $this->getDataGenerator()->create_cohort();
+        $user1 = $this->getDataGenerator()->create_user();
+        $user2 = $this->getDataGenerator()->create_user();
+
+        $this->getDataGenerator()->enrol_user($user1->id, $course->id, 'student');
+        $this->getDataGenerator()->enrol_user($user2->id, $course->id, 'editingteacher');
+        cohort_add_member($cohort->id, $user1->id);
+
+        // Synchronize cohort with course
+        $enrolplugin = enrol_get_plugin('cohort');
+        if ($enrolplugin) {
+            $enrolplugin->add_instance($course, ['customint1' => $cohort->id]);
+        }
+
+        // Unbounded call: should return all or empty
+        $all_cohorts = course_enrolment_repository::get_course_user_cohort_map($course->id);
+        $this->assertIsArray($all_cohorts);
+
+        // Bounded call with specific userids
+        $bounded_cohorts = course_enrolment_repository::get_course_user_cohort_map($course->id, [$user1->id]);
+        $this->assertIsArray($bounded_cohorts);
+        $this->assertArrayNotHasKey($user2->id, $bounded_cohorts);
+
+        // Enrolments bounded
+        $all_enrolments = course_enrolment_repository::get_course_all_enrolments($course->id);
+        $this->assertGreaterThanOrEqual(2, count($all_enrolments));
+
+        $bounded_enrolments = course_enrolment_repository::get_course_all_enrolments($course->id, [$user1->id]);
+        foreach ($bounded_enrolments as $e) {
+            $this->assertEquals($user1->id, $e->userid);
+        }
+
+        // Roles bounded
+        $bounded_roles = course_enrolment_repository::get_course_user_roles_map($course->id, [$user2->id]);
+        $this->assertArrayHasKey($user2->id, $bounded_roles);
+        $this->assertArrayNotHasKey($user1->id, $bounded_roles);
+    }
+
+    /**
+     * Test learning path detail pagination (TD-DATA-001 / TD-PERF-001).
+     */
+    public function test_learning_path_detail_pagination() {
+        $catid = \tool_management_console\repository\learning_path_repository::get_or_create_lp_category();
+        $lp_course = $this->getDataGenerator()->create_course(['category' => $catid, 'format' => 'topics']);
+
+        for ($i = 0; $i < 5; $i++) {
+            $u = $this->getDataGenerator()->create_user(['lastname' => "LpUser{$i}"]);
+            $this->getDataGenerator()->enrol_user($u->id, $lp_course->id);
+        }
+
+        $detail_p1 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lp_course->id, 0, 2);
+        $this->assertCount(2, $detail_p1->users);
+
+        $detail_p2 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lp_course->id, 2, 2);
+        $this->assertCount(2, $detail_p2->users);
+
+        $detail_p3 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lp_course->id, 4, 2);
+        $this->assertCount(1, $detail_p3->users);
+    }
 }

@@ -245,29 +245,39 @@ class cohorts extends external_api {
 
     public static function get_cohort_detail_parameters() {
         return new external_function_parameters([
-            'cohortid' => new external_value(PARAM_INT, 'Cohort ID'),
+            'cohortid'  => new external_value(PARAM_INT, 'Cohort ID'),
+            'limitfrom' => new external_value(PARAM_INT, 'Offset for cohort members', VALUE_DEFAULT, 0),
+            'limitnum'  => new external_value(PARAM_INT, 'Limit for cohort members (max 500, default 200)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function get_cohort_detail($cohortid) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        require_capability('moodle/cohort:view', $context);
-
+    public static function get_cohort_detail($cohortid, $limitfrom = 0, $limitnum = 0) {
         $params = self::validate_parameters(self::get_cohort_detail_parameters(), [
-            'cohortid' => $cohortid,
+            'cohortid'  => $cohortid,
+            'limitfrom' => $limitfrom,
+            'limitnum'  => $limitnum,
         ]);
 
         $cohort = cohort_repository::get_cohort_strict($params['cohortid']);
+        $context = \context::instance_by_id($cohort->contextid, IGNORE_MISSING) ?: context_system::instance();
+        self::validate_context($context);
+        require_capability('moodle/cohort:view', $context);
 
-        // Cursos sincronizados
-        $courses_records = cohort_repository::get_cohort_synced_courses($cohort->id);
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        $offset = max(0, (int)$params['limitfrom']);
+        $reqlimit = (int)$params['limitnum'];
+        $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
 
-        // Miembros de la cohorte
-        $members_records = cohort_repository::get_cohort_members($cohort->id);
+        // Cursos sincronizados (acotados a 100)
+        $courses_records = cohort_repository::get_cohort_synced_courses($cohort->id, 0, 100);
+
+        // Miembros de la cohorte con límite y offset
+        $members_records = cohort_repository::get_cohort_members($cohort->id, $offset, $limit);
 
         $member_ids = array_keys($members_records);
         $progress_data = cohort_repository::get_cohort_members_progress_data($member_ids, array_values($courses_records));
+
+        $can_view_email = is_siteadmin() || has_capability('moodle/site:viewuseridentity', $context);
 
         $members = [];
         $course_count = count($courses_records);
@@ -291,7 +301,7 @@ class cohorts extends external_api {
             $members[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
-                'email' => (string)$u->email,
+                'email' => $can_view_email ? (string)$u->email : '',
                 'lastaccess' => (int)$u->lastaccess,
                 'suspended' => (int)$u->suspended,
                 'progress' => $progress,

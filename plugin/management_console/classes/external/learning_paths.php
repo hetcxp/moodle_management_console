@@ -138,20 +138,34 @@ class learning_paths extends external_api {
     // ------------------------------------------------------------------------
     public static function get_learning_path_detail_parameters() {
         return new external_function_parameters([
-            'courseid' => new external_value(PARAM_INT, 'Container course ID'),
+            'courseid'  => new external_value(PARAM_INT, 'Container course ID'),
+            'limitfrom' => new external_value(PARAM_INT, 'Offset for enrolled users', VALUE_DEFAULT, 0),
+            'limitnum'  => new external_value(PARAM_INT, 'Limit for enrolled users (max 500, default 100)', VALUE_DEFAULT, 100),
         ]);
     }
 
-    public static function get_learning_path_detail($courseid) {
+    public static function get_learning_path_detail($courseid, $limitfrom = 0, $limitnum = 100) {
         $params = self::validate_parameters(self::get_learning_path_detail_parameters(), [
-            'courseid' => $courseid,
+            'courseid'  => $courseid,
+            'limitfrom' => $limitfrom,
+            'limitnum'  => $limitnum,
         ]);
 
         $context = context_course::instance($params['courseid']);
         self::validate_context($context);
         require_capability('tool/management_console:access', context_system::instance());
+        require_capability('moodle/course:view', $context);
 
-        return (array)learning_path_repository::get_learning_path_detail($params['courseid']);
+        $detail = (array)learning_path_repository::get_learning_path_detail(
+            $params['courseid'],
+            $params['limitfrom'],
+            $params['limitnum']
+        );
+        if (empty($detail['visible'])) {
+            require_capability('moodle/course:viewhiddencourses', $context);
+        }
+
+        return $detail;
     }
 
     public static function get_learning_path_detail_returns() {

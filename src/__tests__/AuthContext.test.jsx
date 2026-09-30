@@ -218,14 +218,18 @@ describe('AuthContext and AuthProvider', () => {
     vi.useRealTimers();
   });
 
-  it('authenticates directly in embedded mode with preinjected user and token without loop', async () => {
+  it('authenticates in embedded mode when token is validated via webservice (TD-AUTH-004)', async () => {
     window.MANAGEMENT_CONSOLE_CONFIG = {
       embedded: true,
       token: 'embedded-token-999',
       user: { username: 'moodleadmin', userid: 2, fullname: 'Admin Moodle' }
     };
     vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
-    const validateSpy = vi.spyOn(AuthService, 'validateToken');
+    const validateSpy = vi.spyOn(AuthService, 'validateToken').mockResolvedValue({
+      username: 'moodleadmin',
+      userid: 2,
+      fullname: 'Admin Moodle'
+    });
     vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
 
     render(
@@ -239,20 +243,23 @@ describe('AuthContext and AuthProvider', () => {
       expect(screen.getByTestId('auth-status').textContent).toBe('authenticated');
       expect(screen.getByTestId('username').textContent).toBe('moodleadmin');
       expect(screen.getByTestId('token').textContent).toBe('embedded-token-999');
+      expect(screen.getByTestId('is-siteadmin').textContent).toBe('1');
     });
 
-    expect(validateSpy).not.toHaveBeenCalled();
+    expect(validateSpy).toHaveBeenCalledWith('embedded-token-999');
     delete window.MANAGEMENT_CONSOLE_CONFIG;
   });
 
-  it('uses fallback admin user in embedded mode when validateToken fails', async () => {
+  it('fails closed in embedded mode when validateToken fails without fallback admin user (TD-AUTH-004)', async () => {
     window.MANAGEMENT_CONSOLE_CONFIG = {
       embedded: true,
-      token: 'embedded-token-fallback'
+      token: 'embedded-token-fallback',
+      user: { username: 'moodleadmin', userid: 2, fullname: 'Admin Moodle' }
     };
     vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
     vi.spyOn(AuthService, 'validateToken').mockRejectedValue(new Error('Webservice error'));
-    vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
+    const logoutSpy = vi.spyOn(AuthService, 'logout');
+    const getPermsSpy = vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
 
     render(
       <AuthProvider>
@@ -262,10 +269,132 @@ describe('AuthContext and AuthProvider', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('loading').textContent).toBe('idle');
-      expect(screen.getByTestId('auth-status').textContent).toBe('authenticated');
-      expect(screen.getByTestId('username').textContent).toBe('moodle_admin');
+      expect(screen.getByTestId('auth-status').textContent).toBe('unauthenticated');
+      expect(screen.getByTestId('username').textContent).toBe('no-user');
+      expect(screen.getByTestId('token').textContent).toBe('no-token');
+      expect(screen.getByTestId('is-siteadmin').textContent).toBe('null');
     });
 
+    expect(logoutSpy).toHaveBeenCalled();
+    expect(getPermsSpy).not.toHaveBeenCalled();
+    delete window.MANAGEMENT_CONSOLE_CONFIG;
+  });
+
+  it('fails closed in embedded mode when validateToken returns inconsistent user (TD-AUTH-004)', async () => {
+    window.MANAGEMENT_CONSOLE_CONFIG = {
+      embedded: true,
+      token: 'embedded-token-tampered',
+      user: { username: 'moodleadmin', userid: 2 }
+    };
+    vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
+    vi.spyOn(AuthService, 'validateToken').mockResolvedValue({
+      username: 'otheruser',
+      userid: 99
+    });
+    const logoutSpy = vi.spyOn(AuthService, 'logout');
+    const getPermsSpy = vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('idle');
+      expect(screen.getByTestId('auth-status').textContent).toBe('unauthenticated');
+      expect(screen.getByTestId('username').textContent).toBe('no-user');
+      expect(screen.getByTestId('token').textContent).toBe('no-token');
+    });
+
+    expect(logoutSpy).toHaveBeenCalled();
+    expect(getPermsSpy).not.toHaveBeenCalled();
+    delete window.MANAGEMENT_CONSOLE_CONFIG;
+  });
+
+  it('fails closed in embedded mode when token is absent (TD-AUTH-004)', async () => {
+    window.MANAGEMENT_CONSOLE_CONFIG = {
+      embedded: true,
+      user: { username: 'moodleadmin', userid: 2 }
+    };
+    vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
+    const logoutSpy = vi.spyOn(AuthService, 'logout');
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('idle');
+      expect(screen.getByTestId('auth-status').textContent).toBe('unauthenticated');
+      expect(screen.getByTestId('username').textContent).toBe('no-user');
+      expect(screen.getByTestId('token').textContent).toBe('no-token');
+    });
+
+    expect(logoutSpy).toHaveBeenCalled();
+    delete window.MANAGEMENT_CONSOLE_CONFIG;
+  });
+
+  it('fails closed in embedded mode when validateToken returns incomplete identity (TD-AUTH-004)', async () => {
+    window.MANAGEMENT_CONSOLE_CONFIG = {
+      embedded: true,
+      token: 'embedded-incomplete-token',
+      user: { username: 'moodleadmin', userid: 2 }
+    };
+    vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
+    vi.spyOn(AuthService, 'validateToken').mockResolvedValue({
+      sitename: 'Moodle Dev',
+      // missing userid and username
+    });
+    const logoutSpy = vi.spyOn(AuthService, 'logout');
+    const getPermsSpy = vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('idle');
+      expect(screen.getByTestId('auth-status').textContent).toBe('unauthenticated');
+      expect(screen.getByTestId('username').textContent).toBe('no-user');
+      expect(screen.getByTestId('token').textContent).toBe('no-token');
+    });
+
+    expect(logoutSpy).toHaveBeenCalled();
+    expect(getPermsSpy).not.toHaveBeenCalled();
+    delete window.MANAGEMENT_CONSOLE_CONFIG;
+  });
+
+  it('fails closed in embedded mode when validateToken throws HTTP error (TD-AUTH-004)', async () => {
+    window.MANAGEMENT_CONSOLE_CONFIG = {
+      embedded: true,
+      token: 'embedded-http-fail-token',
+      user: { username: 'moodleadmin', userid: 2 }
+    };
+    vi.spyOn(AuthService, 'isEmbedded').mockReturnValue(true);
+    vi.spyOn(AuthService, 'validateToken').mockRejectedValue(new Error('Error de conexión HTTP: 500'));
+    const logoutSpy = vi.spyOn(AuthService, 'logout');
+    const getPermsSpy = vi.spyOn(AdminerApi, 'getPermissions').mockResolvedValue({ is_siteadmin: 1 });
+
+    render(
+      <AuthProvider>
+        <TestConsumer />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loading').textContent).toBe('idle');
+      expect(screen.getByTestId('auth-status').textContent).toBe('unauthenticated');
+      expect(screen.getByTestId('username').textContent).toBe('no-user');
+      expect(screen.getByTestId('token').textContent).toBe('no-token');
+    });
+
+    expect(logoutSpy).toHaveBeenCalled();
+    expect(getPermsSpy).not.toHaveBeenCalled();
     delete window.MANAGEMENT_CONSOLE_CONFIG;
   });
 });

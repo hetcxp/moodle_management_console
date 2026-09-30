@@ -229,6 +229,7 @@ $functions = [
         'methodname'    => 'get_autologin_url',
         'description'   => 'Get autologin url',
         'type'          => 'read',
+        'capabilities'  => 'tool/management_console:view',
         'ajax'          => true,
     ],
     'tool_management_console_get_scales' => [

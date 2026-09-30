@@ -12,6 +12,7 @@ import {
 import { FilterBar } from '../../components/FilterBar';
 import { Badge } from '../../components/ui/Badge';
 import { exportToCsv } from '../../components/CsvExporter';
+import { sanitizeUrl } from '../../lib/sanitizer';
 
 const getActionMeta = (action) => {
   switch (Number(action)) {
@@ -225,12 +226,12 @@ export const UserEvidencesTab = ({ competencies = [], userFullname = '' }) => {
                     </div>
                   )}
 
-                  {ev.url && (
+                  {sanitizeUrl(ev.url) && (
                     <div>
                       <a
-                        href={ev.url}
+                        href={sanitizeUrl(ev.url)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
                       >
                         <span>Ver recurso o actividad externa</span>

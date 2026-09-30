@@ -55,15 +55,22 @@ class course_enrolment_repository {
         return $DB->get_records_sql($sql_users, ['courseid' => $courseid], $limitfrom, $limitnum);
     }
 
-    public static function get_course_user_cohort_map($courseid) {
+    public static function get_course_user_cohort_map($courseid, array $userids = []) {
         global $DB;
+        $params = ['courseid' => $courseid];
+        $usersql = '';
+        if (!empty($userids)) {
+            list($inus, $uparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'u');
+            $usersql = " AND ue.userid $inus";
+            $params = array_merge($params, $uparams);
+        }
         $sql = "
             SELECT ue.userid, e.customint1 as cohortid
               FROM {user_enrolments} ue
               JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE e.courseid = :courseid AND e.enrol = 'cohort'
+             WHERE e.courseid = :courseid AND e.enrol = 'cohort' $usersql
         ";
-        $rs = $DB->get_recordset_sql($sql, ['courseid' => $courseid]);
+        $rs = $DB->get_recordset_sql($sql, $params);
         $map = [];
         foreach ($rs as $uc) {
             $map[$uc->userid][] = (int)$uc->cohortid;
@@ -72,27 +79,41 @@ class course_enrolment_repository {
         return $map;
     }
 
-    public static function get_course_all_enrolments($courseid) {
+    public static function get_course_all_enrolments($courseid, array $userids = []) {
         global $DB;
+        $params = ['courseid' => $courseid];
+        $usersql = '';
+        if (!empty($userids)) {
+            list($inus, $uparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'u');
+            $usersql = " AND ue.userid $inus";
+            $params = array_merge($params, $uparams);
+        }
         $sql = "
             SELECT ue.id, ue.userid, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
               FROM {user_enrolments} ue
               JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE e.courseid = :courseid
+             WHERE e.courseid = :courseid $usersql
         ";
-        return $DB->get_records_sql($sql, ['courseid' => $courseid]);
+        return $DB->get_records_sql($sql, $params);
     }
 
-    public static function get_course_user_roles_map($courseid) {
+    public static function get_course_user_roles_map($courseid, array $userids = []) {
         global $DB;
+        $params = ['courseid' => $courseid];
+        $usersql = '';
+        if (!empty($userids)) {
+            list($inus, $uparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'u');
+            $usersql = " AND ra.userid $inus";
+            $params = array_merge($params, $uparams);
+        }
         $sql = "
             SELECT ra.userid, r.shortname
               FROM {role_assignments} ra
               JOIN {role} r ON r.id = ra.roleid
               JOIN {context} ctx ON ctx.id = ra.contextid
-             WHERE ctx.contextlevel = 50 AND ctx.instanceid = :courseid
+             WHERE ctx.contextlevel = 50 AND ctx.instanceid = :courseid $usersql
         ";
-        $assignments = $DB->get_records_sql($sql, ['courseid' => $courseid]);
+        $assignments = $DB->get_records_sql($sql, $params);
         $map = [];
         foreach ($assignments as $ra) {
             $map[$ra->userid][] = $ra->shortname;
@@ -100,20 +121,27 @@ class course_enrolment_repository {
         return $map;
     }
 
-    public static function get_course_cm_completions(array $cmids) {
+    public static function get_course_cm_completions(array $cmids, array $userids = []) {
         global $DB;
         if (empty($cmids)) {
             return [];
         }
         list($incmids, $cmparams) = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+        $params = $cmparams;
+        $usersql = '';
+        if (!empty($userids)) {
+            list($inus, $uparams) = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'u');
+            $usersql = " AND userid $inus";
+            $params = array_merge($params, $uparams);
+        }
         $sql = "
             SELECT userid, COUNT(DISTINCT coursemoduleid) as completedcount
               FROM {course_modules_completion}
-             WHERE coursemoduleid $incmids
+             WHERE coursemoduleid $incmids $usersql
                AND completionstate IN (1, 2)
           GROUP BY userid
         ";
-        return $DB->get_records_sql_menu($sql, $cmparams);
+        return $DB->get_records_sql_menu($sql, $params);
     }
 
     public static function get_course_linked_cohorts($courseid) {

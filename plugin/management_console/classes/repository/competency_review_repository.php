@@ -275,4 +275,43 @@ class competency_review_repository {
 
         return true;
     }
+
+    /**
+     * Sanitize evidence URL to strictly allow HTTP, HTTPS or same-origin root-relative paths.
+     * Blocks dangerous schemes (javascript:, vbscript:, data:, file:) and protocol-relative (//).
+     *
+     * @param string|null $url
+     * @return string Empty string if invalid, sanitized URL otherwise.
+     */
+    public static function sanitize_url(?string $url): string {
+        if (empty($url)) {
+            return '';
+        }
+        $url = trim($url);
+        if (empty($url)) {
+            return '';
+        }
+
+        // Reject control characters.
+        if (preg_match('/[\x00-\x1f\x7f]/', $url)) {
+            return '';
+        }
+
+        // Reject protocol-relative URLs.
+        if (str_starts_with($url, '//')) {
+            return '';
+        }
+
+        // Allow root-relative paths (e.g. /pluginfile.php/...).
+        if (str_starts_with($url, '/') && !str_starts_with($url, '/\\')) {
+            return clean_param($url, PARAM_URL);
+        }
+
+        // Allow http or https only.
+        if (preg_match('#^https?://#i', $url)) {
+            return clean_param($url, PARAM_URL);
+        }
+
+        return '';
+    }
 }

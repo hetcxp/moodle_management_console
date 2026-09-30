@@ -14,6 +14,7 @@ import {
   Inbox
 } from 'lucide-react';
 import { formatDate as formatAppDate } from '../../lib/utils';
+import { sanitizeUrl } from '../../lib/sanitizer';
 
 export const CompetencyUserEvidencesModal = ({
   open,
@@ -164,11 +165,11 @@ export const CompetencyUserEvidencesModal = ({
                       <span>Registrado por: <strong className="text-foreground font-medium">{evidence.actionuserfullname}</strong></span>
                     </span>
 
-                    {evidence.url && (
+                    {sanitizeUrl(evidence.url) && (
                       <a
-                        href={evidence.url}
+                        href={sanitizeUrl(evidence.url)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="text-primary hover:underline flex items-center gap-1 font-medium"
                       >
                         <span>Ver archivo adjunto</span>

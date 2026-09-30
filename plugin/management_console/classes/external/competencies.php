@@ -206,6 +206,16 @@ class competencies extends external_api {
             throw new \moodle_exception('invalidrecord', 'error', '', 'competency');
         }
 
+        // Security TD-DATA-002: Framework context and visibility checks
+        if (class_exists('\core_competency\api') && !empty($detail['competencyframeworkid'])) {
+            $framework = \core_competency\api::read_framework($detail['competencyframeworkid']);
+            if ($framework) {
+                $fwcontext = $framework->get_context();
+                self::validate_context($fwcontext);
+                self::check_view_capability($fwcontext);
+            }
+        }
+
         return $detail;
     }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
-import { sanitizeHtml, stripHtml } from '../lib/sanitizer.js';
+import { sanitizeHtml, stripHtml, sanitizeUrl } from '../lib/sanitizer.js';
 import { SafeHtml } from '../components/ui/SafeHtml.jsx';
 
 describe('HTML Sanitization (TD-SEC-001)', () => {
@@ -50,5 +50,42 @@ describe('HTML Sanitization (TD-SEC-001)', () => {
     expect(container.innerHTML).toContain('Safe text');
     expect(container.innerHTML).not.toContain('onerror');
     expect(container.innerHTML).not.toContain('evil()');
+  });
+});
+
+describe('URL Sanitization (TD-URL-001)', () => {
+  it('allows valid HTTPS and HTTP URLs', () => {
+    expect(sanitizeUrl('https://moodle.org/mod/assign/view.php?id=123')).toBe('https://moodle.org/mod/assign/view.php?id=123');
+    expect(sanitizeUrl('http://localhost:8000/evidence.pdf')).toBe('http://localhost:8000/evidence.pdf');
+  });
+
+  it('allows safe root-relative paths', () => {
+    expect(sanitizeUrl('/pluginfile.php/123/mod_assign/intro/cert.pdf')).toBe('/pluginfile.php/123/mod_assign/intro/cert.pdf');
+    expect(sanitizeUrl('/my/dashboard')).toBe('/my/dashboard');
+  });
+
+  it('rejects javascript: and vbscript: schemes', () => {
+    expect(sanitizeUrl('javascript:alert(document.cookie)')).toBeNull();
+    expect(sanitizeUrl('JAVASCRIPT:alert(1)')).toBeNull();
+    expect(sanitizeUrl('  javascript:void(0)  ')).toBeNull();
+    expect(sanitizeUrl('vbscript:msgbox("test")')).toBeNull();
+  });
+
+  it('rejects data: URIs and file: schemes', () => {
+    expect(sanitizeUrl('data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==')).toBeNull();
+    expect(sanitizeUrl('file:///etc/passwd')).toBeNull();
+  });
+
+  it('rejects protocol-relative URLs preventing open redirect', () => {
+    expect(sanitizeUrl('//attacker.example.com/phishing')).toBeNull();
+    expect(sanitizeUrl('//evil.com')).toBeNull();
+  });
+
+  it('rejects control characters, newlines, and null/empty inputs', () => {
+    expect(sanitizeUrl('')).toBeNull();
+    expect(sanitizeUrl(null)).toBeNull();
+    expect(sanitizeUrl(undefined)).toBeNull();
+    expect(sanitizeUrl('https://example.com\r\ninvalid')).toBeNull();
+    expect(sanitizeUrl('https://example.com\x00evil')).toBeNull();
   });
 });

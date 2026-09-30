@@ -200,20 +200,20 @@ class course_repository {
     }
 
 
-    public static function get_course_user_cohort_map($courseid) {
-        return course_enrolment_repository::get_course_user_cohort_map($courseid);
+    public static function get_course_user_cohort_map($courseid, array $userids = []) {
+        return course_enrolment_repository::get_course_user_cohort_map($courseid, $userids);
     }
 
-    public static function get_course_all_enrolments($courseid) {
-        return course_enrolment_repository::get_course_all_enrolments($courseid);
+    public static function get_course_all_enrolments($courseid, array $userids = []) {
+        return course_enrolment_repository::get_course_all_enrolments($courseid, $userids);
     }
 
-    public static function get_course_user_roles_map($courseid) {
-        return course_enrolment_repository::get_course_user_roles_map($courseid);
+    public static function get_course_user_roles_map($courseid, array $userids = []) {
+        return course_enrolment_repository::get_course_user_roles_map($courseid, $userids);
     }
 
-    public static function get_course_cm_completions(array $cmids) {
-        return course_enrolment_repository::get_course_cm_completions($cmids);
+    public static function get_course_cm_completions(array $cmids, array $userids = []) {
+        return course_enrolment_repository::get_course_cm_completions($cmids, $userids);
     }
 
     public static function get_course_linked_cohorts($courseid) {

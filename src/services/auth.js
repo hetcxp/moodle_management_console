@@ -50,16 +50,17 @@ export const AuthService = {
   
   isAuthenticated() {
     if (typeof window !== 'undefined' && (window.MANAGEMENT_CONSOLE_CONFIG?.token || window.ADMINER_CONFIG?.token)) {
-      return true;
+      return !!this.getUser();
     }
     const token = this.getToken();
     const user = this.getUser();
     if (!token || !user) return false;
     
-    // Check token expiration aligned with Moodle's 8 hours TTL
+    // Check token expiration aligned with Moodle's 8 hours TTL (TD-AUTH-003)
     const tokenDate = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('adminer_token_date') : null;
     if (tokenDate) {
-      if (Date.now() - parseInt(tokenDate, 10) > TOKEN_TTL_MS) {
+      const parsedDate = parseInt(tokenDate, 10);
+      if (!Number.isFinite(parsedDate) || parsedDate <= 0 || parsedDate > Date.now() || (Date.now() - parsedDate > TOKEN_TTL_MS)) {
         this.logout();
         return false;
       }
@@ -127,9 +128,15 @@ export const AuthService = {
     infoUrl.searchParams.append('moodlewsrestformat', 'json');
     
     const infoRes = await fetch(infoUrl.toString(), { method: 'POST' });
+    if (!infoRes.ok) {
+      throw new Error(`Error de conexión HTTP: ${infoRes.status}`);
+    }
     const infoData = await infoRes.json();
     
     if (infoData.exception) throw new Error(infoData.message);
+    if (!infoData.userid || !infoData.username) {
+      throw new Error('Identidad de usuario incompleta en la respuesta de validación.');
+    }
 
     const user = this._buildUserFromSiteInfo(infoData);
     sessionStorage.setItem('adminer_token', token);

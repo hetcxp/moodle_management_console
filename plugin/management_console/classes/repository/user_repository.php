@@ -645,7 +645,7 @@ class user_repository {
                     'actionuserfullname' => $author_name,
                     'descidentifier'     => (string)($ev->descidentifier ?? ''),
                     'note'               => (string)($ev->note ?? ''),
-                    'url'                => (string)($ev->url ?? ''),
+                    'url'                => competency_review_repository::sanitize_url($ev->url ?? null),
                     'grade'              => (int)($ev->grade ?? 0),
                     'timecreated'        => (int)$ev->timecreated,
                     'timecreated_str'    => userdate($ev->timecreated),

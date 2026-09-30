@@ -13,10 +13,14 @@
 
 import assert from 'assert';
 
-const MOODLE_URL = process.env.MOODLE_URL || 'http://localhost/moodle';
+const MOODLE_URL = process.env.MOODLE_URL;
 const TOKEN = process.env.MOODLE_TOKEN;
+const IS_CONFIRMED = process.argv.includes('--confirm-target') || process.env.CONFIRM_TARGET === '1';
 
 async function callMoodleApi(wsfunction, params = {}) {
+  if (!MOODLE_URL) {
+    throw new Error('MOODLE_URL no configurada. Especifica MOODLE_URL en el entorno.');
+  }
   const url = new URL(`${MOODLE_URL}/webservice/rest/server.php`);
   url.searchParams.append('wstoken', TOKEN);
   url.searchParams.append('wsfunction', wsfunction);
@@ -84,7 +88,7 @@ async function runScraperVerifications() {
   console.log('================================================================\n');
 
   let liveMoodleAvailable = false;
-  if (TOKEN && TOKEN !== 'tu_token_aqui') {
+  if (MOODLE_URL && TOKEN && TOKEN !== 'tu_token_aqui') {
     try {
       const siteInfo = await callMoodleApi('core_webservice_get_site_info');
       if (siteInfo && siteInfo.sitename) {
@@ -95,7 +99,11 @@ async function runScraperVerifications() {
       console.log(`⚠️ Moodle en vivo no disponible (${e.message}). Ejecutando verificación contractual autónoma...`);
     }
   } else {
-    console.log('ℹ️ MOODLE_TOKEN no configurado. Ejecutando verificación de contratos y lógica de negocio con scrapers...');
+    if (TOKEN && !MOODLE_URL) {
+      console.log('⚠️ MOODLE_TOKEN proporcionado pero falta MOODLE_URL explícita. Acceso live omitido por seguridad (TD-OPS-002).');
+    } else {
+      console.log('ℹ️ Modo autónomo sin conexión live. Ejecutando verificación de contratos y lógica de negocio con scrapers...');
+    }
   }
 
   // --------------------------------------------------------------------------

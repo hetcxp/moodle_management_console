@@ -62,7 +62,7 @@ class category_repository {
         return $DB->get_records('course_categories', null, 'sortorder ASC, name ASC', 'id, name, parent, depth, path, visible, coursecount');
     }
 
-    public static function get_courses_by_category($categoryid) {
+    public static function get_courses_by_category($categoryid, $limitfrom = 0, $limitnum = 200) {
         global $DB;
         $sql = "
             SELECT c.id, c.fullname, c.shortname, c.visible,
@@ -76,7 +76,7 @@ class category_repository {
           GROUP BY c.id, c.fullname, c.shortname, c.visible
           ORDER BY c.fullname ASC
         ";
-        return $DB->get_records_sql($sql, ['categoryid' => $categoryid]);
+        return $DB->get_records_sql($sql, ['categoryid' => $categoryid], $limitfrom, $limitnum);
     }
 
     public static function get_course_users($courseid) {

@@ -560,6 +560,55 @@ describe('AdminerApi service', () => {
       expect(res.success).toBe(true);
       expect(res.courseid).toBe(99);
     });
+
+    it('uploadMbzFile sends token via Authorization Bearer header and does not put token in query string', async () => {
+      sessionStorage.setItem('adminer_token', 'test_bearer_token');
+
+      const mockXHR = {
+        open: vi.fn(),
+        setRequestHeader: vi.fn(),
+        send: vi.fn(),
+        upload: {},
+        onload: null,
+        onerror: null,
+        status: 200,
+        responseText: JSON.stringify({ success: true, filename: 'mbz_123.mbz' })
+      };
+
+      const originalXHR = globalThis.XMLHttpRequest;
+      function MockXHR() {
+        return mockXHR;
+      }
+      globalThis.XMLHttpRequest = MockXHR;
+
+      try {
+        const dummyFile = new Blob(['dummy content'], { type: 'application/octet-stream' });
+        const onProgress = vi.fn();
+
+        const uploadPromise = AdminerApi.uploadMbzFile(dummyFile, onProgress);
+
+        expect(mockXHR.open).toHaveBeenCalledWith('POST', expect.stringMatching(/\/admin\/tool\/management_console\/upload_mbz\.php$/));
+        expect(mockXHR.setRequestHeader).toHaveBeenCalledWith('Authorization', 'Bearer test_bearer_token');
+
+        // Simulate successful onload
+        mockXHR.onload();
+
+        const result = await uploadPromise;
+        expect(result.success).toBe(true);
+        expect(result.filename).toBe('mbz_123.mbz');
+      } finally {
+        globalThis.XMLHttpRequest = originalXHR;
+      }
+    });
+
+    it('uploadMbzFile throws error when no auth token is available', async () => {
+      sessionStorage.clear();
+      delete window.MANAGEMENT_CONSOLE_CONFIG;
+      delete window.ADMINER_CONFIG;
+
+      const dummyFile = new Blob(['content']);
+      await expect(AdminerApi.uploadMbzFile(dummyFile)).rejects.toThrow('No authentication token available for upload.');
+    });
   });
 });
 

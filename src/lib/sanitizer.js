@@ -72,3 +72,48 @@ export function sanitizeHtml(html) {
   cleanNode(doc.body);
   return doc.body.innerHTML;
 }
+
+/**
+ * Sanitize URLs for safe navigation and href rendering.
+ * Strictly allows only HTTP, HTTPS or same-origin root-relative paths.
+ * Blocks dangerous schemes (javascript:, vbscript:, data:, file:) and protocol-relative (//).
+ *
+ * @param {string} url
+ * @returns {string|null} Sanitized safe URL string, or null if invalid or dangerous.
+ */
+export function sanitizeUrl(url) {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // Reject control characters and newlines
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001F\u007F-\u009F]/.test(trimmed)) {
+    return null;
+  }
+
+  // Reject protocol-relative URLs (open redirect / phishing vector)
+  if (trimmed.startsWith('//')) {
+    return null;
+  }
+
+  // Allow safe root-relative paths (e.g. /pluginfile.php/...)
+  if (trimmed.startsWith('/') && !trimmed.startsWith('/\\')) {
+    return trimmed;
+  }
+
+  // Only allow http: or https: absolute URLs
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://')) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return trimmed;
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}

@@ -1,7 +1,24 @@
 import assert from 'assert';
 
-const MOODLE_URL = process.env.MOODLE_URL || 'http://localhost/moodle';
-const TOKEN = process.env.MOODLE_TOKEN || 'tu_token_aqui';
+const MOODLE_URL = process.env.MOODLE_URL;
+const TOKEN = process.env.MOODLE_TOKEN;
+const IS_CONFIRMED = process.argv.includes('--confirm-target') || process.env.CONFIRM_TARGET === '1';
+
+if (!MOODLE_URL) {
+  console.error('ERROR: MOODLE_URL no configurada. Especifica MOODLE_URL en el entorno.');
+  process.exit(1);
+}
+
+if (!TOKEN || TOKEN === 'tu_token_aqui') {
+  console.error('ERROR: MOODLE_TOKEN válido requerido para la prueba.');
+  process.exit(1);
+}
+
+if (!IS_CONFIRMED) {
+  console.error('ERROR: Mutación de competencias bloqueada por seguridad. Se requiere el flag --confirm-target.');
+  console.error('Uso: MOODLE_URL=<url> MOODLE_TOKEN=<token> node scripts/test_competencies_api.js --confirm-target');
+  process.exit(1);
+}
 
 async function callMoodleApi(wsfunction, params = {}) {
   const url = new URL(`${MOODLE_URL}/webservice/rest/server.php`);

@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import puppeteer from 'puppeteer-core';
-import { loadEnv } from './env-helper.js';
+import { loadEnv, getChromeExecutable } from './env-helper.js';
 import { takeScreenshot, loginMoodle } from './automation-helper.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +13,7 @@ const projectRoot = path.resolve(__dirname, '..');
 const args = process.argv.slice(2);
 const IS_CHECK_ONLY = args.includes('--check-only');
 const IS_FORCE = args.includes('--force') || process.env.FORCE_INSTALL === '1';
+const IS_CONFIRMED = args.includes('--confirm-target') || process.env.CONFIRM_TARGET === '1';
 const TARGET_PLUGIN = args.find((arg, i) => args[i - 1] === '--plugin') || null;
 const CLI_URL = args.find((arg, i) => args[i - 1] === '--url') || null;
 const CLI_USER = args.find((arg, i) => args[i - 1] === '--user') || null;
@@ -21,19 +22,34 @@ const CLI_PASS = args.find((arg, i) => args[i - 1] === '--pass') || null;
 // Cargar variables de entorno desde .env según URL de destino si aplica
 loadEnv(projectRoot, CLI_URL);
 
+// Validar URL explícita
+const rawUrl = CLI_URL || process.env.MOODLE_URL;
+if (!rawUrl) {
+  console.error('ERROR: URL de Moodle no especificada. Usa --url <url> o define MOODLE_URL.');
+  process.exit(1);
+}
+
+// Prevenir mutaciones accidentales en servidor remoto
+if (!IS_CHECK_ONLY && !IS_CONFIRMED) {
+  console.error('ERROR: Mutación remota bloqueada por seguridad. Se requiere el flag --confirm-target.');
+  console.error('Uso: node scripts/sync-moodle-plugins.js --url <url> --confirm-target');
+  process.exit(1);
+}
+
 // -------------------------------------------------------------
 // Configuración y Parámetros
 // -------------------------------------------------------------
 const CONFIG = {
-  baseUrl: (CLI_URL || process.env.MOODLE_URL || 'https://lts.academyfactory.online').replace(/\/+$/, ''),
-  user: CLI_USER || process.env.MOODLE_USER || 'hteran',
+  baseUrl: rawUrl.replace(/\/+$/, ''),
+  user: CLI_USER || process.env.MOODLE_USER || 'admin',
   pass: CLI_PASS || process.env.MOODLE_PASS,
-  chromeExecutable: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  chromeExecutable: getChromeExecutable(),
   headless: process.env.HEADLESS !== 'false'
 };
 
 if (!CONFIG.pass) {
-  throw new Error('Variable de entorno MOODLE_PASS no configurada. Define MOODLE_PASS en .env o entorno.');
+  console.error('ERROR: Variable MOODLE_PASS requerida para autenticar en Moodle.');
+  process.exit(1);
 }
 
 const scratchDir = path.resolve(projectRoot, 'scratch');

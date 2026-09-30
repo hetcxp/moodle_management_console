@@ -372,23 +372,36 @@ class courses extends external_api {
 
     public static function get_course_detail_parameters() {
         return new external_function_parameters([
-            'courseid' => new external_value(PARAM_INT, 'Course ID'),
+            'courseid'  => new external_value(PARAM_INT, 'Course ID'),
+            'limitfrom' => new external_value(PARAM_INT, 'Offset for enrolled users', VALUE_DEFAULT, 0),
+            'limitnum'  => new external_value(PARAM_INT, 'Limit for enrolled users (max 500, default 200)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function get_course_detail($courseid) {
-        $context = context_system::instance();
-        self::validate_context($context);
-        require_capability('moodle/course:view', $context);
-
+    public static function get_course_detail($courseid, $limitfrom = 0, $limitnum = 0) {
         $params = self::validate_parameters(self::get_course_detail_parameters(), [
-            'courseid' => $courseid,
+            'courseid'  => $courseid,
+            'limitfrom' => $limitfrom,
+            'limitnum'  => $limitnum,
         ]);
 
         $course = course_repository::get_course_strict($params['courseid']);
-        $enrolled_users = course_enrolment_repository::get_course_enrolled_users_detail($course->id);
-        $cohort_user_map = course_repository::get_course_user_cohort_map($course->id);
-        $all_enrolments = course_repository::get_course_all_enrolments($course->id);
+        $context = context_course::instance($course->id);
+        self::validate_context($context);
+        require_capability('moodle/course:view', $context);
+        if (empty($course->visible)) {
+            require_capability('moodle/course:viewhiddencourses', $context);
+        }
+
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        $offset = max(0, (int)$params['limitfrom']);
+        $reqlimit = (int)$params['limitnum'];
+        $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
+
+        $enrolled_users = course_enrolment_repository::get_course_enrolled_users_detail($course->id, $offset, $limit);
+        $userids = !empty($enrolled_users) ? array_map(function($u) { return (int)$u->id; }, $enrolled_users) : [];
+        $cohort_user_map = course_repository::get_course_user_cohort_map($course->id, $userids);
+        $all_enrolments = course_repository::get_course_all_enrolments($course->id, $userids);
 
         $user_enrolments_map = [];
         foreach ($all_enrolments as $ue) {
@@ -400,7 +413,7 @@ class courses extends external_api {
             ];
         }
 
-        $user_roles_map = course_repository::get_course_user_roles_map($course->id);
+        $user_roles_map = course_repository::get_course_user_roles_map($course->id, $userids);
 
         // Batch calculate completion progress for all enrolled users
         global $CFG;
@@ -410,9 +423,11 @@ class courses extends external_api {
         $total_activities = count($trackable_activities);
 
         $user_cm_completed = [];
-        if ($total_activities > 0) {
-            $user_cm_completed = course_repository::get_course_cm_completions(array_keys($trackable_activities));
+        if ($total_activities > 0 && !empty($userids)) {
+            $user_cm_completed = course_repository::get_course_cm_completions(array_keys($trackable_activities), $userids);
         }
+
+        $can_view_email = is_siteadmin() || has_capability('moodle/course:useremail', $context);
 
         $users = [];
         foreach ($enrolled_users as $u) {
@@ -427,7 +442,7 @@ class courses extends external_api {
             $users[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
-                'email' => $u->email,
+                'email' => $can_view_email ? (string)$u->email : '',
                 'progress' => $progress_val,
                 'status' => (int)$u->enrolstatus,
                 'timestart' => (int)$u->timestart > 0 ? (int)$u->timestart : (int)$u->timecreated,

@@ -281,7 +281,7 @@ class competency_reviews extends external_api {
                             'note'               => new external_value(PARAM_RAW, 'Evidence note / feedback'),
                             'grade'              => new external_value(PARAM_INT, 'Evidence grade'),
                             'gradename'          => new external_value(PARAM_TEXT, 'Evidence grade name'),
-                            'url'                => new external_value(PARAM_RAW, 'Evidence URL'),
+                            'url'                => new external_value(PARAM_URL, 'Evidence URL', VALUE_DEFAULT, ''),
                             'timecreated'        => new external_value(PARAM_INT, 'Evidence timestamp'),
                         ])
                     ),

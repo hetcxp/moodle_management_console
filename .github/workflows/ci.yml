@@ -8,7 +8,7 @@ on:
 
 jobs:
   frontend:
-    name: Frontend Tests & Build
+    name: Frontend Tests, Coverage & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -27,8 +27,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Run Vitest Suite
-        run: npm test -- --run
+      - name: Run Vitest Suite with Coverage Gates
+        run: npm run test:coverage
 
       - name: Verify API Contract Parity
         run: python3 scripts/test_api_contract.py
@@ -37,11 +37,11 @@ jobs:
         run: npm run build:moodle
 
   backend:
-    name: PHP Lint & Syntax Check
+    name: PHP Lint & Syntax Check (${{ matrix.php-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        php-version: ['8.1', '8.2']
+        php-version: ['8.1', '8.2', '8.3', '8.4']
 
     steps:
       - name: Checkout repository
@@ -51,8 +51,29 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php-version }}
-          extensions: mbstring, json
+          extensions: mbstring, json, sodium, zip
 
       - name: Lint all PHP files
         run: |
-          find plugin -name "*.php" -exec php -l {} +
+          find plugin cli -type f -name "*.php" -exec php -l {} +
+
+      - name: Verify PHPUnit Moodle Test Harness (TD-CI-002)
+        run: |
+          # Resolve Moodle root from MOODLE_DIR or relative to plugin/management_console directory
+          MOODLE_ROOT="${MOODLE_DIR:-}"
+          if [ -z "$MOODLE_ROOT" ] && [ -f "../../lib/phpunit/bootstrap.php" ]; then
+            MOODLE_ROOT="../.."
+          elif [ -z "$MOODLE_ROOT" ] && [ -f "plugin/management_console/../../../lib/phpunit/bootstrap.php" ]; then
+            MOODLE_ROOT="plugin/management_console/../../.."
+          fi
+
+          if [ -n "$MOODLE_ROOT" ] && [ -f "$MOODLE_ROOT/lib/phpunit/bootstrap.php" ] && [ -f "$MOODLE_ROOT/vendor/bin/phpunit" ]; then
+            echo "Running PHPUnit from Moodle root: $MOODLE_ROOT"
+            php "$MOODLE_ROOT/vendor/bin/phpunit" -c plugin/management_console/phpunit.xml
+          else
+            echo "::warning title=PHPUnit BLOCKED (TD-CI-002)::Moodle core test harness is not linked in runner. PHPUnit execution is BLOCKED pending environment harness."
+            if [ "${CI_STRICT_PHPUNIT:-0}" = "1" ]; then
+              echo "::error title=PHPUnit Required::Strict mode enabled but Moodle harness is missing."
+              exit 1
+            fi
+          fi

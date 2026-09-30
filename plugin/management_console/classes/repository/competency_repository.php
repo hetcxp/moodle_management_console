@@ -719,7 +719,7 @@ class competency_repository {
                     'note'               => (string)($ev->note ?? ''),
                     'grade'              => $grade_val,
                     'gradename'          => $grade_name,
-                    'url'                => (string)($ev->url ?? ''),
+                    'url'                => competency_review_repository::sanitize_url($ev->url ?? null),
                     'timecreated'        => (int)$ev->timecreated,
                 ];
             }

@@ -342,21 +342,24 @@ class categories extends external_api {
     public static function get_category_detail_parameters() {
         return new external_function_parameters([
             'categoryid' => new external_value(PARAM_INT, 'Category ID'),
+            'limitfrom'  => new external_value(PARAM_INT, 'Offset for category courses', VALUE_DEFAULT, 0),
+            'limitnum'   => new external_value(PARAM_INT, 'Limit for category courses (max 500, default 200)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function get_category_detail($categoryid) {
-        global $DB;
-
-        $context = context_system::instance();
-        self::validate_context($context);
-        require_capability('moodle/category:viewhiddencategories', $context);
-
+    public static function get_category_detail($categoryid, $limitfrom = 0, $limitnum = 0) {
         $params = self::validate_parameters(self::get_category_detail_parameters(), [
             'categoryid' => $categoryid,
+            'limitfrom'  => $limitfrom,
+            'limitnum'   => $limitnum,
         ]);
 
         $cat = core_course_category::get($params['categoryid'], MUST_EXIST);
+        $context = \context_coursecat::instance($cat->id);
+        self::validate_context($context);
+        if (empty($cat->visible)) {
+            require_capability('moodle/category:viewhiddencategories', $context);
+        }
 
         $subcategories = [];
         $children = $cat->get_children();
@@ -369,8 +372,13 @@ class categories extends external_api {
             ];
         }
 
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        $offset = max(0, (int)$params['limitfrom']);
+        $reqlimit = (int)$params['limitnum'];
+        $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
+
         $courses = [];
-        $records = category_repository::get_courses_by_category($cat->id);
+        $records = category_repository::get_courses_by_category($cat->id, $offset, $limit);
 
         foreach ($records as $c) {
             $courses[] = [
