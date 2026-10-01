@@ -13,6 +13,8 @@ export function loadEnv(projectRoot, targetUrl = null) {
     if (targetUrl.includes('viasano')) siteEnv = '.env.viasano';
     else if (targetUrl.includes('musk') || targetUrl.includes('escuelamusk')) siteEnv = '.env.musk';
     else if (targetUrl.includes('lts') || targetUrl.includes('academyfactory')) siteEnv = '.env.lts';
+    else if (targetUrl.includes('rasacademy')) siteEnv = '.env.rasacademy';
+    else if (targetUrl.includes('inspiringacademy') || targetUrl.includes('inspiring')) siteEnv = '.env.inspiringacademy';
   }
 
   const envPaths = [

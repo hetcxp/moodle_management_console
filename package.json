@@ -10,6 +10,8 @@
     "dev": "vite",
     "dev:lts": "vite --mode lts",
     "dev:viasano": "vite --mode viasano",
+    "dev:rasacademy": "vite --mode rasacademy",
+    "dev:inspiringacademy": "vite --mode inspiringacademy",
     "build": "vite build",
     "build:moodle": "vite build --mode moodle",
     "preview": "vite preview",
