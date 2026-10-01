@@ -148,19 +148,8 @@ npm run moodle:sync
 npm run dev:lts
 ```
 
-### 6. Gestión de Licencias (CLI)
-Para emitir y validar licencias criptográficas Ed25519:
-
-```bash
-# Generar par de claves (privada / pública):
-php cli/generate_license.php --generate-keypair
-
-# Emitir una licencia para un sitio por días:
-php cli/generate_license.php --private-key=<b64> --site=<siteidentifier> --days=365 --client="Institución Ejemplo"
-
-# Emitir una licencia indicando fecha exacta de vencimiento:
-php cli/generate_license.php --private-key=<b64> --site=<siteidentifier> --expires=2027-12-31 --client="Institución Ejemplo"
-```
+### 6. Licenciamiento
+El plugin valida licencias criptográficas Ed25519 vinculadas al `siteidentifier` de la instalación de Moodle. La activación y estado de la licencia se gestionan desde el panel de administración o modal de licencia del plugin.
 
 ---
 
