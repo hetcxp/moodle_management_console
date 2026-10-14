@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -42,35 +40,46 @@ use tool_management_console\repository\rubric_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_rubrics extends external_api {
-
     /**
-     * Helper para verificar permisos de visualización.
+     * Helper to verify view capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \moodle_exception
      */
-    protected static function check_view_capability($context) {
+    protected static function check_view_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
-        if (has_capability('moodle/competency:competencymanage', $context) ||
-            has_capability('moodle/competency:competencyview', $context)) {
+        if (
+            has_capability('moodle/competency:competencymanage', $context) ||
+            has_capability('moodle/competency:competencyview', $context)
+        ) {
             return;
         }
         throw new \moodle_exception('nopermissions', 'error', '', 'view competencies');
     }
 
     /**
-     * Helper para verificar permisos de gestión.
+     * Helper to verify manage capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \required_capability_exception
      */
-    protected static function check_manage_capability($context) {
+    protected static function check_manage_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
         require_capability('moodle/competency:competencymanage', $context);
     }
 
-    // ==========================================
-    // 1. GET RUBRIC TEMPLATES
-    // ==========================================
-    public static function get_rubric_templates_parameters() {
+    /**
+     * Describes the parameters for get_rubric_templates.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_rubric_templates_parameters(): external_function_parameters {
         return new external_function_parameters([
             'search'  => new external_value(PARAM_RAW, 'Search query', VALUE_DEFAULT, ''),
             'page'    => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
@@ -78,7 +87,15 @@ class competency_rubrics extends external_api {
         ]);
     }
 
-    public static function get_rubric_templates($search = '', $page = 0, $perpage = 50) {
+    /**
+     * Get paginated rubric templates with search.
+     *
+     * @param string $search
+     * @param int $page
+     * @param int $perpage
+     * @return array
+     */
+    public static function get_rubric_templates(string $search = '', int $page = 0, int $perpage = 50): array {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
@@ -96,7 +113,12 @@ class competency_rubrics extends external_api {
         );
     }
 
-    public static function get_rubric_templates_returns() {
+    /**
+     * Describes the return structure for get_rubric_templates.
+     *
+     * @return external_single_structure
+     */
+    public static function get_rubric_templates_returns(): external_single_structure {
         return new external_single_structure([
             'total'     => new external_value(PARAM_INT, 'Total count of rubric templates'),
             'templates' => new external_multiple_structure(
@@ -133,10 +155,12 @@ class competency_rubrics extends external_api {
         ]);
     }
 
-    // ==========================================
-    // 2. RUBRIC TEMPLATE ACTION (CREATE / UPDATE / DELETE)
-    // ==========================================
-    public static function rubric_template_action_parameters() {
+    /**
+     * Describes the parameters for rubric_template_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function rubric_template_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'      => new external_value(PARAM_ALPHA, 'Action: create, update or delete'),
             'templateid'  => new external_value(PARAM_INT, 'Template ID (for delete or update)', VALUE_DEFAULT, 0),
@@ -146,7 +170,23 @@ class competency_rubrics extends external_api {
         ]);
     }
 
-    public static function rubric_template_action($action, $templateid = 0, $name = '', $description = '', $criteria = '') {
+    /**
+     * Perform rubric template actions (create, update, delete).
+     *
+     * @param string $action
+     * @param int $templateid
+     * @param string $name
+     * @param string $description
+     * @param string $criteria
+     * @return array
+     */
+    public static function rubric_template_action(
+        string $action,
+        int $templateid = 0,
+        string $name = '',
+        string $description = '',
+        string $criteria = ''
+    ): array {
         global $USER;
         $context = context_system::instance();
         self::validate_context($context);
@@ -171,7 +211,12 @@ class competency_rubrics extends external_api {
         );
     }
 
-    public static function rubric_template_action_returns() {
+    /**
+     * Describes the return structure for rubric_template_action.
+     *
+     * @return external_single_structure
+     */
+    public static function rubric_template_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'    => new external_value(PARAM_INT, '1 on success'),
             'templateid' => new external_value(PARAM_INT, 'Affected template ID'),

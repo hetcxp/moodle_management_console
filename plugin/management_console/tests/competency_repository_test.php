@@ -42,7 +42,6 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/
  * @covers     \tool_management_console\repository\competency_repository
  */
 class competency_repository_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest();
     }
@@ -93,11 +92,17 @@ class competency_repository_test extends advanced_testcase {
         $framework->usermodified = 2;
         $framework->id = $DB->insert_record('competency_framework', $framework);
 
-        $res = \tool_management_console\repository\competency_framework_repository::get_paginated_frameworks(0, 10, 'shortname', 'ASC', 'Framework Test');
+        $res = \tool_management_console\repository\competency_framework_repository::get_paginated_frameworks(
+            0,
+            10,
+            'shortname',
+            'ASC',
+            'Framework Test'
+        );
         $this->assertGreaterThanOrEqual(1, $res['totalcount']);
         $this->assertEquals('Framework Test', $res['frameworks'][0]['shortname']);
 
-        // 2. Crear una competencia padre y una hija
+        // 2. Crear una competencia padre y una hija.
         $competency = new \stdClass();
         $competency->shortname = 'Competency Parent';
         $competency->idnumber = 'COMP1';
@@ -167,23 +172,41 @@ class competency_repository_test extends advanced_testcase {
         // Valid root-relative paths with and without query params.
         $this->assertEquals(
             '/pluginfile.php/123/mod_assign/intro/test.pdf',
-            \tool_management_console\repository\competency_review_repository::sanitize_url('/pluginfile.php/123/mod_assign/intro/test.pdf')
+            \tool_management_console\repository\competency_review_repository::sanitize_url(
+                '/pluginfile.php/123/mod_assign/intro/test.pdf'
+            )
         );
         $this->assertEquals(
             '/mod/assign/view.php?id=45&action=view',
-            \tool_management_console\repository\competency_review_repository::sanitize_url('/mod/assign/view.php?id=45&action=view')
+            \tool_management_console\repository\competency_review_repository::sanitize_url(
+                '/mod/assign/view.php?id=45&action=view'
+            )
         );
 
         // Dangerous schemes must be rejected.
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('javascript:alert(1)'));
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('JAVASCRIPT:alert(1)'));
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('vbscript:msgbox(1)'));
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('data:text/html;base64,PHNjcmlwdD4='));
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('file:///etc/passwd'));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            'javascript:alert(1)'
+        ));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            'JAVASCRIPT:alert(1)'
+        ));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            'vbscript:msgbox(1)'
+        ));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            'data:text/html;base64,PHNjcmlwdD4='
+        ));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            'file:///etc/passwd'
+        ));
 
         // Protocol-relative and malicious hosts must be rejected.
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url('//evil.com/phish'));
-        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url("https://example.com\x00evil"));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            '//evil.com/phish'
+        ));
+        $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(
+            "https://example.com\x00evil"
+        ));
 
         // Empty / null inputs.
         $this->assertEquals('', \tool_management_console\repository\competency_review_repository::sanitize_url(''));

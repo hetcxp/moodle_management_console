@@ -46,7 +46,7 @@ class license_manager {
      *
      * @var array<string, string>
      */
-    private static array $test_public_keys = [];
+    private static array $testpublickeys = [];
 
     /**
      * Return all active public keys, including test keys ONLY if running under PHPUnit.
@@ -55,8 +55,8 @@ class license_manager {
      */
     public static function get_public_keys(): array {
         $keys = self::PUBLIC_KEYS;
-        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST && !empty(self::$test_public_keys)) {
-            $keys = array_merge($keys, self::$test_public_keys);
+        if (defined('PHPUNIT_TEST') && PHPUNIT_TEST && !empty(self::$testpublickeys)) {
+            $keys = array_merge($keys, self::$testpublickeys);
         }
         return $keys;
     }
@@ -65,15 +65,15 @@ class license_manager {
      * Inject a test public key.
      * STRICT INVARIANT: Permitted exclusively in PHPUnit test execution context.
      *
-     * @param string $key_id
+     * @param string $keyid
      * @param string $pubkey
      * @throws \coding_exception If invoked outside PHPUnit execution context.
      */
-    public static function set_test_public_key(string $key_id, string $pubkey): void {
+    public static function set_test_public_key(string $keyid, string $pubkey): void {
         if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
             throw new \coding_exception('Test keys cannot be injected outside PHPUnit execution.');
         }
-        self::$test_public_keys[$key_id] = $pubkey;
+        self::$testpublickeys[$keyid] = $pubkey;
     }
 
     /**
@@ -86,7 +86,7 @@ class license_manager {
         if (!defined('PHPUNIT_TEST') || !PHPUNIT_TEST) {
             throw new \coding_exception('Test keys cannot be manipulated outside PHPUnit execution.');
         }
-        self::$test_public_keys = [];
+        self::$testpublickeys = [];
     }
 
     /**

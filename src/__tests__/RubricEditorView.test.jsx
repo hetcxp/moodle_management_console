@@ -37,7 +37,7 @@ const { mockTemplates } = vi.hoisted(() => ({
           description: 'Claridad en la redacción',
           levels: [
             { id: 203, score: 0, definition: 'Confuso' },
-            { id: 204, score: 10, definition: 'Excelente claridad' },
+            { id: 204, score: 10, definition: 'Claridad completa' },
           ],
         },
       ],

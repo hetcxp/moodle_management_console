@@ -91,8 +91,10 @@ export const Dialog = ({ open, onClose, onOpenChange, title, description, childr
       className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
     >
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity animate-in fade-in"
+      <button
+        type="button"
+        tabIndex={-1}
+        className="fixed inset-0 bg-background/80 backdrop-blur-sm transition-opacity animate-in fade-in border-0 cursor-default"
         onClick={handleClose}
         aria-hidden="true"
       />

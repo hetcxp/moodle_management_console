@@ -510,13 +510,19 @@ export const UserDetailView = ({ userId, onBack, onNavigateToDetail, parentLabel
       >
         <div className="pt-4 space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Mensaje</label>
+            <label htmlFor="user-message-text" className="text-sm font-medium">Mensaje</label>
             <textarea
+              id="user-message-text"
               value={messageText}
               onChange={(e) => setMessageText(e.target.value)}
+              disabled={sendingMessage}
+              aria-describedby="user-message-input-desc"
               className="flex min-h-[120px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Escribe el mensaje aquí..."
             />
+            <p id="user-message-input-desc" className="text-xs text-muted-foreground">
+              {sendingMessage ? 'Enviando mensaje al usuario...' : 'El mensaje será enviado a la bandeja interna de Moodle del usuario.'}
+            </p>
           </div>
         </div>
       </Dialog>

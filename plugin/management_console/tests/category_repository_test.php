@@ -42,7 +42,6 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/
  * @covers     \tool_management_console\repository\category_repository
  */
 class category_repository_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest();
     }
@@ -51,7 +50,7 @@ class category_repository_test extends advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        // Crear dos categorías
+        // Crear dos categorías.
         $cat1 = $this->getDataGenerator()->create_category(['name' => 'Cat 1']);
         $cat2 = $this->getDataGenerator()->create_category(['name' => 'Cat 2']);
 
@@ -64,10 +63,10 @@ class category_repository_test extends advanced_testcase {
         $this->setAdminUser();
 
         $cat1 = $this->getDataGenerator()->create_category(['name' => 'Paginated Cat 1']);
-        
+
         $records = \tool_management_console\repository\category_repository::get_paginated(0, 10);
         $this->assertNotEmpty($records);
-        
+
         $found = false;
         foreach ($records as $r) {
             if ($r->name === 'Paginated Cat 1') {

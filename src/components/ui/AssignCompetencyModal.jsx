@@ -216,6 +216,7 @@ export const AssignCompetencyModal = ({
                     key={comp.id}
                     onClick={() => handleToggleSelect(comp.id, isAssigned)}
                     disabled={isAssigned || loading}
+                    aria-describedby={`comp-status-desc-${comp.id}`}
                     className={`w-full text-left p-3 flex items-center justify-between gap-3 transition-colors ${
                       isAssigned
                         ? 'opacity-60 bg-muted/30 cursor-not-allowed'
@@ -257,7 +258,7 @@ export const AssignCompetencyModal = ({
                       </div>
                     </div>
 
-                    <div className="shrink-0">
+                    <div className="shrink-0" id={`comp-status-desc-${comp.id}`}>
                       {isAssigned ? (
                         <Badge variant="warning" className="text-[11px]">
                           Ya asignada

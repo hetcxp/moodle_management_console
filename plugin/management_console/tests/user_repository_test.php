@@ -42,7 +42,6 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/
  * @covers     \tool_management_console\repository\user_repository
  */
 class user_repository_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest();
     }
@@ -51,12 +50,16 @@ class user_repository_test extends advanced_testcase {
         $this->resetAfterTest();
         $this->setAdminUser();
 
-        // 1. Crear usuario y curso
-        $user = $this->getDataGenerator()->create_user(['firstname' => 'Test', 'lastname' => 'UserRepo', 'email' => 'userrepo@example.com']);
+        // 1. Crear usuario y curso.
+        $user = $this->getDataGenerator()->create_user([
+            'firstname' => 'Test',
+            'lastname' => 'UserRepo',
+            'email' => 'userrepo@example.com',
+        ]);
         $course = $this->getDataGenerator()->create_course(['fullname' => 'UserRepo Course']);
         $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
 
-        // 2. Probar get_user y get_user_strict
+        // 2. Probar get_user y get_user_strict.
         $retrieved = \tool_management_console\repository\user_repository::get_user($user->id);
         $this->assertNotEmpty($retrieved);
         $this->assertEquals($user->id, $retrieved->id);
@@ -64,23 +67,29 @@ class user_repository_test extends advanced_testcase {
         $strict = \tool_management_console\repository\user_repository::get_user_strict($user->id);
         $this->assertEquals($user->id, $strict->id);
 
-        // 3. Probar get_users_filtered
-        list($records, $totalcount) = \tool_management_console\repository\user_repository::get_users_filtered(['page' => 0, 'perpage' => 10, 'sort' => 'lastname', 'dir' => 'ASC', 'search' => 'UserRepo']);
+        // 3. Probar get_users_filtered.
+        [$records, $totalcount] = \tool_management_console\repository\user_repository::get_users_filtered([
+            'page' => 0,
+            'perpage' => 10,
+            'sort' => 'lastname',
+            'dir' => 'ASC',
+            'search' => 'UserRepo',
+        ]);
         $this->assertGreaterThanOrEqual(1, $totalcount);
         $this->assertArrayHasKey($user->id, $records);
 
-        // 4. Probar cursos matriculados
+        // 4. Probar cursos matriculados.
         $courses = \tool_management_console\repository\user_repository::get_user_enrolled_courses($user->id);
         $this->assertCount(1, $courses);
         $this->assertEquals($course->id, reset($courses)->id);
 
-        // 5. Probar get_users_kpi_stats
+        // 5. Probar get_users_kpi_stats.
         $stats = \tool_management_console\repository\user_repository::get_users_kpi_stats();
         $this->assertIsObject($stats);
         $this->assertGreaterThanOrEqual(1, (int)$stats->total_users);
 
-        // 6. Probar get_user_competencies
-        $user_comps = \tool_management_console\repository\user_repository::get_user_competencies($user->id);
-        $this->assertIsArray($user_comps);
+        // 6. Probar get_user_competencies.
+        $usercomps = \tool_management_console\repository\user_repository::get_user_competencies($user->id);
+        $this->assertIsArray($usercomps);
     }
 }

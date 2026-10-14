@@ -99,13 +99,16 @@ export const CohortsTable = ({
       header: 'Acciones',
       className: 'text-right',
       cell: (row) => (
-        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-end gap-1">
           <PermissionGate capability="can_manage_cohorts">
             <LicensedActionButton
               capability="can_manage_cohorts"
               variant="ghost"
               size="icon"
-              onClick={() => onOpenEdit(row)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenEdit(row);
+              }}
               title="Editar cohorte"
               aria-label="Editar cohorte"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -116,7 +119,10 @@ export const CohortsTable = ({
               capability="can_manage_cohorts"
               variant="ghost"
               size="icon"
-              onClick={() => onOpenDelete([row.id])}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenDelete([row.id]);
+              }}
               title="Eliminar cohorte"
               aria-label="Eliminar cohorte"
               className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"

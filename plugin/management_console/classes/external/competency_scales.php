@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -42,39 +40,55 @@ use tool_management_console\repository\competency_framework_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_scales extends external_api {
-
     /**
-     * Helper para verificar permisos de visualización.
+     * Helper to verify view capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \moodle_exception
      */
-    protected static function check_view_capability($context) {
+    protected static function check_view_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
-        if (has_capability('moodle/competency:competencymanage', $context) ||
-            has_capability('moodle/competency:competencyview', $context)) {
+        if (
+            has_capability('moodle/competency:competencymanage', $context) ||
+            has_capability('moodle/competency:competencyview', $context)
+        ) {
             return;
         }
         throw new \moodle_exception('nopermissions', 'error', '', 'view competencies');
     }
 
     /**
-     * Helper para verificar permisos de gestión.
+     * Helper to verify manage capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \required_capability_exception
      */
-    protected static function check_manage_capability($context) {
+    protected static function check_manage_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
         require_capability('moodle/competency:competencymanage', $context);
     }
 
-    // ==========================================
-    // 1. GET SCALES
-    // ==========================================
-    public static function get_scales_parameters() {
+    /**
+     * Describes the parameters for get_scales.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_scales_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
-    public static function get_scales() {
+    /**
+     * Get list of all available competency scales.
+     *
+     * @return array
+     */
+    public static function get_scales(): array {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
@@ -83,7 +97,12 @@ class competency_scales extends external_api {
         return ['scales' => $scales];
     }
 
-    public static function get_scales_returns() {
+    /**
+     * Describes the return structure for get_scales.
+     *
+     * @return external_single_structure
+     */
+    public static function get_scales_returns(): external_single_structure {
         return new external_single_structure([
             'scales' => new external_multiple_structure(
                 new external_single_structure([
@@ -98,19 +117,35 @@ class competency_scales extends external_api {
         ]);
     }
 
-    // ==========================================
-    // 1B. SCALE ACTION (CRUD)
-    // ==========================================
-    public static function scale_action_parameters() {
+    /**
+     * Describes the parameters for scale_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function scale_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'  => new external_value(PARAM_ALPHA, 'Action: create, update, delete'),
             'scaleid' => new external_value(PARAM_INT, 'Scale ID (for update or delete)', VALUE_DEFAULT, 0),
             'name'    => new external_value(PARAM_TEXT, 'Scale name (for create or update)', VALUE_DEFAULT, ''),
-            'items'   => new external_value(PARAM_TEXT, 'Comma-separated scale items ordered from lowest to highest', VALUE_DEFAULT, ''),
+            'items'   => new external_value(
+                PARAM_TEXT,
+                'Comma-separated scale items ordered from lowest to highest',
+                VALUE_DEFAULT,
+                ''
+            ),
         ]);
     }
 
-    public static function scale_action($action, $scaleid = 0, $name = '', $items = '') {
+    /**
+     * Perform competency scale actions (create, update, delete).
+     *
+     * @param string $action
+     * @param int $scaleid
+     * @param string $name
+     * @param string $items
+     * @return array
+     */
+    public static function scale_action(string $action, int $scaleid = 0, string $name = '', string $items = ''): array {
         global $USER;
         $context = context_system::instance();
         self::validate_context($context);
@@ -133,7 +168,12 @@ class competency_scales extends external_api {
         );
     }
 
-    public static function scale_action_returns() {
+    /**
+     * Describes the return structure for scale_action.
+     *
+     * @return external_single_structure
+     */
+    public static function scale_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'          => new external_value(PARAM_INT, '1 on success'),
             'scaleid'          => new external_value(PARAM_INT, 'Affected scale ID'),

@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_course_category;
 use core_external\external_api;
@@ -44,15 +42,26 @@ use stdClass;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class categories extends external_api {
-
-    public static function get_categories_parameters() {
+    /**
+     * Describes the parameters for get_categories.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_categories_parameters(): external_function_parameters {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Categories per page', VALUE_DEFAULT, 50),
         ]);
     }
 
-    public static function get_categories($page = 0, $perpage = 50) {
+    /**
+     * Get paginated list of categories.
+     *
+     * @param int $page
+     * @param int $perpage
+     * @return array
+     */
+    public static function get_categories(int $page = 0, int $perpage = 50): array {
         global $DB;
 
         $context = context_system::instance();
@@ -90,7 +99,12 @@ class categories extends external_api {
         ];
     }
 
-    public static function get_categories_returns() {
+    /**
+     * Describes the return structure for get_categories.
+     *
+     * @return external_single_structure
+     */
+    public static function get_categories_returns(): external_single_structure {
         return new external_single_structure([
             'totalcount' => new external_value(PARAM_INT, 'Total categories count'),
             'page'       => new external_value(PARAM_INT, 'Current page index'),
@@ -110,11 +124,21 @@ class categories extends external_api {
         ]);
     }
 
-    public static function get_categories_flat_parameters() {
+    /**
+     * Describes the parameters for get_categories_flat.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_categories_flat_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
-    public static function get_categories_flat() {
+    /**
+     * Get all categories in flat list structure.
+     *
+     * @return array
+     */
+    public static function get_categories_flat(): array {
         global $DB;
 
         $context = context_system::instance();
@@ -143,7 +167,12 @@ class categories extends external_api {
         return ['categories' => $list];
     }
 
-    public static function get_categories_flat_returns() {
+    /**
+     * Describes the return structure for get_categories_flat.
+     *
+     * @return external_single_structure
+     */
+    public static function get_categories_flat_returns(): external_single_structure {
         return new external_single_structure([
             'categories' => new external_multiple_structure(
                 new external_single_structure([
@@ -160,10 +189,20 @@ class categories extends external_api {
         ]);
     }
 
-    public static function category_action_parameters() {
+    /**
+     * Describes the parameters for category_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function category_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'      => new external_value(PARAM_ALPHA, 'Action: create, edit, hide, show, delete'),
-            'categoryids' => new external_multiple_structure(new external_value(PARAM_INT, 'Category ID'), 'Array of IDs for bulk actions', VALUE_DEFAULT, []),
+            'categoryids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Category ID'),
+                'Array of IDs for bulk actions',
+                VALUE_DEFAULT,
+                []
+            ),
             'categoryid'  => new external_value(PARAM_INT, 'Target Category ID for edit or single action', VALUE_DEFAULT, 0),
             'name'        => new external_value(PARAM_TEXT, 'Category name', VALUE_DEFAULT, ''),
             'parent'      => new external_value(PARAM_INT, 'Parent category ID', VALUE_DEFAULT, 0),
@@ -184,7 +223,14 @@ class categories extends external_api {
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function category_action($action, $categoryids = [], $categoryid = 0, $name = '', $parent = 0, $description = '') {
+    public static function category_action(
+        string $action,
+        array $categoryids = [],
+        int $categoryid = 0,
+        string $name = '',
+        int $parent = 0,
+        string $description = ''
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
 
@@ -209,10 +255,12 @@ class categories extends external_api {
         try {
             switch ($act) {
                 case 'create':
-                    $parentcontext = ($params['parent'] > 0) ? \context_coursecat::instance($params['parent']) : \context_system::instance();
+                    $parentcontext = ($params['parent'] > 0)
+                        ? \context_coursecat::instance($params['parent'])
+                        : \context_system::instance();
                     require_capability('moodle/category:manage', $parentcontext);
                     \tool_management_console\license_manager::require_active_license();
-                    
+
                     if (empty($params['name'])) {
                         $transaction->allow_commit();
                         return ['success' => false, 'message' => 'Category name is required', 'affectedcount' => 0];
@@ -243,7 +291,7 @@ class categories extends external_api {
                         }
                     }
                     \tool_management_console\license_manager::require_active_license();
-                    
+
                     $cat = core_course_category::get($params['categoryid']);
                     $data = new stdClass();
                     $data->id = $params['categoryid'];
@@ -306,9 +354,11 @@ class categories extends external_api {
                     }
                     if (!empty($undeleted)) {
                         $transaction->allow_commit();
+                        $warningmsg = 'Acción completada. Las siguientes categorías no se eliminaron porque contienen cursos: '
+                            . implode(', ', $undeleted);
                         return [
                             'success'       => true,
-                            'message'       => "Acción completada. Las siguientes categorías no se eliminaron porque contienen cursos: " . implode(', ', $undeleted),
+                            'message'       => $warningmsg,
                             'affectedcount' => $affected,
                         ];
                     }
@@ -331,7 +381,12 @@ class categories extends external_api {
         ];
     }
 
-    public static function category_action_returns() {
+    /**
+     * Describes the return structure for category_action.
+     *
+     * @return external_single_structure
+     */
+    public static function category_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
             'message'       => new external_value(PARAM_TEXT, 'Status description message'),
@@ -339,7 +394,12 @@ class categories extends external_api {
         ]);
     }
 
-    public static function get_category_detail_parameters() {
+    /**
+     * Describes the parameters for get_category_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_category_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'categoryid' => new external_value(PARAM_INT, 'Category ID'),
             'limitfrom'  => new external_value(PARAM_INT, 'Offset for category courses', VALUE_DEFAULT, 0),
@@ -347,7 +407,15 @@ class categories extends external_api {
         ]);
     }
 
-    public static function get_category_detail($categoryid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get details and courses for a specific category.
+     *
+     * @param int $categoryid
+     * @param int $limitfrom
+     * @param int $limitnum
+     * @return array
+     */
+    public static function get_category_detail(int $categoryid, int $limitfrom = 0, int $limitnum = 0): array {
         $params = self::validate_parameters(self::get_category_detail_parameters(), [
             'categoryid' => $categoryid,
             'limitfrom'  => $limitfrom,
@@ -372,7 +440,7 @@ class categories extends external_api {
             ];
         }
 
-        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500.
         $offset = max(0, (int)$params['limitfrom']);
         $reqlimit = (int)$params['limitnum'];
         $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
@@ -400,7 +468,12 @@ class categories extends external_api {
         ];
     }
 
-    public static function get_category_detail_returns() {
+    /**
+     * Describes the return structure for get_category_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_category_detail_returns(): external_single_structure {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'Category ID'),
             'name' => new external_value(PARAM_TEXT, 'Category name'),

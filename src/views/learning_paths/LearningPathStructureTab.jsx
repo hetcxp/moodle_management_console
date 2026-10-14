@@ -182,6 +182,7 @@ export function LearningPathStructureTab({
                 type="checkbox"
                 checked={enforceSequence}
                 disabled={!isEditable}
+                aria-describedby="enforce-sequence-desc"
                 onChange={(e) => {
                   if (isEditable) {
                     setEnforceSequence(e.target.checked);
@@ -192,6 +193,9 @@ export function LearningPathStructureTab({
                   !isEditable && 'cursor-not-allowed opacity-60'
                 )}
               />
+              <span id="enforce-sequence-desc" className="sr-only">
+                {!isEditable ? 'Modificación de secuencia desactivada en modo solo lectura o sin licencia.' : 'Alterna el requisito de completar cursos en orden estricto.'}
+              </span>
               {enforceSequence ? (
                 <span className="flex items-center gap-1.5 text-primary">
                   <Lock className="h-3.5 w-3.5" /> Prelación Secuencial Activada

@@ -26,43 +26,44 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// phpcs:disable moodle.Files.MoodleInternal
 defined('MOODLE_INTERNAL') || define('MOODLE_INTERNAL', true);
 
 $candidates = [];
 
-// 1. Explicit environment overrides
-if ($bootstrap_file = getenv('MOODLE_BOOTSTRAP')) {
-    $candidates[] = $bootstrap_file;
+// 1. Explicit environment overrides.
+if ($bootstrapfile = getenv('MOODLE_BOOTSTRAP')) {
+    $candidates[] = $bootstrapfile;
 }
 
-if ($moodle_dir = getenv('MOODLE_DIR')) {
-    $candidates[] = rtrim($moodle_dir, '/') . '/public/lib/phpunit/bootstrap.php';
-    $candidates[] = rtrim($moodle_dir, '/') . '/lib/phpunit/bootstrap.php';
+if ($moodledir = getenv('MOODLE_DIR')) {
+    $candidates[] = rtrim($moodledir, '/') . '/public/lib/phpunit/bootstrap.php';
+    $candidates[] = rtrim($moodledir, '/') . '/lib/phpunit/bootstrap.php';
 }
 
-// 2. Working directory (cwd when executing from Moodle root)
+// 2. Working directory (cwd when executing from Moodle root).
 $cwd = getcwd();
 if ($cwd) {
     $candidates[] = $cwd . '/public/lib/phpunit/bootstrap.php';
     $candidates[] = $cwd . '/lib/phpunit/bootstrap.php';
 }
 
-// 3. Traversal from cwd upwards (handles running from within plugin or subdirectories)
-$search_dir = $cwd;
-for ($i = 0; $i < 5 && $search_dir && $search_dir !== '/' && $search_dir !== '.'; $i++) {
-    $candidates[] = $search_dir . '/public/lib/phpunit/bootstrap.php';
-    $candidates[] = $search_dir . '/lib/phpunit/bootstrap.php';
-    $search_dir = dirname($search_dir);
+// 3. Traversal from cwd upwards (handles running from within plugin or subdirectories).
+$searchdir = $cwd;
+for ($i = 0; $i < 5 && $searchdir && $searchdir !== '/' && $searchdir !== '.'; $i++) {
+    $candidates[] = $searchdir . '/public/lib/phpunit/bootstrap.php';
+    $candidates[] = $searchdir . '/lib/phpunit/bootstrap.php';
+    $searchdir = dirname($searchdir);
 }
 
-// 4. Relative to plugin directory (when directly placed or symlinked inside Moodle)
-// Classic layout: <moodle>/admin/tool/management_console/tests (4 levels up to <moodle>)
+// 4. Relative to plugin directory (when directly placed or symlinked inside Moodle).
+// Classic layout: <moodle>/admin/tool/management_console/tests (4 levels up to <moodle>).
 $candidates[] = dirname(__DIR__, 4) . '/lib/phpunit/bootstrap.php';
-// Modern layout: <moodle>/public/admin/tool/management_console/tests (5 levels up to <moodle>)
+// Modern layout: <moodle>/public/admin/tool/management_console/tests (5 levels up to <moodle>).
 $candidates[] = dirname(__DIR__, 5) . '/public/lib/phpunit/bootstrap.php';
 $candidates[] = dirname(__DIR__, 5) . '/lib/phpunit/bootstrap.php';
 
-// Deduplicate candidates
+// Deduplicate candidates.
 $candidates = array_unique(array_filter($candidates));
 
 $bootstrapped = false;

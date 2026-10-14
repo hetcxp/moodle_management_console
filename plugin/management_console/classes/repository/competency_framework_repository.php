@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Repository specialized in competency frameworks, scales, and global KPIs.
  *
@@ -34,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_framework_repository {
-
     /**
      * Devuelve las escalas del sitio identificando la estándar por defecto.
      *
@@ -48,7 +45,7 @@ class competency_framework_repository {
         $first = true;
         foreach ($records as $r) {
             $items = array_map('trim', explode(',', $r->scale));
-            $frameworks_count = (int)$DB->count_records('competency_framework', ['scaleid' => $r->id]);
+            $frameworkscount = (int)$DB->count_records('competency_framework', ['scaleid' => $r->id]);
             $locked = 0;
             if ($DB->record_exists('grade_items', ['scaleid' => $r->id])) {
                 $locked = 1;
@@ -66,7 +63,7 @@ class competency_framework_repository {
                 'isdefault'        => $first ? 1 : 0,
                 'items'            => $items,
                 'locked'           => $locked,
-                'frameworks_count' => $frameworks_count,
+                'frameworks_count' => $frameworkscount,
             ];
             $first = false;
         }
@@ -85,24 +82,24 @@ class competency_framework_repository {
         }
 
         global $DB;
-        $total_frameworks = (int)$DB->count_records('competency_framework');
-        $visible_frameworks = (int)$DB->count_records('competency_framework', ['visible' => 1]);
-        $hidden_frameworks = (int)$DB->count_records('competency_framework', ['visible' => 0]);
-        $total_competencies = (int)$DB->count_records('competency');
-        $pending_reviews = 0;
+        $totalframeworks = (int)$DB->count_records('competency_framework');
+        $visibleframeworks = (int)$DB->count_records('competency_framework', ['visible' => 1]);
+        $hiddenframeworks = (int)$DB->count_records('competency_framework', ['visible' => 0]);
+        $totalcompetencies = (int)$DB->count_records('competency');
+        $pendingreviews = 0;
         try {
-            $pending_reviews = (int)$DB->count_records_select('competency_usercomp', 'status IN (1, 2)');
+            $pendingreviews = (int)$DB->count_records_select('competency_usercomp', 'status IN (1, 2)');
         } catch (\Exception $e) {
             debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-            $pending_reviews = 0;
+            $pendingreviews = 0;
         }
 
         $result = [
-            'total_frameworks'   => $total_frameworks,
-            'visible_frameworks' => $visible_frameworks,
-            'hidden_frameworks'  => $hidden_frameworks,
-            'total_competencies' => $total_competencies,
-            'pending_reviews'    => $pending_reviews,
+            'total_frameworks'   => $totalframeworks,
+            'visible_frameworks' => $visibleframeworks,
+            'hidden_frameworks'  => $hiddenframeworks,
+            'total_competencies' => $totalcompetencies,
+            'pending_reviews'    => $pendingreviews,
         ];
 
         \tool_management_console\cache_manager::set_kpi('competency_kpis', $result);
@@ -120,7 +117,14 @@ class competency_framework_repository {
      * @param array $filters
      * @return array
      */
-    public static function get_paginated_frameworks($page = 0, $perpage = 50, $sort = 'shortname', $dir = 'ASC', $search = '', $filters = []): array {
+    public static function get_paginated_frameworks(
+        int $page = 0,
+        int $perpage = 50,
+        string $sort = 'shortname',
+        string $dir = 'ASC',
+        string $search = '',
+        array $filters = []
+    ): array {
         global $DB;
 
         $where = "1=1";
@@ -144,16 +148,26 @@ class competency_framework_repository {
         $sortfield = 'f.shortname';
         $d = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         switch (strtolower($sort)) {
-            case 'idnumber': $sortfield = 'f.idnumber'; break;
-            case 'competenciescount': $sortfield = 'competenciescount'; break;
-            case 'visible': $sortfield = 'f.visible'; break;
-            case 'timecreated': $sortfield = 'f.timecreated'; break;
+            case 'idnumber':
+                $sortfield = 'f.idnumber';
+                break;
+            case 'competenciescount':
+                $sortfield = 'competenciescount';
+                break;
+            case 'visible':
+                $sortfield = 'f.visible';
+                break;
+            case 'timecreated':
+                $sortfield = 'f.timecreated';
+                break;
             case 'shortname':
             case 'name':
-            default: $sortfield = 'f.shortname'; break;
+            default:
+                $sortfield = 'f.shortname';
+                break;
         }
 
-        $sql_select = "
+        $sqlselect = "
             SELECT f.id, f.shortname, f.idnumber, f.description, f.visible, f.scaleid, f.timecreated, f.timemodified,
                    COALESCE(s.name, '') AS scalename,
                    (SELECT COUNT(c.id) FROM {competency} c WHERE c.competencyframeworkid = f.id) AS competenciescount
@@ -163,11 +177,11 @@ class competency_framework_repository {
           ORDER BY $sortfield $d
         ";
 
-        $sql_count = "SELECT COUNT(f.id) FROM {competency_framework} f WHERE $where";
-        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
+        $sqlcount = "SELECT COUNT(f.id) FROM {competency_framework} f WHERE $where";
+        $totalcount = (int)$DB->count_records_sql($sqlcount, $sqlparams);
 
         $limitfrom = $page * $perpage;
-        $records = $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $perpage);
+        $records = $DB->get_records_sql($sqlselect, $sqlparams, $limitfrom, $perpage);
 
         $frameworks = [];
         foreach ($records as $r) {
@@ -200,10 +214,10 @@ class competency_framework_repository {
      * @param string $search
      * @return array|null
      */
-    public static function get_framework_detail($frameworkid, $search = ''): ?array {
+    public static function get_framework_detail(int $frameworkid, string $search = ''): ?array {
         global $DB;
 
-        $sql_framework = "
+        $sqlframework = "
             SELECT f.id, f.shortname, f.idnumber, f.description, f.visible, f.scaleid, f.scaleconfiguration, f.taxonomies,
                    f.timecreated, f.timemodified,
                    COALESCE(s.name, '') AS scalename
@@ -211,42 +225,48 @@ class competency_framework_repository {
          LEFT JOIN {scale} s ON s.id = f.scaleid
              WHERE f.id = :frameworkid
         ";
-        $framework = $DB->get_record_sql($sql_framework, ['frameworkid' => $frameworkid]);
+        $framework = $DB->get_record_sql($sqlframework, ['frameworkid' => $frameworkid]);
         if (!$framework) {
             return null;
         }
 
-        $where_comp = "c.competencyframeworkid = :frameworkid";
-        $sqlparams_comp = ['frameworkid' => $frameworkid];
+        $wherecomp = "c.competencyframeworkid = :frameworkid";
+        $sqlparamscomp = ['frameworkid' => $frameworkid];
 
         if (!empty($search)) {
             $like = '%' . $search . '%';
-            $where_comp .= " AND (" . $DB->sql_like('c.shortname', ':s1', false, false) .
+            $wherecomp .= " AND (" . $DB->sql_like('c.shortname', ':s1', false, false) .
                            " OR " . $DB->sql_like('c.idnumber', ':s2', false, false) .
                            " OR " . $DB->sql_like('c.description', ':s3', false, false) . ")";
-            $sqlparams_comp['s1'] = $like;
-            $sqlparams_comp['s2'] = $like;
-            $sqlparams_comp['s3'] = $like;
+            $sqlparamscomp['s1'] = $like;
+            $sqlparamscomp['s2'] = $like;
+            $sqlparamscomp['s3'] = $like;
         }
 
-        $sql_competencies = "
+        $sqlcompetencies = "
             SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.path, c.sortorder,
                    c.ruletype, c.ruleoutcome, c.timecreated, c.timemodified,
                    COALESCE(p.shortname, '') AS parentname,
-                   COALESCE((SELECT COUNT(DISTINCT cc.courseid) FROM {competency_coursecomp} cc WHERE cc.competencyid = c.id), 0) AS coursescount,
-                   COALESCE((SELECT COUNT(sub.id) FROM {competency} sub WHERE sub.parentid = c.id), 0) AS childrencount,
-                   COALESCE((SELECT COUNT(uc.id) FROM {competency_usercomp} uc WHERE uc.competencyid = c.id AND uc.status IN (1, 2)), 0) AS pendingreviewscount
+                   COALESCE((SELECT COUNT(DISTINCT cc.courseid)
+                               FROM {competency_coursecomp} cc
+                              WHERE cc.competencyid = c.id), 0) AS coursescount,
+                   COALESCE((SELECT COUNT(sub.id)
+                               FROM {competency} sub
+                              WHERE sub.parentid = c.id), 0) AS childrencount,
+                   COALESCE((SELECT COUNT(uc.id)
+                               FROM {competency_usercomp} uc
+                              WHERE uc.competencyid = c.id AND uc.status IN (1, 2)), 0) AS pendingreviewscount
               FROM {competency} c
          LEFT JOIN {competency} p ON p.id = c.parentid
-             WHERE $where_comp
+             WHERE $wherecomp
           ORDER BY c.path ASC, c.sortorder ASC, c.shortname ASC
         ";
-        $comp_records = $DB->get_records_sql($sql_competencies, $sqlparams_comp);
+        $comprecords = $DB->get_records_sql($sqlcompetencies, $sqlparamscomp);
 
         $competencies = [];
-        foreach ($comp_records as $c) {
-            $clean_path = trim((string)$c->path, '/');
-            $parts = array_filter(explode('/', $clean_path), function($p) {
+        foreach ($comprecords as $c) {
+            $cleanpath = trim((string)$c->path, '/');
+            $parts = array_filter(explode('/', $cleanpath), function ($p) {
                 return $p !== '' && $p !== '0';
             });
             $level = max(1, count($parts));
@@ -287,7 +307,7 @@ class competency_framework_repository {
             'timecreated'        => (int)$framework->timecreated,
             'timemodified'       => (int)$framework->timemodified,
             'competenciescount'  => count($competencies),
-            'pendingreviewscount'=> competency_review_repository::count_pending_reviews_by_framework((int)$framework->id),
+            'pendingreviewscount' => competency_review_repository::count_pending_reviews_by_framework((int)$framework->id),
             'competencies'       => $competencies,
         ];
     }
@@ -303,11 +323,17 @@ class competency_framework_repository {
      * @return array
      * @throws \moodle_exception
      */
-    public static function scale_action(string $action, int $scaleid = 0, string $name = '', string $items = '', int $userid = 0): array {
+    public static function scale_action(
+        string $action,
+        int $scaleid = 0,
+        string $name = '',
+        string $items = '',
+        int $userid = 0
+    ): array {
         global $DB, $CFG;
         require_once($CFG->libdir . '/gradelib.php');
 
-        $is_locked = function($id) use ($DB) {
+        $islocked = function ($id) use ($DB) {
             if ($DB->record_exists('grade_items', ['scaleid' => $id])) {
                 return true;
             }
@@ -334,16 +360,16 @@ class competency_framework_repository {
             if (empty($name)) {
                 throw new \moodle_exception('error', '', '', 'Scale name cannot be empty');
             }
-            $item_array = array_values(array_filter(array_map('trim', explode(',', $items)), function($v) {
+            $itemarray = array_values(array_filter(array_map('trim', explode(',', $items)), function ($v) {
                 return $v !== '';
             }));
-            if (count($item_array) < 2) {
+            if (count($itemarray) < 2) {
                 throw new \moodle_exception('error', '', '', 'Scale must contain at least 2 items separated by commas');
             }
 
             $record = new \stdClass();
             $record->name = $name;
-            $record->scale = implode(',', $item_array);
+            $record->scale = implode(',', $itemarray);
             $record->courseid = 0;
             $record->userid = $userid;
             $record->description = '';
@@ -352,13 +378,12 @@ class competency_framework_repository {
 
             $newid = $DB->insert_record('scale', $record);
             $result['scaleid'] = (int)$newid;
-
         } else if ($action === 'update') {
             if ($scaleid <= 0) {
                 throw new \moodle_exception('invalidrecord', 'error', '', 'Invalid scale ID');
             }
             $scale = $DB->get_record('scale', ['id' => $scaleid, 'courseid' => 0], '*', MUST_EXIST);
-            $locked = $is_locked($scaleid);
+            $locked = $islocked($scaleid);
             $result['locked'] = $locked ? 1 : 0;
             $result['frameworks_count'] = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
 
@@ -367,27 +392,27 @@ class competency_framework_repository {
             }
 
             if (!$locked && !empty($items)) {
-                $item_array = array_values(array_filter(array_map('trim', explode(',', $items)), function($v) {
+                $itemarray = array_values(array_filter(array_map('trim', explode(',', $items)), function ($v) {
                     return $v !== '';
                 }));
-                if (count($item_array) < 2) {
+                if (count($itemarray) < 2) {
                     throw new \moodle_exception('error', '', '', 'Scale must contain at least 2 items');
                 }
-                $scale->scale = implode(',', $item_array);
+                $scale->scale = implode(',', $itemarray);
             }
 
             $scale->timemodified = time();
             $DB->update_record('scale', $scale);
-
         } else if ($action === 'delete') {
             if ($scaleid <= 0) {
                 throw new \moodle_exception('invalidrecord', 'error', '', 'Invalid scale ID');
             }
-            $frameworks_count = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
-            if ($frameworks_count > 0) {
-                throw new \moodle_exception('error', '', '', 'Scale cannot be deleted because it is used by ' . $frameworks_count . ' competency framework(s)');
+            $frameworkscount = (int)$DB->count_records('competency_framework', ['scaleid' => $scaleid]);
+            if ($frameworkscount > 0) {
+                $errmsg = 'Scale cannot be deleted because it is used by ' . $frameworkscount . ' competency framework(s)';
+                throw new \moodle_exception('error', '', '', $errmsg);
             }
-            if ($is_locked($scaleid)) {
+            if ($islocked($scaleid)) {
                 throw new \moodle_exception('error', '', '', 'Scale cannot be deleted because it has grading records');
             }
             $DB->delete_records('scale', ['id' => $scaleid, 'courseid' => 0]);
@@ -432,25 +457,25 @@ class competency_framework_repository {
                     return ['success' => false, 'message' => 'El nombre del marco es obligatorio.', 'affectedcount' => 0];
                 }
 
-                $target_scaleid = $scaleid;
-                if (empty($target_scaleid)) {
-                    $first_scale = $DB->get_record('scale', ['courseid' => 0], 'id ASC', 'id, scale');
-                    $target_scaleid = $first_scale ? (int)$first_scale->id : 1;
+                $targetscaleid = $scaleid;
+                if (empty($targetscaleid)) {
+                    $firstscale = $DB->get_record('scale', ['courseid' => 0], 'id ASC', 'id, scale');
+                    $targetscaleid = $firstscale ? (int)$firstscale->id : 1;
                 }
 
-                $scale_rec = $DB->get_record('scale', ['id' => $target_scaleid]);
-                $scale_config = [];
-                if ($scale_rec && !empty($scale_rec->scale)) {
-                    $items = array_map('trim', explode(',', $scale_rec->scale));
-                    $item_count = count($items);
+                $scalerec = $DB->get_record('scale', ['id' => $targetscaleid]);
+                $scaleconfig = [];
+                if ($scalerec && !empty($scalerec->scale)) {
+                    $items = array_map('trim', explode(',', $scalerec->scale));
+                    $itemcount = count($items);
                     foreach ($items as $idx => $item) {
-                        $val_id = $idx + 1;
-                        $is_last = ($val_id === $item_count);
-                        $scale_config[] = [
-                            'scaleid'      => $target_scaleid,
-                            'id'           => $val_id,
-                            'scaledefault' => $is_last ? 1 : 0,
-                            'proficient'   => $is_last ? 1 : 0,
+                        $valid = $idx + 1;
+                        $islast = ($valid === $itemcount);
+                        $scaleconfig[] = [
+                            'scaleid'      => $targetscaleid,
+                            'id'           => $valid,
+                            'scaledefault' => $islast ? 1 : 0,
+                            'proficient'   => $islast ? 1 : 0,
                         ];
                     }
                 }
@@ -461,8 +486,8 @@ class competency_framework_repository {
                 $record->description        = clean_text($description, FORMAT_HTML);
                 $record->descriptionformat  = FORMAT_HTML;
                 $record->visible            = $visible ? 1 : 0;
-                $record->scaleid            = $target_scaleid;
-                $record->scaleconfiguration = json_encode($scale_config);
+                $record->scaleid            = $targetscaleid;
+                $record->scaleconfiguration = json_encode($scaleconfig);
                 $record->contextid          = $contextid;
                 $record->taxonomies         = json_encode(['1' => 'competency']);
                 $record->timecreated        = $now;
@@ -496,22 +521,22 @@ class competency_framework_repository {
 
                 if (!empty($scaleid) && $scaleid != $existing->scaleid) {
                     $existing->scaleid = (int)$scaleid;
-                    $scale_rec = $DB->get_record('scale', ['id' => $existing->scaleid]);
-                    if ($scale_rec && !empty($scale_rec->scale)) {
-                        $items = array_map('trim', explode(',', $scale_rec->scale));
-                        $item_count = count($items);
-                        $scale_config = [];
+                    $scalerec = $DB->get_record('scale', ['id' => $existing->scaleid]);
+                    if ($scalerec && !empty($scalerec->scale)) {
+                        $items = array_map('trim', explode(',', $scalerec->scale));
+                        $itemcount = count($items);
+                        $scaleconfig = [];
                         foreach ($items as $idx => $item) {
-                            $val_id = $idx + 1;
-                            $is_last = ($val_id === $item_count);
-                            $scale_config[] = [
+                            $valid = $idx + 1;
+                            $islast = ($valid === $itemcount);
+                            $scaleconfig[] = [
                                 'scaleid'      => $existing->scaleid,
-                                'id'           => $val_id,
-                                'scaledefault' => $is_last ? 1 : 0,
-                                'proficient'   => $is_last ? 1 : 0,
+                                'id'           => $valid,
+                                'scaledefault' => $islast ? 1 : 0,
+                                'proficient'   => $islast ? 1 : 0,
                             ];
                         }
-                        $existing->scaleconfiguration = json_encode($scale_config);
+                        $existing->scaleconfiguration = json_encode($scaleconfig);
                     }
                 }
 

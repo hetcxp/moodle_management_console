@@ -5,6 +5,14 @@
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Performance and pagination contract tests (TD-PERF-001, TD-ARCH-002).
@@ -23,8 +31,6 @@ use tool_management_console\repository\course_enrolment_repository;
 use tool_management_console\repository\cohort_repository;
 use tool_management_console\repository\user_repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Tests verifying that detail queries support pagination and limits.
  *
@@ -33,7 +39,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class performance_contract_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest(true);
     }
@@ -51,12 +56,16 @@ class performance_contract_test extends advanced_testcase {
         $this->getDataGenerator()->enrol_user($user1->id, $course->id);
         $this->getDataGenerator()->enrol_user($user2->id, $course->id);
 
-        // 1-argument call (as used in tests and simple queries)
+        // 1-argument call (as used in tests and simple queries).
         $enrolled1 = course_repository::get_enrolled_users($course->id);
         $this->assertCount(2, $enrolled1);
 
-        // 2-argument call with custom SQL
-        $sql = "SELECT u.id, u.username FROM {user} u JOIN {user_enrolments} ue ON ue.userid = u.id JOIN {enrol} e ON e.id = ue.enrolid WHERE e.courseid = :courseid";
+        // 2-argument call with custom SQL.
+        $sql = "SELECT u.id, u.username " .
+            "FROM {user} u " .
+            "JOIN {user_enrolments} ue ON ue.userid = u.id " .
+            "JOIN {enrol} e ON e.id = ue.enrolid " .
+            "WHERE e.courseid = :courseid";
         $enrolled2 = course_repository::get_enrolled_users($sql, $course->id);
         $this->assertCount(2, $enrolled2);
     }
@@ -71,15 +80,15 @@ class performance_contract_test extends advanced_testcase {
             $this->getDataGenerator()->enrol_user($u->id, $course->id);
         }
 
-        // Fetch with limit 2, offset 0
+        // Fetch with limit 2, offset 0.
         $page1 = course_enrolment_repository::get_course_enrolled_users_detail($course->id, 0, 2);
         $this->assertCount(2, $page1);
 
-        // Fetch with limit 2, offset 2
+        // Fetch with limit 2, offset 2.
         $page2 = course_enrolment_repository::get_course_enrolled_users_detail($course->id, 2, 2);
         $this->assertCount(2, $page2);
 
-        // Fetch remaining
+        // Fetch remaining.
         $page3 = course_enrolment_repository::get_course_enrolled_users_detail($course->id, 4, 2);
         $this->assertCount(1, $page3);
     }
@@ -108,8 +117,8 @@ class performance_contract_test extends advanced_testcase {
             $this->getDataGenerator()->enrol_user($user->id, $c->id);
         }
 
-        $courses_paged = user_repository::get_user_enrolled_courses($user->id, 0, 2);
-        $this->assertCount(2, $courses_paged);
+        $coursespaged = user_repository::get_user_enrolled_courses($user->id, 0, 2);
+        $this->assertCount(2, $coursespaged);
     }
 
     /**
@@ -127,34 +136,34 @@ class performance_contract_test extends advanced_testcase {
         $this->getDataGenerator()->enrol_user($user2->id, $course->id, 'editingteacher');
         cohort_add_member($cohort->id, $user1->id);
 
-        // Synchronize cohort with course
+        // Synchronize cohort with course.
         $enrolplugin = enrol_get_plugin('cohort');
         if ($enrolplugin) {
             $enrolplugin->add_instance($course, ['customint1' => $cohort->id]);
         }
 
-        // Unbounded call: should return all or empty
-        $all_cohorts = course_enrolment_repository::get_course_user_cohort_map($course->id);
-        $this->assertIsArray($all_cohorts);
+        // Unbounded call: should return all or empty.
+        $allcohorts = course_enrolment_repository::get_course_user_cohort_map($course->id);
+        $this->assertIsArray($allcohorts);
 
-        // Bounded call with specific userids
-        $bounded_cohorts = course_enrolment_repository::get_course_user_cohort_map($course->id, [$user1->id]);
-        $this->assertIsArray($bounded_cohorts);
-        $this->assertArrayNotHasKey($user2->id, $bounded_cohorts);
+        // Bounded call with specific userids.
+        $boundedcohorts = course_enrolment_repository::get_course_user_cohort_map($course->id, [$user1->id]);
+        $this->assertIsArray($boundedcohorts);
+        $this->assertArrayNotHasKey($user2->id, $boundedcohorts);
 
-        // Enrolments bounded
-        $all_enrolments = course_enrolment_repository::get_course_all_enrolments($course->id);
-        $this->assertGreaterThanOrEqual(2, count($all_enrolments));
+        // Enrolments bounded.
+        $allenrolments = course_enrolment_repository::get_course_all_enrolments($course->id);
+        $this->assertGreaterThanOrEqual(2, count($allenrolments));
 
-        $bounded_enrolments = course_enrolment_repository::get_course_all_enrolments($course->id, [$user1->id]);
-        foreach ($bounded_enrolments as $e) {
+        $boundedenrolments = course_enrolment_repository::get_course_all_enrolments($course->id, [$user1->id]);
+        foreach ($boundedenrolments as $e) {
             $this->assertEquals($user1->id, $e->userid);
         }
 
-        // Roles bounded
-        $bounded_roles = course_enrolment_repository::get_course_user_roles_map($course->id, [$user2->id]);
-        $this->assertArrayHasKey($user2->id, $bounded_roles);
-        $this->assertArrayNotHasKey($user1->id, $bounded_roles);
+        // Roles bounded.
+        $boundedroles = course_enrolment_repository::get_course_user_roles_map($course->id, [$user2->id]);
+        $this->assertArrayHasKey($user2->id, $boundedroles);
+        $this->assertArrayNotHasKey($user1->id, $boundedroles);
     }
 
     /**
@@ -162,20 +171,20 @@ class performance_contract_test extends advanced_testcase {
      */
     public function test_learning_path_detail_pagination() {
         $catid = \tool_management_console\repository\learning_path_repository::get_or_create_lp_category();
-        $lp_course = $this->getDataGenerator()->create_course(['category' => $catid, 'format' => 'topics']);
+        $lpcourse = $this->getDataGenerator()->create_course(['category' => $catid, 'format' => 'topics']);
 
         for ($i = 0; $i < 5; $i++) {
             $u = $this->getDataGenerator()->create_user(['lastname' => "LpUser{$i}"]);
-            $this->getDataGenerator()->enrol_user($u->id, $lp_course->id);
+            $this->getDataGenerator()->enrol_user($u->id, $lpcourse->id);
         }
 
-        $detail_p1 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lp_course->id, 0, 2);
-        $this->assertCount(2, $detail_p1->users);
+        $detailp1 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lpcourse->id, 0, 2);
+        $this->assertCount(2, $detailp1->users);
 
-        $detail_p2 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lp_course->id, 2, 2);
-        $this->assertCount(2, $detail_p2->users);
+        $detailp2 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lpcourse->id, 2, 2);
+        $this->assertCount(2, $detailp2->users);
 
-        $detail_p3 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lp_course->id, 4, 2);
-        $this->assertCount(1, $detail_p3->users);
+        $detailp3 = \tool_management_console\repository\learning_path_repository::get_learning_path_detail($lpcourse->id, 4, 2);
+        $this->assertCount(1, $detailp3->users);
     }
 }

@@ -42,7 +42,6 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/
  * @covers     \tool_management_console\repository\cohort_repository
  */
 class cohort_repository_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest();
     }
@@ -63,8 +62,8 @@ class cohort_repository_test extends advanced_testcase {
         $this->assertGreaterThanOrEqual(1, $kpis['total_members']);
 
         // 3. Probar get_cohorts_filtered y get_cohort_strict
-        list($records, $totalcount) = \tool_management_console\repository\cohort_repository::get_cohorts_filtered([
-            'page' => 0, 'perpage' => 10, 'sort' => 'name', 'dir' => 'ASC', 'search' => 'Cohort Repo'
+        [$records, $totalcount] = \tool_management_console\repository\cohort_repository::get_cohorts_filtered([
+            'page' => 0, 'perpage' => 10, 'sort' => 'name', 'dir' => 'ASC', 'search' => 'Cohort Repo',
         ]);
         $this->assertGreaterThanOrEqual(1, $totalcount);
         $this->assertArrayHasKey($cohort->id, $records);

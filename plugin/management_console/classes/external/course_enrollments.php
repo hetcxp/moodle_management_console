@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -44,12 +42,22 @@ use tool_management_console\repository\user_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_enrollments extends external_api {
-
-    public static function course_cohort_action_parameters() {
+    /**
+     * Parameter definition for course_cohort_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function course_cohort_action_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'action' => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, set_group, set_expiration, message, sync'),
+            'action' => new external_value(
+                PARAM_ALPHANUMEXT,
+                'add, remove, suspend, activate, set_group, set_expiration, message, sync'
+            ),
             'courseid' => new external_value(PARAM_INT, 'Course ID'),
-            'cohortids' => new external_multiple_structure(new external_value(PARAM_INT, 'Cohort ID'), 'Array of cohort IDs'),
+            'cohortids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Cohort ID'),
+                'Array of cohort IDs'
+            ),
             'groupid' => new external_value(PARAM_INT, 'Group ID', VALUE_DEFAULT, 0),
             'newgroupname' => new external_value(PARAM_TEXT, 'New group name if creating', VALUE_DEFAULT, ''),
             'timeend' => new external_value(PARAM_INT, 'Expiration time', VALUE_DEFAULT, 0),
@@ -67,13 +75,22 @@ class course_enrollments extends external_api {
      * @param int $groupid
      * @param string $newgroupname
      * @param int $timeend
-     * @param string $message_text
+     * @param string $messagetext
      * @param int $roleid
      * @return array
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function course_cohort_action($action, $courseid, $cohortids, $groupid = 0, $newgroupname = '', $timeend = 0, $message_text = '', $roleid = 0) {
+    public static function course_cohort_action(
+        $action,
+        $courseid,
+        $cohortids,
+        $groupid = 0,
+        $newgroupname = '',
+        $timeend = 0,
+        $messagetext = '',
+        $roleid = 0
+    ): array {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
         require_once($CFG->dirroot . '/group/lib.php');
@@ -88,7 +105,7 @@ class course_enrollments extends external_api {
             'groupid' => $groupid,
             'newgroupname' => $newgroupname,
             'timeend' => $timeend,
-            'message_text' => $message_text,
+            'message_text' => $messagetext,
             'roleid' => $roleid,
         ]);
 
@@ -99,14 +116,14 @@ class course_enrollments extends external_api {
         $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
         $enrolplugin = enrol_get_plugin('cohort');
 
-        // Resolve group
-        $resolved_groupid = $params['groupid'];
+        // Resolve group.
+        $resolvedgroupid = $params['groupid'];
         if (!empty($params['newgroupname'])) {
             require_capability('moodle/course:managegroups', $coursecontext);
             $newgroup = new \stdClass();
             $newgroup->courseid = $course->id;
             $newgroup->name = $params['newgroupname'];
-            $resolved_groupid = groups_create_group($newgroup);
+            $resolvedgroupid = groups_create_group($newgroup);
         }
 
         $affected = 0;
@@ -121,14 +138,14 @@ class course_enrollments extends external_api {
                     $existing = $DB->get_record('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
 
                     if (!$existing) {
                         $instanceid = $enrolplugin->add_instance($course, [
                             'customint1' => $cid,
                             'roleid' => $roleid,
-                            'customint2' => $resolved_groupid
+                            'customint2' => $resolvedgroupid,
                         ]);
                         if ($instanceid) {
                             $instance = $DB->get_record('enrol', ['id' => $instanceid]);
@@ -149,7 +166,7 @@ class course_enrollments extends external_api {
                     $instances = $DB->get_records('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
                     foreach ($instances as $instance) {
                         $enrolplugin->delete_instance($instance);
@@ -164,7 +181,7 @@ class course_enrollments extends external_api {
                     $instances = $DB->get_records('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
                     foreach ($instances as $instance) {
                         $enrolplugin->update_status($instance, ENROL_INSTANCE_DISABLED);
@@ -179,7 +196,7 @@ class course_enrollments extends external_api {
                     $instances = $DB->get_records('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
                     foreach ($instances as $instance) {
                         $enrolplugin->update_status($instance, ENROL_INSTANCE_ENABLED);
@@ -194,10 +211,10 @@ class course_enrollments extends external_api {
                     $instances = $DB->get_records('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
                     foreach ($instances as $instance) {
-                        $DB->set_field('enrol', 'customint2', $resolved_groupid, ['id' => $instance->id]);
+                        $DB->set_field('enrol', 'customint2', $resolvedgroupid, ['id' => $instance->id]);
                         enrol_cohort_sync(new \null_progress_trace(), $course->id);
                         $affected++;
                     }
@@ -210,7 +227,7 @@ class course_enrollments extends external_api {
                     $instances = $DB->get_records('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
                     foreach ($instances as $instance) {
                         $enrolend = $params['timeend'];
@@ -232,7 +249,7 @@ class course_enrollments extends external_api {
                     $instances = $DB->get_records('enrol', [
                         'courseid' => $course->id,
                         'enrol' => 'cohort',
-                        'customint1' => $cid
+                        'customint1' => $cid,
                     ]);
                     foreach ($instances as $instance) {
                         enrol_cohort_sync(new \null_progress_trace(), $course->id);
@@ -285,11 +302,16 @@ class course_enrollments extends external_api {
         return [
             'success' => true,
             'message' => "Cohort action '{$params['action']}' completed.",
-            'affectedcount' => $affected
+            'affectedcount' => $affected,
         ];
     }
 
-    public static function course_cohort_action_returns() {
+    /**
+     * Return structure for course_cohort_action.
+     *
+     * @return external_single_structure
+     */
+    public static function course_cohort_action_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success'),
             'message' => new external_value(PARAM_TEXT, 'Message'),
@@ -297,9 +319,17 @@ class course_enrollments extends external_api {
         ]);
     }
 
-    public static function course_user_action_parameters() {
+    /**
+     * Parameter definition for course_user_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function course_user_action_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'action'   => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, set_expiration, setgroup, message'),
+            'action'   => new external_value(
+                PARAM_ALPHANUMEXT,
+                'add, remove, suspend, activate, set_expiration, setgroup, message'
+            ),
             'courseid' => new external_value(PARAM_INT, 'Course ID'),
             'userids'  => new external_multiple_structure(new external_value(PARAM_INT, 'User ID')),
             'timeend'  => new external_value(PARAM_INT, 'Expiration time', VALUE_DEFAULT, 0),
@@ -318,18 +348,31 @@ class course_enrollments extends external_api {
      * @param int $timeend
      * @param int $groupid
      * @param string $newgroupname
-     * @param string $message_text
+     * @param string $messagetext
      * @return array
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
+    public static function course_user_action(
+        $action,
+        $courseid,
+        $userids,
+        $timeend = 0,
+        $groupid = 0,
+        $newgroupname = '',
+        $messagetext = ''
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
 
         $params = self::validate_parameters(self::course_user_action_parameters(), [
-            'action' => $action, 'courseid' => $courseid, 'userids' => $userids,
-            'timeend' => $timeend, 'groupid' => $groupid, 'newgroupname' => $newgroupname, 'message_text' => $message_text
+            'action' => $action,
+            'courseid' => $courseid,
+            'userids' => $userids,
+            'timeend' => $timeend,
+            'groupid' => $groupid,
+            'newgroupname' => $newgroupname,
+            'message_text' => $messagetext,
         ]);
 
         $coursecontext = \context_course::instance($params['courseid']);
@@ -349,7 +392,12 @@ class course_enrollments extends external_api {
         );
     }
 
-    public static function course_user_action_returns() {
+    /**
+     * Return structure for course_user_action.
+     *
+     * @return external_single_structure
+     */
+    public static function course_user_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, 'Success'),
             'message'       => new external_value(PARAM_TEXT, 'Message'),
@@ -357,17 +405,29 @@ class course_enrollments extends external_api {
         ]);
     }
 
-    public static function get_course_user_detail_parameters() {
+    /**
+     * Parameter definition for get_course_user_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_course_user_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Course ID'),
             'userid'   => new external_value(PARAM_INT, 'User ID'),
         ]);
     }
 
-    public static function get_course_user_detail($courseid, $userid) {
+    /**
+     * Get detailed enrolment, completion and grades for a user in course.
+     *
+     * @param int $courseid
+     * @param int $userid
+     * @return array
+     */
+    public static function get_course_user_detail($courseid, $userid): array {
         global $DB, $CFG;
-        require_once($CFG->libdir.'/completionlib.php');
-        require_once($CFG->libdir.'/gradelib.php');
+        require_once($CFG->libdir . '/completionlib.php');
+        require_once($CFG->libdir . '/gradelib.php');
 
         $context = context_system::instance();
         self::validate_context($context);
@@ -387,27 +447,29 @@ class course_enrollments extends external_api {
             throw new \moodle_exception('error', 'moodle', '', 'User not found. userid=' . $params['userid']);
         }
 
-        // Basic Info
+        // Basic Info.
         $userinfo = [
             'id' => (int)$user->id,
             'fullname' => fullname($user),
             'email' => $user->email,
         ];
 
-        // Enrolment Data
-        $enrolments_rs = course_repository::get_course_user_enrolments($course->id, $user->id);
+        // Enrolment Data.
+        $enrolmentsrs = course_repository::get_course_user_enrolments($course->id, $user->id);
         $enrolments = [];
-        $status = 1; // Default suspended
+        $status = 1; // Default suspended.
         $timestart = 0;
         $timeend = 0;
-        foreach ($enrolments_rs as $ue) {
+        foreach ($enrolmentsrs as $ue) {
             $enrolments[] = [
                 'method' => (string)$ue->method,
                 'status' => (int)$ue->status,
                 'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend
+                'timeend' => (int)$ue->timeend,
             ];
-            if ($ue->status == 0) $status = 0;
+            if ($ue->status == 0) {
+                $status = 0;
+            }
             if ($timestart == 0 || ($ue->timestart > 0 && $ue->timestart < $timestart)) {
                 $timestart = (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated;
             }
@@ -416,50 +478,54 @@ class course_enrollments extends external_api {
             }
         }
 
-        // Access Logs
-        list($firstaccess, $lastaccess) = course_repository::get_course_user_first_and_last_access($course->id, $user->id);
+        // Access Logs.
+        [$firstaccess, $lastaccess] = course_repository::get_course_user_first_and_last_access($course->id, $user->id);
 
-        // Activities and Grades
+        // Activities and Grades.
         $modinfo = get_fast_modinfo($course);
         $cms = $modinfo->get_cms();
-        
+
         $activities = [];
-        $completed_count = 0;
-        $total_tracked = 0;
+        $completedcount = 0;
+        $totaltracked = 0;
 
         $completion = new \completion_info($course);
-        
+
         foreach ($cms as $cm) {
-            if (!$cm->uservisible) continue;
-            
+            if (!$cm->uservisible) {
+                continue;
+            }
+
             $act = [
                 'id' => (int)$cm->id,
                 'name' => (string)$cm->name,
                 'modname' => (string)$cm->modname,
                 'completionstatus' => 0,
-                'grade' => ''
+                'grade' => '',
             ];
 
             if ($completion->is_enabled($cm) != COMPLETION_TRACKING_NONE) {
-                $total_tracked++;
+                $totaltracked++;
                 $cdata = $completion->get_data($cm, false, $user->id);
                 $act['completionstatus'] = (int)$cdata->completionstate;
-                if ($cdata->completionstate == COMPLETION_COMPLETE || $cdata->completionstate == COMPLETION_COMPLETE_PASS) {
-                    $completed_count++;
+                $iscomplete = ($cdata->completionstate == COMPLETION_COMPLETE
+                    || $cdata->completionstate == COMPLETION_COMPLETE_PASS);
+                if ($iscomplete) {
+                    $completedcount++;
                 }
             }
 
             if (plugin_supports('mod', $cm->modname, FEATURE_GRADE_HAS_GRADE, false)) {
-                $grade_item = \grade_item::fetch([
+                $gradeitem = \grade_item::fetch([
                     'itemtype' => 'mod',
                     'itemmodule' => $cm->modname,
                     'iteminstance' => $cm->instance,
-                    'courseid' => $course->id
+                    'courseid' => $course->id,
                 ]);
-                if ($grade_item) {
-                    $grade_grade = \grade_grade::fetch(['itemid' => $grade_item->id, 'userid' => $user->id]);
-                    if ($grade_grade && !is_null($grade_grade->finalgrade)) {
-                        $act['grade'] = (string)format_float($grade_grade->finalgrade, $grade_item->get_decimals());
+                if ($gradeitem) {
+                    $gradegrade = \grade_grade::fetch(['itemid' => $gradeitem->id, 'userid' => $user->id]);
+                    if ($gradegrade && !is_null($gradegrade->finalgrade)) {
+                        $act['grade'] = (string)format_float($gradegrade->finalgrade, $gradeitem->get_decimals());
                     }
                 }
             }
@@ -467,7 +533,7 @@ class course_enrollments extends external_api {
             $activities[] = $act;
         }
 
-        $progress = $total_tracked > 0 ? round(($completed_count / $total_tracked) * 100) : 0;
+        $progress = $totaltracked > 0 ? round(($completedcount / $totaltracked) * 100) : 0;
 
         return [
             'user' => $userinfo,
@@ -478,11 +544,16 @@ class course_enrollments extends external_api {
             'lastaccess' => $lastaccess,
             'progress' => (int)$progress,
             'enrolments' => $enrolments,
-            'activities' => $activities
+            'activities' => $activities,
         ];
     }
 
-    public static function get_course_user_detail_returns() {
+    /**
+     * Return structure for get_course_user_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_course_user_detail_returns(): external_single_structure {
         return new external_single_structure([
             'user' => new external_single_structure([
                 'id' => new external_value(PARAM_INT, 'User ID'),
@@ -511,7 +582,7 @@ class course_enrollments extends external_api {
                     'completionstatus' => new external_value(PARAM_INT, 'Completion status'),
                     'grade' => new external_value(PARAM_TEXT, 'Grade string'),
                 ])
-            )
+            ),
         ]);
     }
 }

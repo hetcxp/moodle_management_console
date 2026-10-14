@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Repository specialized in competency reviews, evaluations, and evidence.
  *
@@ -34,7 +32,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_review_repository {
-
     /**
      * Cuenta revisiones pendientes a nivel de marco.
      *
@@ -143,10 +140,11 @@ class competency_review_repository {
             $params['s4'] = $like;
         }
 
-        $sql_select = "
+        $sqlselect = "
             SELECT uc.id AS usercompid, uc.userid, uc.competencyid, uc.status, uc.reviewerid,
                    uc.proficiency, uc.grade, uc.timemodified,
                    u.firstname, u.lastname, u.email, u.picture, u.imagealt,
+                   u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
                    c.shortname AS competencyname, c.idnumber AS competencyidnumber, c.competencyframeworkid,
                    f.shortname AS frameworkname, f.scaleid, COALESCE(s.name, 'Escala estándar') AS scalename,
                    COALESCE(s.scale, '') AS scaleitems
@@ -159,7 +157,7 @@ class competency_review_repository {
           ORDER BY uc.timemodified DESC
         ";
 
-        $sql_count = "
+        $sqlcount = "
             SELECT COUNT(uc.id)
               FROM {competency_usercomp} uc
               JOIN {user} u ON u.id = uc.userid
@@ -168,34 +166,41 @@ class competency_review_repository {
              WHERE $where
         ";
 
-        $totalcount = (int)$DB->count_records_sql($sql_count, $params);
+        $totalcount = (int)$DB->count_records_sql($sqlcount, $params);
         $limitfrom = $page * $perpage;
-        $records = $DB->get_records_sql($sql_select, $params, $limitfrom, $perpage);
+        $records = $DB->get_records_sql($sqlselect, $params, $limitfrom, $perpage);
 
         $reviews = [];
         foreach ($records as $r) {
             $items = array_map('trim', explode(',', $r->scaleitems));
-            $scale_options = [];
+            $scaleoptions = [];
             foreach ($items as $idx => $item) {
                 if ($item !== '') {
-                    $scale_options[] = [
+                    $scaleoptions[] = [
                         'value' => $idx + 1,
                         'name'  => $item,
                     ];
                 }
             }
 
-            // Obtener última evidencia si existe
-            $latest_evidence = '';
+            // Obtener última evidencia si existe.
+            $latestevidence = '';
             try {
-                $ev = $DB->get_records('competency_evidence', ['usercompetencyid' => $r->usercompid], 'timecreated DESC', 'note', 0, 1);
+                $ev = $DB->get_records(
+                    'competency_evidence',
+                    ['usercompetencyid' => $r->usercompid],
+                    'timecreated DESC',
+                    'note',
+                    0,
+                    1
+                );
                 if (!empty($ev)) {
-                    $first_ev = reset($ev);
-                    $latest_evidence = (string)($first_ev->note ?? '');
+                    $firstev = reset($ev);
+                    $latestevidence = (string)($firstev->note ?? '');
                 }
             } catch (\Exception $e) {
                 debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-                $latest_evidence = '';
+                $latestevidence = '';
             }
 
             $reviews[] = [
@@ -206,15 +211,15 @@ class competency_review_repository {
                 'competencyid'         => (int)$r->competencyid,
                 'competencyname'       => (string)$r->competencyname,
                 'competencyidnumber'   => (string)($r->competencyidnumber ?? ''),
-                'competencyframeworkid'=> (int)$r->competencyframeworkid,
+                'competencyframeworkid' => (int)$r->competencyframeworkid,
                 'frameworkname'        => (string)$r->frameworkname,
                 'status'               => (int)$r->status,
                 'proficiency'          => (int)$r->proficiency,
                 'currentgrade'         => (int)($r->grade ?? 0),
                 'scaleid'              => (int)$r->scaleid,
                 'scalename'            => (string)$r->scalename,
-                'scaleoptions'         => $scale_options,
-                'latestevidence'       => $latest_evidence,
+                'scaleoptions'         => $scaleoptions,
+                'latestevidence'       => $latestevidence,
                 'timemodified'         => (int)$r->timemodified,
             ];
         }
@@ -243,7 +248,7 @@ class competency_review_repository {
         $rid = $reviewerid > 0 ? $reviewerid : $USER->id;
         $usercomp = $DB->get_record('competency_usercomp', ['id' => $usercompid], '*', MUST_EXIST);
 
-        $usercomp->status = 0; // STATUS_IDLE (Completada la revisión)
+        $usercomp->status = 0; // STATUS_IDLE (Completada la revisión).
         $usercomp->reviewerid = $rid;
         $usercomp->grade = (int)$grade;
         $usercomp->proficiency = (int)$proficiency;
@@ -252,7 +257,7 @@ class competency_review_repository {
 
         $DB->update_record('competency_usercomp', $usercomp);
 
-        // Registrar evidencia manual si la tabla existe
+        // Registrar evidencia manual si la tabla existe.
         try {
             $evidence = new \stdClass();
             $evidence->usercompetencyid = $usercompid;

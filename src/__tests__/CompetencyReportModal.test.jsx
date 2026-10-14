@@ -120,7 +120,7 @@ describe('CompetencyReportModal and REPORT_CONFIGS.competency', () => {
                   actionuserfullname: 'Docente Dos',
                   gradename: 'Aprobado',
                   timecreated: 1710000000,
-                  note: 'Buen trabajo',
+                  note: 'Evidencia verificada',
                 },
               ],
             },
@@ -134,7 +134,7 @@ describe('CompetencyReportModal and REPORT_CONFIGS.competency', () => {
       expect(rows[0].estado_comp).toBe('Pendiente');
       expect(rows[0].tipo_evidencia).toBe('Tarea enviada');
       expect(rows[0].autor_evidencia).toBe('Docente Dos');
-      expect(rows[0].nota_evidencia).toBe('Buen trabajo');
+      expect(rows[0].nota_evidencia).toBe('Evidencia verificada');
     });
   });
 

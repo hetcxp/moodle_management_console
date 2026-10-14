@@ -29,13 +29,13 @@ $definitions = [
         'mode'             => cache_store::MODE_APPLICATION,
         'simplekeys'       => true,
         'simpledata'       => true,
-        'ttl'              => 600, // 10 minutes TTL
+        'ttl'              => 600, // 10 minutes TTL.
         'canuselocalstore' => true,
     ],
     'license_info' => [
         'mode'       => cache_store::MODE_APPLICATION,
         'simplekeys' => true,
         'simpledata' => true,
-        'ttl'        => 60, // optimización únicamente, NO fuente de confianza
+        'ttl'        => 60, // Optimización únicamente, NO fuente de confianza.
     ],
 ];

@@ -43,7 +43,6 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @covers     \tool_management_console\external\permissions
  */
 class permissions_test extends advanced_testcase {
-
     public function test_course_action_requires_capability() {
         $this->resetAfterTest(true);
         $user = $this->getDataGenerator()->create_user();
@@ -59,11 +58,11 @@ class permissions_test extends advanced_testcase {
     public function test_user_action_requires_capability() {
         $this->resetAfterTest(true);
         $user = $this->getDataGenerator()->create_user();
-        $target_user = $this->getDataGenerator()->create_user();
+        $targetuser = $this->getDataGenerator()->create_user();
         $this->setUser($user);
 
         $this->expectException(\required_capability_exception::class);
-        \tool_management_console\external\users::user_action('delete', [$target_user->id]);
+        \tool_management_console\external\users::user_action('delete', [$targetuser->id]);
     }
 
     public function test_category_action_requires_capability() {
@@ -101,15 +100,15 @@ class permissions_test extends advanced_testcase {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
-        // Non-existent course ID in action
+        // Non-existent course ID in action.
         $res = \tool_management_console\external\courses::course_action('hide', [999999]);
         $this->assertTrue($res['success']);
         $this->assertEquals(0, $res['affectedcount']);
 
-        // Non-existent user ID in action
-        $user_res = \tool_management_console\external\users::user_action('suspend', [999999]);
-        $this->assertTrue($user_res['success']);
-        $this->assertEquals(0, $user_res['affectedcount']);
+        // Non-existent user ID in action.
+        $userres = \tool_management_console\external\users::user_action('suspend', [999999]);
+        $this->assertTrue($userres['success']);
+        $this->assertEquals(0, $userres['affectedcount']);
     }
 
     public function test_invalid_action_name() {
@@ -119,7 +118,7 @@ class permissions_test extends advanced_testcase {
         $res = \tool_management_console\external\courses::course_action('unknown_action', [1]);
         $this->assertFalse($res['success']);
 
-        $user_res = \tool_management_console\external\users::user_action('unknown_action', [1]);
-        $this->assertFalse($user_res['success']);
+        $userres = \tool_management_console\external\users::user_action('unknown_action', [1]);
+        $this->assertFalse($userres['success']);
     }
 }

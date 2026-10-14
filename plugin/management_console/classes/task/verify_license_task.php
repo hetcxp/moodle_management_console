@@ -50,9 +50,11 @@ class verify_license_task extends \core\task\scheduled_task {
         // 1. Attempt to anchor the watermark to a trusted network time source.
         $url = get_config('tool_management_console', 'license_time_url') ?: 'https://www.google.com';
         $parsed = parse_url($url);
-        $trusted_hosts = ['www.google.com', 'google.com', 'time.cloudflare.com', 'cloudflare.com'];
-        if (empty($parsed['scheme']) || strtolower($parsed['scheme']) !== 'https' ||
-            empty($parsed['host']) || !in_array(strtolower($parsed['host']), $trusted_hosts, true)) {
+        $trustedhosts = ['www.google.com', 'google.com', 'time.cloudflare.com', 'cloudflare.com'];
+        if (
+            empty($parsed['scheme']) || strtolower($parsed['scheme']) !== 'https' ||
+            empty($parsed['host']) || !in_array(strtolower($parsed['host']), $trustedhosts, true)
+        ) {
             $url = 'https://www.google.com';
         }
         $ctx = stream_context_create(['http' => ['method' => 'HEAD', 'timeout' => 3]]);

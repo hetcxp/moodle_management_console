@@ -42,7 +42,6 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/cache_manag
  * @covers     \tool_management_console\cache_manager
  */
 class cache_manager_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest();
     }
@@ -53,18 +52,18 @@ class cache_manager_test extends advanced_testcase {
         // 1. Get cache instance
         $cache = \tool_management_console\cache_manager::get_kpis_cache();
         if ($cache === null) {
-            // MUC definitions might not be initialized in headless unit runner
+            // MUC definitions might not be initialized in headless unit runner.
             $this->markTestSkipped('MUC tool_management_console kpis cache definition not active in this test runner.');
             return;
         }
 
         // 2. Set and get KPI
-        $test_data = ['total_users' => 42, 'active_users' => 40];
-        $stored = \tool_management_console\cache_manager::set_kpi('test_kpi_key', $test_data);
+        $testdata = ['total_users' => 42, 'active_users' => 40];
+        $stored = \tool_management_console\cache_manager::set_kpi('test_kpi_key', $testdata);
         $this->assertTrue($stored);
 
         $retrieved = \tool_management_console\cache_manager::get_kpi('test_kpi_key');
-        $this->assertEquals($test_data, $retrieved);
+        $this->assertEquals($testdata, $retrieved);
 
         // 3. Invalidate specific key
         \tool_management_console\cache_manager::invalidate_kpis('test_kpi_key');

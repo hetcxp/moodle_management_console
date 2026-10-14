@@ -22,8 +22,6 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Execute tool_management_console upgrade from the given old version.
  *
@@ -37,7 +35,8 @@ function xmldb_tool_management_console_upgrade($oldversion) {
         // Repair any cohort enrol instances that were created without a student role.
         $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
         if ($studentroleid) {
-            $DB->execute("UPDATE {enrol} SET roleid = ? WHERE enrol = 'cohort' AND (roleid = 0 OR roleid IS NULL)", [$studentroleid]);
+            $updatesql = "UPDATE {enrol} SET roleid = ? WHERE enrol = 'cohort' AND (roleid = 0 OR roleid IS NULL)";
+            $DB->execute($updatesql, [$studentroleid]);
             require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
             $trace = new \null_progress_trace();
             enrol_cohort_sync($trace);
@@ -63,4 +62,3 @@ function xmldb_tool_management_console_upgrade($oldversion) {
 
     return true;
 }
-

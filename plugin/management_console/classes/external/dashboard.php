@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -40,46 +38,63 @@ use core_external\external_value;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class dashboard extends external_api {
-
-    public static function get_dashboard_parameters() {
+    /**
+     * Describes the parameters for get_dashboard.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_dashboard_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
-    public static function get_dashboard() {
+    /**
+     * Returns dashboard metrics and statistics.
+     *
+     * @return array
+     */
+    public static function get_dashboard(): array {
         global $DB, $CFG;
 
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/site:config', $context);
 
-        $courses_total = (int)$DB->count_records_select('course', 'id <> 1');
-        $courses_active = (int)$DB->count_records_select('course', 'id <> 1 AND visible = 1');
-        $courses_inactive = (int)$DB->count_records_select('course', 'id <> 1 AND visible = 0');
+        $coursestotal = (int)$DB->count_records_select('course', 'id <> 1');
+        $coursesactive = (int)$DB->count_records_select('course', 'id <> 1 AND visible = 1');
+        $coursesinactive = (int)$DB->count_records_select('course', 'id <> 1 AND visible = 0');
 
         $guestid = $CFG->siteguest ?? 0;
-        $users_total = (int)$DB->count_records_select('user', 'deleted = 0 AND id <> 1 AND id <> ?', [$guestid]);
-        $users_active = (int)$DB->count_records_select('user', 'deleted = 0 AND suspended = 0 AND id <> 1 AND id <> ?', [$guestid]);
-        $users_inactive = (int)$DB->count_records_select('user', 'deleted = 0 AND suspended = 1 AND id <> 1 AND id <> ?', [$guestid]);
+        $usersql = 'deleted = 0 AND id <> 1 AND id <> ?';
+        $userstotal = (int)$DB->count_records_select('user', $usersql, [$guestid]);
+        $usersactivesql = 'deleted = 0 AND suspended = 0 AND id <> 1 AND id <> ?';
+        $usersactive = (int)$DB->count_records_select('user', $usersactivesql, [$guestid]);
+        $usersinactivesql = 'deleted = 0 AND suspended = 1 AND id <> 1 AND id <> ?';
+        $usersinactive = (int)$DB->count_records_select('user', $usersinactivesql, [$guestid]);
 
-        $cohorts_total = (int)$DB->count_records('cohort');
-        $cohorts_users_total = (int)$DB->count_records('cohort_members');
+        $cohortstotal = (int)$DB->count_records('cohort');
+        $cohortsuserstotal = (int)$DB->count_records('cohort_members');
 
-        $categories_total = (int)$DB->count_records('course_categories');
+        $categoriestotal = (int)$DB->count_records('course_categories');
 
         return [
-            'courses_total'       => $courses_total,
-            'courses_active'      => $courses_active,
-            'courses_inactive'    => $courses_inactive,
-            'users_total'         => $users_total,
-            'users_active'        => $users_active,
-            'users_inactive'      => $users_inactive,
-            'cohorts_total'       => $cohorts_total,
-            'cohorts_users_total' => $cohorts_users_total,
-            'categories_total'    => $categories_total,
+            'courses_total'       => $coursestotal,
+            'courses_active'      => $coursesactive,
+            'courses_inactive'    => $coursesinactive,
+            'users_total'         => $userstotal,
+            'users_active'        => $usersactive,
+            'users_inactive'      => $usersinactive,
+            'cohorts_total'       => $cohortstotal,
+            'cohorts_users_total' => $cohortsuserstotal,
+            'categories_total'    => $categoriestotal,
         ];
     }
 
-    public static function get_dashboard_returns() {
+    /**
+     * Describes the return structure for get_dashboard.
+     *
+     * @return external_single_structure
+     */
+    public static function get_dashboard_returns(): external_single_structure {
         return new external_single_structure([
             'courses_total'       => new external_value(PARAM_INT, 'Total courses excluding frontpage'),
             'courses_active'      => new external_value(PARAM_INT, 'Visible courses'),

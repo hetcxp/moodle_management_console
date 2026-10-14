@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Course repository class.
  *
@@ -34,7 +32,12 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_repository {
-
+    /**
+     * Get courses with filtered metrics.
+     *
+     * @param array $params
+     * @return array
+     */
     public static function get_courses_filtered(array $params): array {
         global $DB;
 
@@ -45,13 +48,13 @@ class course_repository {
             'categoryname'  => 'cc.name',
             'visible'       => 'c.visible',
             'enrolledcount' => 'enr.enrolledcount',
-            'completedcount'=> 'cmp.completedcount',
+            'completedcount' => 'cmp.completedcount',
             'cohortscount'  => 'coh.cohortscount',
             'competenciescount' => 'comp.competenciescount',
             'progress'      => 'progress_sort',
             'timecreated'   => 'c.timecreated',
             'startdate'     => 'c.startdate',
-            'enddate'       => 'c.enddate'
+            'enddate'       => 'c.enddate',
         ];
 
         $sort = $params['sort'] ?? 'timecreated';
@@ -81,35 +84,37 @@ class course_repository {
             $sqlparams['visibility'] = $params['visibility'];
         }
 
-        $decoded_filters = is_string($params['filters'] ?? null) ? json_decode($params['filters'], true) : ($params['filters'] ?? []);
-        if (is_array($decoded_filters) && !empty($decoded_filters)) {
-            $filter_index = 1;
-            foreach ($decoded_filters as $key => $value) {
+        $decodedfilters = is_string($params['filters'] ?? null)
+            ? json_decode($params['filters'], true)
+            : ($params['filters'] ?? []);
+        if (is_array($decodedfilters) && !empty($decodedfilters)) {
+            $filterindex = 1;
+            foreach ($decodedfilters as $key => $value) {
                 if ($key === 'empty_only' && $value) {
                     $where .= " AND NOT EXISTS (
-                        SELECT 1 FROM {enrol} filter_e 
-                        JOIN {user_enrolments} filter_ue ON filter_e.id = filter_ue.enrolid 
+                        SELECT 1 FROM {enrol} filter_e
+                        JOIN {user_enrolments} filter_ue ON filter_e.id = filter_ue.enrolid
                         WHERE filter_e.courseid = c.id AND filter_ue.status = 0
                     )";
                 } else if ($key === 'exclude_category' && $value) {
-                    $where .= " AND c.category != :filterval$filter_index";
-                    $sqlparams["filterval$filter_index"] = (int)$value;
-                    $filter_index++;
+                    $where .= " AND c.category != :filterval$filterindex";
+                    $sqlparams["filterval$filterindex"] = (int)$value;
+                    $filterindex++;
                 } else if (array_key_exists($key, $sortablecolumns) && $value !== '') {
                     $fieldname = $sortablecolumns[$key];
                     if ($key === 'visible') {
-                        $where .= " AND $fieldname = :filterval$filter_index";
-                        $sqlparams["filterval$filter_index"] = (int)$value;
+                        $where .= " AND $fieldname = :filterval$filterindex";
+                        $sqlparams["filterval$filterindex"] = (int)$value;
                     } else if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filter_index", false, false);
-                        $sqlparams["filterval$filter_index"] = '%' . $value . '%';
+                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filterindex", false, false);
+                        $sqlparams["filterval$filterindex"] = '%' . $value . '%';
                     }
-                    $filter_index++;
+                    $filterindex++;
                 }
             }
         }
 
-        $sql_sub_enr = "
+        $sqlsubenr = "
             SELECT e.courseid, COUNT(DISTINCT ue.userid) AS enrolledcount
               FROM {enrol} e
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
@@ -118,7 +123,7 @@ class course_repository {
           GROUP BY e.courseid
         ";
 
-        $sql_sub_cmp = "
+        $sqlsubcmp = "
             SELECT ccmp.course AS courseid, COUNT(DISTINCT ccmp.userid) AS completedcount
               FROM {course_completions} ccmp
               JOIN {enrol} e ON e.courseid = ccmp.course
@@ -128,162 +133,280 @@ class course_repository {
           GROUP BY ccmp.course
         ";
 
-        $sql_sub_coh = "
+        $sqlsubcoh = "
             SELECT e.courseid, COUNT(DISTINCT e.customint1) AS cohortscount
               FROM {enrol} e
              WHERE e.enrol = 'cohort'
           GROUP BY e.courseid
         ";
 
-        $sql_sub_comp = "
+        $sqlsubcomp = "
             SELECT ccomp.courseid, COUNT(DISTINCT ccomp.competencyid) AS competenciescount
               FROM {competency_coursecomp} ccomp
           GROUP BY ccomp.courseid
         ";
 
-        $sql_select = "
+        $sqlselect = "
             SELECT c.id, c.fullname, c.shortname, c.visible, c.timecreated, c.category, c.startdate, c.enddate,
                    cc.name AS categoryname,
                    COALESCE(enr.enrolledcount, 0) AS enrolledcount,
                    COALESCE(cmp.completedcount, 0) AS completedcount,
                    COALESCE(coh.cohortscount, 0) AS cohortscount,
                    COALESCE(comp.competenciescount, 0) AS competenciescount,
-                   CASE 
-                       WHEN COALESCE(enr.enrolledcount, 0) > 0 
-                       THEN ROUND((COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount) 
-                       ELSE 0 
+                   CASE
+                       WHEN COALESCE(enr.enrolledcount, 0) > 0
+                       THEN ROUND((COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount)
+                       ELSE 0
                    END AS progress_sort
               FROM {course} c
               JOIN {course_categories} cc ON cc.id = c.category
-         LEFT JOIN ($sql_sub_enr) enr ON enr.courseid = c.id
-         LEFT JOIN ($sql_sub_cmp) cmp ON cmp.courseid = c.id
-         LEFT JOIN ($sql_sub_coh) coh ON coh.courseid = c.id
-         LEFT JOIN ($sql_sub_comp) comp ON comp.courseid = c.id
+         LEFT JOIN ($sqlsubenr) enr ON enr.courseid = c.id
+         LEFT JOIN ($sqlsubcmp) cmp ON cmp.courseid = c.id
+         LEFT JOIN ($sqlsubcoh) coh ON coh.courseid = c.id
+         LEFT JOIN ($sqlsubcomp) comp ON comp.courseid = c.id
              WHERE $where
           ORDER BY $sortfield $direction, c.id DESC
         ";
 
-        $sql_kpis = "
-            SELECT 
+        $sqlkpis = "
+            SELECT
                 COUNT(c.id) AS total_courses,
                 COALESCE(SUM(COALESCE(enr.enrolledcount, 0)), 0) AS total_enrolled,
                 COALESCE(AVG(
-                    CASE 
-                        WHEN COALESCE(enr.enrolledcount, 0) > 0 
-                        THEN (COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount 
-                        ELSE 0 
+                    CASE
+                        WHEN COALESCE(enr.enrolledcount, 0) > 0
+                        THEN (COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount
+                        ELSE 0
                     END
                 ), 0) AS avg_progress,
                 SUM(CASE WHEN COALESCE(enr.enrolledcount, 0) = 0 THEN 1 ELSE 0 END) AS empty_courses
             FROM {course} c
             JOIN {course_categories} cc ON cc.id = c.category
-            LEFT JOIN ($sql_sub_enr) enr ON enr.courseid = c.id
-            LEFT JOIN ($sql_sub_cmp) cmp ON cmp.courseid = c.id
+            LEFT JOIN ($sqlsubenr) enr ON enr.courseid = c.id
+            LEFT JOIN ($sqlsubcmp) cmp ON cmp.courseid = c.id
             WHERE $where
         ";
 
-        $kpi_data = $DB->get_record_sql($sql_kpis, $sqlparams);
-        $totalcount = (int)($kpi_data->total_courses ?? 0);
+        $kpidata = $DB->get_record_sql($sqlkpis, $sqlparams);
+        $totalcount = (int)($kpidata->total_courses ?? 0);
         $kpis = [
             'total_courses'  => $totalcount,
-            'total_enrolled' => (int)($kpi_data->total_enrolled ?? 0),
-            'avg_progress'   => (int)round($kpi_data->avg_progress ?? 0),
-            'empty_courses'  => (int)($kpi_data->empty_courses ?? 0),
+            'total_enrolled' => (int)($kpidata->total_enrolled ?? 0),
+            'avg_progress'   => (int)round($kpidata->avg_progress ?? 0),
+            'empty_courses'  => (int)($kpidata->empty_courses ?? 0),
         ];
 
         $page = (int)($params['page'] ?? 0);
         $perpage = (int)($params['perpage'] ?? 20);
         $limitfrom = $page * $perpage;
-        $records = $totalcount > 0 ? $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $perpage) : [];
+        $records = $totalcount > 0 ? $DB->get_records_sql($sqlselect, $sqlparams, $limitfrom, $perpage) : [];
 
         return [$records, $totalcount, $kpis];
     }
 
 
-    public static function get_course_user_cohort_map($courseid, array $userids = []) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @param array $userids
+     * @return array
+     */
+    public static function get_course_user_cohort_map(int $courseid, array $userids = []): array {
         return course_enrolment_repository::get_course_user_cohort_map($courseid, $userids);
     }
 
-    public static function get_course_all_enrolments($courseid, array $userids = []) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @param array $userids
+     * @return array
+     */
+    public static function get_course_all_enrolments(int $courseid, array $userids = []): array {
         return course_enrolment_repository::get_course_all_enrolments($courseid, $userids);
     }
 
-    public static function get_course_user_roles_map($courseid, array $userids = []) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @param array $userids
+     * @return array
+     */
+    public static function get_course_user_roles_map(int $courseid, array $userids = []): array {
         return course_enrolment_repository::get_course_user_roles_map($courseid, $userids);
     }
 
-    public static function get_course_cm_completions(array $cmids, array $userids = []) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param array $cmids
+     * @param array $userids
+     * @return array
+     */
+    public static function get_course_cm_completions(array $cmids, array $userids = []): array {
         return course_enrolment_repository::get_course_cm_completions($cmids, $userids);
     }
 
-    public static function get_course_linked_cohorts($courseid) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @return array
+     */
+    public static function get_course_linked_cohorts(int $courseid): array {
         return course_enrolment_repository::get_course_linked_cohorts($courseid);
     }
 
-    public static function get_course_category_name($categoryid) {
+    /**
+     * Get course category name.
+     *
+     * @param int $categoryid
+     * @return string
+     */
+    public static function get_course_category_name(int $categoryid): string {
         global $DB;
         $category = $DB->get_record('course_categories', ['id' => $categoryid]);
         return $category ? (string)$category->name : '';
     }
 
-    public static function get_course_groups_list($courseid) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @return array
+     */
+    public static function get_course_groups_list(int $courseid): array {
         return course_enrolment_repository::get_course_groups_list($courseid);
     }
 
-    public static function get_course_user_enrolments($courseid, $userid) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @param int $userid
+     * @return array
+     */
+    public static function get_course_user_enrolments(int $courseid, int $userid): array {
         return course_enrolment_repository::get_course_user_enrolments($courseid, $userid);
     }
 
-    public static function get_course_user_first_and_last_access($courseid, $userid) {
+    /**
+     * Delegate to course_enrolment_repository.
+     *
+     * @param int $courseid
+     * @param int $userid
+     * @return array
+     */
+    public static function get_course_user_first_and_last_access(int $courseid, int $userid): array {
         return course_enrolment_repository::get_course_user_first_and_last_access($courseid, $userid);
     }
 
-    public static function count_courses($sql_count, $params) {
+    /**
+     * Count courses matching query.
+     *
+     * @param string $sqlcount
+     * @param array $params
+     * @return int
+     */
+    public static function count_courses(string $sqlcount, array $params): int {
         global $DB;
-        return (int)$DB->count_records_sql($sql_count, $params);
+        return (int)$DB->count_records_sql($sqlcount, $params);
     }
 
-    public static function get_paginated_courses($sql, $params, $limitfrom, $perpage) {
+    /**
+     * Get paginated courses.
+     *
+     * @param string $sql
+     * @param array $params
+     * @param int $limitfrom
+     * @param int $perpage
+     * @return array
+     */
+    public static function get_paginated_courses(string $sql, array $params, int $limitfrom, int $perpage): array {
         global $DB;
         return $DB->get_records_sql($sql, $params, $limitfrom, $perpage);
     }
 
-    public static function get_course_kpis($sql_kpis, $params) {
+    /**
+     * Get course KPIs.
+     *
+     * @param string $sqlkpis
+     * @param array $params
+     * @return \stdClass|null
+     */
+    public static function get_course_kpis(string $sqlkpis, array $params): ?\stdClass {
         global $DB;
-        return $DB->get_record_sql($sql_kpis, $params);
+        $record = $DB->get_record_sql($sqlkpis, $params);
+        return $record ?: null;
     }
 
-    public static function get_course($courseid) {
+    /**
+     * Get course by ID.
+     *
+     * @param int $courseid
+     * @return \stdClass|null
+     */
+    public static function get_course(int $courseid): ?\stdClass {
         global $DB;
-        return $DB->get_record('course', ['id' => $courseid]);
+        $course = $DB->get_record('course', ['id' => $courseid]);
+        return $course ?: null;
     }
-    
-    public static function get_course_strict($courseid) {
+
+    /**
+     * Get course strictly by ID or throw exception.
+     *
+     * @param int $courseid
+     * @return \stdClass
+     */
+    public static function get_course_strict(int $courseid): \stdClass {
         global $DB;
         return $DB->get_record('course', ['id' => $courseid], '*', MUST_EXIST);
     }
 
-    public static function get_enrolled_users($sql_users_or_courseid, $courseid = null) {
+    /**
+     * Get enrolled users.
+     *
+     * @param mixed $sqlusersorcourseid
+     * @param int|null $courseid
+     * @return array
+     */
+    public static function get_enrolled_users($sqlusersorcourseid, ?int $courseid = null): array {
         global $DB;
         if ($courseid === null) {
-            $cid = (int)$sql_users_or_courseid;
+            $cid = (int)$sqlusersorcourseid;
             return array_values(course_enrolment_repository::get_course_enrolled_users_detail($cid));
         }
-        return $DB->get_records_sql($sql_users_or_courseid, ['courseid' => $courseid]);
+        return $DB->get_records_sql($sqlusersorcourseid, ['courseid' => $courseid]);
     }
 
-    public static function get_user_cohorts($sql_user_cohorts, $courseid) {
+    /**
+     * Get user cohorts recordset.
+     *
+     * @param string $sqlusercohorts
+     * @param int $courseid
+     * @return \moodle_recordset
+     */
+    public static function get_user_cohorts(string $sqlusercohorts, int $courseid): \moodle_recordset {
         global $DB;
-        return $DB->get_recordset_sql($sql_user_cohorts, ['courseid' => $courseid]);
+        return $DB->get_recordset_sql($sqlusercohorts, ['courseid' => $courseid]);
     }
 
-    public static function get_course_competencies($courseid) {
+    /**
+     * Get competencies associated with a course.
+     *
+     * @param int $courseid
+     * @return array
+     */
+    public static function get_course_competencies(int $courseid): array {
         global $DB;
         $sql = "
             SELECT cc.id, cc.competencyid, cc.ruleoutcome, cc.sortorder, cc.timecreated,
                    c.shortname, c.idnumber, c.description, c.parentid, c.path,
                    c.ruletype, c.ruleoutcome AS compruleoutcome,
-                   f.id AS frameworkid, f.shortname AS frameworkname, f.idnumber AS frameworkidnumber, f.visible AS frameworkvisible,
+                   f.id AS frameworkid, f.shortname AS frameworkname,
+                   f.idnumber AS frameworkidnumber, f.visible AS frameworkvisible,
                    COALESCE(p.shortname, '') AS parentname
               FROM {competency_coursecomp} cc
               JOIN {competency} c ON c.id = cc.competencyid
@@ -294,7 +417,7 @@ class course_repository {
         ";
         $records = $DB->get_records_sql($sql, ['courseid' => $courseid]);
 
-        $sql_modules = "
+        $sqlmodules = "
             SELECT mc.id, mc.competencyid, mc.cmid, mc.ruleoutcome, mc.sortorder, mc.timecreated,
                    cm.module AS moduleid, m.name AS modname, cm.instance, cm.section, cm.visible
               FROM {competency_modulecomp} mc
@@ -303,84 +426,88 @@ class course_repository {
              WHERE cm.course = :courseid
           ORDER BY mc.sortorder ASC, mc.id ASC
         ";
-        $module_records = $DB->get_records_sql($sql_modules, ['courseid' => $courseid]);
+        $modulerecords = $DB->get_records_sql($sqlmodules, ['courseid' => $courseid]);
 
-        // Batch fetch activity names grouped by module to avoid N+1 queries
-        $instances_by_mod = [];
-        foreach ($module_records as $mr) {
-            $instances_by_mod[$mr->modname][$mr->instance] = (int)$mr->instance;
+        // Batch fetch activity names grouped by module to avoid N+1 queries.
+        $instancesbymod = [];
+        foreach ($modulerecords as $mr) {
+            $instancesbymod[$mr->modname][$mr->instance] = (int)$mr->instance;
         }
 
-        $names_by_mod_instance = [];
-        foreach ($instances_by_mod as $modname => $instances) {
+        $namesbymodinstance = [];
+        foreach ($instancesbymod as $modname => $instances) {
             if (empty($instances)) {
                 continue;
             }
             try {
-                list($insql, $inparams) = $DB->get_in_or_equal(array_values($instances));
+                [$insql, $inparams] = $DB->get_in_or_equal(array_values($instances));
                 $names = $DB->get_records_select_menu($modname, "id $insql", $inparams, '', 'id, name');
                 if ($names) {
-                    $names_by_mod_instance[$modname] = $names;
+                    $namesbymodinstance[$modname] = $names;
                 }
             } catch (\Exception $e) {
                 debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
             }
         }
 
-        $modules_by_comp = [];
-        foreach ($module_records as $mr) {
-            $activity_name = $names_by_mod_instance[$mr->modname][$mr->instance] ?? '';
-            if (empty($activity_name)) {
-                $activity_name = ucfirst($mr->modname) . ' #' . $mr->instance;
+        $modulesbycomp = [];
+        foreach ($modulerecords as $mr) {
+            $activityname = $namesbymodinstance[$mr->modname][$mr->instance] ?? '';
+            if (empty($activityname)) {
+                $activityname = ucfirst($mr->modname) . ' #' . $mr->instance;
             }
 
-            $modules_by_comp[$mr->competencyid][] = [
+            $modulesbycomp[$mr->competencyid][] = [
                 'id'          => (int)$mr->id,
                 'cmid'        => (int)$mr->cmid,
                 'modname'     => (string)$mr->modname,
-                'name'        => (string)$activity_name,
+                'name'        => (string)$activityname,
                 'ruleoutcome' => (int)$mr->ruleoutcome,
                 'sortorder'   => (int)$mr->sortorder,
                 'timecreated' => (int)$mr->timecreated,
             ];
         }
 
-        $sql_enrolled = "
+        $sqlenrolled = "
             SELECT COUNT(DISTINCT ue.userid)
               FROM {enrol} e
               JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
              WHERE e.courseid = :courseid
         ";
-        $total_enrolled = 0;
+        $totalenrolled = 0;
         try {
-            $total_enrolled = (int)$DB->count_records_sql($sql_enrolled, ['courseid' => $courseid]);
+            $totalenrolled = (int)$DB->count_records_sql($sqlenrolled, ['courseid' => $courseid]);
         } catch (\Exception $e) {
             debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-            $total_enrolled = 0;
+            $totalenrolled = 0;
         }
 
-        $sql_completed = "
+        $sqlcompleted = "
             SELECT c.competencyid, COUNT(DISTINCT ue.userid) AS completedcount
               FROM {competency_coursecomp} c
               JOIN {enrol} e ON e.courseid = c.courseid
               JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-              LEFT JOIN {competency_usercompcourse} ucc ON ucc.courseid = c.courseid AND ucc.competencyid = c.competencyid AND ucc.userid = ue.userid AND ucc.proficiency = 1
-              LEFT JOIN {competency_usercomp} uc ON uc.competencyid = c.competencyid AND uc.userid = ue.userid AND uc.proficiency = 1
+         LEFT JOIN {competency_usercompcourse} ucc ON ucc.courseid = c.courseid
+                   AND ucc.competencyid = c.competencyid AND ucc.userid = ue.userid AND ucc.proficiency = 1
+         LEFT JOIN {competency_usercomp} uc ON uc.competencyid = c.competencyid
+                   AND uc.userid = ue.userid AND uc.proficiency = 1
              WHERE c.courseid = :courseid AND (ucc.id IS NOT NULL OR uc.id IS NOT NULL)
           GROUP BY c.competencyid
         ";
-        $completed_records = [];
+        $completedrecords = [];
         try {
-            $completed_records = $DB->get_records_sql($sql_completed, ['courseid' => $courseid]);
+            $completedrecords = $DB->get_records_sql($sqlcompleted, ['courseid' => $courseid]);
         } catch (\Exception $e) {
             debugging("AdminerApi: " . $e->getMessage(), DEBUG_DEVELOPER);
-            $completed_records = [];
+            $completedrecords = [];
         }
 
         $competencies = [];
         foreach ($records as $r) {
-            $completed_count = isset($completed_records[$r->competencyid]) ? (int)$completed_records[$r->competencyid]->completedcount : 0;
-            $progress = $total_enrolled > 0 ? round(($completed_count / $total_enrolled) * 100) : 0;
+            $completedcount = isset($completedrecords[$r->competencyid])
+                ? (int)$completedrecords[$r->competencyid]->completedcount
+                : 0;
+            $progress = $totalenrolled > 0 ? round(($completedcount / $totalenrolled) * 100) : 0;
 
             $competencies[] = [
                 'id'                  => (int)$r->competencyid,
@@ -398,10 +525,10 @@ class course_repository {
                 'ruleoutcome'         => (int)$r->ruleoutcome,
                 'sortorder'           => (int)$r->sortorder,
                 'timecreated'         => (int)$r->timecreated,
-                'enrolledcount'       => $total_enrolled,
-                'completedcount'      => $completed_count,
+                'enrolledcount'       => $totalenrolled,
+                'completedcount'      => $completedcount,
                 'progress'            => $progress,
-                'activities'          => $modules_by_comp[$r->competencyid] ?? [],
+                'activities'          => $modulesbycomp[$r->competencyid] ?? [],
             ];
         }
         return $competencies;

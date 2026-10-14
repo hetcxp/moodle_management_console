@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_text;
 use grading_manager;
@@ -42,7 +40,6 @@ use stdClass;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class rubric_repository {
-
     /**
      * Get paginated rubric templates with criteria and levels.
      *
@@ -106,7 +103,7 @@ class rubric_repository {
         $templates = [];
         if (!empty($records)) {
             $defids = array_keys($records);
-            list($insql, $inparams) = $DB->get_in_or_equal($defids, SQL_PARAMS_NAMED);
+            [$insql, $inparams] = $DB->get_in_or_equal($defids, SQL_PARAMS_NAMED);
 
             // Fetch criteria for all selected definitions in batch.
             $criteriasql = "SELECT c.id, c.definitionid, c.sortorder, c.description, c.descriptionformat
@@ -119,7 +116,7 @@ class rubric_repository {
             $levelsbycriteria = [];
             if (!empty($criteriarecords)) {
                 $critids = array_keys($criteriarecords);
-                list($critinsql, $critinparams) = $DB->get_in_or_equal($critids, SQL_PARAMS_NAMED);
+                [$critinsql, $critinparams] = $DB->get_in_or_equal($critids, SQL_PARAMS_NAMED);
                 $levelssql = "SELECT l.id, l.criterionid, l.score, l.definition, l.definitionformat
                                 FROM {gradingform_rubric_levels} l
                                WHERE l.criterionid $critinsql
@@ -196,7 +193,7 @@ class rubric_repository {
      * @param int $templateid Template definition ID (for delete)
      * @param string $name Rubric name (for create)
      * @param string $description Rubric description (for create)
-     * @param string $criteria_json JSON string with criteria and levels
+     * @param string $criteriajson JSON string with criteria and levels
      * @param int $userid Current user ID
      * @return array Result array with success and templateid
      */
@@ -205,7 +202,7 @@ class rubric_repository {
         int $templateid = 0,
         string $name = '',
         string $description = '',
-        string $criteria_json = '',
+        string $criteriajson = '',
         int $userid = 0
     ): array {
         global $CFG, $DB;
@@ -229,7 +226,8 @@ class rubric_repository {
             }
 
             if ($record->component !== 'core_grading') {
-                throw new moodle_exception('nopermissions', 'error', '', 'Solo se permite eliminar plantillas del banco del sitio');
+                $err = 'Solo se permite eliminar plantillas del banco del sitio';
+                throw new moodle_exception('nopermissions', 'error', '', $err);
             }
 
             $manager = get_grading_manager($record->areaid);
@@ -251,16 +249,17 @@ class rubric_repository {
                 throw new moodle_exception('invalidparameter', 'error', '', 'El nombre de la rúbrica es obligatorio');
             }
 
-            $parsed_criteria = [];
-            if (!empty($criteria_json)) {
-                $decoded = json_decode($criteria_json, true);
+            $parsedcriteria = [];
+            if (!empty($criteriajson)) {
+                $decoded = json_decode($criteriajson, true);
                 if (is_array($decoded)) {
-                    $parsed_criteria = $decoded;
+                    $parsedcriteria = $decoded;
                 }
             }
 
-            if (empty($parsed_criteria)) {
-                throw new moodle_exception('invalidparameter', 'error', '', 'La rúbrica debe contener al menos un criterio de evaluación');
+            if (empty($parsedcriteria)) {
+                $err = 'La rúbrica debe contener al menos un criterio de evaluación';
+                throw new moodle_exception('invalidparameter', 'error', '', $err);
             }
 
             $syscontext = context_system::instance();
@@ -270,7 +269,7 @@ class rubric_repository {
             $targetmanager = get_grading_manager($newareaid);
             $targetcontroller = $targetmanager->get_controller('rubric');
 
-            $criteria_data = self::format_criteria_data($parsed_criteria, false);
+            $criteriadata = self::format_criteria_data($parsedcriteria, false);
 
             $newdef = new stdClass();
             $newdef->name = $name;
@@ -282,7 +281,7 @@ class rubric_repository {
             $newdef->status = gradingform_controller::DEFINITION_STATUS_READY;
             $newdef->rubric = [
                 'options'  => gradingform_rubric_controller::get_default_options(),
-                'criteria' => $criteria_data,
+                'criteria' => $criteriadata,
             ];
 
             $targetcontroller->update_definition($newdef, $userid > 0 ? $userid : null);
@@ -310,7 +309,8 @@ class rubric_repository {
             }
 
             if ($record->component !== 'core_grading') {
-                throw new moodle_exception('nopermissions', 'error', '', 'Solo se permite modificar plantillas del banco del sitio');
+                $err = 'Solo se permite modificar plantillas del banco del sitio';
+                throw new moodle_exception('nopermissions', 'error', '', $err);
             }
 
             $name = trim($name);
@@ -318,22 +318,23 @@ class rubric_repository {
                 throw new moodle_exception('invalidparameter', 'error', '', 'El nombre de la rúbrica es obligatorio');
             }
 
-            $parsed_criteria = [];
-            if (!empty($criteria_json)) {
-                $decoded = json_decode($criteria_json, true);
+            $parsedcriteria = [];
+            if (!empty($criteriajson)) {
+                $decoded = json_decode($criteriajson, true);
                 if (is_array($decoded)) {
-                    $parsed_criteria = $decoded;
+                    $parsedcriteria = $decoded;
                 }
             }
 
-            if (empty($parsed_criteria)) {
-                throw new moodle_exception('invalidparameter', 'error', '', 'La rúbrica debe contener al menos un criterio de evaluación');
+            if (empty($parsedcriteria)) {
+                $err = 'La rúbrica debe contener al menos un criterio de evaluación';
+                throw new moodle_exception('invalidparameter', 'error', '', $err);
             }
 
             $manager = get_grading_manager($record->areaid);
             $controller = $manager->get_controller('rubric');
 
-            $criteria_data = self::format_criteria_data($parsed_criteria, true);
+            $criteriadata = self::format_criteria_data($parsedcriteria, true);
 
             $def = new stdClass();
             $def->name = $name;
@@ -345,7 +346,7 @@ class rubric_repository {
             $def->status = gradingform_controller::DEFINITION_STATUS_READY;
             $def->rubric = [
                 'options'  => gradingform_rubric_controller::get_default_options(),
-                'criteria' => $criteria_data,
+                'criteria' => $criteriadata,
             ];
 
             $controller->update_definition($def, $userid > 0 ? $userid : null);
@@ -362,44 +363,46 @@ class rubric_repository {
     /**
      * Format criteria and levels for gradingform_rubric_controller.
      *
-     * @param array $parsed_criteria Array of criteria with levels
-     * @param bool $preserve_existing_ids Whether to keep existing numeric IDs
+     * @param array $parsedcriteria Array of criteria with levels
+     * @param bool $preserveexistingids Whether to keep existing numeric IDs
      * @return array
      */
-    private static function format_criteria_data(array $parsed_criteria, bool $preserve_existing_ids = false): array {
-        $criteria_data = [];
+    private static function format_criteria_data(array $parsedcriteria, bool $preserveexistingids = false): array {
+        $criteriadata = [];
         $critindex = 1;
-        foreach ($parsed_criteria as $crit) {
-            $is_existing_crit = $preserve_existing_ids && !empty($crit['id']) && is_numeric($crit['id']) && (int)$crit['id'] > 0;
-            $crit_key = $is_existing_crit ? (int)$crit['id'] : ('NEWID' . $critindex++);
-            $levels_data = [];
+        foreach ($parsedcriteria as $crit) {
+            $isexistingcrit = $preserveexistingids && !empty($crit['id'])
+                && is_numeric($crit['id']) && (int)$crit['id'] > 0;
+            $critkey = $isexistingcrit ? (int)$crit['id'] : ('NEWID' . $critindex++);
+            $levelsdata = [];
             $lvlindex = 1;
 
             $rawlevels = $crit['levels'] ?? [];
             if (empty($rawlevels)) {
                 $rawlevels = [
                     ['score' => 0, 'definition' => 'No cumple'],
-                    ['score' => 10, 'definition' => 'Cumple']
+                    ['score' => 10, 'definition' => 'Cumple'],
                 ];
             }
 
             foreach ($rawlevels as $lvl) {
-                $is_existing_lvl = $preserve_existing_ids && !empty($lvl['id']) && is_numeric($lvl['id']) && (int)$lvl['id'] > 0;
-                $lvl_key = $is_existing_lvl ? (int)$lvl['id'] : ('NEWID' . ($critindex * 100 + $lvlindex++));
-                $levels_data[$lvl_key] = [
+                $isexistinglvl = $preserveexistingids && !empty($lvl['id'])
+                    && is_numeric($lvl['id']) && (int)$lvl['id'] > 0;
+                $lvlkey = $isexistinglvl ? (int)$lvl['id'] : ('NEWID' . ($critindex * 100 + $lvlindex++));
+                $levelsdata[$lvlkey] = [
                     'score'            => (float)($lvl['score'] ?? 0),
                     'definition'       => (string)($lvl['definition'] ?? ''),
                     'definitionformat' => FORMAT_HTML,
                 ];
             }
 
-            $criteria_data[$crit_key] = [
+            $criteriadata[$critkey] = [
                 'sortorder'         => (int)($crit['sortorder'] ?? ($critindex - 1)),
                 'description'       => (string)($crit['description'] ?? ''),
                 'descriptionformat' => FORMAT_HTML,
-                'levels'            => $levels_data,
+                'levels'            => $levelsdata,
             ];
         }
-        return $criteria_data;
+        return $criteriadata;
     }
 }

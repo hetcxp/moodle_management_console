@@ -213,6 +213,7 @@ export const AssignUsersToCompetencyModal = ({
                     type="button"
                     onClick={() => handleToggleUser(uid)}
                     disabled={isAssigned || loading}
+                    aria-describedby={`user-status-desc-${user.id}`}
                     className={`w-full text-left p-3 flex items-center justify-between gap-3 transition-colors ${
                       isAssigned
                         ? 'opacity-60 bg-muted/30 cursor-not-allowed'
@@ -256,7 +257,7 @@ export const AssignUsersToCompetencyModal = ({
                       </div>
                     </div>
 
-                    <div className="shrink-0">
+                    <div className="shrink-0" id={`user-status-desc-${user.id}`}>
                       {isAssigned ? (
                         <Badge variant="warning" className="text-[11px]">
                           Ya vinculado

@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_user;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -41,13 +39,12 @@ use core_external\external_value;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class user_plans extends external_api {
-
     /**
      * Parameter definition for user_plan_action.
      *
      * @return external_function_parameters
      */
-    public static function user_plan_action_parameters() {
+    public static function user_plan_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: assign_competency, remove_competency'),
             'userid'       => new external_value(PARAM_INT, 'User ID (for single user operation)', VALUE_DEFAULT, 0),
@@ -71,7 +68,12 @@ class user_plans extends external_api {
      * @return array
      * @throws \moodle_exception
      */
-    public static function user_plan_action($action, $userid = 0, $competencyid = 0, $userids = []) {
+    public static function user_plan_action(
+        string $action,
+        int $userid = 0,
+        int $competencyid = 0,
+        array $userids = []
+    ): array {
         global $DB;
 
         $params = self::validate_parameters(self::user_plan_action_parameters(), [
@@ -83,10 +85,10 @@ class user_plans extends external_api {
 
         $act = $params['action'];
         $cid = (int)$params['competencyid'];
-        $batch_uids = !empty($params['userids']) ? $params['userids'] : [];
+        $batchuids = !empty($params['userids']) ? $params['userids'] : [];
 
-        if (!empty($batch_uids)) {
-            $uids = array_values(array_filter(array_unique(array_map('intval', $batch_uids))));
+        if (!empty($batchuids)) {
+            $uids = array_values(array_filter(array_unique(array_map('intval', $batchuids))));
         } else if (!empty($params['userid'])) {
             $uids = [(int)$params['userid']];
         } else {
@@ -94,8 +96,8 @@ class user_plans extends external_api {
         }
 
         $planname = 'Plan de Competencias Personales';
-        $last_planid = 0;
-        $any_already_existed = false;
+        $lastplanid = 0;
+        $anyalreadyexisted = false;
 
         \tool_management_console\license_manager::require_active_license();
 
@@ -104,7 +106,7 @@ class user_plans extends external_api {
             self::validate_context($context);
             require_capability('moodle/competency:planmanage', $context);
 
-            // 1. Localizar plan ad-hoc individual (sin plantilla asociada)
+            // 1. Localizar plan ad-hoc individual (sin plantilla asociada).
             $targetplan = null;
             $plans = \core_competency\api::list_user_plans($uid);
             foreach ($plans as $p) {
@@ -117,44 +119,53 @@ class user_plans extends external_api {
             }
 
             if ($act === 'assign_competency') {
-                // Si no existe, crear el plan ad-hoc
+                // Si no existe, crear el plan ad-hoc.
                 if (!$targetplan) {
                     $record = new \stdClass();
                     $record->userid = $uid;
                     $record->name = $planname;
                     $record->description = 'Plan individual ad-hoc para seguimiento y acreditación de competencias personales.';
                     $record->descriptionformat = FORMAT_HTML;
-                    $record->status = defined('\core_competency\plan::STATUS_ACTIVE') ? \core_competency\plan::STATUS_ACTIVE : 1;
+                    $record->status = defined('\core_competency\plan::STATUS_ACTIVE')
+                        ? \core_competency\plan::STATUS_ACTIVE
+                        : 1;
 
                     $targetplan = \core_competency\api::create_plan($record);
                 }
 
-                $planid = is_object($targetplan) && method_exists($targetplan, 'get') ? (int)$targetplan->get('id') : (int)$targetplan->id;
-                $last_planid = $planid;
+                $planid = is_object($targetplan) && method_exists($targetplan, 'get')
+                    ? (int)$targetplan->get('id')
+                    : (int)$targetplan->id;
+                $lastplanid = $planid;
 
-                // Si el plan existe pero está completado, reabrirlo
-                $status = is_object($targetplan) && method_exists($targetplan, 'get') ? (int)$targetplan->get('status') : (int)($targetplan->status ?? 1);
-                $complete_status = defined('\core_competency\plan::STATUS_COMPLETE') ? \core_competency\plan::STATUS_COMPLETE : 2;
-                if ($status === $complete_status) {
+                // Si el plan existe pero está completado, reabrirlo.
+                $status = is_object($targetplan) && method_exists($targetplan, 'get')
+                    ? (int)$targetplan->get('status')
+                    : (int)($targetplan->status ?? 1);
+                $completestatus = defined('\core_competency\plan::STATUS_COMPLETE')
+                    ? \core_competency\plan::STATUS_COMPLETE
+                    : 2;
+                if ($status === $completestatus) {
                     \core_competency\api::reopen_plan($planid);
                 }
 
-                // Verificar si ya está vinculada la competencia al plan
+                // Verificar si ya está vinculada la competencia al plan.
                 $exists = $DB->record_exists('competency_plancomp', [
                     'planid'       => $planid,
                     'competencyid' => $cid,
                 ]);
 
                 if ($exists) {
-                    $any_already_existed = true;
+                    $anyalreadyexisted = true;
                 } else {
                     \core_competency\api::add_competency_to_plan($planid, $cid);
                 }
-
             } else if ($act === 'remove_competency') {
                 $planid = 0;
                 if ($targetplan) {
-                    $planid = is_object($targetplan) && method_exists($targetplan, 'get') ? (int)$targetplan->get('id') : (int)$targetplan->id;
+                    $planid = is_object($targetplan) && method_exists($targetplan, 'get')
+                        ? (int)$targetplan->get('id')
+                        : (int)$targetplan->id;
 
                     $exists = $DB->record_exists('competency_plancomp', [
                         'planid'       => $planid,
@@ -165,24 +176,23 @@ class user_plans extends external_api {
                         \core_competency\api::remove_competency_from_plan($planid, $cid);
                     }
 
-                    // Si no quedan competencias en el plan ad-hoc, eliminar el plan para evitar residuos
+                    // Si no quedan competencias en el plan ad-hoc, eliminar el plan para evitar residuos.
                     $remaining = $DB->count_records('competency_plancomp', ['planid' => $planid]);
                     if ($remaining === 0) {
                         \core_competency\api::delete_plan($planid);
                         $planid = 0;
                     }
                 }
-                $last_planid = $planid;
-
+                $lastplanid = $planid;
             } else {
                 throw new \moodle_exception('invalidaction', 'error');
             }
         }
 
         return [
-            'planid'          => (int)$last_planid,
+            'planid'          => (int)$lastplanid,
             'competencyid'    => $cid,
-            'already_existed' => (bool)$any_already_existed,
+            'already_existed' => (bool)$anyalreadyexisted,
             'success'         => true,
             'processed_count' => count($uids),
         ];
@@ -193,7 +203,7 @@ class user_plans extends external_api {
      *
      * @return external_single_structure
      */
-    public static function user_plan_action_returns() {
+    public static function user_plan_action_returns(): external_single_structure {
         return new external_single_structure([
             'planid'          => new external_value(PARAM_INT, 'Plan ID'),
             'competencyid'    => new external_value(PARAM_INT, 'Competency ID'),

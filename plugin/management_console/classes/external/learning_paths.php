@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_course;
 use context_system;
 use core_external\external_api;
@@ -45,32 +43,47 @@ use stdClass;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class learning_paths extends external_api {
-
-    // ------------------------------------------------------------------------
-    // 1. check_dependencies
-    // ------------------------------------------------------------------------
-    public static function check_dependencies_parameters() {
+    /**
+     * Describes the parameters for check_dependencies.
+     *
+     * @return external_function_parameters
+     */
+    public static function check_dependencies_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
-    public static function check_dependencies() {
+    /**
+     * Check if mod_subcourse dependency is available.
+     *
+     * @return array
+     */
+    public static function check_dependencies(): array {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('tool/management_console:access', $context);
         return learning_path_repository::check_dependencies();
     }
 
-    public static function check_dependencies_returns() {
+    /**
+     * Describes the return structure for check_dependencies.
+     *
+     * @return external_single_structure
+     */
+    public static function check_dependencies_returns(): external_single_structure {
         return new external_single_structure([
             'is_ready' => new external_value(PARAM_BOOL, 'True if dependencies are met'),
-            'missing'  => new external_multiple_structure(new external_value(PARAM_TEXT, 'Missing plugin component name')),
+            'missing'  => new external_multiple_structure(
+                new external_value(PARAM_TEXT, 'Missing plugin component name')
+            ),
         ]);
     }
 
-    // ------------------------------------------------------------------------
-    // 2. get_learning_paths
-    // ------------------------------------------------------------------------
-    public static function get_learning_paths_parameters() {
+    /**
+     * Describes the parameters for get_learning_paths.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_learning_paths_parameters(): external_function_parameters {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
@@ -78,7 +91,15 @@ class learning_paths extends external_api {
         ]);
     }
 
-    public static function get_learning_paths($page = 0, $perpage = 20, $search = '') {
+    /**
+     * Get paginated learning paths.
+     *
+     * @param int $page
+     * @param int $perpage
+     * @param string $search
+     * @return array
+     */
+    public static function get_learning_paths(int $page = 0, int $perpage = 20, string $search = ''): array {
         $params = self::validate_parameters(self::get_learning_paths_parameters(), [
             'page'    => $page,
             'perpage' => $perpage,
@@ -92,11 +113,11 @@ class learning_paths extends external_api {
         global $DB;
         $items = learning_path_repository::get_learning_paths($params);
 
-        $lp_categoryid = learning_path_repository::get_lp_category_id(false);
+        $lpcategoryid = learning_path_repository::get_lp_category_id(false);
         $total = 0;
-        if ($lp_categoryid) {
+        if ($lpcategoryid) {
             $where = "category = :lpcat AND id <> 1";
-            $sqlparams = ['lpcat' => $lp_categoryid];
+            $sqlparams = ['lpcat' => $lpcategoryid];
             if (!empty($params['search'])) {
                 $where .= " AND (" . $DB->sql_like('fullname', ':search1', false, false) .
                           " OR " . $DB->sql_like('shortname', ':search2', false, false) . ")";
@@ -114,7 +135,12 @@ class learning_paths extends external_api {
         ];
     }
 
-    public static function get_learning_paths_returns() {
+    /**
+     * Describes the return structure for get_learning_paths.
+     *
+     * @return external_single_structure
+     */
+    public static function get_learning_paths_returns(): external_single_structure {
         return new external_single_structure([
             'items' => new external_multiple_structure(new external_single_structure([
                 'id'              => new external_value(PARAM_INT, 'Course id'),
@@ -133,18 +159,33 @@ class learning_paths extends external_api {
         ]);
     }
 
-    // ------------------------------------------------------------------------
-    // 3. get_learning_path_detail
-    // ------------------------------------------------------------------------
-    public static function get_learning_path_detail_parameters() {
+    /**
+     * Describes the parameters for get_learning_path_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_learning_path_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid'  => new external_value(PARAM_INT, 'Container course ID'),
             'limitfrom' => new external_value(PARAM_INT, 'Offset for enrolled users', VALUE_DEFAULT, 0),
-            'limitnum'  => new external_value(PARAM_INT, 'Limit for enrolled users (max 500, default 100)', VALUE_DEFAULT, 100),
+            'limitnum'  => new external_value(
+                PARAM_INT,
+                'Limit for enrolled users (max 500, default 100)',
+                VALUE_DEFAULT,
+                100
+            ),
         ]);
     }
 
-    public static function get_learning_path_detail($courseid, $limitfrom = 0, $limitnum = 100) {
+    /**
+     * Get detail and structure of a learning path.
+     *
+     * @param int $courseid
+     * @param int $limitfrom
+     * @param int $limitnum
+     * @return array
+     */
+    public static function get_learning_path_detail(int $courseid, int $limitfrom = 0, int $limitnum = 100): array {
         $params = self::validate_parameters(self::get_learning_path_detail_parameters(), [
             'courseid'  => $courseid,
             'limitfrom' => $limitfrom,
@@ -168,7 +209,12 @@ class learning_paths extends external_api {
         return $detail;
     }
 
-    public static function get_learning_path_detail_returns() {
+    /**
+     * Describes the return structure for get_learning_path_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_learning_path_detail_returns(): external_single_structure {
         return new external_single_structure([
             'id'               => new external_value(PARAM_INT, 'Course ID'),
             'fullname'         => new external_value(PARAM_TEXT, 'Course fullname'),
@@ -185,8 +231,20 @@ class learning_paths extends external_api {
                 'cm_id'               => new external_value(PARAM_INT, 'Course module ID', VALUE_OPTIONAL, null, NULL_ALLOWED),
                 'subcourse_id'        => new external_value(PARAM_INT, 'Subcourse instance ID', VALUE_OPTIONAL, null, NULL_ALLOWED),
                 'subcourse_course_id' => new external_value(PARAM_INT, 'Child course ID', VALUE_OPTIONAL, null, NULL_ALLOWED),
-                'subcourse_fullname'  => new external_value(PARAM_TEXT, 'Child course fullname', VALUE_OPTIONAL, null, NULL_ALLOWED),
-                'subcourse_shortname' => new external_value(PARAM_TEXT, 'Child course shortname', VALUE_OPTIONAL, null, NULL_ALLOWED),
+                'subcourse_fullname'  => new external_value(
+                    PARAM_TEXT,
+                    'Child course fullname',
+                    VALUE_OPTIONAL,
+                    null,
+                    NULL_ALLOWED
+                ),
+                'subcourse_shortname' => new external_value(
+                    PARAM_TEXT,
+                    'Child course shortname',
+                    VALUE_OPTIONAL,
+                    null,
+                    NULL_ALLOWED
+                ),
                 'availability'        => new external_value(PARAM_RAW, 'Availability JSON', VALUE_OPTIONAL, null, NULL_ALLOWED),
                 'has_sequential_rule' => new external_value(PARAM_BOOL, 'Has sequential rule'),
             ])),
@@ -219,19 +277,44 @@ class learning_paths extends external_api {
     // ------------------------------------------------------------------------
     // 4. search_courses_for_path
     // ------------------------------------------------------------------------
-    public static function search_courses_for_path_parameters() {
+
+    /**
+     * Parameter definition for search_courses_for_path.
+     *
+     * @return external_function_parameters
+     */
+    public static function search_courses_for_path_parameters(): external_function_parameters {
         return new external_function_parameters([
             'search'          => new external_value(PARAM_TEXT, 'Search query', VALUE_DEFAULT, ''),
-            'exclude_path_id' => new external_value(PARAM_INT, 'Learning path course ID to exclude already added subcourses', VALUE_DEFAULT, 0),
+            'exclude_path_id' => new external_value(
+                PARAM_INT,
+                'Learning path course ID to exclude already added subcourses',
+                VALUE_DEFAULT,
+                0
+            ),
             'page'            => new external_value(PARAM_INT, 'Page index', VALUE_DEFAULT, 0),
             'perpage'         => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
         ]);
     }
 
-    public static function search_courses_for_path($search = '', $exclude_path_id = 0, $page = 0, $perpage = 20) {
+    /**
+     * Search available courses for learning path container.
+     *
+     * @param string $search Search query.
+     * @param int $excludepathid Learning path course ID to exclude.
+     * @param int $page Page index.
+     * @param int $perpage Items per page.
+     * @return array Search result items and pagination metadata.
+     */
+    public static function search_courses_for_path(
+        $search = '',
+        $excludepathid = 0,
+        $page = 0,
+        $perpage = 20
+    ): array {
         $params = self::validate_parameters(self::search_courses_for_path_parameters(), [
             'search'          => $search,
-            'exclude_path_id' => $exclude_path_id,
+            'exclude_path_id' => $excludepathid,
             'page'            => $page,
             'perpage'         => $perpage,
         ]);
@@ -241,8 +324,8 @@ class learning_paths extends external_api {
         require_capability('tool/management_console:access', $context);
 
         global $DB;
-        $lp_categoryid = learning_path_repository::get_lp_category_id(false);
-        if (!$lp_categoryid) {
+        $lpcategoryid = learning_path_repository::get_lp_category_id(false);
+        if (!$lpcategoryid) {
             return [
                 'items'   => [],
                 'total'   => 0,
@@ -251,11 +334,11 @@ class learning_paths extends external_api {
             ];
         }
 
-        $exclude_ids = [];
+        $excludeids = [];
         if ($params['exclude_path_id'] > 0) {
-            $exclude_ids[] = (int)$params['exclude_path_id'];
-            // Obtener subcursos ya enlazados en este contenedor
-            $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+            $excludeids[] = (int)$params['exclude_path_id'];
+            // Obtener subcursos ya enlazados en este contenedor.
+            $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
             $sql = "
                 SELECT s.refcourse
                   FROM {course_modules} cm
@@ -264,17 +347,22 @@ class learning_paths extends external_api {
             ";
             $linked = $DB->get_fieldset_sql($sql, [
                 'courseid'    => $params['exclude_path_id'],
-                'submoduleid' => $submodule_id
+                'submoduleid' => $submoduleid,
             ]);
             if ($linked) {
-                $exclude_ids = array_merge($exclude_ids, array_map('intval', $linked));
+                $excludeids = array_merge($excludeids, array_map('intval', $linked));
             }
         }
 
-        return learning_path_repository::search_available_courses($params, $lp_categoryid, array_unique($exclude_ids));
+        return learning_path_repository::search_available_courses($params, $lpcategoryid, array_unique($excludeids));
     }
 
-    public static function search_courses_for_path_returns() {
+    /**
+     * Return structure for search_courses_for_path.
+     *
+     * @return external_single_structure
+     */
+    public static function search_courses_for_path_returns(): external_single_structure {
         return new external_single_structure([
             'items' => new external_multiple_structure(new external_single_structure([
                 'id'           => new external_value(PARAM_INT, 'Course ID'),
@@ -292,7 +380,13 @@ class learning_paths extends external_api {
     // ------------------------------------------------------------------------
     // 5. create_learning_path
     // ------------------------------------------------------------------------
-    public static function create_learning_path_parameters() {
+
+    /**
+     * Parameter definition for create_learning_path.
+     *
+     * @return external_function_parameters
+     */
+    public static function create_learning_path_parameters(): external_function_parameters {
         return new external_function_parameters([
             'fullname'  => new external_value(PARAM_TEXT, 'Learning path course fullname'),
             'shortname' => new external_value(PARAM_TEXT, 'Learning path course shortname'),
@@ -300,7 +394,15 @@ class learning_paths extends external_api {
         ]);
     }
 
-    public static function create_learning_path($fullname, $shortname, $startdate = 0) {
+    /**
+     * Create a learning path course.
+     *
+     * @param string $fullname Learning path full name.
+     * @param string $shortname Learning path short name.
+     * @param int $startdate Course start timestamp.
+     * @return array Created course data.
+     */
+    public static function create_learning_path($fullname, $shortname, $startdate = 0): array {
         $params = self::validate_parameters(self::create_learning_path_parameters(), [
             'fullname'  => $fullname,
             'shortname' => $shortname,
@@ -312,7 +414,11 @@ class learning_paths extends external_api {
         require_capability('moodle/course:create', $syscontext);
         \tool_management_console\license_manager::require_active_license();
 
-        $courseid = learning_path_repository::create_learning_path($params['fullname'], $params['shortname'], $params['startdate']);
+        $courseid = learning_path_repository::create_learning_path(
+            $params['fullname'],
+            $params['shortname'],
+            $params['startdate']
+        );
 
         return [
             'id'        => $courseid,
@@ -321,7 +427,12 @@ class learning_paths extends external_api {
         ];
     }
 
-    public static function create_learning_path_returns() {
+    /**
+     * Return structure for create_learning_path.
+     *
+     * @return external_single_structure
+     */
+    public static function create_learning_path_returns(): external_single_structure {
         return new external_single_structure([
             'id'        => new external_value(PARAM_INT, 'Created course ID'),
             'fullname'  => new external_value(PARAM_TEXT, 'Course fullname'),
@@ -332,19 +443,39 @@ class learning_paths extends external_api {
     // ------------------------------------------------------------------------
     // 6. update_learning_path_structure
     // ------------------------------------------------------------------------
-    public static function update_learning_path_structure_parameters() {
+
+    /**
+     * Parameter definition for update_learning_path_structure.
+     *
+     * @return external_function_parameters
+     */
+    public static function update_learning_path_structure_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid'             => new external_value(PARAM_INT, 'Container course ID'),
-            'subcourse_course_ids' => new external_multiple_structure(new external_value(PARAM_INT, 'Child course ID')),
+            'subcourse_course_ids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Child course ID')
+            ),
             'enforce_sequence'     => new external_value(PARAM_INT, 'Enforce sequential rules (1/0)', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function update_learning_path_structure($courseid, $subcourse_course_ids, $enforce_sequence = 0) {
+    /**
+     * Update structure of subcourses in learning path.
+     *
+     * @param int $courseid Container course ID.
+     * @param array $subcoursecourseids Array of child course IDs.
+     * @param int $enforcesequence Enforce sequential order flag.
+     * @return array Success status.
+     */
+    public static function update_learning_path_structure(
+        $courseid,
+        $subcoursecourseids,
+        $enforcesequence = 0
+    ): array {
         $params = self::validate_parameters(self::update_learning_path_structure_parameters(), [
             'courseid'             => $courseid,
-            'subcourse_course_ids' => $subcourse_course_ids,
-            'enforce_sequence'     => $enforce_sequence,
+            'subcourse_course_ids' => $subcoursecourseids,
+            'enforce_sequence'     => $enforcesequence,
         ]);
 
         $context = context_course::instance($params['courseid']);
@@ -361,7 +492,12 @@ class learning_paths extends external_api {
         return ['success' => true];
     }
 
-    public static function update_learning_path_structure_returns() {
+    /**
+     * Return structure for update_learning_path_structure.
+     *
+     * @return external_single_structure
+     */
+    public static function update_learning_path_structure_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'True on success'),
         ]);
@@ -370,13 +506,25 @@ class learning_paths extends external_api {
     // ------------------------------------------------------------------------
     // 7. delete_learning_path
     // ------------------------------------------------------------------------
-    public static function delete_learning_path_parameters() {
+
+    /**
+     * Parameter definition for delete_learning_path.
+     *
+     * @return external_function_parameters
+     */
+    public static function delete_learning_path_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid' => new external_value(PARAM_INT, 'Container course ID'),
         ]);
     }
 
-    public static function delete_learning_path($courseid) {
+    /**
+     * Delete or hide learning path course.
+     *
+     * @param int $courseid Container course ID.
+     * @return array Success status and action taken.
+     */
+    public static function delete_learning_path($courseid): array {
         $params = self::validate_parameters(self::delete_learning_path_parameters(), [
             'courseid' => $courseid,
         ]);
@@ -386,8 +534,8 @@ class learning_paths extends external_api {
         require_capability('moodle/course:delete', $context);
         \tool_management_console\license_manager::require_active_license();
 
-        $has_students = learning_path_repository::has_enrolled_users($params['courseid']);
-        if ($has_students) {
+        $hasstudents = learning_path_repository::has_enrolled_users($params['courseid']);
+        if ($hasstudents) {
             learning_path_repository::hide_learning_path($params['courseid']);
             return [
                 'success'      => true,
@@ -402,7 +550,12 @@ class learning_paths extends external_api {
         ];
     }
 
-    public static function delete_learning_path_returns() {
+    /**
+     * Return structure for delete_learning_path.
+     *
+     * @return external_single_structure
+     */
+    public static function delete_learning_path_returns(): external_single_structure {
         return new external_single_structure([
             'success'      => new external_value(PARAM_BOOL, 'Operation succeeded'),
             'action_taken' => new external_value(PARAM_ALPHA, 'hidden or deleted'),
@@ -412,16 +565,46 @@ class learning_paths extends external_api {
     // ------------------------------------------------------------------------
     // 8. manage_learning_path_enrolments
     // ------------------------------------------------------------------------
-    public static function manage_learning_path_enrolments_parameters() {
+
+    /**
+     * Parameter definition for manage_learning_path_enrolments.
+     *
+     * @return external_function_parameters
+     */
+    public static function manage_learning_path_enrolments_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid'  => new external_value(PARAM_INT, 'Container course ID'),
             'action'    => new external_value(PARAM_ALPHA, 'Action: assign or remove'),
-            'cohortids' => new external_multiple_structure(new external_value(PARAM_INT, 'Cohort ID'), 'Cohort IDs', VALUE_DEFAULT, []),
-            'userids'   => new external_multiple_structure(new external_value(PARAM_INT, 'User ID'), 'User IDs', VALUE_DEFAULT, []),
+            'cohortids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Cohort ID'),
+                'Cohort IDs',
+                VALUE_DEFAULT,
+                []
+            ),
+            'userids'   => new external_multiple_structure(
+                new external_value(PARAM_INT, 'User ID'),
+                'User IDs',
+                VALUE_DEFAULT,
+                []
+            ),
         ]);
     }
 
-    public static function manage_learning_path_enrolments($courseid, $action, $cohortids = [], $userids = []) {
+    /**
+     * Manage cohort and user enrolments in learning path.
+     *
+     * @param int $courseid Container course ID.
+     * @param string $action Action: assign or remove.
+     * @param array $cohortids Array of cohort IDs.
+     * @param array $userids Array of user IDs.
+     * @return array Operation status and message.
+     */
+    public static function manage_learning_path_enrolments(
+        $courseid,
+        $action,
+        $cohortids = [],
+        $userids = []
+    ): array {
         global $DB, $CFG;
 
         $params = self::validate_parameters(self::manage_learning_path_enrolments_parameters(), [
@@ -448,13 +631,13 @@ class learning_paths extends external_api {
                     $instance = $DB->get_record('enrol', [
                         'enrol'      => 'cohort',
                         'courseid'   => $course->id,
-                        'customint1' => $cohortid
+                        'customint1' => $cohortid,
                     ]);
                     if (!$instance) {
                         $instanceid = $enrolplugin->add_instance($course, [
                             'customint1' => $cohortid,
                             'roleid'     => $roleid,
-                            'status'     => ENROL_INSTANCE_ENABLED
+                            'status'     => ENROL_INSTANCE_ENABLED,
                         ]);
                     }
                     if (function_exists('enrol_cohort_sync')) {
@@ -467,7 +650,7 @@ class learning_paths extends external_api {
                     $instance = $DB->get_record('enrol', [
                         'enrol'      => 'cohort',
                         'courseid'   => $course->id,
-                        'customint1' => $cohortid
+                        'customint1' => $cohortid,
                     ]);
                     if ($instance) {
                         $enrolplugin->delete_instance($instance);
@@ -476,7 +659,7 @@ class learning_paths extends external_api {
             }
         }
 
-        // Matrícula manual directa para usuarios
+        // Matrícula manual directa para usuarios.
         if (!empty($params['userids'])) {
             $manualplugin = enrol_get_plugin('manual');
             $instance = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $course->id]);
@@ -495,19 +678,22 @@ class learning_paths extends external_api {
                     } else if ($params['action'] === 'remove') {
                         $manualplugin->unenrol_user($instance, $userid);
 
-                        // Desmatricular también de los subcursos hijos si estuviera matriculado manualmente
-                        $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
-                        if ($submodule_id) {
+                        // Desmatricular también de los subcursos hijos si estuviera matriculado manualmente.
+                        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+                        if ($submoduleid) {
                             $subcourses = $DB->get_records_sql("
                                 SELECT s.refcourse
                                   FROM {course_modules} cm
                                   JOIN {subcourse} s ON s.id = cm.instance
                                  WHERE cm.course = :courseid AND cm.module = :submoduleid AND cm.deletioninprogress = 0
-                            ", ['courseid' => $course->id, 'submoduleid' => $submodule_id]);
+                            ", ['courseid' => $course->id, 'submoduleid' => $submoduleid]);
                             if ($subcourses) {
                                 foreach ($subcourses as $sc) {
                                     $subcourseid = (int)$sc->refcourse;
-                                    $submanual = $DB->get_record('enrol', ['enrol' => 'manual', 'courseid' => $subcourseid]);
+                                    $submanual = $DB->get_record('enrol', [
+                                        'enrol'    => 'manual',
+                                        'courseid' => $subcourseid,
+                                    ]);
                                     if ($submanual) {
                                         $manualplugin->unenrol_user($submanual, $userid);
                                     }
@@ -525,7 +711,12 @@ class learning_paths extends external_api {
         ];
     }
 
-    public static function manage_learning_path_enrolments_returns() {
+    /**
+     * Return structure for manage_learning_path_enrolments.
+     *
+     * @return external_single_structure
+     */
+    public static function manage_learning_path_enrolments_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Operation succeeded'),
             'message' => new external_value(PARAM_TEXT, 'Status message'),

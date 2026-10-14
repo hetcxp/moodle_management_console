@@ -353,10 +353,14 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
           <>
             {/* Mode selection tabs */}
             <div className="flex p-1 bg-surface-2/60 rounded-xl border border-white/5">
+              <span id="restore-mode-tabs-desc" className="sr-only">
+                Selección de modo deshabilitada durante el proceso de restauración.
+              </span>
               <button
                 type="button"
                 onClick={() => setTab('upload')}
                 disabled={phase === 'uploading' || phase === 'restoring'}
+                aria-describedby="restore-mode-tabs-desc"
                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   tab === 'upload'
                     ? 'bg-primary text-primary-foreground shadow'
@@ -373,6 +377,7 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                   if (serverBackups.length === 0) fetchServerBackups();
                 }}
                 disabled={phase === 'uploading' || phase === 'restoring'}
+                aria-describedby="restore-mode-tabs-desc"
                 className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   tab === 'server'
                     ? 'bg-primary text-primary-foreground shadow'
@@ -395,7 +400,8 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                   className="hidden"
                 />
                 
-                <div
+                <button
+                  type="button"
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
@@ -404,7 +410,7 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                       fileInputRef.current.click();
                     }
                   }}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  className={`w-full border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                     isDragging
                       ? 'border-primary bg-primary/10'
                       : file
@@ -434,7 +440,7 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                       </>
                     )}
                   </div>
-                </div>
+                </button>
 
                 {/* Progress bar during upload */}
                 {phase === 'uploading' && (
@@ -487,14 +493,15 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                     {serverBackups.map((backup) => {
                       const isSelected = selectedServerBackup?.path === backup.path;
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={backup.path}
                           onClick={() => {
                             if (phase !== 'uploading' && phase !== 'restoring') {
                               setSelectedServerBackup(backup);
                             }
                           }}
-                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between ${
+                          className={`w-full p-2.5 rounded-xl border text-xs cursor-pointer transition-all flex items-center justify-between text-left ${
                             isSelected
                               ? 'border-primary bg-primary/10 text-white shadow-sm'
                               : 'border-white/5 bg-surface-2/40 hover:bg-surface-2/70 text-muted-foreground hover:text-foreground'
@@ -514,7 +521,7 @@ export const CourseRestoreModal = ({ open, onClose, onSuccess, categoriesList = 
                           <div className="text-[11px] font-mono shrink-0 pl-2">
                             {formatBytes(backup.size)}
                           </div>
-                        </div>
+                        </button>
                       );
                     })}
                   </div>

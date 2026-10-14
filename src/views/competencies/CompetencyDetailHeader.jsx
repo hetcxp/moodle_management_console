@@ -192,19 +192,21 @@ export const CompetencyDetailHeader = ({
           </div>
         </div>
 
-        <div
+        <button
+          type="button"
           onClick={onOpenReviews}
-          title={pendingReviewsCount > 0 ? `Ver ${pendingReviewsCount} revisión(es) pendiente(s)` : 'Ver revisiones pendientes'}
-          className={`bg-card/60 backdrop-blur-md rounded-2xl border p-5 shadow-sm flex items-center gap-3.5 transition-all cursor-pointer hover:border-amber-500/50 ${pendingReviewsCount > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
+          aria-label="Inspeccionar evaluaciones"
+          title="Ver revisiones pendientes"
+          className={`text-left w-full bg-card/60 backdrop-blur-md rounded-2xl border p-5 shadow-sm flex items-center gap-3.5 transition-all cursor-pointer hover:border-amber-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-1 ${pendingReviewsCount > 0 ? 'border-amber-500/40 bg-amber-500/5' : 'border-border'}`}
         >
           <div className={`p-2.5 rounded-xl shrink-0 ${pendingReviewsCount > 0 ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400' : 'bg-muted text-muted-foreground'}`}>
             <Clock className="h-5 w-5" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0" aria-hidden="true">
             <p className="text-sm font-medium text-muted-foreground truncate">Revisiones Pendientes</p>
             <h3 className="text-xl font-bold text-foreground">{pendingReviewsCount}</h3>
           </div>
-        </div>
+        </button>
       </div>
     </>
   );

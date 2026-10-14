@@ -67,9 +67,11 @@ export const HelpDrawer = () => {
       aria-hidden={!isOpen}
     >
       {/* Backdrop */}
-      <div
+      <button
+        type="button"
+        tabIndex={-1}
         className={cn(
-          'fixed inset-0 bg-background/60 backdrop-blur-sm transition-opacity duration-300',
+          'fixed inset-0 bg-background/60 backdrop-blur-sm transition-opacity duration-300 border-0 cursor-default',
           isOpen ? 'opacity-100' : 'opacity-0'
         )}
         onClick={close}

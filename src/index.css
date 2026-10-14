@@ -47,7 +47,9 @@
     --sidebar-ring: 224.3 76.3% 48%;
   }
 
-  .dark {
+  .dark,
+  :root[data-bs-theme="dark"],
+  [data-bs-theme="dark"] {
     --background: 224 71.4% 4.1%;
     --foreground: 210 40% 98%;
 

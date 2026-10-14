@@ -72,11 +72,13 @@ export function applyThemeToDOM(themeId) {
   const root = document.documentElement;
   root.setAttribute('data-theme', themeId);
 
-  // Manipular clase Tailwind 'dark'
+  // Manipular clase Tailwind 'dark' y selector Boost 5.3 [data-bs-theme="dark"]
   if (themeId === 'dark' || themeId === 'gold-teal') {
     root.classList.add('dark');
+    root.setAttribute('data-bs-theme', 'dark');
   } else {
     root.classList.remove('dark');
+    root.setAttribute('data-bs-theme', 'light');
   }
 
   // Manipular clases específicas de tema
@@ -93,10 +95,17 @@ export const ThemeProvider = ({ children, initialTheme }) => {
     if (initialTheme && VALID_THEME_IDS.includes(initialTheme)) {
       return initialTheme;
     }
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const saved = window.localStorage.getItem('theme');
-      if (saved && VALID_THEME_IDS.includes(saved)) {
-        return saved;
+    if (typeof window !== 'undefined') {
+      const moodleTheme = document.documentElement.getAttribute('data-bs-theme') ||
+                          document.body?.getAttribute('data-bs-theme');
+      if (moodleTheme === 'dark') {
+        return 'dark';
+      }
+      if (window.localStorage) {
+        const saved = window.localStorage.getItem('theme');
+        if (saved && VALID_THEME_IDS.includes(saved)) {
+          return saved;
+        }
       }
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         return 'dark';
@@ -124,6 +133,28 @@ export const ThemeProvider = ({ children, initialTheme }) => {
     if (typeof window !== 'undefined' && window.localStorage) {
       window.localStorage.setItem('theme', theme);
     }
+  }, [theme]);
+
+  // Sincronizar automáticamente si Moodle Boost conmuta data-bs-theme dinámicamente
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const checkMoodleTheme = () => {
+      const moodleTheme = document.documentElement.getAttribute('data-bs-theme') ||
+                          document.body?.getAttribute('data-bs-theme');
+      if (moodleTheme === 'dark' && theme !== 'dark' && theme !== 'gold-teal') {
+        setThemeState('dark');
+      } else if (moodleTheme === 'light' && theme === 'dark') {
+        setThemeState('light');
+      }
+    };
+
+    const observer = new MutationObserver(checkMoodleTheme);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    if (document.body) {
+      observer.observe(document.body, { attributes: true, attributeFilter: ['data-bs-theme'] });
+    }
+
+    return () => observer.disconnect();
   }, [theme]);
 
   const isDark = useMemo(() => theme === 'dark' || theme === 'gold-teal', [theme]);

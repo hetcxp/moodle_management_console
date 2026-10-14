@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 use stdClass;
 use moodle_exception;
 
@@ -37,14 +35,13 @@ use moodle_exception;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class learning_path_repository {
-
     /**
      * Obtiene el ID de la categoría de rutas de aprendizaje sin mutación colateral opcionalmente.
      *
-     * @param bool $create_if_missing Si es true, crea la categoría si no existe.
+     * @param bool $createifmissing Si es true, crea la categoría si no existe.
      * @return int ID de la categoría (0 si no existe y no se fuerza creación).
      */
-    public static function get_lp_category_id(bool $create_if_missing = false): int {
+    public static function get_lp_category_id(bool $createifmissing = false): int {
         global $DB;
         $catname = get_config('tool_management_console', 'tool_management_console_lp_category_name');
         if (empty($catname)) {
@@ -56,7 +53,7 @@ class learning_path_repository {
             return (int)$cat->id;
         }
 
-        if ($create_if_missing) {
+        if ($createifmissing) {
             return self::get_or_create_lp_category();
         }
 
@@ -85,7 +82,7 @@ class learning_path_repository {
             $newcat = \core_course_category::create([
                 'name' => $catname,
                 'parent' => 0,
-                'visible' => 1
+                'visible' => 1,
             ]);
             return (int)$newcat->id;
         }
@@ -111,8 +108,8 @@ class learning_path_repository {
     public static function get_learning_paths(array $params): array {
         global $DB;
 
-        $lp_categoryid = self::get_lp_category_id(false);
-        if (!$lp_categoryid) {
+        $lpcategoryid = self::get_lp_category_id(false);
+        if (!$lpcategoryid) {
             return [];
         }
 
@@ -121,7 +118,7 @@ class learning_path_repository {
         $search = trim($params['search'] ?? '');
 
         $where = "c.category = :lpcategory AND c.id <> 1";
-        $sqlparams = ['lpcategory' => $lp_categoryid];
+        $sqlparams = ['lpcategory' => $lpcategoryid];
 
         if (!empty($search)) {
             $where .= " AND (" . $DB->sql_like('c.fullname', ':search1', false, false) .
@@ -130,8 +127,8 @@ class learning_path_repository {
             $sqlparams['search2'] = '%' . $search . '%';
         }
 
-        // Subcourse module count
-        $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+        // Subcourse module count.
+        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
 
         $sql = "
             SELECT c.id, c.fullname, c.shortname, c.visible, c.startdate, c.timecreated,
@@ -156,14 +153,14 @@ class learning_path_repository {
          LEFT JOIN (
                 SELECT e.courseid, COUNT(DISTINCT e.customint1) AS cohort_count
                   FROM {enrol} e
-                 WHERE e.enrol = 'cohort'
+                  WHERE e.enrol = 'cohort'
               GROUP BY e.courseid
          ) coh ON coh.courseid = c.id
              WHERE $where
           ORDER BY c.startdate DESC, c.id DESC
         ";
 
-        $sqlparams['submoduleid'] = $submodule_id;
+        $sqlparams['submoduleid'] = $submoduleid;
 
         $limitfrom = $page * $perpage;
         $records = $DB->get_records_sql($sql, $sqlparams, $limitfrom, $perpage);
@@ -207,45 +204,46 @@ class learning_path_repository {
         global $DB;
 
         // Read-only check: do not create missing categories during read operations (TD-READ-001).
-        $lp_categoryid = self::get_lp_category_id(false);
+        $lpcategoryid = self::get_lp_category_id(false);
         $course = $DB->get_record('course', ['id' => $courseid]);
-        if (!$course || ($lp_categoryid > 0 && (int)$course->category !== $lp_categoryid)) {
+        if (!$course || ($lpcategoryid > 0 && (int)$course->category !== $lpcategoryid)) {
             throw new moodle_exception('invalidcourseid', 'error');
         }
 
-        $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
 
-        // Secciones y módulos asociados
-        $sql_sections = "
+        // Secciones y módulos asociados.
+        $sqlsections = "
             SELECT cs.id AS sectionid, cs.section, cs.name AS sectionname, cs.summary,
                    cm.id AS cmid, cm.availability, cm.completion,
                    s.id AS subcourseid, s.refcourse AS subcourse_course_id,
                    subc.fullname AS subcourse_fullname, subc.shortname AS subcourse_shortname
               FROM {course_sections} cs
-         LEFT JOIN {course_modules} cm ON cm.course = cs.course AND cm.section = cs.id AND cm.module = :submoduleid AND cm.deletioninprogress = 0
+         LEFT JOIN {course_modules} cm ON cm.course = cs.course AND cm.section = cs.id
+                   AND cm.module = :submoduleid AND cm.deletioninprogress = 0
          LEFT JOIN {subcourse} s ON s.id = cm.instance
          LEFT JOIN {course} subc ON subc.id = s.refcourse
              WHERE cs.course = :courseid AND cs.section > 0
           ORDER BY cs.section ASC
         ";
 
-        $section_records = $DB->get_records_sql($sql_sections, [
+        $sectionrecords = $DB->get_records_sql($sqlsections, [
             'courseid'    => $courseid,
-            'submoduleid' => $submodule_id
+            'submoduleid' => $submoduleid,
         ]);
 
         $sections = [];
-        $has_sequential_rules = false;
+        $hassequentialrules = false;
 
-        if ($section_records) {
-            foreach ($section_records as $sec) {
+        if ($sectionrecords) {
+            foreach ($sectionrecords as $sec) {
                 $avail = $sec->availability;
-                $has_rule = false;
+                $hasrule = false;
                 if (!empty($avail)) {
                     $decoded = json_decode($avail, true);
                     if (!empty($decoded['c'])) {
-                        $has_rule = true;
-                        $has_sequential_rules = true;
+                        $hasrule = true;
+                        $hassequentialrules = true;
                     }
                 }
 
@@ -259,13 +257,13 @@ class learning_path_repository {
                     'subcourse_fullname'   => $sec->subcourse_fullname ?? null,
                     'subcourse_shortname'  => $sec->subcourse_shortname ?? null,
                     'availability'         => $avail,
-                    'has_sequential_rule'  => $has_rule,
+                    'has_sequential_rule'  => $hasrule,
                 ];
             }
         }
 
-        // Cohortes asignadas al contenedor (acotado a 100)
-        $sql_cohorts = "
+        // Cohortes asignadas al contenedor (acotado a 100).
+        $sqlcohorts = "
             SELECT e.id AS enrolid, e.customint1 AS cohortid, coh.name AS cohortname,
                    COUNT(DISTINCT ue.userid) AS membercount
               FROM {enrol} e
@@ -275,21 +273,21 @@ class learning_path_repository {
           GROUP BY e.id, e.customint1, coh.name
           ORDER BY coh.name ASC
         ";
-        $cohort_records = $DB->get_records_sql($sql_cohorts, ['courseid' => $courseid], 0, 100);
+        $cohortrecords = $DB->get_records_sql($sqlcohorts, ['courseid' => $courseid], 0, 100);
         $cohorts = [];
-        if ($cohort_records) {
-            $cohorts = array_values(array_map(function($c) {
+        if ($cohortrecords) {
+            $cohorts = array_values(array_map(function ($c) {
                 return [
                     'enrol_id'     => (int)$c->enrolid,
                     'cohort_id'    => (int)$c->cohortid,
                     'name'         => $c->cohortname,
                     'member_count' => (int)$c->membercount,
                 ];
-            }, $cohort_records));
+            }, $cohortrecords));
         }
 
-        // Matriz de progreso
-        $sql_users = "
+        // Matriz de progreso.
+        $sqlusers = "
             SELECT DISTINCT u.id, u.firstname, u.lastname, u.email
               FROM {enrol} e
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
@@ -298,54 +296,54 @@ class learning_path_repository {
           ORDER BY u.lastname ASC, u.firstname ASC
              LIMIT 100
         ";
-        $users = $DB->get_records_sql($sql_users, ['courseid' => $courseid]);
+        $users = $DB->get_records_sql($sqlusers, ['courseid' => $courseid]);
 
-        $cm_ids = array_filter(array_column($sections, 'cm_id'));
+        $cmids = array_filter(array_column($sections, 'cm_id'));
         $completions = [];
-        if (!empty($cm_ids) && !empty($users)) {
-            list($in_cms, $cm_params) = $DB->get_in_or_equal($cm_ids, SQL_PARAMS_NAMED, 'cm');
-            list($in_users, $user_params) = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'usr');
-            $comp_params = array_merge($cm_params, $user_params);
+        if (!empty($cmids) && !empty($users)) {
+            [$incms, $cmparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+            [$inusers, $userparams] = $DB->get_in_or_equal(array_keys($users), SQL_PARAMS_NAMED, 'usr');
+            $compparams = array_merge($cmparams, $userparams);
 
-            $sql_comp = "
+            $sqlcomp = "
                 SELECT cmc.id, cmc.coursemoduleid, cmc.userid, cmc.completionstate
                   FROM {course_modules_completion} cmc
-                 WHERE cmc.coursemoduleid $in_cms AND cmc.userid $in_users
+                 WHERE cmc.coursemoduleid $incms AND cmc.userid $inusers
             ";
-            $comp_records = $DB->get_records_sql($sql_comp, $comp_params);
-            if ($comp_records) {
-                foreach ($comp_records as $cr) {
+            $comprecords = $DB->get_records_sql($sqlcomp, $compparams);
+            if ($comprecords) {
+                foreach ($comprecords as $cr) {
                     $completions[$cr->userid][$cr->coursemoduleid] = (int)$cr->completionstate;
                 }
             }
         }
 
-        $progress_matrix = [];
+        $progressmatrix = [];
         if ($users) {
             foreach ($users as $u) {
-                $user_progress = [
+                $userprogress = [
                     'user_id'   => (int)$u->id,
                     'fullname'  => $u->firstname . ' ' . $u->lastname,
                     'email'     => $u->email,
-                    'modules'   => []
+                    'modules'   => [],
                 ];
                 foreach ($sections as $s) {
                     if ($s['cm_id']) {
                         $state = $completions[$u->id][$s['cm_id']] ?? 0;
-                        $user_progress['modules'][] = [
+                        $userprogress['modules'][] = [
                             'cm_id'           => $s['cm_id'],
-                            'completionstate' => $state
+                            'completionstate' => $state,
                         ];
                     }
                 }
-                $progress_matrix[] = $user_progress;
+                $progressmatrix[] = $userprogress;
             }
         }
 
-        // Usuarios matriculados en la ruta con límite y offset (TD-DATA-001 / TD-PERF-001)
+        // Usuarios matriculados en la ruta con límite y offset (TD-DATA-001 / TD-PERF-001).
         $offset = max(0, $limitfrom);
         $limit = ($limitnum > 0 && $limitnum <= 500) ? $limitnum : 100;
-        $sql_enrolled_users = "
+        $sqlenrolledusers = "
             SELECT ue.id AS userenrolid, u.id, u.firstname, u.lastname, u.email,
                    ue.status, ue.timecreated, e.enrol AS enrolmethod
               FROM {user} u
@@ -354,13 +352,13 @@ class learning_path_repository {
              WHERE e.courseid = :courseid AND u.deleted = 0
           ORDER BY u.lastname ASC, u.firstname ASC
         ";
-        $enrolled_user_records = $DB->get_records_sql($sql_enrolled_users, ['courseid' => $courseid], $offset, $limit);
-        $enrolled_users = [];
-        if ($enrolled_user_records) {
-            foreach ($enrolled_user_records as $eur) {
+        $enrolleduserrecords = $DB->get_records_sql($sqlenrolledusers, ['courseid' => $courseid], $offset, $limit);
+        $enrolledusers = [];
+        if ($enrolleduserrecords) {
+            foreach ($enrolleduserrecords as $eur) {
                 $uid = (int)$eur->id;
-                if (!isset($enrolled_users[$uid])) {
-                    $enrolled_users[$uid] = [
+                if (!isset($enrolledusers[$uid])) {
+                    $enrolledusers[$uid] = [
                         'id'           => $uid,
                         'fullname'     => $eur->firstname . ' ' . $eur->lastname,
                         'email'        => $eur->email,
@@ -369,7 +367,7 @@ class learning_path_repository {
                         'timecreated'  => (int)$eur->timecreated,
                     ];
                 } else if ($eur->enrolmethod === 'manual') {
-                    $enrolled_users[$uid]['enrol_method'] = 'manual';
+                    $enrolledusers[$uid]['enrol_method'] = 'manual';
                 }
             }
         }
@@ -383,10 +381,10 @@ class learning_path_repository {
         $detail->enddate = (int)$course->enddate;
         $detail->summary = $course->summary;
         $detail->sections = $sections;
-        $detail->enforce_sequence = $has_sequential_rules;
+        $detail->enforce_sequence = $hassequentialrules;
         $detail->cohorts = $cohorts;
-        $detail->users = array_values($enrolled_users);
-        $detail->progress_matrix = $progress_matrix;
+        $detail->users = array_values($enrolledusers);
+        $detail->progress_matrix = $progressmatrix;
 
         return $detail;
     }
@@ -444,8 +442,8 @@ class learning_path_repository {
         $record = $DB->get_record('course_format_options', [
             'courseid' => $courseid,
             'format'   => 'topics',
-            'sectionid'=> 0,
-            'name'     => 'numsections'
+            'sectionid' => 0,
+            'name'     => 'numsections',
         ]);
 
         if ($record) {
@@ -466,61 +464,61 @@ class learning_path_repository {
      * Sincroniza secciones, módulos mod_subcourse y reglas de prelación availability.
      *
      * @param int $courseid ID del curso contenedor.
-     * @param array $subcourse_ids IDs de los cursos hijos en orden secuencial.
-     * @param bool $enforce_sequence Si true, inyecta regla availability JSON secuencial.
+     * @param array $subcourseids IDs de los cursos hijos en orden secuencial.
+     * @param bool $enforcesequence Si true, inyecta regla availability JSON secuencial.
      */
-    public static function update_structure(int $courseid, array $subcourse_ids, bool $enforce_sequence): void {
+    public static function update_structure(int $courseid, array $subcourseids, bool $enforcesequence): void {
         global $DB, $CFG;
 
         if (file_exists($CFG->dirroot . '/mod/subcourse/lib.php')) {
             require_once($CFG->dirroot . '/mod/subcourse/lib.php');
         }
 
-        $submodule_id = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
-        $total = count($subcourse_ids);
+        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+        $total = count($subcourseids);
         self::sync_numsections($courseid, max(1, $total));
 
-        // Obtener o crear secciones necesarias
-        $previous_cm_id = null;
+        // Obtener o crear secciones necesarias.
+        $previouscmid = null;
         for ($i = 0; $i < $total; $i++) {
-            $section_num = $i + 1;
-            $refcourse_id = (int)$subcourse_ids[$i];
+            $sectionnum = $i + 1;
+            $refcourseid = (int)$subcourseids[$i];
 
-            // 1. Obtener o crear section
-            $section = $DB->get_record('course_sections', ['course' => $courseid, 'section' => $section_num]);
+            // 1. Obtener o crear section.
+            $section = $DB->get_record('course_sections', ['course' => $courseid, 'section' => $sectionnum]);
             if (!$section) {
                 $newsec = new stdClass();
                 $newsec->course = $courseid;
-                $newsec->section = $section_num;
-                $newsec->name = 'Paso ' . $section_num;
+                $newsec->section = $sectionnum;
+                $newsec->name = 'Paso ' . $sectionnum;
                 $newsec->summary = '';
                 $newsec->summaryformat = FORMAT_HTML;
                 $newsec->visible = 1;
                 $newsec->sequence = '';
                 $newsec->timemodified = time();
-                $section_id = (int)$DB->insert_record('course_sections', $newsec);
+                $sectionid = (int)$DB->insert_record('course_sections', $newsec);
             } else {
-                $section_id = (int)$section->id;
+                $sectionid = (int)$section->id;
             }
 
-            // 2. Obtener o crear subcourse instance
-            $refcourse = $DB->get_record('course', ['id' => $refcourse_id]);
-            $subc_name = $refcourse ? $refcourse->fullname : ('Subcurso ' . $refcourse_id);
+            // 2. Obtener o crear subcourse instance.
+            $refcourse = $DB->get_record('course', ['id' => $refcourseid]);
+            $subcname = $refcourse ? $refcourse->fullname : ('Subcurso ' . $refcourseid);
 
             $cm = $DB->get_record('course_modules', [
                 'course'  => $courseid,
-                'section' => $section_id,
-                'module'  => $submodule_id,
-                'deletioninprogress' => 0
+                'section' => $sectionid,
+                'module'  => $submoduleid,
+                'deletioninprogress' => 0,
             ]);
 
             if ($cm) {
-                $cm_id = (int)$cm->id;
-                // Actualizar instancia subcourse
+                $cmid = (int)$cm->id;
+                // Actualizar instancia subcourse.
                 $subcourse = $DB->get_record('subcourse', ['id' => $cm->instance]);
                 if ($subcourse) {
-                    $subcourse->refcourse = $refcourse_id;
-                    $subcourse->name = $subc_name;
+                    $subcourse->refcourse = $refcourseid;
+                    $subcourse->name = $subcname;
                     $subcourse->completioncourse = 1;
                     $subcourse->timemodified = time();
                     $DB->update_record('subcourse', $subcourse);
@@ -528,79 +526,79 @@ class learning_path_repository {
             } else {
                 $subcourse = new stdClass();
                 $subcourse->course = $courseid;
-                $subcourse->name = $subc_name;
-                $subcourse->refcourse = $refcourse_id;
+                $subcourse->name = $subcname;
+                $subcourse->refcourse = $refcourseid;
                 $subcourse->intro = '';
                 $subcourse->introformat = FORMAT_HTML;
                 $subcourse->completioncourse = 1;
                 $subcourse->timecreated = time();
                 $subcourse->timemodified = time();
-                $subcourse_id = (int)$DB->insert_record('subcourse', $subcourse);
+                $subcourseid = (int)$DB->insert_record('subcourse', $subcourse);
 
                 $newcm = new stdClass();
                 $newcm->course = $courseid;
-                $newcm->module = $submodule_id;
-                $newcm->instance = $subcourse_id;
-                $newcm->section = $section_id;
+                $newcm->module = $submoduleid;
+                $newcm->instance = $subcourseid;
+                $newcm->section = $sectionid;
                 $newcm->visible = 1;
-                $newcm->completion = 2; // Track completion when conditions met
+                $newcm->completion = 2; // Track completion when conditions met.
                 $newcm->completionview = 0;
                 $newcm->added = time();
-                $cm_id = (int)$DB->insert_record('course_modules', $newcm);
+                $cmid = (int)$DB->insert_record('course_modules', $newcm);
             }
 
-            // Actualizar grade item del subcurso si la función existe
+            // Actualizar grade item del subcurso si la función existe.
             if (function_exists('subcourse_grade_item_update')) {
-                $sc_record = $DB->get_record('subcourse', ['id' => $cm ? $cm->instance : $subcourse_id]);
-                if ($sc_record) {
-                    subcourse_grade_item_update($sc_record);
+                $screcord = $DB->get_record('subcourse', ['id' => $cm ? $cm->instance : $subcourseid]);
+                if ($screcord) {
+                    subcourse_grade_item_update($screcord);
                 }
             }
 
-            // Sincronizar campo sequence en course_sections para renderizado nativo en Moodle
-            $DB->set_field('course_sections', 'sequence', (string)$cm_id, ['id' => $section_id]);
+            // Sincronizar campo sequence en course_sections para renderizado nativo en Moodle.
+            $DB->set_field('course_sections', 'sequence', (string)$cmid, ['id' => $sectionid]);
 
-            // 3. Availability rules
-            if ($enforce_sequence && $previous_cm_id !== null) {
+            // 3. Availability rules.
+            if ($enforcesequence && $previouscmid !== null) {
                 $availability = json_encode([
                     'op'    => '&',
                     'c'     => [
                         [
                             'type' => 'completion',
-                            'cm'   => (int)$previous_cm_id,
-                            'e'    => 1
-                        ]
+                            'cm'   => (int)$previouscmid,
+                            'e'    => 1,
+                        ],
                     ],
-                    'showc' => [true]
+                    'showc' => [true],
                 ]);
-                $DB->set_field('course_modules', 'availability', $availability, ['id' => $cm_id]);
+                $DB->set_field('course_modules', 'availability', $availability, ['id' => $cmid]);
             } else {
-                $DB->set_field('course_modules', 'availability', null, ['id' => $cm_id]);
+                $DB->set_field('course_modules', 'availability', null, ['id' => $cmid]);
             }
 
-            $previous_cm_id = $cm_id;
+            $previouscmid = $cmid;
         }
 
-        // Eliminar módulos sobrantes y limpiar secuencias en secciones mayores a $total
-        $sql_excess = "
+        // Eliminar módulos sobrantes y limpiar secuencias en secciones mayores a $total.
+        $sqlexcess = "
             SELECT cm.id
               FROM {course_modules} cm
               JOIN {course_sections} cs ON cs.id = cm.section
              WHERE cm.course = :courseid AND cs.section > :totalsec
         ";
-        $excess_cms = $DB->get_records_sql($sql_excess, ['courseid' => $courseid, 'totalsec' => $total]);
-        if ($excess_cms) {
-            foreach ($excess_cms as $ecm) {
+        $excesscms = $DB->get_records_sql($sqlexcess, ['courseid' => $courseid, 'totalsec' => $total]);
+        if ($excesscms) {
+            foreach ($excesscms as $ecm) {
                 $DB->set_field('course_modules', 'deletioninprogress', 1, ['id' => $ecm->id]);
             }
         }
 
-        $excess_sections = $DB->get_records_select('course_sections', 'course = :courseid AND section > :totalsec', [
+        $excesssections = $DB->get_records_select('course_sections', 'course = :courseid AND section > :totalsec', [
             'courseid' => $courseid,
             'totalsec' => $total,
         ]);
-        if ($excess_sections) {
-            foreach ($excess_sections as $esec) {
+        if ($excesssections) {
+            foreach ($excesssections as $esec) {
                 $DB->set_field('course_sections', 'sequence', '', ['id' => $esec->id]);
             }
         }
@@ -672,11 +670,11 @@ class learning_path_repository {
      * Busca cursos del catálogo excluyendo la categoría de Rutas y cursos excluidos.
      *
      * @param array $params Parámetros de búsqueda.
-     * @param int $lp_categoryid ID de la categoría de rutas.
-     * @param array $exclude_ids IDs a excluir.
+     * @param int $lpcategoryid ID de la categoría de rutas.
+     * @param array $excludeids IDs a excluir.
      * @return array Cursos encontrados.
      */
-    public static function search_available_courses(array $params, int $lp_categoryid, array $exclude_ids = []): array {
+    public static function search_available_courses(array $params, int $lpcategoryid, array $excludeids = []): array {
         global $DB;
 
         $search = trim($params['search'] ?? '');
@@ -684,10 +682,10 @@ class learning_path_repository {
         $perpage = isset($params['perpage']) ? (int)$params['perpage'] : 20;
 
         $where = "c.id <> 1 AND c.category <> :lpcat";
-        $sqlparams = ['lpcat' => $lp_categoryid];
+        $sqlparams = ['lpcat' => $lpcategoryid];
 
-        if (!empty($exclude_ids)) {
-            list($inexclude, $exparams) = $DB->get_in_or_equal($exclude_ids, SQL_PARAMS_NAMED, 'exc', false);
+        if (!empty($excludeids)) {
+            [$inexclude, $exparams] = $DB->get_in_or_equal($excludeids, SQL_PARAMS_NAMED, 'exc', false);
             $where .= " AND c.id $inexclude";
             $sqlparams = array_merge($sqlparams, $exparams);
         }
@@ -729,7 +727,7 @@ class learning_path_repository {
             'items' => $items,
             'total' => (int)$total,
             'page'  => $page,
-            'perpage' => $perpage
+            'perpage' => $perpage,
         ];
     }
 
@@ -753,13 +751,13 @@ class learning_path_repository {
                 $missing[] = 'local_subcourseenrol';
             }
         } else {
-            // Verificación directa en base de datos
-            $has_subcourse = $DB->record_exists('modules', ['name' => 'subcourse']);
-            if (!$has_subcourse) {
+            // Verificación directa en base de datos.
+            $hassubcourse = $DB->record_exists('modules', ['name' => 'subcourse']);
+            if (!$hassubcourse) {
                 $missing[] = 'mod_subcourse';
             }
-            $has_subenrol = $DB->record_exists('config_plugins', ['plugin' => 'local_subcourseenrol']);
-            if (!$has_subenrol) {
+            $hassubenrol = $DB->record_exists('config_plugins', ['plugin' => 'local_subcourseenrol']);
+            if (!$hassubenrol) {
                 $missing[] = 'local_subcourseenrol';
             }
         }

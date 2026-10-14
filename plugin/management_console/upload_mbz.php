@@ -25,46 +25,28 @@
 define('NO_MOODLE_COOKIES', true);
 define('AJAX_SCRIPT', true);
 
-$configpath = null;
-if (file_exists('../../../config.php')) {
-    $configpath = '../../../config.php';
-} else if (file_exists(__DIR__ . '/../../../config.php')) {
-    $configpath = __DIR__ . '/../../../config.php';
-} else if (isset($_SERVER['SCRIPT_FILENAME']) && file_exists(dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php')) {
-    $configpath = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
-} else if (isset($_SERVER['DOCUMENT_ROOT']) && file_exists($_SERVER['DOCUMENT_ROOT'] . '/config.php')) {
-    $configpath = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
-} else if (getenv('MOODLE_DIR') && file_exists(getenv('MOODLE_DIR') . '/config.php')) {
-    $configpath = getenv('MOODLE_DIR') . '/config.php';
-}
-
-if ($configpath) {
-    require_once($configpath);
-} else {
-    http_response_code(500);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['error' => 'Moodle config.php could not be located.']);
-    exit(1);
-}
+// phpcs:ignore moodle.Files.RequireLogin.Missing
+require_once(__DIR__ . '/../../../config.php');
 
 header('Content-Type: application/json; charset=utf-8');
 
-// Validate CORS: allow only origin matching Moodle wwwroot or explicit local dev origins
+// Validate CORS: allow only origin matching Moodle wwwroot or explicit local dev origins.
 if (isset($_SERVER['HTTP_ORIGIN'])) {
     $origin = $_SERVER['HTTP_ORIGIN'];
-    $allowed_origins = [
+    $allowedorigins = [
         rtrim($CFG->wwwroot, '/'),
         'http://localhost:3000',
         'http://localhost:3001',
         'http://127.0.0.1:3000',
         'http://127.0.0.1:3001',
     ];
-    $parsed_www = parse_url($CFG->wwwroot);
-    if (!empty($parsed_www['scheme']) && !empty($parsed_www['host'])) {
-        $allowed_origins[] = $parsed_www['scheme'] . '://' . $parsed_www['host'] . (!empty($parsed_www['port']) ? ':' . $parsed_www['port'] : '');
+    $parsedwww = parse_url($CFG->wwwroot);
+    if (!empty($parsedwww['scheme']) && !empty($parsedwww['host'])) {
+        $port = !empty($parsedwww['port']) ? ':' . $parsedwww['port'] : '';
+        $allowedorigins[] = $parsedwww['scheme'] . '://' . $parsedwww['host'] . $port;
     }
 
-    if (in_array($origin, $allowed_origins, true)) {
+    if (in_array($origin, $allowedorigins, true)) {
         header("Access-Control-Allow-Origin: {$origin}");
         header("Access-Control-Allow-Credentials: true");
         header("Access-Control-Allow-Methods: POST, OPTIONS");
@@ -72,7 +54,7 @@ if (isset($_SERVER['HTTP_ORIGIN'])) {
     }
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-        http_response_code(in_array($origin, $allowed_origins, true) ? 200 : 403);
+        http_response_code(in_array($origin, $allowedorigins, true) ? 200 : 403);
         exit(0);
     }
 }
@@ -86,7 +68,10 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 // Security TD-BKP-001: Strictly reject authentication tokens passed via query or body parameters.
 if (isset($_GET['token']) || isset($_POST['token'])) {
     http_response_code(400);
-    echo json_encode(['error' => 'Passing authentication tokens via query or body parameters is strictly forbidden. Use the Authorization: Bearer <token> header.']);
+    echo json_encode([
+        'error' => 'Passing authentication tokens via query or body parameters is strictly forbidden. ' .
+            'Use the Authorization: Bearer <token> header.',
+    ]);
     exit;
 }
 
@@ -117,7 +102,7 @@ if (!empty($tokenrecord->validuntil) && $tokenrecord->validuntil < time()) {
     exit;
 }
 
-// Security TD-SEC-002: Verify token belongs to management_console_service
+// Security TD-SEC-002: Verify token belongs to management_console_service.
 $service = $DB->get_record('external_services', ['id' => $tokenrecord->externalserviceid, 'enabled' => 1]);
 if (!$service || $service->shortname !== 'management_console_service') {
     http_response_code(403);
@@ -163,7 +148,7 @@ if (empty($_FILES['mbzfile']) || !is_uploaded_file($_FILES['mbzfile']['tmp_name'
 $file = $_FILES['mbzfile'];
 if ($file['error'] !== UPLOAD_ERR_OK) {
     http_response_code(400);
-    $upload_errors = [
+    $uploaderrors = [
         UPLOAD_ERR_INI_SIZE   => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
         UPLOAD_ERR_FORM_SIZE  => 'The uploaded file exceeds the MAX_FILE_SIZE directive in the HTML form',
         UPLOAD_ERR_PARTIAL    => 'The uploaded file was only partially uploaded',
@@ -172,14 +157,14 @@ if ($file['error'] !== UPLOAD_ERR_OK) {
         UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
         UPLOAD_ERR_EXTENSION  => 'A PHP extension stopped the file upload',
     ];
-    $msg = $upload_errors[$file['error']] ?? 'Unknown upload error code: ' . $file['error'];
+    $msg = $uploaderrors[$file['error']] ?? 'Unknown upload error code: ' . $file['error'];
     echo json_encode(['error' => $msg]);
     exit;
 }
 
-// Security TD-BKP-002: Verify file extension
-$orig_name = $file['name'];
-$ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
+// Security TD-BKP-002: Verify file extension.
+$origname = $file['name'];
+$ext = strtolower(pathinfo($origname, PATHINFO_EXTENSION));
 if ($ext !== 'mbz') {
     @unlink($file['tmp_name']);
     http_response_code(400);
@@ -187,7 +172,7 @@ if ($ext !== 'mbz') {
     exit;
 }
 
-// Security TD-BKP-002: Server-side file size ceiling check
+// Security TD-BKP-002: Server-side file size ceiling check.
 require_once($CFG->libdir . '/filelib.php');
 $maxbytes = get_max_upload_file_size($CFG->maxbytes);
 if (!empty($maxbytes) && $file['size'] > $maxbytes) {
@@ -197,14 +182,14 @@ if (!empty($maxbytes) && $file['size'] > $maxbytes) {
     exit;
 }
 
-// Security TD-BKP-002: MIME validation via finfo
+// Security TD-BKP-002: MIME validation via finfo.
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
 $mimetype = $finfo ? finfo_file($finfo, $file['tmp_name']) : '';
 if ($finfo) {
     finfo_close($finfo);
 }
 
-$allowed_mimes = [
+$allowedmimes = [
     'application/gzip',
     'application/x-gzip',
     'application/zip',
@@ -212,14 +197,14 @@ $allowed_mimes = [
     'application/x-tar',
     'application/octet-stream',
 ];
-if (!empty($mimetype) && !in_array($mimetype, $allowed_mimes, true)) {
+if (!empty($mimetype) && !in_array($mimetype, $allowedmimes, true)) {
     @unlink($file['tmp_name']);
     http_response_code(400);
     echo json_encode(['error' => 'Invalid file MIME type for MBZ backup archive.']);
     exit;
 }
 
-// Security TD-BKP-002: Verify archive magic bytes signature (gzip: \x1f\x8b, zip: PK)
+// Security TD-BKP-002: Verify archive magic bytes signature (gzip: \x1f\x8b, zip: PK).
 $handle = @fopen($file['tmp_name'], 'rb');
 if (!$handle) {
     @unlink($file['tmp_name']);
@@ -230,16 +215,16 @@ if (!$handle) {
 $magic = fread($handle, 4);
 fclose($handle);
 
-$is_gzip = (substr($magic, 0, 2) === "\x1f\x8b");
-$is_zip = (substr($magic, 0, 2) === "PK");
-if (!$is_gzip && !$is_zip) {
+$isgzip = (substr($magic, 0, 2) === "\x1f\x8b");
+$iszip = (substr($magic, 0, 2) === "PK");
+if (!$isgzip && !$iszip) {
     @unlink($file['tmp_name']);
     http_response_code(400);
     echo json_encode(['error' => 'Invalid MBZ archive format: missing gzip/zip compression signature.']);
     exit;
 }
 
-// Security TD-SEC-003: Isolate uploaded backups in a dedicated per-user namespace
+// Security TD-SEC-003: Isolate uploaded backups in a dedicated per-user namespace.
 $tempdir = $CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$user->id;
 if (!is_dir($tempdir)) {
     if (!mkdir($tempdir, 0750, true)) {
@@ -257,7 +242,7 @@ if (!is_writable($tempdir)) {
     exit;
 }
 
-// Passive housekeeping: remove mbz_* files older than 2 hours in user's $tempdir
+// Passive housekeeping: remove mbz_* files older than 2 hours in user's $tempdir.
 $now = time();
 $twohoursago = $now - (2 * 3600);
 if ($dirhandle = opendir($tempdir)) {
@@ -284,5 +269,5 @@ if (!move_uploaded_file($file['tmp_name'], $destfile)) {
 echo json_encode([
     'success' => true,
     'filename' => $filename,
-    'tempfile' => $filename, // Returns opaque filename instead of leaking full server path
+    'tempfile' => $filename, // Returns opaque filename instead of leaking full server path.
 ]);

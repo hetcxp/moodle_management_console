@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -41,13 +39,12 @@ use core_external\external_value;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class course_backups extends external_api {
-
     /**
      * Parameter definition for list_server_backups.
      *
      * @return external_function_parameters
      */
-    public static function list_server_backups_parameters() {
+    public static function list_server_backups_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
@@ -56,7 +53,7 @@ class course_backups extends external_api {
      *
      * @return array
      */
-    public static function list_server_backups() {
+    public static function list_server_backups(): array {
         global $CFG, $USER;
 
         $syscontext = context_system::instance();
@@ -66,13 +63,13 @@ class course_backups extends external_api {
         $results = [];
         $directories = [];
 
-        // Isolated user upload directory
+        // Isolated user upload directory.
         $userdir = $CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$USER->id;
         if (is_dir($userdir)) {
             $directories[] = realpath($userdir);
         }
 
-        // Global or legacy dataroot/temp/backup only accessible to site admins
+        // Global or legacy dataroot/temp/backup only accessible to site admins.
         if (has_capability('moodle/site:config', $syscontext)) {
             $admindir = realpath($CFG->dataroot . '/temp/backup');
             if ($admindir && is_dir($admindir) && !in_array($admindir, $directories, true)) {
@@ -113,7 +110,7 @@ class course_backups extends external_api {
      *
      * @return external_multiple_structure
      */
-    public static function list_server_backups_returns() {
+    public static function list_server_backups_returns(): external_multiple_structure {
         return new external_multiple_structure(
             new external_single_structure([
                 'name' => new external_value(PARAM_TEXT, 'Backup file name'),
@@ -129,13 +126,18 @@ class course_backups extends external_api {
      *
      * @return external_function_parameters
      */
-    public static function restore_course_mbz_parameters() {
+    public static function restore_course_mbz_parameters(): external_function_parameters {
         return new external_function_parameters([
             'backupfile' => new external_value(PARAM_RAW, 'Server path to the .mbz backup archive'),
             'categoryid' => new external_value(PARAM_INT, 'Destination category ID'),
             'fullname'   => new external_value(PARAM_TEXT, 'Course full name (optional)', VALUE_DEFAULT, ''),
             'shortname'  => new external_value(PARAM_TEXT, 'Course short name (optional)', VALUE_DEFAULT, ''),
-            'courseid'   => new external_value(PARAM_INT, 'Target course ID if restoring into existing course (0 = new)', VALUE_DEFAULT, 0),
+            'courseid'   => new external_value(
+                PARAM_INT,
+                'Target course ID if restoring into existing course (0 = new)',
+                VALUE_DEFAULT,
+                0
+            ),
         ]);
     }
 
@@ -149,7 +151,13 @@ class course_backups extends external_api {
      * @param int $courseid
      * @return array
      */
-    public static function restore_course_mbz($backupfile, $categoryid, $fullname = '', $shortname = '', $courseid = 0) {
+    public static function restore_course_mbz(
+        $backupfile,
+        $categoryid,
+        $fullname = '',
+        $shortname = '',
+        $courseid = 0
+    ): array {
         global $CFG, $USER, $DB;
 
         $params = self::validate_parameters(self::restore_course_mbz_parameters(), [
@@ -178,12 +186,13 @@ class course_backups extends external_api {
 
         $userdir = realpath($CFG->dataroot . '/temp/backup/tool_management_console/' . (int)$USER->id);
         $tempdir = realpath($CFG->dataroot . '/temp/backup');
+        $isadmin = has_capability('moodle/site:config', $syscontext);
 
-        // Resolve candidate path safely: support userdir first, then admin fallback
+        // Resolve candidate path safely: support userdir first, then admin fallback.
         $candidate = '';
         if ($userdir && file_exists($userdir . '/' . basename($backupfile))) {
             $candidate = $userdir . '/' . basename($backupfile);
-        } else if (has_capability('moodle/site:config', $syscontext) && $tempdir && file_exists($tempdir . '/' . basename($backupfile))) {
+        } else if ($isadmin && $tempdir && file_exists($tempdir . '/' . basename($backupfile))) {
             $candidate = $tempdir . '/' . basename($backupfile);
         } else if (file_exists($backupfile)) {
             $candidate = $backupfile;
@@ -194,38 +203,46 @@ class course_backups extends external_api {
             throw new \moodle_exception('filenotfound', 'error');
         }
 
-        // Whitelist security check: candidate MUST be within $userdir (or $tempdir if site admin)
-        $is_allowed = false;
+        // Whitelist security check: candidate MUST be within $userdir (or $tempdir if site admin).
+        $isallowed = false;
         if ($userdir && str_starts_with($realbackupfile, $userdir . DIRECTORY_SEPARATOR)) {
-            $is_allowed = true;
-        } else if (has_capability('moodle/site:config', $syscontext) && $tempdir && str_starts_with($realbackupfile, $tempdir . DIRECTORY_SEPARATOR)) {
-            $is_allowed = true;
+            $isallowed = true;
+        } else if ($isadmin && $tempdir && str_starts_with($realbackupfile, $tempdir . DIRECTORY_SEPARATOR)) {
+            $isallowed = true;
         }
 
-        if (!$is_allowed) {
-            throw new \moodle_exception('error', 'tool_management_console', '', null, 'Unauthorized backup file path or location.');
+        if (!$isallowed) {
+            throw new \moodle_exception(
+                'error',
+                'tool_management_console',
+                '',
+                null,
+                'Unauthorized backup file path or location.'
+            );
         }
 
-        // Prepare backup temporary extraction directory
+        // Prepare backup temporary extraction directory.
         $fp = get_file_packer('application/vnd.moodle.backup');
         $backupdir = \restore_controller::get_tempdir_name(SITEID, $USER->id);
         $path = make_backup_temp_directory($backupdir);
 
-        $created_new_course = false;
+        $creatednewcourse = false;
         try {
             $extracted = $fp->extract_to_pathname($realbackupfile, $path);
             if (!$extracted) {
                 throw new \moodle_exception('cannotextractfile', 'error');
             }
 
-            // Inspect moodle_backup.xml if fullname or shortname are omitted
+            // Inspect moodle_backup.xml if fullname or shortname are omitted.
             $xmlfile = $path . '/moodle_backup.xml';
             if (file_exists($xmlfile)) {
                 $xmlcontent = file_get_contents($xmlfile);
-                if (empty($fullname) && preg_match('/<detail[^>]*name="course_fullname"[^>]*>([^<]+)<\/detail>/i', $xmlcontent, $m)) {
+                $fullregex = '/<detail[^>]*name="course_fullname"[^>]*>([^<]+)<\/detail>/i';
+                if (empty($fullname) && preg_match($fullregex, $xmlcontent, $m)) {
                     $fullname = trim($m[1]);
                 }
-                if (empty($shortname) && preg_match('/<detail[^>]*name="course_shortname"[^>]*>([^<]+)<\/detail>/i', $xmlcontent, $m)) {
+                $shortregex = '/<detail[^>]*name="course_shortname"[^>]*>([^<]+)<\/detail>/i';
+                if (empty($shortname) && preg_match($shortregex, $xmlcontent, $m)) {
                     $shortname = trim($m[1]);
                 }
             }
@@ -237,18 +254,18 @@ class course_backups extends external_api {
                 $shortname = 'REST_' . date('Ymd_His');
             }
 
-            // Ensure shortname uniqueness
-            $orig_shortname = $shortname;
+            // Ensure shortname uniqueness.
+            $origshortname = $shortname;
             $counter = 1;
             while ($DB->record_exists('course', ['shortname' => $shortname])) {
-                $shortname = $orig_shortname . '_' . $counter;
+                $shortname = $origshortname . '_' . $counter;
                 $counter++;
             }
 
-            // Create container course if not restoring into existing
+            // Create container course if not restoring into existing.
             if (empty($courseid)) {
                 $courseid = \restore_dbops::create_new_course($fullname, $shortname, $categoryid);
-                $created_new_course = true;
+                $creatednewcourse = true;
             }
 
             $rc = new \restore_controller(
@@ -266,7 +283,7 @@ class course_backups extends external_api {
                 $results = $rc->get_precheck_results();
                 if (!empty($results['errors'])) {
                     $rc->destroy();
-                    if ($created_new_course && !empty($courseid)) {
+                    if ($creatednewcourse && !empty($courseid)) {
                         delete_course($courseid, false);
                     }
                     throw new \moodle_exception('restoreerror', 'backup', '', null, implode(', ', $results['errors']));
@@ -281,7 +298,7 @@ class course_backups extends external_api {
             $rc->execute_plan();
             $rc->destroy();
 
-            // Passive cleanup of uploaded temp file if it was inside temp/backup
+            // Passive cleanup of uploaded temp file if it was inside temp/backup.
             if ($tempdir && str_starts_with($realbackupfile, $tempdir)) {
                 @unlink($realbackupfile);
             }
@@ -298,7 +315,7 @@ class course_backups extends external_api {
                 'warnings'  => $warnings,
             ];
         } catch (\Throwable $e) {
-            if ($created_new_course && !empty($courseid)) {
+            if ($creatednewcourse && !empty($courseid)) {
                 delete_course($courseid, false);
             }
             throw $e;
@@ -312,7 +329,7 @@ class course_backups extends external_api {
      *
      * @return external_single_structure
      */
-    public static function restore_course_mbz_returns() {
+    public static function restore_course_mbz_returns(): external_single_structure {
         return new external_single_structure([
             'success'   => new external_value(PARAM_BOOL, 'True if restore succeeded'),
             'courseid'  => new external_value(PARAM_INT, 'ID of restored course'),

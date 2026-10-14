@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * User repository class.
  *
@@ -34,7 +32,12 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class user_repository {
-
+    /**
+     * Get KPI statistics for users.
+     *
+     * @param array $sqlparams Optional SQL parameters.
+     * @return \stdClass|false KPI statistics record or false.
+     */
     public static function get_users_kpi_stats(array $sqlparams = []) {
         global $DB, $CFG;
         if (empty($sqlparams)) {
@@ -47,8 +50,8 @@ class user_repository {
                 'recent'  => time() - (30 * 86400),
             ];
         }
-        $sql_stats = "
-            SELECT 
+        $sqlstats = "
+            SELECT
                 COUNT(u.id) AS total_users,
                 SUM(CASE WHEN u.suspended = 0 THEN 1 ELSE 0 END) AS active_users,
                 SUM(CASE WHEN u.suspended = 1 THEN 1 ELSE 0 END) AS suspended_users,
@@ -56,17 +59,23 @@ class user_repository {
             FROM {user} u
             WHERE u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
         ";
-        return $DB->get_record_sql($sql_stats, $sqlparams);
+        return $DB->get_record_sql($sqlstats, $sqlparams);
     }
 
-    public static function get_users_kpi_avg_progress($sqlparams) {
+    /**
+     * Get average progress for users KPI.
+     *
+     * @param array $sqlparams Base SQL parameters.
+     * @return mixed Average progress value.
+     */
+    public static function get_users_kpi_avg_progress(array $sqlparams) {
         global $DB;
-        $sql_progress = "
+        $sqlprogress = "
             SELECT ROUND(AVG(
                 CASE WHEN enr.enrolled > 0 THEN (COALESCE(cmp.completed, 0) * 100.0 / enr.enrolled) ELSE 0 END
             ), 1) AS avg_progress
             FROM (
-                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled 
+                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled
                   FROM {user_enrolments} ue
                   JOIN {enrol} e ON e.id = ue.enrolid
                   JOIN {user} u ON u.id = ue.userid
@@ -74,7 +83,7 @@ class user_repository {
                  GROUP BY ue.userid
             ) enr
             LEFT JOIN (
-                SELECT ue2.userid, COUNT(DISTINCT e2.courseid) AS completed 
+                SELECT ue2.userid, COUNT(DISTINCT e2.courseid) AS completed
                   FROM {user_enrolments} ue2
                   JOIN {enrol} e2 ON e2.id = ue2.enrolid
                   JOIN {course_completions} cc ON cc.userid = ue2.userid AND cc.course = e2.courseid
@@ -89,36 +98,48 @@ class user_repository {
             'adminid2' => $sqlparams['adminid'] ?? $defaultadminid,
             'guestid2' => $sqlparams['guestid'] ?? 0,
         ]);
-        return $DB->get_field_sql($sql_progress, $params);
+        return $DB->get_field_sql($sqlprogress, $params);
     }
 
+    /**
+     * Get users filtered with pagination.
+     *
+     * @param array $params Filter and pagination parameters.
+     * @return array Array containing records and total count.
+     */
     public static function get_users_filtered(array $params): array {
         global $DB, $CFG;
 
         $dbman = $DB->get_manager();
-        $has_comp = $dbman->table_exists('competency');
-        $has_usercomp = $has_comp && $dbman->table_exists('competency_usercomp');
-        $has_plancomp = $has_comp && $dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp');
-        $has_coursecomp = $has_comp && $dbman->table_exists('competency_coursecomp');
-        $has_usercompcourse = $has_comp && $dbman->table_exists('competency_usercompcourse');
+        $hascomp = $dbman->table_exists('competency');
+        $hasusercomp = $hascomp && $dbman->table_exists('competency_usercomp');
+        $hasplancomp = $hascomp && $dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp');
+        $hascoursecomp = $hascomp && $dbman->table_exists('competency_coursecomp');
+        $hasusercompcourse = $hascomp && $dbman->table_exists('competency_usercompcourse');
 
-        $comp_unions = [];
-        if ($has_usercomp) {
-            $comp_unions[] = "SELECT uc.userid, uc.competencyid FROM {competency_usercomp} uc JOIN {competency} c ON c.id = uc.competencyid";
+        $compunions = [];
+        if ($hasusercomp) {
+            $compunions[] = "SELECT uc.userid, uc.competencyid FROM {competency_usercomp} uc " .
+                "JOIN {competency} c ON c.id = uc.competencyid";
         }
-        if ($has_plancomp) {
-            $comp_unions[] = "SELECT p.userid, pc.competencyid FROM {competency_plancomp} pc JOIN {competency_plan} p ON p.id = pc.planid JOIN {competency} c ON c.id = pc.competencyid";
+        if ($hasplancomp) {
+            $compunions[] = "SELECT p.userid, pc.competencyid FROM {competency_plancomp} pc " .
+                "JOIN {competency_plan} p ON p.id = pc.planid JOIN {competency} c ON c.id = pc.competencyid";
         }
-        if ($has_coursecomp) {
-            $comp_unions[] = "SELECT ue.userid, cc.competencyid FROM {competency_coursecomp} cc JOIN {enrol} e ON e.courseid = cc.courseid JOIN {user_enrolments} ue ON ue.enrolid = e.id JOIN {competency} c ON c.id = cc.competencyid";
+        if ($hascoursecomp) {
+            $compunions[] = "SELECT ue.userid, cc.competencyid FROM {competency_coursecomp} cc " .
+                "JOIN {enrol} e ON e.courseid = cc.courseid " .
+                "JOIN {user_enrolments} ue ON ue.enrolid = e.id " .
+                "JOIN {competency} c ON c.id = cc.competencyid";
         }
-        if ($has_usercompcourse) {
-            $comp_unions[] = "SELECT ucc.userid, ucc.competencyid FROM {competency_usercompcourse} ucc JOIN {competency} c ON c.id = ucc.competencyid";
+        if ($hasusercompcourse) {
+            $compunions[] = "SELECT ucc.userid, ucc.competencyid FROM {competency_usercompcourse} ucc " .
+                "JOIN {competency} c ON c.id = ucc.competencyid";
         }
 
-        $has_competencies = !empty($comp_unions);
+        $hascompetencies = !empty($compunions);
 
-        $allowed_sorts = [
+        $allowedsorts = [
             'id'           => 'u.id',
             'firstname'    => 'u.firstname',
             'lastname'     => 'u.lastname',
@@ -126,16 +147,16 @@ class user_repository {
             'suspended'    => 'u.suspended',
             'lastaccess'   => 'u.lastaccess',
             'cohorts'      => 'coh.cohorts_count',
-            'competencies' => $has_competencies ? 'comp_uc.competencies_count' : '0',
+            'competencies' => $hascompetencies ? 'comp_uc.competencies_count' : '0',
             'courses'      => 'enr.enrolled_courses',
-            'progress'     => 'progress_sort'
+            'progress'     => 'progress_sort',
         ];
 
         $sort = $params['sort'] ?? 'lastaccess';
-        if (!array_key_exists($sort, $allowed_sorts)) {
+        if (!array_key_exists($sort, $allowedsorts)) {
             $sort = 'lastaccess';
         }
-        $sortfield = $allowed_sorts[$sort];
+        $sortfield = $allowedsorts[$sort];
         $direction = strtoupper($params['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
 
         $primaryadmin = get_admin();
@@ -155,56 +176,58 @@ class user_repository {
             $sqlparams['search4'] = $searchlike;
         }
 
-        $decoded_filters = is_string($params['filters'] ?? null) ? json_decode($params['filters'], true) : ($params['filters'] ?? []);
-        if (is_array($decoded_filters) && !empty($decoded_filters)) {
-            $filter_index = 1;
-            foreach ($decoded_filters as $key => $value) {
-                if (array_key_exists($key, $allowed_sorts) && $value !== '') {
-                    $fieldname = $allowed_sorts[$key];
+        $rawfilters = $params['filters'] ?? null;
+        $decodedfilters = is_string($rawfilters) ? json_decode($rawfilters, true) : ($rawfilters ?? []);
+        if (is_array($decodedfilters) && !empty($decodedfilters)) {
+            $filterindex = 1;
+            foreach ($decodedfilters as $key => $value) {
+                if (array_key_exists($key, $allowedsorts) && $value !== '') {
+                    $fieldname = $allowedsorts[$key];
                     if ($key === 'suspended') {
-                        $where .= " AND $fieldname = :filterval$filter_index";
-                        $sqlparams["filterval$filter_index"] = (int)$value;
+                        $where .= " AND $fieldname = :filterval$filterindex";
+                        $sqlparams["filterval$filterindex"] = (int)$value;
                     } else if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filter_index", false, false);
-                        $sqlparams["filterval$filter_index"] = '%' . $value . '%';
+                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filterindex", false, false);
+                        $sqlparams["filterval$filterindex"] = '%' . $value . '%';
                     }
-                    $filter_index++;
+                    $filterindex++;
                 } else if ($key === 'cohortid' && $value !== '' && $value !== '0') {
-                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f WHERE cm_f.userid = u.id AND cm_f.cohortid = :filterval$filter_index)";
-                    $sqlparams["filterval$filter_index"] = (int)$value;
-                    $filter_index++;
+                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f " .
+                        "WHERE cm_f.userid = u.id AND cm_f.cohortid = :filterval$filterindex)";
+                    $sqlparams["filterval$filterindex"] = (int)$value;
+                    $filterindex++;
                 }
             }
         }
 
-        $comp_select = $has_competencies
+        $compselect = $hascompetencies
             ? "COALESCE(comp_uc.competencies_count, 0) AS competencies_count,"
             : "0 AS competencies_count,";
 
-        $comp_join = '';
-        if ($has_competencies) {
-            $union_sql = implode("\n                        UNION\n                        ", $comp_unions);
-            $comp_join = "
+        $compjoin = '';
+        if ($hascompetencies) {
+            $unionsql = implode("\n                        UNION\n                        ", $compunions);
+            $compjoin = "
          LEFT JOIN (
                 SELECT all_comp.userid, COUNT(DISTINCT all_comp.competencyid) AS competencies_count
                   FROM (
-                        $union_sql
+                        $unionsql
                   ) all_comp
               GROUP BY all_comp.userid
          ) comp_uc ON comp_uc.userid = u.id";
         }
 
-        $sql_select = "
+        $sqlselect = "
             SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.suspended, u.lastaccess,
                    u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename,
                    COALESCE(coh.cohorts_count, 0) AS cohorts_count,
-                   $comp_select
+                   $compselect
                    COALESCE(enr.enrolled_courses, 0) AS enrolled_courses,
                    COALESCE(cmp.completed_courses, 0) AS completed_courses,
-                   CASE 
-                       WHEN COALESCE(enr.enrolled_courses, 0) > 0 
-                       THEN ROUND((COALESCE(cmp.completed_courses, 0) * 100.0) / enr.enrolled_courses) 
-                       ELSE 0 
+                   CASE
+                       WHEN COALESCE(enr.enrolled_courses, 0) > 0
+                       THEN ROUND((COALESCE(cmp.completed_courses, 0) * 100.0) / enr.enrolled_courses)
+                       ELSE 0
                    END AS progress_sort
               FROM {user} u
          LEFT JOIN (
@@ -212,7 +235,7 @@ class user_repository {
                   FROM {cohort_members}
               GROUP BY userid
          ) coh ON coh.userid = u.id
-         $comp_join
+         $compjoin
          LEFT JOIN (
                 SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled_courses
                   FROM {user_enrolments} ue
@@ -232,40 +255,76 @@ class user_repository {
           ORDER BY $sortfield $direction, u.id DESC
         ";
 
-        $sql_count = "SELECT COUNT(u.id) FROM {user} u WHERE $where";
-        $totalcount = (int)$DB->count_records_sql($sql_count, $sqlparams);
+        $sqlcount = "SELECT COUNT(u.id) FROM {user} u WHERE $where";
+        $totalcount = (int)$DB->count_records_sql($sqlcount, $sqlparams);
 
         $page = (int)($params['page'] ?? 0);
         $perpage = (int)($params['perpage'] ?? 20);
         $limitfrom = $page * $perpage;
-        $records = $DB->get_records_sql($sql_select, $sqlparams, $limitfrom, $perpage);
+        $records = $DB->get_records_sql($sqlselect, $sqlparams, $limitfrom, $perpage);
 
         return [$records, $totalcount];
     }
 
-    public static function count_users($sql_count, $sqlparams) {
+    /**
+     * Count users matching query.
+     *
+     * @param string $sqlcount SQL query.
+     * @param array $sqlparams Query parameters.
+     * @return int Count of users.
+     */
+    public static function count_users(string $sqlcount, array $sqlparams): int {
         global $DB;
-        return (int)$DB->count_records_sql($sql_count, $sqlparams);
+        return (int)$DB->count_records_sql($sqlcount, $sqlparams);
     }
 
-    public static function get_paginated_users($sql, $sqlparams, $limitfrom, $perpage) {
+    /**
+     * Get paginated users.
+     *
+     * @param string $sql SQL query.
+     * @param array $sqlparams Query parameters.
+     * @param int $limitfrom Offset.
+     * @param int $perpage Records per page.
+     * @return array Records array.
+     */
+    public static function get_paginated_users(string $sql, array $sqlparams, int $limitfrom, int $perpage): array {
         global $DB;
         return $DB->get_records_sql($sql, $sqlparams, $limitfrom, $perpage);
     }
 
-    public static function get_user($userid) {
+    /**
+     * Get user by ID.
+     *
+     * @param int $userid User ID.
+     * @return \stdClass|false User record or false.
+     */
+    public static function get_user(int $userid) {
         global $DB;
         return $DB->get_record('user', ['id' => $userid, 'deleted' => 0]);
     }
 
-    public static function get_user_strict($userid) {
+    /**
+     * Get user strictly or throw exception.
+     *
+     * @param int $userid User ID.
+     * @return \stdClass User record.
+     */
+    public static function get_user_strict(int $userid): \stdClass {
         global $DB;
         return $DB->get_record('user', ['id' => $userid], '*', MUST_EXIST);
     }
 
-    public static function get_user_enrolled_courses($userid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get enrolled courses for user.
+     *
+     * @param int $userid User ID.
+     * @param int $limitfrom Offset.
+     * @param int $limitnum Limit.
+     * @return array Enrolled courses.
+     */
+    public static function get_user_enrolled_courses(int $userid, int $limitfrom = 0, int $limitnum = 0): array {
         global $DB;
-        $sql_courses = "
+        $sqlcourses = "
             SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod, MIN(ue.status) as enrolstatus
               FROM {course} c
               JOIN {enrol} e ON e.courseid = c.id
@@ -274,108 +333,143 @@ class user_repository {
           GROUP BY c.id, c.fullname, c.shortname
           ORDER BY c.fullname ASC
         ";
-        return $DB->get_records_sql($sql_courses, ['userid' => $userid], $limitfrom, $limitnum);
+        return $DB->get_records_sql($sqlcourses, ['userid' => $userid], $limitfrom, $limitnum);
     }
 
-    public static function get_user_all_enrolments($userid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get all enrolments for user.
+     *
+     * @param int $userid User ID.
+     * @param int $limitfrom Offset.
+     * @param int $limitnum Limit.
+     * @return array Enrolment records.
+     */
+    public static function get_user_all_enrolments(int $userid, int $limitfrom = 0, int $limitnum = 0): array {
         global $DB;
-        $sql_all_enrolments = "
+        $sqlallenrolments = "
             SELECT ue.id, e.courseid, e.enrol as method, ue.status, ue.timestart, ue.timeend, ue.timecreated
               FROM {user_enrolments} ue
               JOIN {enrol} e ON e.id = ue.enrolid
              WHERE ue.userid = :userid
           ORDER BY ue.timecreated DESC
         ";
-        return $DB->get_records_sql($sql_all_enrolments, ['userid' => $userid], $limitfrom, $limitnum);
+        return $DB->get_records_sql($sqlallenrolments, ['userid' => $userid], $limitfrom, $limitnum);
     }
 
-    public static function get_user_cohorts($userid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get cohorts for user.
+     *
+     * @param int $userid User ID.
+     * @param int $limitfrom Offset.
+     * @param int $limitnum Limit.
+     * @return array Cohort records.
+     */
+    public static function get_user_cohorts(int $userid, int $limitfrom = 0, int $limitnum = 0): array {
         global $DB;
-        $sql_cohorts = "
+        $sqlcohorts = "
             SELECT c.id, c.name, c.idnumber
               FROM {cohort} c
               JOIN {cohort_members} cm ON cm.cohortid = c.id
              WHERE cm.userid = :userid
           ORDER BY c.name ASC
         ";
-        return $DB->get_records_sql($sql_cohorts, ['userid' => $userid], $limitfrom, $limitnum);
+        return $DB->get_records_sql($sqlcohorts, ['userid' => $userid], $limitfrom, $limitnum);
     }
 
-    public static function get_role_id_by_shortname($shortname = 'student') {
+    /**
+     * Get role ID by shortname.
+     *
+     * @param string $shortname Role shortname.
+     * @return mixed Role ID or false.
+     */
+    public static function get_role_id_by_shortname(string $shortname = 'student') {
         global $DB;
         return $DB->get_field('role', 'id', ['shortname' => $shortname]);
     }
 
-    public static function get_user_courses_progress_data($userid, array $enrolled_courses): array {
+    /**
+     * Get courses progress map for user.
+     *
+     * @param int $userid User ID.
+     * @param array $enrolledcourses Enrolled courses array.
+     * @return array Progress map indexed by course ID.
+     */
+    public static function get_user_courses_progress_data(int $userid, array $enrolledcourses): array {
         global $DB, $CFG;
-        if (empty($enrolled_courses)) {
+        if (empty($enrolledcourses)) {
             return [];
         }
 
         require_once($CFG->libdir . '/completionlib.php');
 
-        $course_ids = array_keys($enrolled_courses);
-        list($in_c_sql, $in_c_params) = $DB->get_in_or_equal($course_ids, SQL_PARAMS_NAMED, 'c');
-        $params = array_merge(['userid' => $userid], $in_c_params);
+        $courseids = array_keys($enrolledcourses);
+        [$incsql, $incparams] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'c');
+        $params = array_merge(['userid' => $userid], $incparams);
 
-        // Direct course completions (100%)
-        $sql_completions = "
+        // Direct course completions (100%).
+        $sqlcompletions = "
             SELECT course, 100 AS progress
               FROM {course_completions}
-             WHERE userid = :userid AND course $in_c_sql AND timecompleted > 0
+             WHERE userid = :userid AND course $incsql AND timecompleted > 0
         ";
-        $completed_map = $DB->get_records_sql_menu($sql_completions, $params) ?: [];
+        $completedmap = $DB->get_records_sql_menu($sqlcompletions, $params) ?: [];
 
-        // Trackable activities by course
-        $trackable_by_course = [];
-        $all_cmids = [];
-        foreach ($enrolled_courses as $c) {
-            $course_obj = \tool_management_console\repository\course_repository::get_course($c->id);
-            if ($course_obj) {
-                $cinfo = new \completion_info($course_obj);
+        // Trackable activities by course.
+        $trackablebycourse = [];
+        $allcmids = [];
+        foreach ($enrolledcourses as $c) {
+            $courseobj = \tool_management_console\repository\course_repository::get_course($c->id);
+            if ($courseobj) {
+                $cinfo = new \completion_info($courseobj);
                 if ($cinfo->is_enabled()) {
                     $acts = $cinfo->get_activities();
-                    $trackable_by_course[$c->id] = count($acts);
+                    $trackablebycourse[$c->id] = count($acts);
                     foreach (array_keys($acts) as $cmid) {
-                        $all_cmids[$cmid] = $c->id;
+                        $allcmids[$cmid] = $c->id;
                     }
                 } else {
-                    $trackable_by_course[$c->id] = 0;
+                    $trackablebycourse[$c->id] = 0;
                 }
             }
         }
 
-        // Batch fetch completed modules
-        $cm_completed_counts = [];
-        if (!empty($all_cmids)) {
-            list($in_cm_sql, $in_cm_params) = $DB->get_in_or_equal(array_keys($all_cmids), SQL_PARAMS_NAMED, 'cm');
-            $cm_params = array_merge(['userid' => $userid], $in_cm_params);
-            $sql_cm = "
+        // Batch fetch completed modules.
+        $cmcompletedcounts = [];
+        if (!empty($allcmids)) {
+            [$incmsql, $incmparams] = $DB->get_in_or_equal(array_keys($allcmids), SQL_PARAMS_NAMED, 'cm');
+            $cmparams = array_merge(['userid' => $userid], $incmparams);
+            $sqlcm = "
                 SELECT cm.course, COUNT(DISTINCT cmc.coursemoduleid) as completed_count
                   FROM {course_modules_completion} cmc
                   JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
-                 WHERE cmc.userid = :userid AND cmc.coursemoduleid $in_cm_sql AND cmc.completionstate IN (1, 2)
+                 WHERE cmc.userid = :userid AND cmc.coursemoduleid $incmsql AND cmc.completionstate IN (1, 2)
               GROUP BY cm.course
             ";
-            $cm_completed_counts = $DB->get_records_sql_menu($sql_cm, $cm_params) ?: [];
+            $cmcompletedcounts = $DB->get_records_sql_menu($sqlcm, $cmparams) ?: [];
         }
 
-        $progress_map = [];
-        foreach ($enrolled_courses as $c) {
-            if (isset($completed_map[$c->id])) {
-                $progress_map[$c->id] = 100;
-            } else if (!empty($trackable_by_course[$c->id])) {
-                $cm_done = isset($cm_completed_counts[$c->id]) ? (int)$cm_completed_counts[$c->id] : 0;
-                $progress_map[$c->id] = (int)round(($cm_done / $trackable_by_course[$c->id]) * 100);
+        $progressmap = [];
+        foreach ($enrolledcourses as $c) {
+            if (isset($completedmap[$c->id])) {
+                $progressmap[$c->id] = 100;
+            } else if (!empty($trackablebycourse[$c->id])) {
+                $cmdone = isset($cmcompletedcounts[$c->id]) ? (int)$cmcompletedcounts[$c->id] : 0;
+                $progressmap[$c->id] = (int)round(($cmdone / $trackablebycourse[$c->id]) * 100);
             } else {
-                $progress_map[$c->id] = 0;
+                $progressmap[$c->id] = 0;
             }
         }
 
-        return $progress_map;
+        return $progressmap;
     }
 
-    public static function get_user_system_roles($userid) {
+    /**
+     * Get system roles assigned to a user.
+     *
+     * @param int $userid User ID.
+     * @return array System roles array.
+     */
+    public static function get_user_system_roles(int $userid): array {
         global $DB;
         $syscontext = \context_system::instance();
 
@@ -389,7 +483,7 @@ class user_repository {
         $roles = $DB->get_records_sql($sql, ['contextid' => $syscontext->id, 'userid' => $userid]);
 
         $result = [];
-        $has_admin_role = false;
+        $hasadminrole = false;
 
         foreach ($roles as $r) {
             $rolename = role_get_name($r, $syscontext, ROLENAME_BOTH);
@@ -402,11 +496,11 @@ class user_repository {
                 'shortname' => (string)$r->shortname,
             ];
             if ($r->shortname === 'admin' || $r->shortname === 'siteadmin') {
-                $has_admin_role = true;
+                $hasadminrole = true;
             }
         }
 
-        if (is_siteadmin($userid) && !$has_admin_role) {
+        if (is_siteadmin($userid) && !$hasadminrole) {
             array_unshift($result, [
                 'id' => 0,
                 'name' => 'Administrador del sitio',
@@ -420,8 +514,8 @@ class user_repository {
     /**
      * Obtiene las competencias asignadas a un usuario con sus cursos vinculados, estado y evidencias.
      *
-     * @param int $userid
-     * @return array
+     * @param int $userid User ID.
+     * @return array Competencies list with course links and evidence.
      */
     public static function get_user_competencies(int $userid): array {
         global $DB;
@@ -431,21 +525,21 @@ class user_repository {
             return [];
         }
 
-        $scales_map = [];
+        $scalesmap = [];
         try {
-            $scales_records = $DB->get_records('scale', null, '', 'id, name, scale');
-            foreach ($scales_records as $sc) {
-                $scales_map[$sc->id] = array_map('trim', explode(',', $sc->scale));
+            $scalesrecords = $DB->get_records('scale', null, '', 'id, name, scale');
+            foreach ($scalesrecords as $sc) {
+                $scalesmap[$sc->id] = array_map('trim', explode(',', $sc->scale));
             }
         } catch (\Exception $e) {
-            // Silencioso si falla la lectura de escalas.
+            debugging('Error loading scales in user_repository: ' . $e->getMessage(), DEBUG_DEVELOPER);
         }
 
-        $enrolled_courses = self::get_user_enrolled_courses($userid);
-        $enrolled_course_ids = array_map('intval', array_keys($enrolled_courses));
+        $enrolledcourses = self::get_user_enrolled_courses($userid);
+        $enrolledcourseids = array_map('intval', array_keys($enrolledcourses));
 
-        // 1. Obtener competencias asignadas al usuario desde competency_usercomp
-        $sql_usercomp = "
+        // 1. Obtener competencias asignadas al usuario desde competency_usercomp.
+        $sqlusercomp = "
             SELECT uc.id AS usercompid, uc.status, uc.proficiency, uc.grade, uc.timemodified,
                    c.id AS competencyid, c.shortname, c.idnumber, c.description, c.competencyframeworkid,
                    c.scaleid AS comp_scaleid, c.scaleconfiguration,
@@ -457,11 +551,11 @@ class user_repository {
           ORDER BY f.shortname ASC, c.shortname ASC
         ";
 
-        $records = $DB->get_records_sql($sql_usercomp, ['userid' => $userid]);
+        $records = $DB->get_records_sql($sqlusercomp, ['userid' => $userid]);
 
-        // Verificar si además hay competencias en planes de aprendizaje que no tengan registro en usercomp
+        // Verificar si ademas hay competencias en planes de aprendizaje sin registro en usercomp.
         if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
-            $sql_plancomp = "
+            $sqlplancomp = "
                 SELECT pc.competencyid,
                        c.id, c.shortname, c.idnumber, c.description, c.competencyframeworkid,
                        c.scaleid AS comp_scaleid, c.scaleconfiguration,
@@ -472,8 +566,8 @@ class user_repository {
                   JOIN {competency_framework} f ON f.id = c.competencyframeworkid
                  WHERE p.userid = :userid
             ";
-            $plan_records = $DB->get_records_sql($sql_plancomp, ['userid' => $userid]);
-            foreach ($plan_records as $pr) {
+            $planrecords = $DB->get_records_sql($sqlplancomp, ['userid' => $userid]);
+            foreach ($planrecords as $pr) {
                 $exists = false;
                 foreach ($records as $r) {
                     if ((int)$r->competencyid === (int)$pr->competencyid) {
@@ -502,10 +596,10 @@ class user_repository {
             }
         }
 
-        // Obtener competencias vinculadas a los cursos en los que el usuario está matriculado
-        if (!empty($enrolled_course_ids) && $dbman->table_exists('competency_coursecomp')) {
-            list($in_ecids, $in_ecparams) = $DB->get_in_or_equal($enrolled_course_ids, SQL_PARAMS_NAMED, 'ecid');
-            $sql_coursecomp = "
+        // Obtener competencias vinculadas a los cursos matriculados.
+        if (!empty($enrolledcourseids) && $dbman->table_exists('competency_coursecomp')) {
+            [$inecids, $inecparams] = $DB->get_in_or_equal($enrolledcourseids, SQL_PARAMS_NAMED, 'ecid');
+            $sqlcoursecomp = "
                 SELECT DISTINCT c.id AS competencyid,
                        c.shortname, c.idnumber, c.description, c.competencyframeworkid,
                        c.scaleid AS comp_scaleid, c.scaleconfiguration,
@@ -513,10 +607,10 @@ class user_repository {
                   FROM {competency_coursecomp} cc
                   JOIN {competency} c ON c.id = cc.competencyid
                   JOIN {competency_framework} f ON f.id = c.competencyframeworkid
-                 WHERE cc.courseid $in_ecids
+                 WHERE cc.courseid $inecids
             ";
-            $coursecomp_records = $DB->get_records_sql($sql_coursecomp, $in_ecparams);
-            foreach ($coursecomp_records as $ccr) {
+            $coursecomprecords = $DB->get_records_sql($sqlcoursecomp, $inecparams);
+            foreach ($coursecomprecords as $ccr) {
                 $exists = false;
                 foreach ($records as $r) {
                     if ((int)$r->competencyid === (int)$ccr->competencyid) {
@@ -549,29 +643,29 @@ class user_repository {
             return [];
         }
 
-        $competency_ids = [];
-        $usercomp_ids = [];
+        $competencyids = [];
+        $usercompids = [];
         foreach ($records as $r) {
-            $competency_ids[] = (int)$r->competencyid;
+            $competencyids[] = (int)$r->competencyid;
             if (!empty($r->usercompid)) {
-                $usercomp_ids[] = (int)$r->usercompid;
+                $usercompids[] = (int)$r->usercompid;
             }
         }
-        $competency_ids = array_values(array_unique($competency_ids));
-        $usercomp_ids = array_values(array_unique($usercomp_ids));
+        $competencyids = array_values(array_unique($competencyids));
+        $usercompids = array_values(array_unique($usercompids));
 
-        // Enriquecer con evaluaciones a nivel de curso (competency_usercompcourse) si existen
-        if ($dbman->table_exists('competency_usercompcourse') && !empty($competency_ids)) {
-            list($in_ucc_cids, $ucc_params) = $DB->get_in_or_equal($competency_ids, SQL_PARAMS_NAMED, 'ucccid');
-            $ucc_params['ucc_userid'] = $userid;
-            $ucc_records = $DB->get_records_select(
+        // Enriquecer con evaluaciones a nivel de curso (competency_usercompcourse) si existen.
+        if ($dbman->table_exists('competency_usercompcourse') && !empty($competencyids)) {
+            [$inucccids, $uccparams] = $DB->get_in_or_equal($competencyids, SQL_PARAMS_NAMED, 'ucccid');
+            $uccparams['ucc_userid'] = $userid;
+            $uccrecords = $DB->get_records_select(
                 'competency_usercompcourse',
-                "competencyid $in_ucc_cids AND userid = :ucc_userid",
-                $ucc_params,
+                "competencyid $inucccids AND userid = :ucc_userid",
+                $uccparams,
                 'timemodified DESC',
                 'id, competencyid, courseid, proficiency, grade, timemodified'
             );
-            foreach ($ucc_records as $ucc) {
+            foreach ($uccrecords as $ucc) {
                 foreach ($records as &$r) {
                     if ((int)$r->competencyid === (int)$ucc->competencyid) {
                         if (empty($r->proficiency) && !empty($ucc->proficiency)) {
@@ -586,63 +680,74 @@ class user_repository {
             }
         }
 
-        // 2. Cursos vinculados a cada competencia
-        $courses_by_comp = [];
-        if (!empty($competency_ids) && $dbman->table_exists('competency_coursecomp')) {
-            $courses_progress = !empty($enrolled_courses) ? self::get_user_courses_progress_data($userid, $enrolled_courses) : [];
-            list($in_csql, $in_cparams) = $DB->get_in_or_equal($competency_ids, SQL_PARAMS_NAMED, 'cid');
-            $sql_cc = "
+        // 2. Cursos vinculados a cada competencia.
+        $coursesbycomp = [];
+        if (!empty($competencyids) && $dbman->table_exists('competency_coursecomp')) {
+            $coursesprogress = !empty($enrolledcourses) ? self::get_user_courses_progress_data($userid, $enrolledcourses) : [];
+            [$incsql, $incparams] = $DB->get_in_or_equal($competencyids, SQL_PARAMS_NAMED, 'cid');
+            $sqlcc = "
                 SELECT cc.id, cc.competencyid, c.id AS courseid, c.fullname, c.shortname
                   FROM {competency_coursecomp} cc
                   JOIN {course} c ON c.id = cc.courseid
-                 WHERE cc.competencyid $in_csql
+                 WHERE cc.competencyid $incsql
               ORDER BY c.fullname ASC
             ";
-            $cc_records = $DB->get_records_sql($sql_cc, $in_cparams);
-            foreach ($cc_records as $cc) {
+            $ccrecords = $DB->get_records_sql($sqlcc, $incparams);
+            foreach ($ccrecords as $cc) {
                 $cid = (int)$cc->competencyid;
                 $courseid = (int)$cc->courseid;
-                $is_enrolled = in_array($courseid, $enrolled_course_ids) ? 1 : 0;
-                $courses_by_comp[$cid][] = [
+                $isenrolled = in_array($courseid, $enrolledcourseids) ? 1 : 0;
+                $coursesbycomp[$cid][] = [
                     'id'          => $courseid,
                     'fullname'    => (string)$cc->fullname,
                     'shortname'   => (string)$cc->shortname,
-                    'is_enrolled' => $is_enrolled,
-                    'progress'    => $is_enrolled ? (int)($courses_progress[$courseid] ?? 0) : 0,
+                    'is_enrolled' => $isenrolled,
+                    'progress'    => $isenrolled ? (int)($coursesprogress[$courseid] ?? 0) : 0,
                 ];
             }
         }
 
-        // 3. Evidencias para las competencias del usuario
-        $evidences_by_usercomp = [];
-        if (!empty($usercomp_ids) && $dbman->table_exists('competency_evidence')) {
-            list($in_esql, $in_eparams) = $DB->get_in_or_equal($usercomp_ids, SQL_PARAMS_NAMED, 'evid');
-            $sql_ev = "
+        // 3. Evidencias para las competencias del usuario.
+        $evidencesbyusercomp = [];
+        if (!empty($usercompids) && $dbman->table_exists('competency_evidence')) {
+            [$inesql, $ineparams] = $DB->get_in_or_equal($usercompids, SQL_PARAMS_NAMED, 'evid');
+            $sqlev = "
                 SELECT e.id, e.usercompetencyid, e.action, e.actionuserid, e.descidentifier,
                        e.note, e.grade, e.url, e.timecreated,
-                       u.firstname, u.lastname
+                       u.firstname, u.lastname,
+                       u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename
                   FROM {competency_evidence} e
              LEFT JOIN {user} u ON u.id = e.actionuserid
-                 WHERE e.usercompetencyid $in_esql
+                 WHERE e.usercompetencyid $inesql
               ORDER BY e.timecreated DESC
             ";
-            $ev_records = $DB->get_records_sql($sql_ev, $in_eparams);
-            foreach ($ev_records as $ev) {
-                $action_name = 'Evidencia registrada';
+            $evrecords = $DB->get_records_sql($sqlev, $ineparams);
+            foreach ($evrecords as $ev) {
+                $actionname = 'Evidencia registrada';
                 switch ((int)$ev->action) {
-                    case 0: $action_name = 'Evidencia manual'; break;
-                    case 1: $action_name = 'Evidencia adjuntada'; break;
-                    case 2: $action_name = 'Completado en curso'; break;
-                    case 3: $action_name = 'Revisión / Calificación'; break;
-                    default: $action_name = 'Registro de competencia'; break;
+                    case 0:
+                        $actionname = 'Evidencia manual';
+                        break;
+                    case 1:
+                        $actionname = 'Evidencia adjuntada';
+                        break;
+                    case 2:
+                        $actionname = 'Completado en curso';
+                        break;
+                    case 3:
+                        $actionname = 'Revisión / Calificación';
+                        break;
+                    default:
+                        $actionname = 'Registro de competencia';
+                        break;
                 }
-                $author_name = !empty($ev->firstname) ? fullname($ev) : 'Sistema';
+                $authorname = !empty($ev->firstname) ? fullname($ev) : 'Sistema';
 
-                $evidences_by_usercomp[$ev->usercompetencyid][] = [
+                $evidencesbyusercomp[$ev->usercompetencyid][] = [
                     'id'                 => (int)$ev->id,
                     'action'             => (int)$ev->action,
-                    'actionname'         => $action_name,
-                    'actionuserfullname' => $author_name,
+                    'actionname'         => $actionname,
+                    'actionuserfullname' => $authorname,
                     'descidentifier'     => (string)($ev->descidentifier ?? ''),
                     'note'               => (string)($ev->note ?? ''),
                     'url'                => competency_review_repository::sanitize_url($ev->url ?? null),
@@ -653,10 +758,10 @@ class user_repository {
             }
         }
 
-        // 4. Identificar competencias de planes ad-hoc (Plan de Competencias Personales)
-        $adhoc_comp_ids = [];
+        // 4. Identificar competencias de planes ad-hoc.
+        $adhoccompids = [];
         if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
-            $sql_adhoc = "
+            $sqladhoc = "
                 SELECT DISTINCT pc.competencyid
                   FROM {competency_plancomp} pc
                   JOIN {competency_plan} p ON p.id = pc.planid
@@ -664,44 +769,44 @@ class user_repository {
                    AND (p.templateid IS NULL OR p.templateid = 0)
                    AND p.name = :planname
             ";
-            $adhoc_records = $DB->get_records_sql($sql_adhoc, [
+            $adhocrecords = $DB->get_records_sql($sqladhoc, [
                 'userid'   => $userid,
                 'planname' => 'Plan de Competencias Personales',
             ]);
-            $adhoc_comp_ids = array_map(function($r) {
+            $adhoccompids = array_map(function ($r) {
                 return (int)$r->competencyid;
-            }, $adhoc_records);
+            }, $adhocrecords);
         }
 
-        // 5. Armar resultado
+        // 5. Armar resultado.
         $result = [];
         foreach ($records as $key => $r) {
-            $comp_id = (int)$r->competencyid;
-            $usercomp_id = (int)$r->usercompid;
+            $compid = (int)$r->competencyid;
+            $usercompid = (int)$r->usercompid;
 
-            $scale_id = !empty($r->comp_scaleid) ? $r->comp_scaleid : $r->framework_scaleid;
-            $scale_items = $scales_map[$scale_id] ?? [];
-            $grade_val = (int)$r->grade;
-            $grade_name = ($grade_val > 0 && isset($scale_items[$grade_val - 1])) ? $scale_items[$grade_val - 1] : '';
+            $scaleid = !empty($r->comp_scaleid) ? $r->comp_scaleid : $r->framework_scaleid;
+            $scaleitems = $scalesmap[$scaleid] ?? [];
+            $gradeval = (int)$r->grade;
+            $gradename = ($gradeval > 0 && isset($scaleitems[$gradeval - 1])) ? $scaleitems[$gradeval - 1] : '';
 
-            $status_name = 'En progreso';
+            $statusname = 'En progreso';
             if ((int)$r->proficiency === 1) {
-                $status_name = 'Competente';
+                $statusname = 'Competente';
             } else if ((int)$r->status === 1 || (int)$r->status === 2) {
-                $status_name = 'En revisión';
+                $statusname = 'En revisión';
             }
 
-            $evs = $usercomp_id > 0 ? ($evidences_by_usercomp[$usercomp_id] ?? []) : [];
+            $evs = $usercompid > 0 ? ($evidencesbyusercomp[$usercompid] ?? []) : [];
 
-            $enrolled_in_linked_course = 0;
-            foreach ($courses_by_comp[$comp_id] ?? [] as $course) {
+            $enrolledinlinkedcourse = 0;
+            foreach ($coursesbycomp[$compid] ?? [] as $course) {
                 if (!empty($course['is_enrolled'])) {
-                    $enrolled_in_linked_course = 1;
+                    $enrolledinlinkedcourse = 1;
                     break;
                 }
             }
 
-            if (in_array($comp_id, $adhoc_comp_ids)) {
+            if (in_array($compid, $adhoccompids)) {
                 $source = 'adhoc';
             } else if (strpos((string)$key, 'course_') === 0) {
                 $source = 'course';
@@ -710,7 +815,7 @@ class user_repository {
             }
 
             $result[] = [
-                'id'                        => $comp_id,
+                'id'                        => $compid,
                 'shortname'                 => (string)$r->shortname,
                 'idnumber'                  => (string)($r->idnumber ?? ''),
                 'description'               => (string)($r->description ?? ''),
@@ -718,14 +823,14 @@ class user_repository {
                 'frameworkname'             => (string)$r->frameworkname,
                 'proficiency'               => (int)$r->proficiency,
                 'status'                    => (int)$r->status,
-                'statusname'                => $status_name,
-                'grade'                     => $grade_val,
-                'gradename'                 => $grade_name,
-                'courses'                   => $courses_by_comp[$comp_id] ?? [],
+                'statusname'                => $statusname,
+                'grade'                     => $gradeval,
+                'gradename'                 => $gradename,
+                'courses'                   => $coursesbycomp[$compid] ?? [],
                 'evidences_count'           => count($evs),
                 'evidences'                 => $evs,
                 'source'                    => $source,
-                'enrolled_in_linked_course' => $enrolled_in_linked_course,
+                'enrolled_in_linked_course' => $enrolledinlinkedcourse,
             ];
         }
 

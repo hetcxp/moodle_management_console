@@ -170,18 +170,17 @@ export const DataTable = memo(({
                   return (
                     <th
                       key={idx}
+                      scope="col"
                       aria-sort={isSortable ? (isCurrentSort ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none') : undefined}
                       className={cn(
                         'px-4 py-3.5 select-none relative',
-                        isSortable && 'hover:bg-muted/70 hover:text-foreground',
+                        isSortable && 'hover:bg-muted/70 hover:text-foreground cursor-pointer',
                         col.className
                       )}
+                      onClick={() => isSortable && handleSort(col.sortKey)}
                     >
                       <div className="flex items-center justify-between gap-1.5">
-                        <div 
-                          className={cn("flex items-center gap-1.5 flex-1", isSortable && "cursor-pointer")}
-                          onClick={() => isSortable && handleSort(col.sortKey)}
-                        >
+                        <div className="flex items-center gap-1.5 flex-1">
                           <span>{col.header}</span>
                           {isSortable && (
                             <span className="text-muted-foreground">

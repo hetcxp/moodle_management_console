@@ -287,8 +287,14 @@ export const LicenseModal = ({ isOpen, onClose }) => {
               value={licenseKey}
               onChange={(e) => setLicenseKey(e.target.value)}
               disabled={loading || removing}
+              aria-describedby="license-key-input-desc"
               className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 resize-y"
             />
+            <p id="license-key-input-desc" className="text-[11px] text-muted-foreground">
+              {(loading || removing)
+                ? 'Operación de licencia en progreso, por favor espere.'
+                : 'Pega la clave criptográfica emitida para activar o renovar la consola.'}
+            </p>
           </div>
 
           {/* 3. Result message */}

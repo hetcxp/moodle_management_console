@@ -16,8 +16,6 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * MUC Cache helper for tool_management_console.
  *
@@ -26,7 +24,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cache_manager {
-
     /**
      * Get MUC cache instance for KPIs if available.
      *

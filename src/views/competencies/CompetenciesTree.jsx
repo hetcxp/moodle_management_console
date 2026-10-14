@@ -158,14 +158,17 @@ function CompetencyActionsCell({
   const canCreateChild = level < 3;
 
   return (
-    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+    <div className="flex items-center justify-end gap-1">
       <PermissionGate capability="can_manage_competencies">
         {canCreateChild && (
           <LicensedActionButton
             capability="can_manage_competencies"
             variant="ghost"
             size="icon"
-            onClick={() => onOpenCreateSubcomp(row)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenCreateSubcomp(row);
+            }}
             title={level === 1 ? "Crear subcompetencia hija para esta competencia" : "Crear subcompetencia de tercer nivel para esta subcompetencia"}
             className={`h-8 w-8 ${
               level === 1
@@ -180,7 +183,10 @@ function CompetencyActionsCell({
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => onOpenCompetencyDetail(row)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenCompetencyDetail(row);
+        }}
         title="Gestionar cursos, subcompetencias y reglas"
         className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
       >
@@ -189,7 +195,10 @@ function CompetencyActionsCell({
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => onOpenReviewsForCompetency(row)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenReviewsForCompetency(row);
+        }}
         title={row.pendingreviewscount > 0 ? `Ver ${row.pendingreviewscount} revisión(es) pendiente(s)` : 'Ver revisiones pendientes'}
         className={`h-8 w-8 relative ${row.pendingreviewscount > 0 ? 'text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30' : 'text-muted-foreground hover:text-foreground'}`}
       >
@@ -205,7 +214,10 @@ function CompetencyActionsCell({
           capability="can_manage_competencies"
           variant="ghost"
           size="icon"
-          onClick={() => onOpenEdit(row)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenEdit(row);
+          }}
           title="Editar competencia"
           className="h-8 w-8 text-muted-foreground hover:text-foreground"
         >
@@ -215,7 +227,10 @@ function CompetencyActionsCell({
           capability="can_manage_competencies"
           variant="ghost"
           size="icon"
-          onClick={() => onOpenDelete(row)}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenDelete(row);
+          }}
           title="Eliminar competencia"
           className="h-8 w-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
         >

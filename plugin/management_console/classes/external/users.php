@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -43,12 +41,21 @@ use tool_management_console\repository\course_enrolment_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class users extends external_api {
-
-    public static function get_users_kpis_parameters() {
+    /**
+     * Parameter definition for get_users_kpis.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_users_kpis_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
-    public static function get_users_kpis() {
+    /**
+     * Get aggregated KPI counters for users.
+     *
+     * @return array
+     */
+    public static function get_users_kpis(): array {
         global $CFG;
 
         $context = context_system::instance();
@@ -64,9 +71,9 @@ class users extends external_api {
         $adminid = $primaryadmin ? (int)$primaryadmin->id : 1;
         $guestid = $CFG->siteguest ?? 0;
         $sqlparams = ['adminid' => $adminid, 'guestid' => $guestid];
-        
-        $recent_threshold = time() - (30 * 86400); // 30 days
-        $sqlparams['recent'] = $recent_threshold;
+
+        $recentthreshold = time() - (30 * 86400); // 30 days.
+        $sqlparams['recent'] = $recentthreshold;
 
         $stats = user_repository::get_users_kpi_stats($sqlparams);
         $progress = user_repository::get_users_kpi_avg_progress($sqlparams);
@@ -76,14 +83,19 @@ class users extends external_api {
             'active_users'    => (int)($stats->active_users ?? 0),
             'suspended_users' => (int)($stats->suspended_users ?? 0),
             'recent_active'   => (int)($stats->recent_active ?? 0),
-            'avg_progress'    => (float)($progress ?? 0)
+            'avg_progress'    => (float)($progress ?? 0),
         ];
 
         \tool_management_console\cache_manager::set_kpi('user_kpis', $result);
         return $result;
     }
 
-    public static function get_users_kpis_returns() {
+    /**
+     * Return structure for get_users_kpis.
+     *
+     * @return external_single_structure
+     */
+    public static function get_users_kpis_returns(): external_single_structure {
         return new external_single_structure([
             'total_users'     => new external_value(PARAM_INT, 'Total valid users'),
             'active_users'    => new external_value(PARAM_INT, 'Active users'),
@@ -93,7 +105,12 @@ class users extends external_api {
         ]);
     }
 
-    public static function get_users_parameters() {
+    /**
+     * Parameter definition for get_users.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_users_parameters(): external_function_parameters {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page number index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Users per page', VALUE_DEFAULT, 20),
@@ -104,7 +121,25 @@ class users extends external_api {
         ]);
     }
 
-    public static function get_users($page = 0, $perpage = 20, $sort = 'lastaccess', $dir = 'DESC', $search = '', $filters = '{}') {
+    /**
+     * Get paginated and filtered users list.
+     *
+     * @param int $page Page index.
+     * @param int $perpage Users per page.
+     * @param string $sort Sort field.
+     * @param string $dir Sort direction ASC or DESC.
+     * @param string $search Search query string.
+     * @param string $filters JSON encoded filter criteria.
+     * @return array
+     */
+    public static function get_users(
+        int $page = 0,
+        int $perpage = 20,
+        string $sort = 'lastaccess',
+        string $dir = 'DESC',
+        string $search = '',
+        string $filters = '{}'
+    ): array {
         global $CFG;
 
         $context = context_system::instance();
@@ -119,9 +154,28 @@ class users extends external_api {
             'search'  => $search,
             'filters' => $filters,
         ]);
-        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
-        list($records, $totalcount) = user_repository::get_users_filtered($params);
+        $params['page'] = max(0, (int)$params['page']);
+        $params['perpage'] = min(max(1, (int)$params['perpage']), 200);
+
+        $allowedsorts = [
+            'id', 'firstname', 'lastname', 'email', 'suspended',
+            'lastaccess', 'cohorts', 'competencies', 'courses', 'progress',
+        ];
+        if (!in_array($params['sort'], $allowedsorts, true)) {
+            $params['sort'] = 'lastaccess';
+        }
+
+        $params['dir'] = strtoupper($params['dir']) === 'ASC' ? 'ASC' : 'DESC';
+
+        if (is_string($params['filters'])) {
+            $decoded = json_decode($params['filters'], true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+                $params['filters'] = '{}';
+            }
+        }
+
+        [$records, $totalcount] = user_repository::get_users_filtered($params);
 
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
 
@@ -131,9 +185,9 @@ class users extends external_api {
             $enrolled = (int)$u->enrolled_courses;
             $completed = (int)$u->completed_courses;
             $progress = ($enrolled > 0) ? min(100, round(($completed / $enrolled) * 100)) : 0;
-            $is_admin = in_array($u->id, $siteadmins);
+            $isadmin = in_array($u->id, $siteadmins);
 
-            $clean_email = trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$u->email));
+            $cleanemail = trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$u->email));
 
             $users[] = [
                 'id'                 => (int)$u->id,
@@ -141,10 +195,10 @@ class users extends external_api {
                 'firstname'          => (string)$u->firstname,
                 'lastname'           => (string)$u->lastname,
                 'fullname'           => (string)$fullname,
-                'email'              => (string)$clean_email,
+                'email'              => (string)$cleanemail,
                 'suspended'          => (int)$u->suspended,
                 'is_active'          => empty($u->suspended) ? 1 : 0,
-                'is_admin'           => $is_admin ? 1 : 0,
+                'is_admin'           => $isadmin ? 1 : 0,
                 'lastaccess'         => (int)$u->lastaccess,
                 'cohorts_count'      => (int)$u->cohorts_count,
                 'competencies_count' => (int)($u->competencies_count ?? 0),
@@ -162,7 +216,12 @@ class users extends external_api {
         ];
     }
 
-    public static function get_users_returns() {
+    /**
+     * Return structure for get_users.
+     *
+     * @return external_single_structure
+     */
+    public static function get_users_returns(): external_single_structure {
         return new external_single_structure([
             'totalcount' => new external_value(PARAM_INT, 'Total users matching query'),
             'page'       => new external_value(PARAM_INT, 'Current page index'),
@@ -180,7 +239,12 @@ class users extends external_api {
                     'is_admin'           => new external_value(PARAM_INT, '1 if site admin, 0 otherwise'),
                     'lastaccess'         => new external_value(PARAM_INT, 'Last login timestamp'),
                     'cohorts_count'      => new external_value(PARAM_INT, 'Number of cohort memberships'),
-                    'competencies_count' => new external_value(PARAM_INT, 'Number of assigned competencies', VALUE_DEFAULT, 0),
+                    'competencies_count' => new external_value(
+                        PARAM_INT,
+                        'Number of assigned competencies',
+                        VALUE_DEFAULT,
+                        0
+                    ),
                     'enrolled_courses'   => new external_value(PARAM_INT, 'Number of enrolled courses'),
                     'completed_courses'  => new external_value(PARAM_INT, 'Number of completed courses'),
                     'progress'           => new external_value(PARAM_INT, 'Average completion percentage'),
@@ -189,10 +253,21 @@ class users extends external_api {
         ]);
     }
 
-    public static function user_action_parameters() {
+    /**
+     * Parameter definition for user_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function user_action_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'action'  => new external_value(PARAM_ALPHANUMEXT, 'Action: suspend, activate, delete, message, send_temp_password, reset_password'),
-            'userids' => new external_multiple_structure(new external_value(PARAM_INT, 'User ID'), 'List of user IDs to act upon'),
+            'action'  => new external_value(
+                PARAM_ALPHANUMEXT,
+                'Action: suspend, activate, delete, message, send_temp_password, reset_password'
+            ),
+            'userids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'User ID'),
+                'List of user IDs to act upon'
+            ),
             'message_text' => new external_value(PARAM_RAW, 'Message text', VALUE_DEFAULT, ''),
         ]);
     }
@@ -200,14 +275,14 @@ class users extends external_api {
     /**
      * Perform user actions (suspend, activate, delete, etc.).
      *
-     * @param string $action
-     * @param array $userids
-     * @param string $message_text
+     * @param string $action Action name.
+     * @param array $userids Array of user IDs.
+     * @param string $messagetext Message text.
      * @return array
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function user_action($action, $userids = [], $message_text = '') {
+    public static function user_action(string $action, array $userids = [], string $messagetext = ''): array {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/user/lib.php');
@@ -218,7 +293,7 @@ class users extends external_api {
         $params = self::validate_parameters(self::user_action_parameters(), [
             'action'  => $action,
             'userids' => $userids,
-            'message_text' => $message_text,
+            'message_text' => $messagetext,
         ]);
 
         $act = $params['action'];
@@ -237,7 +312,11 @@ class users extends external_api {
                             $user = user_repository::get_user($uid);
                             if ($user && !$user->suspended) {
                                 $user->suspended = 1;
-                                user_update_user($user, false, false);
+                                if (method_exists(\core\user::class, 'update_user')) {
+                                    \core\user::update_user($user, false, false);
+                                } else {
+                                    user_update_user($user, false, false);
+                                }
                                 $affected++;
                             }
                         }
@@ -252,7 +331,11 @@ class users extends external_api {
                             $user = user_repository::get_user($uid);
                             if ($user && $user->suspended) {
                                 $user->suspended = 0;
-                                user_update_user($user, false, false);
+                                if (method_exists(\core\user::class, 'update_user')) {
+                                    \core\user::update_user($user, false, false);
+                                } else {
+                                    user_update_user($user, false, false);
+                                }
                                 $affected++;
                             }
                         }
@@ -284,12 +367,12 @@ class users extends external_api {
                             $message->name              = 'instantmessage';
                             $message->userfrom          = $USER;
                             $message->userto            = $recipient;
-                            $clean_msg = clean_text(substr($msg, 0, 65535), FORMAT_HTML);
+                            $cleanmsg = clean_text(substr($msg, 0, 65535), FORMAT_HTML);
                             $message->subject           = 'Mensaje';
-                            $message->fullmessage       = $clean_msg;
+                            $message->fullmessage       = $cleanmsg;
                             $message->fullmessageformat = FORMAT_HTML;
-                            $message->fullmessagehtml   = $clean_msg;
-                            $message->smallmessage      = strip_tags($clean_msg);
+                            $message->fullmessagehtml   = $cleanmsg;
+                            $message->smallmessage      = strip_tags($cleanmsg);
                             message_send($message);
                             $affected++;
                         }
@@ -333,7 +416,12 @@ class users extends external_api {
         ];
     }
 
-    public static function user_action_returns() {
+    /**
+     * Return structure for user_action.
+     *
+     * @return external_single_structure
+     */
+    public static function user_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, 'True if operation completed'),
             'message'       => new external_value(PARAM_TEXT, 'Status description'),
@@ -341,15 +429,33 @@ class users extends external_api {
         ]);
     }
 
-    public static function get_user_detail_parameters() {
+    /**
+     * Parameter definition for get_user_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_user_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'userid'    => new external_value(PARAM_INT, 'User ID'),
             'limitfrom' => new external_value(PARAM_INT, 'Offset for enrolled courses', VALUE_DEFAULT, 0),
-            'limitnum'  => new external_value(PARAM_INT, 'Limit for enrolled courses (max 500, default 200)', VALUE_DEFAULT, 0),
+            'limitnum'  => new external_value(
+                PARAM_INT,
+                'Limit for enrolled courses (max 500, default 200)',
+                VALUE_DEFAULT,
+                0
+            ),
         ]);
     }
 
-    public static function get_user_detail($userid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get detailed user record with courses, cohorts and competencies.
+     *
+     * @param int $userid User ID.
+     * @param int $limitfrom Offset for enrolled courses.
+     * @param int $limitnum Limit for enrolled courses.
+     * @return array
+     */
+    public static function get_user_detail(int $userid, int $limitfrom = 0, int $limitnum = 0): array {
         global $CFG;
 
         $params = self::validate_parameters(self::get_user_detail_parameters(), [
@@ -363,91 +469,100 @@ class users extends external_api {
         self::validate_context($context);
         require_capability('moodle/user:viewdetails', $context);
 
-        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500.
         $offset = max(0, (int)$params['limitfrom']);
         $reqlimit = (int)$params['limitnum'];
         $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
 
-        $enrolled_courses = user_repository::get_user_enrolled_courses($user->id, $offset, $limit);
-        $all_enrolments = user_repository::get_user_all_enrolments($user->id, 0, 500);
-        
-        $course_enrolments_map = [];
-        foreach ($all_enrolments as $ue) {
-            $course_enrolments_map[$ue->courseid][] = [
+        $enrolledcourses = user_repository::get_user_enrolled_courses($user->id, $offset, $limit);
+        $allenrolments = user_repository::get_user_all_enrolments($user->id, 0, 500);
+
+        $courseenrolmentsmap = [];
+        foreach ($allenrolments as $ue) {
+            $courseenrolmentsmap[$ue->courseid][] = [
                 'method' => (string)$ue->method,
                 'status' => (int)$ue->status,
                 'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend
+                'timeend' => (int)$ue->timeend,
             ];
         }
 
         require_once($CFG->libdir . '/completionlib.php');
 
-        $progress_map = user_repository::get_user_courses_progress_data($user->id, $enrolled_courses);
+        $progressmap = user_repository::get_user_courses_progress_data($user->id, $enrolledcourses);
 
         $courses = [];
-        foreach ($enrolled_courses as $c) {
-            $progress_val = $progress_map[$c->id] ?? 0;
+        foreach ($enrolledcourses as $c) {
+            $progressval = $progressmap[$c->id] ?? 0;
 
             $courses[] = [
                 'id' => (int)$c->id,
                 'fullname' => $c->fullname,
                 'shortname' => $c->shortname,
-                'progress' => $progress_val,
+                'progress' => $progressval,
                 'enrolmethod' => $c->enrolmethod,
                 'enrolstatus' => (int)$c->enrolstatus,
-                'enrolments' => $course_enrolments_map[$c->id] ?? [],
+                'enrolments' => $courseenrolmentsmap[$c->id] ?? [],
             ];
         }
 
-        // Cohortes a las que pertenece (acotadas a 100)
-        $linked_cohorts = user_repository::get_user_cohorts($user->id, 0, 100);
+        // Cohortes a las que pertenece (acotadas a 100).
+        $linkedcohorts = user_repository::get_user_cohorts($user->id, 0, 100);
 
         $cohorts = [];
-        foreach ($linked_cohorts as $coh) {
+        foreach ($linkedcohorts as $coh) {
             $cohorts[] = [
                 'id' => (int)$coh->id,
                 'name' => (string)$coh->name,
-                'idnumber' => (string)$coh->idnumber
+                'idnumber' => (string)$coh->idnumber,
             ];
         }
 
-        // Calculate progress summary based only on active enrolled courses
-        $active_courses = array_filter($courses, function($c) { return isset($c['enrolstatus']) && (int)$c['enrolstatus'] === 0; });
-        $enrolled_count = count($active_courses);
-        $completed_count = count(array_filter($active_courses, function($c) { return (int)($c['progress'] ?? 0) === 100; }));
-        $progress = ($enrolled_count > 0) ? min(100, round(($completed_count / $enrolled_count) * 100)) : 0;
+        // Calculate progress summary based only on active enrolled courses.
+        $activecourses = array_filter($courses, function ($c) {
+            return isset($c['enrolstatus']) && (int)$c['enrolstatus'] === 0;
+        });
+        $enrolledcount = count($activecourses);
+        $completedcount = count(array_filter($activecourses, function ($c) {
+            return (int)($c['progress'] ?? 0) === 100;
+        }));
+        $progress = ($enrolledcount > 0) ? min(100, round(($completedcount / $enrolledcount) * 100)) : 0;
 
         $siteadmins = explode(',', $CFG->siteadmins ?? '');
-        $is_admin = in_array($user->id, $siteadmins) ? 1 : 0;
+        $isadmin = in_array($user->id, $siteadmins) ? 1 : 0;
 
-        $system_roles = user_repository::get_user_system_roles($user->id);
+        $systemroles = user_repository::get_user_system_roles($user->id);
         $competencies = user_repository::get_user_competencies($user->id);
 
-        $can_view_email = is_siteadmin() || has_capability('moodle/user:viewalldetails', \context_system::instance());
-        $clean_email = $can_view_email ? trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$user->email)) : '';
+        $canviewemail = is_siteadmin() || has_capability('moodle/user:viewalldetails', \context_system::instance());
+        $cleanemail = $canviewemail ? trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$user->email)) : '';
 
         return [
             'id' => (int)$user->id,
             'username' => (string)$user->username,
             'fullname' => fullname($user),
-            'email' => (string)$clean_email,
+            'email' => (string)$cleanemail,
             'suspended' => (int)$user->suspended,
             'is_active' => empty($user->suspended) ? 1 : 0,
-            'is_admin' => $is_admin,
+            'is_admin' => $isadmin,
             'lastaccess' => (int)$user->lastaccess,
-            'enrolled_courses' => $enrolled_count,
-            'completed_courses' => $completed_count,
+            'enrolled_courses' => $enrolledcount,
+            'completed_courses' => $completedcount,
             'cohorts_count' => count($cohorts),
             'progress' => (int)$progress,
             'courses' => $courses,
             'cohorts' => $cohorts,
-            'system_roles' => $system_roles,
+            'system_roles' => $systemroles,
             'competencies' => $competencies,
         ];
     }
 
-    public static function get_user_detail_returns() {
+    /**
+     * Return structure for get_user_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_user_detail_returns(): external_single_structure {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'User ID'),
             'username' => new external_value(PARAM_TEXT, 'Username'),
@@ -476,7 +591,8 @@ class users extends external_api {
                             'timestart' => new external_value(PARAM_INT, 'Enrol timestart'),
                             'timeend' => new external_value(PARAM_INT, 'Enrol timeend'),
                         ]),
-                        'Detailed enrolments', VALUE_OPTIONAL
+                        'Detailed enrolments',
+                        VALUE_OPTIONAL
                     ),
                 ])
             ),
@@ -493,7 +609,8 @@ class users extends external_api {
                     'name' => new external_value(PARAM_TEXT, 'Role display name'),
                     'shortname' => new external_value(PARAM_TEXT, 'Role shortname'),
                 ]),
-                'System roles assigned to user', VALUE_OPTIONAL
+                'System roles assigned to user',
+                VALUE_OPTIONAL
             ),
             'competencies' => new external_multiple_structure(
                 new external_single_structure([
@@ -515,7 +632,8 @@ class users extends external_api {
                             'shortname' => new external_value(PARAM_TEXT, 'Course shortname'),
                             'is_enrolled' => new external_value(PARAM_INT, '1 if enrolled, 0 otherwise'),
                         ]),
-                        'Linked courses', VALUE_OPTIONAL
+                        'Linked courses',
+                        VALUE_OPTIONAL
                     ),
                     'evidences_count' => new external_value(PARAM_INT, 'Evidences count'),
                     'evidences' => new external_multiple_structure(
@@ -531,35 +649,54 @@ class users extends external_api {
                             'timecreated' => new external_value(PARAM_INT, 'Timestamp created'),
                             'timecreated_str' => new external_value(PARAM_TEXT, 'Formatted creation date', VALUE_OPTIONAL),
                         ]),
-                        'Evidences list', VALUE_OPTIONAL
+                        'Evidences list',
+                        VALUE_OPTIONAL
                     ),
-                    'source'                    => new external_value(PARAM_TEXT, 'Assignment source: adhoc|course|usercomp', VALUE_OPTIONAL),
-                    'enrolled_in_linked_course' => new external_value(PARAM_INT, '1 if enrolled in at least one linked course', VALUE_DEFAULT, 0),
+                    'source'                    => new external_value(
+                        PARAM_TEXT,
+                        'Assignment source: adhoc|course|usercomp',
+                        VALUE_OPTIONAL
+                    ),
+                    'enrolled_in_linked_course' => new external_value(
+                        PARAM_INT,
+                        '1 if enrolled in at least one linked course',
+                        VALUE_DEFAULT,
+                        0
+                    ),
                 ]),
-                'User assigned competencies', VALUE_OPTIONAL
+                'User assigned competencies',
+                VALUE_OPTIONAL
             ),
         ]);
     }
 
-    public static function user_cohort_action_parameters() {
+    /**
+     * Parameter definition for user_cohort_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function user_cohort_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action' => new external_value(PARAM_ALPHA, 'add or remove'),
             'userid' => new external_value(PARAM_INT, 'User ID'),
-            'cohortids' => new external_multiple_structure(new external_value(PARAM_INT, 'Cohort ID'), 'Array of cohort IDs'),
+            'cohortids' => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Cohort ID'),
+                'Array of cohort IDs'
+            ),
         ]);
     }
 
     /**
      * Assign or remove user from cohorts.
      *
-     * @param string $action
-     * @param int $userid
-     * @param array $cohortids
+     * @param string $action Action name.
+     * @param int $userid User ID.
+     * @param array $cohortids Array of cohort IDs.
      * @return array
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function user_cohort_action($action, $userid, $cohortids) {
+    public static function user_cohort_action(string $action, int $userid, array $cohortids): array {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');
 
@@ -601,11 +738,16 @@ class users extends external_api {
         return [
             'success' => true,
             'message' => 'Cohorts updated for user.',
-            'affectedcount' => $affected
+            'affectedcount' => $affected,
         ];
     }
 
-    public static function user_cohort_action_returns() {
+    /**
+     * Return structure for user_cohort_action.
+     *
+     * @return external_single_structure
+     */
+    public static function user_cohort_action_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success'),
             'message' => new external_value(PARAM_TEXT, 'Message'),
@@ -613,15 +755,24 @@ class users extends external_api {
         ]);
     }
 
-
-    public static function add_user_parameters() {
+    /**
+     * Parameter definition for add_user.
+     *
+     * @return external_function_parameters
+     */
+    public static function add_user_parameters(): external_function_parameters {
         return new external_function_parameters([
             'username'       => new external_value(PARAM_RAW, 'Username'),
             'password'       => new external_value(PARAM_RAW, 'Password', VALUE_DEFAULT, ''),
             'firstname'      => new external_value(PARAM_TEXT, 'First name'),
             'lastname'       => new external_value(PARAM_TEXT, 'Last name'),
             'email'          => new external_value(PARAM_EMAIL, 'Email address'),
-            'createpassword' => new external_value(PARAM_INT, '1 to generate password and send email', VALUE_DEFAULT, 0),
+            'createpassword' => new external_value(
+                PARAM_INT,
+                '1 to generate password and send email',
+                VALUE_DEFAULT,
+                0
+            ),
         ]);
     }
 
@@ -638,7 +789,14 @@ class users extends external_api {
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function add_user($username, $password = '', $firstname = '', $lastname = '', $email = '', $createpassword = 0) {
+    public static function add_user(
+        $username,
+        $password = '',
+        $firstname = '',
+        $lastname = '',
+        $email = '',
+        $createpassword = 0
+    ): array {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/user/lib.php');
         require_once($CFG->libdir . '/moodlelib.php');
@@ -648,14 +806,14 @@ class users extends external_api {
         \tool_management_console\license_manager::require_active_license();
 
         $params = self::validate_parameters(self::add_user_parameters(), [
-            'username'       => $username, 
-            'password'       => $password, 
+            'username'       => $username,
+            'password'       => $password,
             'firstname'      => $firstname,
-            'lastname'       => $lastname, 
+            'lastname'       => $lastname,
             'email'          => $email,
             'createpassword' => $createpassword,
         ]);
-        
+
         $user = new \stdClass();
         $user->username = trim(\core_text::strtolower($params['username']));
         $user->firstname = $params['firstname'];
@@ -664,21 +822,21 @@ class users extends external_api {
         $user->confirmed = 1;
         $user->mnethostid = $CFG->mnet_localhost_id;
         $user->auth = 'manual';
-        
+
         if (!empty($params['createpassword'])) {
             $user->password = generate_password(12);
         } else {
             $user->password = $params['password'];
         }
-        
+
         try {
             $userid = user_create_user($user, true, false);
             \tool_management_console\cache_manager::invalidate_kpis('user_kpis');
-            
+
             if (!empty($params['createpassword'])) {
-                $created_user = user_repository::get_user($userid);
-                if ($created_user) {
-                    setnew_password_and_mail($created_user);
+                $createduser = user_repository::get_user($userid);
+                if ($createduser) {
+                    setnew_password_and_mail($createduser);
                 }
             }
 
@@ -688,7 +846,12 @@ class users extends external_api {
         }
     }
 
-    public static function add_user_returns() {
+    /**
+     * Return structure for add_user.
+     *
+     * @return external_single_structure
+     */
+    public static function add_user_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success'),
             'userid' => new external_value(PARAM_INT, 'User ID', VALUE_OPTIONAL),
@@ -696,7 +859,12 @@ class users extends external_api {
         ]);
     }
 
-    public static function upload_users_csv_parameters() {
+    /**
+     * Parameter definition for upload_users_csv.
+     *
+     * @return external_function_parameters
+     */
+    public static function upload_users_csv_parameters(): external_function_parameters {
         return new external_function_parameters([
             'fileContent' => new external_value(PARAM_RAW, 'Base64 encoded CSV content'),
         ]);
@@ -705,12 +873,12 @@ class users extends external_api {
     /**
      * Bulk upload users from a base64 encoded CSV string.
      *
-     * @param string $fileContent
+     * @param string $filecontent
      * @return array
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function upload_users_csv($fileContent) {
+    public static function upload_users_csv($filecontent): array {
         global $CFG;
         require_once($CFG->dirroot . '/user/lib.php');
         $context = context_system::instance();
@@ -718,43 +886,47 @@ class users extends external_api {
         require_capability('moodle/user:create', $context);
         \tool_management_console\license_manager::require_active_license();
 
-        $params = self::validate_parameters(self::upload_users_csv_parameters(), ['fileContent' => $fileContent]);
-        
+        $params = self::validate_parameters(self::upload_users_csv_parameters(), [
+            'fileContent' => $filecontent,
+        ]);
+
         $csv = base64_decode($params['fileContent'], true);
         if ($csv === false) {
             return ['success' => false, 'message' => 'Invalid base64 encoding'];
         }
-        
+
         $lines = explode("\n", trim($csv));
         if (count($lines) < 2) {
             return ['success' => false, 'message' => 'Empty CSV or missing header'];
         }
-        
+
         $headers = str_getcsv(array_shift($lines));
         $headers = array_map('trim', $headers);
-        
-        $required_headers = ['username', 'email', 'firstname', 'lastname', 'password'];
-        foreach ($required_headers as $req) {
+
+        $requiredheaders = ['username', 'email', 'firstname', 'lastname', 'password'];
+        foreach ($requiredheaders as $req) {
             if (!in_array($req, $headers)) {
                 return ['success' => false, 'message' => 'Missing required column: ' . $req];
             }
         }
-        
+
         $created = 0;
         $errors = [];
-        
-        foreach ($lines as $lineNum => $line) {
+
+        foreach ($lines as $linenum => $line) {
             $line = trim($line);
-            if (empty($line)) continue;
-            
-            $row = str_getcsv($line);
-            if (count($row) !== count($headers)) {
-                $errors[] = "Row " . ($lineNum + 2) . ": Column count mismatch";
+            if (empty($line)) {
                 continue;
             }
-            
+
+            $row = str_getcsv($line);
+            if (count($row) !== count($headers)) {
+                $errors[] = "Row " . ($linenum + 2) . ": Column count mismatch";
+                continue;
+            }
+
             $data = array_combine($headers, $row);
-            
+
             $user = new \stdClass();
             $user->username = $data['username'];
             $user->password = $data['password'];
@@ -764,35 +936,46 @@ class users extends external_api {
             $user->confirmed = 1;
             $user->mnethostid = $CFG->mnet_localhost_id;
             $user->auth = 'manual';
-            
+
             try {
                 user_create_user($user, true, false);
                 $created++;
             } catch (\Exception $e) {
-                $errors[] = "Row " . ($lineNum + 2) . ": " . $e->getMessage();
+                $errors[] = "Row " . ($linenum + 2) . ": " . $e->getMessage();
             }
         }
-        
+
         if ($created > 0) {
             \tool_management_console\cache_manager::invalidate_kpis('user_kpis');
         }
 
         $msg = "Created $created users.";
         if (count($errors) > 0) {
-            $msg .= " " . count($errors) . " errors. " . implode("; ", array_slice($errors, 0, 3)) . (count($errors) > 3 ? "..." : "");
+            $slice = array_slice($errors, 0, 3);
+            $msg .= " " . count($errors) . " errors. " . implode("; ", $slice) . (count($errors) > 3 ? "..." : "");
         }
-        
+
         return ['success' => count($errors) === 0, 'message' => $msg];
     }
 
-    public static function upload_users_csv_returns() {
+    /**
+     * Return structure for upload_users_csv.
+     *
+     * @return external_single_structure
+     */
+    public static function upload_users_csv_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success'),
             'message' => new external_value(PARAM_TEXT, 'Message'),
         ]);
     }
 
-    public static function user_course_action_parameters() {
+    /**
+     * Parameter definition for user_course_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function user_course_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'    => new external_value(PARAM_ALPHANUMEXT, 'add, remove, suspend, activate, update_dates'),
             'userid'    => new external_value(PARAM_INT, 'User ID'),
@@ -814,13 +997,22 @@ class users extends external_api {
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function user_course_action($action, $userid, $courseids, $timestart = 0, $timeend = 0) {
+    public static function user_course_action(
+        $action,
+        $userid,
+        $courseids,
+        $timestart = 0,
+        $timeend = 0
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
 
         $params = self::validate_parameters(self::user_course_action_parameters(), [
-            'action' => $action, 'userid' => $userid, 'courseids' => $courseids,
-            'timestart' => $timestart, 'timeend' => $timeend
+            'action' => $action,
+            'userid' => $userid,
+            'courseids' => $courseids,
+            'timestart' => $timestart,
+            'timeend' => $timeend,
         ]);
 
         foreach ($params['courseids'] as $cid) {
@@ -840,11 +1032,15 @@ class users extends external_api {
         );
     }
 
-    public static function user_course_action_returns() {
+    /**
+     * Return structure for user_course_action.
+     *
+     * @return external_single_structure
+     */
+    public static function user_course_action_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'Success'),
             'message' => new external_value(PARAM_TEXT, 'Message'),
         ]);
     }
-
 }

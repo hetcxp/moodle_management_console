@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -42,8 +40,12 @@ use tool_management_console\repository\cohort_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class cohorts extends external_api {
-
-    public static function get_cohorts_parameters() {
+    /**
+     * Describes the parameters for get_cohorts.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_cohorts_parameters(): external_function_parameters {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Cohorts per page', VALUE_DEFAULT, 50),
@@ -54,7 +56,25 @@ class cohorts extends external_api {
         ]);
     }
 
-    public static function get_cohorts($page = 0, $perpage = 50, $sort = 'name', $dir = 'ASC', $search = '', $filters = '{}') {
+    /**
+     * Get paginated cohorts with optional filtering.
+     *
+     * @param int $page
+     * @param int $perpage
+     * @param string $sort
+     * @param string $dir
+     * @param string $search
+     * @param string $filters
+     * @return array
+     */
+    public static function get_cohorts(
+        int $page = 0,
+        int $perpage = 50,
+        string $sort = 'name',
+        string $dir = 'ASC',
+        string $search = '',
+        string $filters = '{}'
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:view', $context);
@@ -69,16 +89,16 @@ class cohorts extends external_api {
         ]);
         $params['perpage'] = min(max(1, $params['perpage']), 200);
 
-        list($records, $totalcount) = cohort_repository::get_cohorts_filtered($params);
+        [$records, $totalcount] = cohort_repository::get_cohorts_filtered($params);
 
-        $cohort_ids = array_keys($records);
-        $progress_map = cohort_repository::get_cohorts_progress_map($cohort_ids);
+        $cohortids = array_keys($records);
+        $progressmap = cohort_repository::get_cohorts_progress_map($cohortids);
 
         $cohorts = [];
         foreach ($records as $r) {
             $progress = 0;
             if ($r->memberscount > 0 && $r->coursescount > 0) {
-                $progress = isset($progress_map[$r->id]) ? (int)$progress_map[$r->id] : 0;
+                $progress = isset($progressmap[$r->id]) ? (int)$progressmap[$r->id] : 0;
             }
 
             $cohorts[] = [
@@ -100,7 +120,12 @@ class cohorts extends external_api {
         ];
     }
 
-    public static function get_cohorts_returns() {
+    /**
+     * Describes the return structure for get_cohorts.
+     *
+     * @return external_single_structure
+     */
+    public static function get_cohorts_returns(): external_single_structure {
         return new external_single_structure([
             'totalcount' => new external_value(PARAM_INT, 'Total cohorts count'),
             'page'       => new external_value(PARAM_INT, 'Current page index'),
@@ -119,7 +144,12 @@ class cohorts extends external_api {
         ]);
     }
 
-    public static function cohort_action_parameters() {
+    /**
+     * Describes the parameters for cohort_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function cohort_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'      => new external_value(PARAM_ALPHA, 'Action: create, edit, delete'),
             'cohortid'    => new external_value(PARAM_INT, 'Cohort ID for edit/delete', VALUE_DEFAULT, 0),
@@ -141,10 +171,16 @@ class cohorts extends external_api {
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function cohort_action($action, $cohortid = 0, $name = '', $idnumber = '', $description = '') {
+    public static function cohort_action(
+        string $action,
+        int $cohortid = 0,
+        string $name = '',
+        string $idnumber = '',
+        string $description = ''
+    ): array {
         global $CFG, $DB;
         require_once($CFG->dirroot . '/cohort/lib.php');
-        
+
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:manage', $context);
@@ -175,7 +211,7 @@ class cohorts extends external_api {
                     $data->description = clean_text($params['description'], FORMAT_HTML);
                     $data->descriptionformat = FORMAT_HTML;
                     $data->contextid = $context->id;
-                    
+
                     $id = cohort_add_cohort($data);
                     $transaction->allow_commit();
                     return [
@@ -196,7 +232,7 @@ class cohorts extends external_api {
                     $data->description = clean_text($params['description'], FORMAT_HTML);
                     $data->descriptionformat = FORMAT_HTML;
                     $data->contextid = $context->id;
-                    
+
                     cohort_update_cohort($data);
                     $transaction->allow_commit();
                     return [
@@ -216,7 +252,7 @@ class cohorts extends external_api {
                         $affected = 1;
                     }
                     break;
-                    
+
                 default:
                     $transaction->allow_commit();
                     return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
@@ -235,7 +271,12 @@ class cohorts extends external_api {
         ];
     }
 
-    public static function cohort_action_returns() {
+    /**
+     * Describes the return structure for cohort_action.
+     *
+     * @return external_single_structure
+     */
+    public static function cohort_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
             'message'       => new external_value(PARAM_TEXT, 'Status description message'),
@@ -243,7 +284,12 @@ class cohorts extends external_api {
         ]);
     }
 
-    public static function get_cohort_detail_parameters() {
+    /**
+     * Describes the parameters for get_cohort_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_cohort_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'cohortid'  => new external_value(PARAM_INT, 'Cohort ID'),
             'limitfrom' => new external_value(PARAM_INT, 'Offset for cohort members', VALUE_DEFAULT, 0),
@@ -251,7 +297,15 @@ class cohorts extends external_api {
         ]);
     }
 
-    public static function get_cohort_detail($cohortid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get details, members and linked courses for a cohort.
+     *
+     * @param int $cohortid
+     * @param int $limitfrom
+     * @param int $limitnum
+     * @return array
+     */
+    public static function get_cohort_detail(int $cohortid, int $limitfrom = 0, int $limitnum = 0): array {
         $params = self::validate_parameters(self::get_cohort_detail_parameters(), [
             'cohortid'  => $cohortid,
             'limitfrom' => $limitfrom,
@@ -263,60 +317,68 @@ class cohorts extends external_api {
         self::validate_context($context);
         require_capability('moodle/cohort:view', $context);
 
-        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500.
         $offset = max(0, (int)$params['limitfrom']);
         $reqlimit = (int)$params['limitnum'];
         $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
 
-        // Cursos sincronizados (acotados a 100)
-        $courses_records = cohort_repository::get_cohort_synced_courses($cohort->id, 0, 100);
+        // Cursos sincronizados (acotados a 100).
+        $coursesrecords = cohort_repository::get_cohort_synced_courses($cohort->id, 0, 100);
 
-        // Miembros de la cohorte con límite y offset
-        $members_records = cohort_repository::get_cohort_members($cohort->id, $offset, $limit);
+        // Miembros de la cohorte con límite y offset.
+        $membersrecords = cohort_repository::get_cohort_members($cohort->id, $offset, $limit);
 
-        $member_ids = array_keys($members_records);
-        $progress_data = cohort_repository::get_cohort_members_progress_data($member_ids, array_values($courses_records));
+        $memberids = array_keys($membersrecords);
+        $progressdata = cohort_repository::get_cohort_members_progress_data($memberids, array_values($coursesrecords));
 
-        $can_view_email = is_siteadmin() || has_capability('moodle/site:viewuseridentity', $context);
+        $canviewemail = is_siteadmin() || has_capability('moodle/site:viewuseridentity', $context);
 
         $members = [];
-        $course_count = count($courses_records);
+        $coursecount = count($coursesrecords);
 
-        foreach ($members_records as $u) {
-            $user_course_progress = [];
-            $total_progress = 0;
-            
-            foreach ($courses_records as $c) {
-                $prog_val = $progress_data[$u->id][$c->id] ?? 0;
-                $total_progress += $prog_val;
-                
-                $user_course_progress[] = [
+        foreach ($membersrecords as $u) {
+            $u->firstnamephonetic = $u->firstnamephonetic ?? '';
+            $u->lastnamephonetic = $u->lastnamephonetic ?? '';
+            $u->middlename = $u->middlename ?? '';
+            $u->alternatename = $u->alternatename ?? '';
+            $u->email = $u->email ?? '';
+            $u->lastaccess = $u->lastaccess ?? 0;
+            $u->suspended = $u->suspended ?? 0;
+
+            $usercourseprogress = [];
+            $totalprogress = 0;
+
+            foreach ($coursesrecords as $c) {
+                $progval = $progressdata[$u->id][$c->id] ?? 0;
+                $totalprogress += $progval;
+
+                $usercourseprogress[] = [
                     'courseid' => (int)$c->id,
-                    'progress' => $prog_val
+                    'progress' => $progval,
                 ];
             }
-            
-            $progress = $course_count > 0 ? (int)round($total_progress / $course_count) : 0;
-            
+
+            $progress = $coursecount > 0 ? (int)round($totalprogress / $coursecount) : 0;
+
             $members[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
-                'email' => $can_view_email ? (string)$u->email : '',
+                'email' => $canviewemail ? (string)$u->email : '',
                 'lastaccess' => (int)$u->lastaccess,
                 'suspended' => (int)$u->suspended,
                 'progress' => $progress,
-                'course_progresses' => $user_course_progress
+                'course_progresses' => $usercourseprogress,
             ];
         }
 
         $courses = [];
-        $member_count = count($members_records);
-        foreach ($courses_records as $c) {
-            $course_total_progress = 0;
-            foreach ($members_records as $u) {
-                $course_total_progress += ($progress_data[$u->id][$c->id] ?? 0);
+        $membercount = count($membersrecords);
+        foreach ($coursesrecords as $c) {
+            $coursetotalprogress = 0;
+            foreach ($membersrecords as $u) {
+                $coursetotalprogress += ($progressdata[$u->id][$c->id] ?? 0);
             }
-            $course_progress = $member_count > 0 ? (int)round($course_total_progress / $member_count) : 0;
+            $courseprogress = $membercount > 0 ? (int)round($coursetotalprogress / $membercount) : 0;
 
             $courses[] = [
                 'id' => (int)$c->id,
@@ -324,12 +386,12 @@ class cohorts extends external_api {
                 'shortname' => (string)$c->shortname,
                 'enrolid' => (int)$c->enrolid,
                 'enrolledcount' => (int)($c->enrolledcount ?? 0),
-                'progress' => $course_progress,
+                'progress' => $courseprogress,
             ];
         }
 
-        $overall_progress = ($course_count > 0 && $member_count > 0)
-            ? (int)round(array_sum(array_column($members, 'progress')) / $member_count)
+        $overallprogress = ($coursecount > 0 && $membercount > 0)
+            ? (int)round(array_sum(array_column($members, 'progress')) / $membercount)
             : 0;
 
         return [
@@ -337,13 +399,18 @@ class cohorts extends external_api {
             'name' => (string)$cohort->name,
             'idnumber' => (string)$cohort->idnumber,
             'description' => (string)$cohort->description,
-            'progress' => $overall_progress,
+            'progress' => $overallprogress,
             'members' => $members,
-            'courses' => $courses
+            'courses' => $courses,
         ];
     }
 
-    public static function get_cohort_detail_returns() {
+    /**
+     * Describes the return structure for get_cohort_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_cohort_detail_returns(): external_single_structure {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'Cohort ID'),
             'name' => new external_value(PARAM_TEXT, 'Cohort name'),
@@ -361,7 +428,7 @@ class cohorts extends external_api {
                     'course_progresses' => new external_multiple_structure(
                         new external_single_structure([
                             'courseid' => new external_value(PARAM_INT, 'Course ID'),
-                            'progress' => new external_value(PARAM_INT, 'Progress percentage')
+                            'progress' => new external_value(PARAM_INT, 'Progress percentage'),
                         ]),
                         'List of course progress percentages for this user',
                         VALUE_OPTIONAL
@@ -381,11 +448,21 @@ class cohorts extends external_api {
         ]);
     }
 
-    public static function get_cohorts_kpis_parameters() {
+    /**
+     * Describes the parameters for get_cohorts_kpis.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_cohorts_kpis_parameters(): external_function_parameters {
         return new external_function_parameters([]);
     }
 
-    public static function get_cohorts_kpis() {
+    /**
+     * Get aggregate KPIs for cohorts.
+     *
+     * @return array
+     */
+    public static function get_cohorts_kpis(): array {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/cohort:view', $context);
@@ -393,7 +470,12 @@ class cohorts extends external_api {
         return cohort_repository::get_kpis();
     }
 
-    public static function get_cohorts_kpis_returns() {
+    /**
+     * Describes the return structure for get_cohorts_kpis.
+     *
+     * @return external_single_structure
+     */
+    public static function get_cohorts_kpis_returns(): external_single_structure {
         return new external_single_structure([
             'total_cohorts'  => new external_value(PARAM_INT, 'Total cohorts'),
             'total_members'  => new external_value(PARAM_INT, 'Total members across all cohorts'),

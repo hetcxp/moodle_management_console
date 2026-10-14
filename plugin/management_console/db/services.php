@@ -450,7 +450,7 @@ $functions = [
         'methodname'  => 'save_license',
         'description' => 'Save and validate a license activation key',
         'type'        => 'write',
-        'capabilities'=> 'moodle/site:config',
+        'capabilities' => 'moodle/site:config',
         'ajax'        => true,
     ],
     'tool_management_console_get_license_info' => [
@@ -458,7 +458,7 @@ $functions = [
         'methodname'  => 'get_license_info',
         'description' => 'Get current license status and metadata',
         'type'        => 'read',
-        'capabilities'=> 'tool/management_console:access',
+        'capabilities' => 'tool/management_console:access',
         'ajax'        => true,
     ],
     'tool_management_console_remove_license' => [
@@ -466,7 +466,7 @@ $functions = [
         'methodname'  => 'remove_license',
         'description' => 'Remove and revoke the license activation key',
         'type'        => 'write',
-        'capabilities'=> 'moodle/site:config',
+        'capabilities' => 'moodle/site:config',
         'ajax'        => true,
     ],
 ];

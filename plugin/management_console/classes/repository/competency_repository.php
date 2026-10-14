@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Competency repository class.
  *
@@ -34,15 +32,13 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_repository {
-
-
     /**
      * Devuelve los detalles de una competencia individual y sus subcompetencias hijas.
      *
-     * @param int $competencyid
-     * @return array|null
+     * @param int $competencyid Competency ID.
+     * @return array|null Competency details or null if not found.
      */
-    public static function get_competency_detail($competencyid) {
+    public static function get_competency_detail(int $competencyid): ?array {
         global $DB;
 
         $sql = "
@@ -64,21 +60,27 @@ class competency_repository {
             return null;
         }
 
-        // Consultar subcompetencias hijas directas
-        $sql_children = "
+        // Consultar subcompetencias hijas directas.
+        $sqlchildren = "
             SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.path, c.sortorder,
                    c.ruletype, c.ruleoutcome, c.timecreated, c.timemodified,
-                   COALESCE((SELECT COUNT(DISTINCT cc.courseid) FROM {competency_coursecomp} cc WHERE cc.competencyid = c.id), 0) AS coursescount,
-                   COALESCE((SELECT COUNT(sub.id) FROM {competency} sub WHERE sub.parentid = c.id), 0) AS childrencount,
-                   COALESCE((SELECT COUNT(uc.id) FROM {competency_usercomp} uc WHERE uc.competencyid = c.id AND uc.status IN (1, 2)), 0) AS pendingreviewscount
+                   COALESCE((SELECT COUNT(DISTINCT cc.courseid)
+                               FROM {competency_coursecomp} cc
+                              WHERE cc.competencyid = c.id), 0) AS coursescount,
+                   COALESCE((SELECT COUNT(sub.id)
+                               FROM {competency} sub
+                              WHERE sub.parentid = c.id), 0) AS childrencount,
+                   COALESCE((SELECT COUNT(uc.id)
+                               FROM {competency_usercomp} uc
+                              WHERE uc.competencyid = c.id AND uc.status IN (1, 2)), 0) AS pendingreviewscount
               FROM {competency} c
              WHERE c.parentid = :competencyid
           ORDER BY c.sortorder ASC, c.shortname ASC
         ";
-        $children_records = $DB->get_records_sql($sql_children, ['competencyid' => $competencyid]);
+        $childrenrecords = $DB->get_records_sql($sqlchildren, ['competencyid' => $competencyid]);
 
         $children = [];
-        foreach ($children_records as $ch) {
+        foreach ($childrenrecords as $ch) {
             $children[] = [
                 'id'                  => (int)$ch->id,
                 'shortname'           => (string)$ch->shortname,
@@ -97,15 +99,15 @@ class competency_repository {
             ];
         }
 
-        $clean_path = trim((string)$record->path, '/');
-        $parts = array_filter(explode('/', $clean_path), function($p) {
+        $cleanpath = trim((string)$record->path, '/');
+        $parts = array_filter(explode('/', $cleanpath), function ($p) {
             return $p !== '' && $p !== '0';
         });
         $level = max(1, count($parts));
         if ($level === 1 && (int)$record->parentid > 0) {
             $level = 2;
-            $parent_rec = $DB->get_record('competency', ['id' => $record->parentid], 'id, parentid');
-            if ($parent_rec && (int)$parent_rec->parentid > 0) {
+            $parentrec = $DB->get_record('competency', ['id' => $record->parentid], 'id, parentid');
+            if ($parentrec && (int)$parentrec->parentid > 0) {
                 $level = 3;
             }
         }
@@ -113,12 +115,12 @@ class competency_repository {
         $grandparentname = '';
         $grandparentid = 0;
         if (!empty($record->parentid)) {
-            $parent_rec = $DB->get_record('competency', ['id' => $record->parentid], 'id, parentid');
-            if ($parent_rec && !empty($parent_rec->parentid)) {
-                $gp_rec = $DB->get_record('competency', ['id' => $parent_rec->parentid], 'id, shortname');
-                if ($gp_rec) {
-                    $grandparentid = (int)$gp_rec->id;
-                    $grandparentname = (string)$gp_rec->shortname;
+            $parentrec = $DB->get_record('competency', ['id' => $record->parentid], 'id, parentid');
+            if ($parentrec && !empty($parentrec->parentid)) {
+                $gprec = $DB->get_record('competency', ['id' => $parentrec->parentid], 'id, shortname');
+                if ($gprec) {
+                    $grandparentid = (int)$gprec->id;
+                    $grandparentname = (string)$gprec->shortname;
                 }
             }
         }
@@ -135,7 +137,7 @@ class competency_repository {
             'grandparentname'      => (string)$grandparentname,
             'path'                 => (string)$record->path,
             'sortorder'            => (int)$record->sortorder,
-            'competencyframeworkid'=> (int)$record->competencyframeworkid,
+            'competencyframeworkid' => (int)$record->competencyframeworkid,
             'frameworkname'        => (string)$record->frameworkname,
             'frameworkidnumber'    => (string)($record->frameworkidnumber ?? ''),
             'frameworkvisible'     => (int)$record->frameworkvisible,
@@ -155,10 +157,10 @@ class competency_repository {
     /**
      * Devuelve los cursos vinculados a una competencia y las actividades vinculadas en cada curso.
      *
-     * @param int $competencyid
-     * @return array
+     * @param int $competencyid Competency ID.
+     * @return array List of courses and their modules.
      */
-    public static function get_competency_courses($competencyid) {
+    public static function get_competency_courses(int $competencyid): array {
         global $DB;
 
         $sql = "
@@ -174,8 +176,8 @@ class competency_repository {
 
         $records = $DB->get_records_sql($sql, ['competencyid' => $competencyid]);
 
-        // Obtener actividades asociadas a la competencia en mdl_competency_modulecomp
-        $sql_modules = "
+        // Obtener actividades asociadas a la competencia en mdl_competency_modulecomp.
+        $sqlmodules = "
             SELECT mc.id, mc.cmid, mc.ruleoutcome, mc.sortorder, mc.timecreated,
                    cm.course AS courseid, cm.module AS moduleid, m.name AS modname, cm.instance
               FROM {competency_modulecomp} mc
@@ -184,21 +186,21 @@ class competency_repository {
              WHERE mc.competencyid = :competencyid
           ORDER BY mc.sortorder ASC, mc.id ASC
         ";
-        $module_records = $DB->get_records_sql($sql_modules, ['competencyid' => $competencyid]);
+        $modulerecords = $DB->get_records_sql($sqlmodules, ['competencyid' => $competencyid]);
 
-        $modules_by_course = [];
-        $activity_names = self::resolve_module_activity_names($module_records);
-        foreach ($module_records as $mr) {
-            $activity_name = $activity_names[$mr->modname][$mr->instance] ?? '';
-            if (empty($activity_name)) {
-                $activity_name = ucfirst($mr->modname) . ' #' . $mr->instance;
+        $modulesbycourse = [];
+        $activitynames = self::resolve_module_activity_names($modulerecords);
+        foreach ($modulerecords as $mr) {
+            $activityname = $activitynames[$mr->modname][$mr->instance] ?? '';
+            if (empty($activityname)) {
+                $activityname = ucfirst($mr->modname) . ' #' . $mr->instance;
             }
 
-            $modules_by_course[$mr->courseid][] = [
+            $modulesbycourse[$mr->courseid][] = [
                 'id'          => (int)$mr->id,
                 'cmid'        => (int)$mr->cmid,
                 'modname'     => (string)$mr->modname,
-                'name'        => $activity_name,
+                'name'        => $activityname,
                 'ruleoutcome' => (int)$mr->ruleoutcome,
                 'sortorder'   => (int)$mr->sortorder,
                 'timecreated' => (int)$mr->timecreated,
@@ -218,7 +220,7 @@ class competency_repository {
                 'ruleoutcome'  => (int)$r->ruleoutcome,
                 'sortorder'    => (int)$r->sortorder,
                 'timecreated'  => (int)$r->timecreated,
-                'activities'   => $modules_by_course[$r->courseid] ?? [],
+                'activities'   => $modulesbycourse[$r->courseid] ?? [],
             ];
         }
 
@@ -228,29 +230,29 @@ class competency_repository {
     /**
      * Devuelve los cursos y actividades vinculados a cada subcompetencia hija de una competencia principal.
      *
-     * @param int $competencyid
-     * @return array
+     * @param int $competencyid Competency ID.
+     * @return array List of subcompetencies and their courses.
      */
-    public static function get_subcompetencies_courses($competencyid) {
+    public static function get_subcompetencies_courses(int $competencyid): array {
         global $DB;
 
-        // 1. Obtener subcompetencias hijas directas
-        $sql_children = "
+        // 1. Obtener subcompetencias hijas directas.
+        $sqlchildren = "
             SELECT c.id, c.shortname, c.idnumber, c.description, c.parentid, c.sortorder
               FROM {competency} c
              WHERE c.parentid = :competencyid
           ORDER BY c.sortorder ASC, c.shortname ASC
         ";
-        $children = $DB->get_records_sql($sql_children, ['competencyid' => $competencyid]);
+        $children = $DB->get_records_sql($sqlchildren, ['competencyid' => $competencyid]);
         if (empty($children)) {
             return [];
         }
 
-        $subcomp_ids = array_map('intval', array_keys($children));
-        list($insql, $params) = $DB->get_in_or_equal($subcomp_ids, SQL_PARAMS_NAMED, 'sc');
+        $subcompids = array_map('intval', array_keys($children));
+        [$insql, $params] = $DB->get_in_or_equal($subcompids, SQL_PARAMS_NAMED, 'sc');
 
-        // 2. Obtener todos los cursos vinculados a cualquiera de las subcompetencias
-        $sql_courses = "
+        // 2. Obtener todos los cursos vinculados a cualquiera de las subcompetencias.
+        $sqlcourses = "
             SELECT cc.id AS linkid, cc.competencyid, c.id AS courseid, c.fullname, c.shortname, c.idnumber, c.visible, c.category,
                    COALESCE(cat.name, '') AS categoryname,
                    cc.ruleoutcome, cc.sortorder, cc.timecreated
@@ -260,10 +262,10 @@ class competency_repository {
              WHERE cc.competencyid $insql
           ORDER BY cc.sortorder ASC, c.fullname ASC
         ";
-        $course_records = $DB->get_records_sql($sql_courses, $params);
+        $courserecords = $DB->get_records_sql($sqlcourses, $params);
 
-        // 3. Obtener actividades asociadas a cualquiera de las subcompetencias
-        $sql_modules = "
+        // 3. Obtener actividades asociadas a cualquiera de las subcompetencias.
+        $sqlmodules = "
             SELECT mc.id, mc.competencyid, mc.cmid, mc.ruleoutcome, mc.sortorder, mc.timecreated,
                    cm.course AS courseid, cm.module AS moduleid, m.name AS modname, cm.instance
               FROM {competency_modulecomp} mc
@@ -272,30 +274,30 @@ class competency_repository {
              WHERE mc.competencyid $insql
           ORDER BY mc.sortorder ASC, mc.id ASC
         ";
-        $module_records = $DB->get_records_sql($sql_modules, $params);
+        $modulerecords = $DB->get_records_sql($sqlmodules, $params);
 
-        $modules_by_subcomp_course = [];
-        $activity_names = self::resolve_module_activity_names($module_records);
-        foreach ($module_records as $mr) {
-            $activity_name = $activity_names[$mr->modname][$mr->instance] ?? '';
-            if (empty($activity_name)) {
-                $activity_name = ucfirst($mr->modname) . ' #' . $mr->instance;
+        $modulesbysubcompcourse = [];
+        $activitynames = self::resolve_module_activity_names($modulerecords);
+        foreach ($modulerecords as $mr) {
+            $activityname = $activitynames[$mr->modname][$mr->instance] ?? '';
+            if (empty($activityname)) {
+                $activityname = ucfirst($mr->modname) . ' #' . $mr->instance;
             }
 
-            $modules_by_subcomp_course[$mr->competencyid][$mr->courseid][] = [
+            $modulesbysubcompcourse[$mr->competencyid][$mr->courseid][] = [
                 'id'          => (int)$mr->id,
                 'cmid'        => (int)$mr->cmid,
                 'modname'     => (string)$mr->modname,
-                'name'        => $activity_name,
+                'name'        => $activityname,
                 'ruleoutcome' => (int)$mr->ruleoutcome,
                 'sortorder'   => (int)$mr->sortorder,
                 'timecreated' => (int)$mr->timecreated,
             ];
         }
 
-        $courses_by_subcomp = [];
-        foreach ($course_records as $cr) {
-            $courses_by_subcomp[$cr->competencyid][] = [
+        $coursesbysubcomp = [];
+        foreach ($courserecords as $cr) {
+            $coursesbysubcomp[$cr->competencyid][] = [
                 'id'           => (int)$cr->courseid,
                 'fullname'     => (string)$cr->fullname,
                 'shortname'    => (string)$cr->shortname,
@@ -306,31 +308,31 @@ class competency_repository {
                 'ruleoutcome'  => (int)$cr->ruleoutcome,
                 'sortorder'    => (int)$cr->sortorder,
                 'timecreated'  => (int)$cr->timecreated,
-                'activities'   => $modules_by_subcomp_course[$cr->competencyid][$cr->courseid] ?? [],
+                'activities'   => $modulesbysubcompcourse[$cr->competencyid][$cr->courseid] ?? [],
             ];
         }
 
-        $subcompetency_courses = [];
+        $subcompetencycourses = [];
         foreach ($children as $child) {
-            $subcompetency_courses[] = [
+            $subcompetencycourses[] = [
                 'competencyid'       => (int)$child->id,
                 'competencyname'     => (string)$child->shortname,
                 'competencyidnumber' => (string)($child->idnumber ?? ''),
-                'courses'            => $courses_by_subcomp[$child->id] ?? [],
+                'courses'            => $coursesbysubcomp[$child->id] ?? [],
             ];
         }
 
-        return $subcompetency_courses;
+        return $subcompetencycourses;
     }
 
     /**
      * Obtiene las actividades disponibles en un curso para vincular a una competencia.
      *
-     * @param int $courseid
-     * @param int $competencyid
-     * @return array
+     * @param int $courseid Course ID.
+     * @param int $competencyid Competency ID.
+     * @return array List of available course activities.
      */
-    public static function get_course_available_activities($courseid, $competencyid = 0) {
+    public static function get_course_available_activities(int $courseid, int $competencyid = 0): array {
         global $DB;
 
         $sql = "
@@ -342,11 +344,11 @@ class competency_repository {
         ";
         $records = $DB->get_records_sql($sql, ['courseid' => $courseid]);
 
-        $linked_cmids = [];
+        $linkedcmids = [];
         if ($competencyid > 0) {
             $linked = $DB->get_records('competency_modulecomp', ['competencyid' => $competencyid], '', 'cmid, ruleoutcome, id');
             foreach ($linked as $l) {
-                $linked_cmids[$l->cmid] = [
+                $linkedcmids[$l->cmid] = [
                     'id'          => (int)$l->id,
                     'ruleoutcome' => (int)$l->ruleoutcome,
                 ];
@@ -354,14 +356,14 @@ class competency_repository {
         }
 
         $activities = [];
-        $activity_names = self::resolve_module_activity_names($records);
+        $activitynames = self::resolve_module_activity_names($records);
         foreach ($records as $r) {
-            $name = $activity_names[$r->modname][$r->instance] ?? '';
+            $name = $activitynames[$r->modname][$r->instance] ?? '';
             if (empty($name)) {
                 $name = ucfirst($r->modname) . ' #' . $r->instance;
             }
 
-            $is_linked = isset($linked_cmids[$r->cmid]);
+            $islinked = isset($linkedcmids[$r->cmid]);
             $activities[] = [
                 'cmid'        => (int)$r->cmid,
                 'courseid'    => (int)$r->course,
@@ -369,9 +371,9 @@ class competency_repository {
                 'name'        => $name,
                 'visible'     => (int)$r->visible,
                 'section'     => (int)$r->section,
-                'islinked'    => $is_linked ? 1 : 0,
-                'linkid'      => $is_linked ? $linked_cmids[$r->cmid]['id'] : 0,
-                'ruleoutcome' => $is_linked ? $linked_cmids[$r->cmid]['ruleoutcome'] : 0,
+                'islinked'    => $islinked ? 1 : 0,
+                'linkid'      => $islinked ? $linkedcmids[$r->cmid]['id'] : 0,
+                'ruleoutcome' => $islinked ? $linkedcmids[$r->cmid]['ruleoutcome'] : 0,
             ];
         }
 
@@ -386,21 +388,21 @@ class competency_repository {
      */
     private static function resolve_module_activity_names(array $records): array {
         global $DB;
-        $instances_by_mod = [];
+        $instancesbymod = [];
         foreach ($records as $r) {
             if (!empty($r->modname) && !empty($r->instance)) {
-                $instances_by_mod[$r->modname][] = (int)$r->instance;
+                $instancesbymod[$r->modname][] = (int)$r->instance;
             }
         }
 
         $names = [];
-        foreach ($instances_by_mod as $modname => $instances) {
-            $unique_instances = array_values(array_unique($instances));
-            if (empty($unique_instances)) {
+        foreach ($instancesbymod as $modname => $instances) {
+            $uniqueinstances = array_values(array_unique($instances));
+            if (empty($uniqueinstances)) {
                 continue;
             }
             try {
-                list($insql, $inparams) = $DB->get_in_or_equal($unique_instances, SQL_PARAMS_NAMED, 'inst');
+                [$insql, $inparams] = $DB->get_in_or_equal($uniqueinstances, SQL_PARAMS_NAMED, 'inst');
                 $items = $DB->get_records_select_menu($modname, "id $insql", $inparams, '', 'id, name');
                 if (!empty($items)) {
                     foreach ($items as $instid => $name) {
@@ -417,90 +419,108 @@ class competency_repository {
     /**
      * Cuenta revisiones pendientes a nivel de marco.
      *
-     * @param int $frameworkid
-     * @return int
+     * @param int $frameworkid Framework ID.
+     * @return int Pending reviews count.
      */
-    public static function count_pending_reviews_by_framework($frameworkid) {
+    public static function count_pending_reviews_by_framework(int $frameworkid): int {
         return competency_review_repository::count_pending_reviews_by_framework($frameworkid);
     }
 
     /**
      * Cuenta revisiones pendientes a nivel de competencia.
      *
-     * @param int $competencyid
-     * @return int
+     * @param int $competencyid Competency ID.
+     * @return int Pending reviews count.
      */
-    public static function count_pending_reviews_by_competency($competencyid) {
+    public static function count_pending_reviews_by_competency(int $competencyid): int {
         return competency_review_repository::count_pending_reviews_by_competency($competencyid);
     }
 
     /**
      * Cuenta revisiones pendientes a nivel de curso.
      *
-     * @param int $courseid
-     * @return int
+     * @param int $courseid Course ID.
+     * @return int Pending reviews count.
      */
-    public static function count_pending_reviews_by_course($courseid) {
+    public static function count_pending_reviews_by_course(int $courseid): int {
         return competency_review_repository::count_pending_reviews_by_course($courseid);
     }
 
     /**
      * Obtiene el listado de revisiones pendientes con paginación y filtros.
      *
-     * @param array $filters
-     * @param int $page
-     * @param int $perpage
-     * @return array
+     * @param array $filters Filter parameters.
+     * @param int $page Page offset.
+     * @param int $perpage Records per page.
+     * @return array Pending reviews list and counts.
      */
-    public static function get_pending_reviews($filters = [], $page = 0, $perpage = 20) {
+    public static function get_pending_reviews(array $filters = [], int $page = 0, int $perpage = 20): array {
         return competency_review_repository::get_pending_reviews($filters, $page, $perpage);
     }
 
     /**
      * Evalúa y completa la revisión de una competencia de usuario.
      *
-     * @param int $usercompid
-     * @param int $grade
-     * @param int $proficiency
-     * @param string $note
-     * @param int $reviewerid
-     * @return bool
+     * @param int $usercompid User competency ID.
+     * @param int $grade Grade value.
+     * @param int $proficiency Proficiency flag.
+     * @param string $note Reviewer note.
+     * @param int $reviewerid Reviewer user ID.
+     * @return array Result status array.
      */
-    public static function evaluate_competency_review($usercompid, $grade, $proficiency, $note = '', $reviewerid = 0) {
+    public static function evaluate_competency_review(
+        int $usercompid,
+        int $grade,
+        int $proficiency,
+        string $note = '',
+        int $reviewerid = 0
+    ): array {
         return competency_review_repository::evaluate_competency_review($usercompid, $grade, $proficiency, $note, $reviewerid);
     }
 
     /**
      * Resuelve los IDs de cursos asociados directa e indirectamente a una competencia.
      *
-     * @param int $competencyid
-     * @param int $courseid
-     * @return array [$all_course_ids, $relevant_course_ids, $child_ids]
+     * @param int $competencyid Competency ID.
+     * @param int $courseid Course ID.
+     * @return array [$allcourseids, $relevantcourseids, $childids]
      */
     private static function resolve_competency_course_ids(int $competencyid, int $courseid = 0): array {
         global $DB;
-        $direct_course_ids = $DB->get_fieldset_select('competency_coursecomp', 'DISTINCT courseid', 'competencyid = :cid', ['cid' => $competencyid]) ?: [];
-        $child_ids = $DB->get_fieldset_select('competency', 'id', 'parentid = :cid', ['cid' => $competencyid]) ?: [];
-        $sub_course_ids = [];
-        if (!empty($child_ids)) {
-            list($ch_sql, $ch_params) = $DB->get_in_or_equal($child_ids, SQL_PARAMS_NAMED, 'ch');
-            $sub_course_ids = $DB->get_fieldset_select('competency_coursecomp', 'DISTINCT courseid', "competencyid $ch_sql", $ch_params) ?: [];
+        $directcourseids = $DB->get_fieldset_select(
+            'competency_coursecomp',
+            'DISTINCT courseid',
+            'competencyid = :cid',
+            ['cid' => $competencyid]
+        ) ?: [];
+        $childids = $DB->get_fieldset_select('competency', 'id', 'parentid = :cid', ['cid' => $competencyid]) ?: [];
+        $subcourseids = [];
+        if (!empty($childids)) {
+            [$chsql, $chparams] = $DB->get_in_or_equal($childids, SQL_PARAMS_NAMED, 'ch');
+            $subcourseids = $DB->get_fieldset_select(
+                'competency_coursecomp',
+                'DISTINCT courseid',
+                "competencyid $chsql",
+                $chparams
+            ) ?: [];
         }
-        $all_course_ids = array_values(array_unique(array_merge($direct_course_ids, $sub_course_ids)));
-        $relevant_course_ids = ($courseid > 0) ? (in_array($courseid, $all_course_ids) ? [$courseid] : [$courseid]) : $all_course_ids;
+        $allcourseids = array_values(array_unique(array_merge($directcourseids, $subcourseids)));
+        $relevantcourseids = ($courseid > 0)
+            ? (in_array($courseid, $allcourseids) ? [$courseid] : [$courseid])
+            : $allcourseids;
 
-        return [$all_course_ids, $relevant_course_ids, $child_ids];
+        return [$allcourseids, $relevantcourseids, $childids];
     }
 
     /**
      * Obtiene la escala de calificación asociada al marco de la competencia.
      *
-     * @param int $competencyid
-     * @return array [$scale_info, $scale_items]
+     * @param int $competencyid Competency ID.
+     * @return array [$scaleinfo, $scaleitems]
      */
     private static function fetch_competency_scale_info(int $competencyid): array {
         global $DB;
-        $scale_info = $DB->get_record_sql("
+        $scaleinfo = $DB->get_record_sql("
             SELECT s.id, s.name, s.scale
               FROM {competency} c
               JOIN {competency_framework} f ON f.id = c.competencyframeworkid
@@ -508,45 +528,45 @@ class competency_repository {
              WHERE c.id = :cid
         ", ['cid' => $competencyid]);
 
-        $scale_items = [];
-        if (!empty($scale_info->scale)) {
-            $scale_items = array_map('trim', explode(',', $scale_info->scale));
+        $scaleitems = [];
+        if (!empty($scaleinfo->scale)) {
+            $scaleitems = array_map('trim', explode(',', $scaleinfo->scale));
         }
 
-        return [$scale_info, $scale_items];
+        return [$scaleinfo, $scaleitems];
     }
 
     /**
      * Construye el universo tripartito de usuarios vinculados a una competencia.
      *
-     * @param int $competencyid
-     * @param array $relevant_course_ids
-     * @return array [$usercomp_by_user, $adhoc_user_ids, $all_user_ids]
+     * @param int $competencyid Competency ID.
+     * @param array $relevantcourseids Relevant course IDs array.
+     * @return array [$usercompbyuser, $adhocuserids, $alluserids]
      */
-    private static function build_competency_user_universe(int $competencyid, array $relevant_course_ids): array {
+    private static function build_competency_user_universe(int $competencyid, array $relevantcourseids): array {
         global $DB;
-        $usercomp_records = $DB->get_records('competency_usercomp', ['competencyid' => $competencyid]);
-        $usercomp_by_user = [];
-        foreach ($usercomp_records as $uc) {
-            $usercomp_by_user[$uc->userid] = $uc;
+        $usercomprecords = $DB->get_records('competency_usercomp', ['competencyid' => $competencyid]);
+        $usercompbyuser = [];
+        foreach ($usercomprecords as $uc) {
+            $usercompbyuser[$uc->userid] = $uc;
         }
 
-        $enrolled_user_ids = [];
-        if (!empty($relevant_course_ids)) {
-            list($rc_sql, $rc_params) = $DB->get_in_or_equal($relevant_course_ids, SQL_PARAMS_NAMED, 'rc');
-            $enrolled_user_ids = $DB->get_fieldset_sql("
+        $enrolleduserids = [];
+        if (!empty($relevantcourseids)) {
+            [$rcsql, $rcparams] = $DB->get_in_or_equal($relevantcourseids, SQL_PARAMS_NAMED, 'rc');
+            $enrolleduserids = $DB->get_fieldset_sql("
                 SELECT DISTINCT ue.userid
                   FROM {enrol} e
                   JOIN {user_enrolments} ue ON ue.enrolid = e.id
                   JOIN {user} u ON u.id = ue.userid
-                 WHERE e.courseid $rc_sql AND ue.status = 0 AND u.deleted = 0
-            ", $rc_params) ?: [];
+                 WHERE e.courseid $rcsql AND ue.status = 0 AND u.deleted = 0
+            ", $rcparams) ?: [];
         }
 
-        $adhoc_user_ids = [];
+        $adhocuserids = [];
         $dbman = $DB->get_manager();
         if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
-            $sql_adhoc = "
+            $sqladhoc = "
                 SELECT DISTINCT p.userid
                   FROM {competency_plancomp} pc
                   JOIN {competency_plan} p ON p.id = pc.planid
@@ -554,256 +574,286 @@ class competency_repository {
                    AND (p.templateid IS NULL OR p.templateid = 0)
                    AND p.name = :planname
             ";
-            $adhoc_user_ids = $DB->get_fieldset_sql($sql_adhoc, [
+            $adhocuserids = $DB->get_fieldset_sql($sqladhoc, [
                 'cid'      => $competencyid,
                 'planname' => 'Plan de Competencias Personales',
             ]) ?: [];
-            $adhoc_user_ids = array_map('intval', $adhoc_user_ids);
+            $adhocuserids = array_map('intval', $adhocuserids);
         }
 
-        $all_user_ids = array_values(array_unique(array_merge(
-            array_keys($usercomp_by_user),
-            $enrolled_user_ids,
-            $adhoc_user_ids
+        $alluserids = array_values(array_unique(array_merge(
+            array_keys($usercompbyuser),
+            $enrolleduserids,
+            $adhocuserids
         )));
 
-        return [$usercomp_by_user, $adhoc_user_ids, $all_user_ids];
+        return [$usercompbyuser, $adhocuserids, $alluserids];
     }
 
     /**
      * Carga y computa el progreso en cursos para los usuarios de la página actual.
      *
-     * @param array $page_user_ids
-     * @param array $all_course_ids
-     * @param int $competencyid
-     * @return array
+     * @param array $pageuserids Array of page user IDs.
+     * @param array $allcourseids Array of course IDs.
+     * @param int $competencyid Competency ID.
+     * @return array Course map for users.
      */
-    private static function load_page_users_course_map(array $page_user_ids, array $all_course_ids, int $competencyid): array {
+    private static function load_page_users_course_map(array $pageuserids, array $allcourseids, int $competencyid): array {
         global $DB;
-        $user_courses_map = [];
-        if (empty($all_course_ids) || empty($page_user_ids)) {
-            return $user_courses_map;
+        $usercoursesmap = [];
+        if (empty($allcourseids) || empty($pageuserids)) {
+            return $usercoursesmap;
         }
 
-        list($puid_sql, $puid_params) = $DB->get_in_or_equal($page_user_ids, SQL_PARAMS_NAMED, 'puid');
-        list($acid_sql, $acid_params) = $DB->get_in_or_equal($all_course_ids, SQL_PARAMS_NAMED, 'acid');
-        $enr_params = array_merge($puid_params, $acid_params);
+        [$puidsql, $puidparams] = $DB->get_in_or_equal($pageuserids, SQL_PARAMS_NAMED, 'puid');
+        [$acidsql, $acidparams] = $DB->get_in_or_equal($allcourseids, SQL_PARAMS_NAMED, 'acid');
+        $enrparams = array_merge($puidparams, $acidparams);
 
-        $sql_enr = "
+        $sqlenr = "
             SELECT ue.userid, c.id AS courseid, c.fullname, c.shortname, c.enablecompletion,
                    COALESCE(ccmp.timecompleted, 0) AS timecompleted
               FROM {enrol} e
               JOIN {user_enrolments} ue ON ue.enrolid = e.id
               JOIN {course} c ON c.id = e.courseid
          LEFT JOIN {course_completions} ccmp ON ccmp.userid = ue.userid AND ccmp.course = c.id
-             WHERE ue.userid $puid_sql AND e.courseid $acid_sql AND ue.status = 0
+             WHERE ue.userid $puidsql AND e.courseid $acidsql AND ue.status = 0
           ORDER BY c.fullname ASC
         ";
-        $enrol_results = $DB->get_records_sql($sql_enr, $enr_params);
+        $enrolresults = $DB->get_records_sql($sqlenr, $enrparams);
 
-        $sql_cm_done = "
+        $sqlcmdone = "
             SELECT cmc.userid, cm.course, COUNT(DISTINCT cmc.coursemoduleid) AS donecount
               FROM {course_modules_completion} cmc
               JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
-             WHERE cmc.userid $puid_sql AND cm.course $acid_sql AND cmc.completionstate IN (1, 2)
+             WHERE cmc.userid $puidsql AND cm.course $acidsql AND cmc.completionstate IN (1, 2)
           GROUP BY cmc.userid, cm.course
         ";
-        $cm_dones = $DB->get_records_sql($sql_cm_done, $enr_params);
-        $user_course_cm_done = [];
-        foreach ($cm_dones as $cmd) {
-            $user_course_cm_done[$cmd->userid . '_' . $cmd->course] = (int)$cmd->donecount;
+        $cmdones = $DB->get_records_sql($sqlcmdone, $enrparams);
+        $usercoursecmdone = [];
+        foreach ($cmdones as $cmd) {
+            $usercoursecmdone[$cmd->userid . '_' . $cmd->course] = (int)$cmd->donecount;
         }
 
-        $sql_cm_total = "
+        $sqlcmtotal = "
             SELECT cm.course, COUNT(cm.id) AS totalcount
               FROM {course_modules} cm
-             WHERE cm.course $acid_sql AND cm.completion > 0 AND cm.deletioninprogress = 0
+             WHERE cm.course $acidsql AND cm.completion > 0 AND cm.deletioninprogress = 0
           GROUP BY cm.course
         ";
-        $cm_totals = $DB->get_records_sql_menu($sql_cm_total, $acid_params) ?: [];
+        $cmtotals = $DB->get_records_sql_menu($sqlcmtotal, $acidparams) ?: [];
 
-        $ucc_records = $DB->get_records_select('competency_usercompcourse', "competencyid = :cid AND userid $puid_sql", array_merge(['cid' => $competencyid], $puid_params));
-        $ucc_by_user_course = [];
-        foreach ($ucc_records as $ucc) {
-            $ucc_by_user_course[$ucc->userid . '_' . $ucc->courseid] = $ucc;
+        $uccrecords = $DB->get_records_select(
+            'competency_usercompcourse',
+            "competencyid = :cid AND userid $puidsql",
+            array_merge(['cid' => $competencyid], $puidparams)
+        );
+        $uccbyusercourse = [];
+        foreach ($uccrecords as $ucc) {
+            $uccbyusercourse[$ucc->userid . '_' . $ucc->courseid] = $ucc;
         }
 
-        foreach ($enrol_results as $er) {
-            $is_completed = (int)$er->timecompleted > 0;
-            $ucc = $ucc_by_user_course[$er->userid . '_' . $er->courseid] ?? null;
+        foreach ($enrolresults as $er) {
+            $iscompleted = (int)$er->timecompleted > 0;
+            $ucc = $uccbyusercourse[$er->userid . '_' . $er->courseid] ?? null;
 
             $progress = 0;
-            if ($is_completed) {
+            if ($iscompleted) {
                 $progress = 100;
             } else {
-                $total_mods = (int)($cm_totals[$er->courseid] ?? 0);
-                $done_mods = (int)($user_course_cm_done[$er->userid . '_' . $er->courseid] ?? 0);
-                if ($total_mods > 0) {
-                    $progress = (int)round(($done_mods / $total_mods) * 100);
+                $totalmods = (int)($cmtotals[$er->courseid] ?? 0);
+                $donemods = (int)($usercoursecmdone[$er->userid . '_' . $er->courseid] ?? 0);
+                if ($totalmods > 0) {
+                    $progress = (int)round(($donemods / $totalmods) * 100);
                 }
             }
 
-            $user_courses_map[$er->userid][] = [
+            $usercoursesmap[$er->userid][] = [
                 'courseid'     => (int)$er->courseid,
                 'fullname'     => (string)$er->fullname,
                 'shortname'    => (string)$er->shortname,
-                'completed'    => $is_completed ? 1 : 0,
+                'completed'    => $iscompleted ? 1 : 0,
                 'progress'     => $progress,
                 'proficiency'  => $ucc ? (int)$ucc->proficiency : 0,
                 'grade'        => $ucc ? (int)$ucc->grade : 0,
             ];
         }
 
-        return $user_courses_map;
+        return $usercoursesmap;
     }
 
     /**
      * Carga y formatea las evidencias de competencias de la página actual.
      *
-     * @param array $page_user_ids
-     * @param array $usercomp_by_user
-     * @param array $scale_items
-     * @return array
+     * @param array $pageuserids Page user IDs array.
+     * @param array $usercompbyuser Map of user competencies by user ID.
+     * @param array $scaleitems Scale items array.
+     * @return array Evidence map by user.
      */
-    private static function load_page_users_evidences(array $page_user_ids, array $usercomp_by_user, array $scale_items): array {
+    private static function load_page_users_evidences(
+        array $pageuserids,
+        array $usercompbyuser,
+        array $scaleitems
+    ): array {
         global $DB;
-        $page_usercomp_ids = [];
-        $usercomp_to_userid = [];
-        foreach ($page_user_ids as $puid) {
-            if (isset($usercomp_by_user[$puid])) {
-                $ucid = (int)$usercomp_by_user[$puid]->id;
-                $page_usercomp_ids[] = $ucid;
-                $usercomp_to_userid[$ucid] = $puid;
+        $pageusercompids = [];
+        $usercomptouserid = [];
+        foreach ($pageuserids as $puid) {
+            if (isset($usercompbyuser[$puid])) {
+                $ucid = (int)$usercompbyuser[$puid]->id;
+                $pageusercompids[] = $ucid;
+                $usercomptouserid[$ucid] = $puid;
             }
         }
 
-        $evidences_by_user = [];
-        if (empty($page_usercomp_ids)) {
-            return $evidences_by_user;
+        $evidencesbyuser = [];
+        if (empty($pageusercompids)) {
+            return $evidencesbyuser;
         }
 
-        list($ev_sql, $ev_params) = $DB->get_in_or_equal($page_usercomp_ids, SQL_PARAMS_NAMED, 'evid');
-        $sql_ev = "
+        [$evsql, $evparams] = $DB->get_in_or_equal($pageusercompids, SQL_PARAMS_NAMED, 'evid');
+        $sqlev = "
             SELECT e.id, e.usercompetencyid, e.action, e.actionuserid, e.descidentifier,
                    e.note, e.grade, e.url, e.timecreated,
-                   u.firstname, u.lastname
+                   u.firstname, u.lastname,
+                   u.firstnamephonetic, u.lastnamephonetic, u.middlename, u.alternatename
               FROM {competency_evidence} e
          LEFT JOIN {user} u ON u.id = e.actionuserid
-             WHERE e.usercompetencyid $ev_sql
+             WHERE e.usercompetencyid $evsql
           ORDER BY e.timecreated DESC
         ";
-        $ev_records = $DB->get_records_sql($sql_ev, $ev_params);
-        foreach ($ev_records as $ev) {
-            $target_uid = $usercomp_to_userid[$ev->usercompetencyid] ?? 0;
-            if ($target_uid > 0) {
-                $grade_val = (int)($ev->grade ?? 0);
-                $grade_name = ($grade_val > 0 && isset($scale_items[$grade_val - 1])) ? $scale_items[$grade_val - 1] : '';
+        $evrecords = $DB->get_records_sql($sqlev, $evparams);
+        foreach ($evrecords as $ev) {
+            $targetuid = $usercomptouserid[$ev->usercompetencyid] ?? 0;
+            if ($targetuid > 0) {
+                $gradeval = (int)($ev->grade ?? 0);
+                $gradename = ($gradeval > 0 && isset($scaleitems[$gradeval - 1])) ? $scaleitems[$gradeval - 1] : '';
 
-                $action_name = 'Evidencia registrada';
+                $actionname = 'Evidencia registrada';
                 switch ((int)$ev->action) {
-                    case 0: $action_name = 'Evidencia manual'; break;
-                    case 1: $action_name = 'Evidencia adjuntada'; break;
-                    case 2: $action_name = 'Completado en curso'; break;
-                    case 3: $action_name = 'Revisión / Calificación'; break;
-                    default: $action_name = 'Registro de competencia'; break;
+                    case 0:
+                        $actionname = 'Evidencia manual';
+                        break;
+                    case 1:
+                        $actionname = 'Evidencia adjuntada';
+                        break;
+                    case 2:
+                        $actionname = 'Completado en curso';
+                        break;
+                    case 3:
+                        $actionname = 'Revisión / Calificación';
+                        break;
+                    default:
+                        $actionname = 'Registro de competencia';
+                        break;
                 }
 
-                $author_name = !empty($ev->firstname) ? fullname($ev) : 'Sistema Moodle';
+                $authorname = !empty($ev->firstname) ? fullname($ev) : 'Sistema Moodle';
 
-                $evidences_by_user[$target_uid][] = [
+                $evidencesbyuser[$targetuid][] = [
                     'id'                 => (int)$ev->id,
                     'action'             => (int)$ev->action,
-                    'actionname'         => $action_name,
-                    'actionuserfullname' => $author_name,
+                    'actionname'         => $actionname,
+                    'actionuserfullname' => $authorname,
                     'descidentifier'     => (string)($ev->descidentifier ?? ''),
                     'note'               => (string)($ev->note ?? ''),
-                    'grade'              => $grade_val,
-                    'gradename'          => $grade_name,
+                    'grade'              => $gradeval,
+                    'gradename'          => $gradename,
                     'url'                => competency_review_repository::sanitize_url($ev->url ?? null),
                     'timecreated'        => (int)$ev->timecreated,
                 ];
             }
         }
 
-        return $evidences_by_user;
+        return $evidencesbyuser;
     }
 
     /**
      * Carga el recuento de revisiones pendientes de competencias para los usuarios de la página actual.
      *
-     * @param array $page_user_ids
-     * @param int $competencyid
-     * @param array $child_ids
-     * @return array
+     * @param array $pageuserids Page user IDs array.
+     * @param int $competencyid Competency ID.
+     * @param array $childids Child competency IDs array.
+     * @return array Pending reviews count map by user ID.
      */
-    private static function load_page_users_pending_reviews(array $page_user_ids, int $competencyid, array $child_ids): array {
+    private static function load_page_users_pending_reviews(array $pageuserids, int $competencyid, array $childids): array {
         global $DB;
-        if (empty($page_user_ids)) {
+        if (empty($pageuserids)) {
             return [];
         }
 
-        $comp_ids_to_check = array_merge([(int)$competencyid], $child_ids);
-        list($chk_csql, $chk_cparams) = $DB->get_in_or_equal($comp_ids_to_check, SQL_PARAMS_NAMED, 'chkcomp');
-        list($chk_usql, $chk_uparams) = $DB->get_in_or_equal($page_user_ids, SQL_PARAMS_NAMED, 'chku');
-        $chk_params = array_merge($chk_cparams, $chk_uparams);
-        $sql_pending = "
+        $compidstocheck = array_merge([(int)$competencyid], $childids);
+        [$chkcsql, $chkcparams] = $DB->get_in_or_equal($compidstocheck, SQL_PARAMS_NAMED, 'chkcomp');
+        [$chkusql, $chkuparams] = $DB->get_in_or_equal($pageuserids, SQL_PARAMS_NAMED, 'chku');
+        $chkparams = array_merge($chkcparams, $chkuparams);
+        $sqlpending = "
             SELECT userid, COUNT(id) AS cnt
               FROM {competency_usercomp}
-             WHERE competencyid $chk_csql
-               AND userid $chk_usql
+             WHERE competencyid $chkcsql
+               AND userid $chkusql
                AND status IN (1, 2)
           GROUP BY userid
         ";
         try {
-            return $DB->get_records_sql_menu($sql_pending, $chk_params) ?: [];
+            return $DB->get_records_sql_menu($sqlpending, $chkparams) ?: [];
         } catch (\Exception $e) {
+            debugging('Error loading pending reviews in competency_repository: ' . $e->getMessage(), DEBUG_DEVELOPER);
             return [];
         }
     }
 
     /**
-     * Obtiene los usuarios vinculados a una competencia (a través de cursos asociados o registros de competencia),
-     * junto con sus cursos matriculados, progreso y evidencias registradas.
+     * Obtiene los usuarios vinculados a una competencia, junto con cursos, progreso y evidencias.
      *
-     * @param int $competencyid
-     * @param string $search
-     * @param string $status
-     * @param int $courseid
-     * @param int $page
-     * @param int $perpage
-     * @return array
+     * @param int $competencyid Competency ID.
+     * @param string $search Search query.
+     * @param string $status Filter status.
+     * @param int $courseid Course ID.
+     * @param int $page Page offset.
+     * @param int $perpage Records per page.
+     * @param string $sort Sort field.
+     * @param string $dir Sort direction.
+     * @return array Competency users list and pagination info.
      */
-    public static function get_competency_users($competencyid, $search = '', $status = 'all', $courseid = 0, $page = 0, $perpage = 20, $sort = 'lastname', $dir = 'ASC') {
+    public static function get_competency_users(
+        int $competencyid,
+        string $search = '',
+        string $status = 'all',
+        int $courseid = 0,
+        int $page = 0,
+        int $perpage = 20,
+        string $sort = 'lastname',
+        string $dir = 'ASC'
+    ): array {
         global $DB;
 
-        // 1. Resolver cursos asociados y escala
-        list($all_course_ids, $relevant_course_ids, $child_ids) = self::resolve_competency_course_ids($competencyid, $courseid);
-        list($scale_info, $scale_items) = self::fetch_competency_scale_info($competencyid);
+        // 1. Resolver cursos asociados y escala.
+        [$allcourseids, $relevantcourseids, $childids] = self::resolve_competency_course_ids($competencyid, $courseid);
+        [$scaleinfo, $scaleitems] = self::fetch_competency_scale_info($competencyid);
 
-        // 2. Obtener universo de usuarios
-        list($usercomp_by_user, $adhoc_user_ids, $all_user_ids) = self::build_competency_user_universe($competencyid, $relevant_course_ids);
-        if (empty($all_user_ids)) {
+        // 2. Obtener universo de usuarios.
+        [$usercompbyuser, $adhocuserids, $alluserids] = self::build_competency_user_universe($competencyid, $relevantcourseids);
+        if (empty($alluserids)) {
             return [
                 'totalcount' => 0,
                 'page'       => (int)$page,
                 'perpage'    => (int)$perpage,
                 'users'      => [],
                 'scale'      => [
-                    'id'    => (int)($scale_info->id ?? 0),
-                    'name'  => (string)($scale_info->name ?? 'Escala'),
-                    'items' => $scale_items,
+                    'id'    => (int)($scaleinfo->id ?? 0),
+                    'name'  => (string)($scaleinfo->name ?? 'Escala'),
+                    'items' => $scaleitems,
                 ],
             ];
         }
 
-        // 3. Filtrar por búsqueda y estado
-        list($u_sql, $u_params) = $DB->get_in_or_equal($all_user_ids, SQL_PARAMS_NAMED, 'uid');
-        $where_clauses = ["id $u_sql", "deleted = 0"];
-        $params = $u_params;
+        // 3. Filtrar por búsqueda y estado.
+        [$usql, $uparams] = $DB->get_in_or_equal($alluserids, SQL_PARAMS_NAMED, 'uid');
+        $whereclauses = ["id $usql", "deleted = 0"];
+        $params = $uparams;
 
         if (!empty($search)) {
             $like = '%' . $search . '%';
-            $where_clauses[] = "(" . $DB->sql_like('firstname', ':s1', false, false) .
+            $whereclauses[] = "(" . $DB->sql_like('firstname', ':s1', false, false) .
                                " OR " . $DB->sql_like('lastname', ':s2', false, false) .
                                " OR " . $DB->sql_like('email', ':s3', false, false) . ")";
             $params['s1'] = $like;
@@ -811,141 +861,149 @@ class competency_repository {
             $params['s3'] = $like;
         }
 
-        // Filtrado por status
+        // Filtrado por status.
         if ($status === 'proficient') {
-            $proficient_uids = [];
-            foreach ($usercomp_by_user as $uid => $uc) {
+            $proficientuids = [];
+            foreach ($usercompbyuser as $uid => $uc) {
                 if ((int)$uc->proficiency === 1) {
-                    $proficient_uids[] = $uid;
+                    $proficientuids[] = $uid;
                 }
             }
-            if (empty($proficient_uids)) {
-                $where_clauses[] = "1 = 0";
+            if (empty($proficientuids)) {
+                $whereclauses[] = "1 = 0";
             } else {
-                list($p_sql, $p_params) = $DB->get_in_or_equal($proficient_uids, SQL_PARAMS_NAMED, 'prf');
-                $where_clauses[] = "id $p_sql";
-                $params = array_merge($params, $p_params);
+                [$psql, $pparams] = $DB->get_in_or_equal($proficientuids, SQL_PARAMS_NAMED, 'prf');
+                $whereclauses[] = "id $psql";
+                $params = array_merge($params, $pparams);
             }
         } else if ($status === 'not_proficient') {
-            $proficient_uids = [];
-            foreach ($usercomp_by_user as $uid => $uc) {
+            $proficientuids = [];
+            foreach ($usercompbyuser as $uid => $uc) {
                 if ((int)$uc->proficiency === 1) {
-                    $proficient_uids[] = $uid;
+                    $proficientuids[] = $uid;
                 }
             }
-            if (!empty($proficient_uids)) {
-                list($np_sql, $np_params) = $DB->get_in_or_equal($proficient_uids, SQL_PARAMS_NAMED, 'nprf');
-                $where_clauses[] = "id NOT $np_sql";
-                $params = array_merge($params, $np_params);
+            if (!empty($proficientuids)) {
+                [$npsql, $npparams] = $DB->get_in_or_equal($proficientuids, SQL_PARAMS_NAMED, 'nprf');
+                $whereclauses[] = "id NOT $npsql";
+                $params = array_merge($params, $npparams);
             }
         } else if ($status === 'in_review' || $status === 'pending_reviews' || $status === 'with_pending') {
-            $review_uids = [];
-            foreach ($usercomp_by_user as $uid => $uc) {
+            $reviewuids = [];
+            foreach ($usercompbyuser as $uid => $uc) {
                 if (in_array((int)$uc->status, [1, 2])) {
-                    $review_uids[] = $uid;
+                    $reviewuids[] = $uid;
                 }
             }
-            if (empty($review_uids)) {
-                $where_clauses[] = "1 = 0";
+            if (empty($reviewuids)) {
+                $whereclauses[] = "1 = 0";
             } else {
-                list($rev_sql, $rev_params) = $DB->get_in_or_equal($review_uids, SQL_PARAMS_NAMED, 'rev');
-                $where_clauses[] = "id $rev_sql";
-                $params = array_merge($params, $rev_params);
+                [$revsql, $revparams] = $DB->get_in_or_equal($reviewuids, SQL_PARAMS_NAMED, 'rev');
+                $whereclauses[] = "id $revsql";
+                $params = array_merge($params, $revparams);
             }
         }
 
-        $where = implode(' AND ', $where_clauses);
+        $where = implode(' AND ', $whereclauses);
         $totalcount = (int)$DB->count_records_select('user', $where, $params);
 
-        $order_dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
-        $order_by = "lastname $order_dir, firstname $order_dir";
+        $orderdir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
+        $orderby = "lastname $orderdir, firstname $orderdir";
         if ($sort === 'firstname' || $sort === 'fullname') {
-            $order_by = "firstname $order_dir, lastname $order_dir";
+            $orderby = "firstname $orderdir, lastname $orderdir";
         } else if ($sort === 'email') {
-            $order_by = "email $order_dir";
+            $orderby = "email $orderdir";
         } else if ($sort === 'id') {
-            $order_by = "id $order_dir";
+            $orderby = "id $orderdir";
         }
 
         $limitfrom = $page * $perpage;
-        $users_records = $DB->get_records_select('user', $where, $params, $order_by, 'id, firstname, lastname, email, picture, imagealt', $limitfrom, $perpage);
+        $usersrecords = $DB->get_records_select(
+            'user',
+            $where,
+            $params,
+            $orderby,
+            'id, firstname, lastname, email, picture, imagealt',
+            $limitfrom,
+            $perpage
+        );
 
-        if (empty($users_records)) {
+        if (empty($usersrecords)) {
             return [
                 'totalcount' => $totalcount,
                 'page'       => (int)$page,
                 'perpage'    => (int)$perpage,
                 'users'      => [],
                 'scale'      => [
-                    'id'    => (int)($scale_info->id ?? 0),
-                    'name'  => (string)($scale_info->name ?? 'Escala'),
-                    'items' => $scale_items,
+                    'id'    => (int)($scaleinfo->id ?? 0),
+                    'name'  => (string)($scaleinfo->name ?? 'Escala'),
+                    'items' => $scaleitems,
                 ],
             ];
         }
 
-        $page_user_ids = array_keys($users_records);
+        $pageuserids = array_keys($usersrecords);
 
-        // 4. Cargar mapas derivados para los usuarios paginados
-        $user_courses_map = self::load_page_users_course_map($page_user_ids, $all_course_ids, $competencyid);
-        $evidences_by_user = self::load_page_users_evidences($page_user_ids, $usercomp_by_user, $scale_items);
-        $user_pending_map = self::load_page_users_pending_reviews($page_user_ids, $competencyid, $child_ids);
+        // 4. Cargar mapas derivados para los usuarios paginados.
+        $usercoursesmap = self::load_page_users_course_map($pageuserids, $allcourseids, $competencyid);
+        $evidencesbyuser = self::load_page_users_evidences($pageuserids, $usercompbyuser, $scaleitems);
+        $userpendingmap = self::load_page_users_pending_reviews($pageuserids, $competencyid, $childids);
 
-        // 5. Ensamble de los registros de usuario
-        $users_output = [];
-        foreach ($users_records as $ur) {
+        // 5. Ensamble de los registros de usuario.
+        $usersoutput = [];
+        foreach ($usersrecords as $ur) {
             $uid = (int)$ur->id;
-            $uc = $usercomp_by_user[$uid] ?? null;
-            $user_courses = $user_courses_map[$uid] ?? [];
-            $user_evidences = $evidences_by_user[$uid] ?? [];
+            $uc = $usercompbyuser[$uid] ?? null;
+            $usercourses = $usercoursesmap[$uid] ?? [];
+            $userevidences = $evidencesbyuser[$uid] ?? [];
 
-            $grade_val = $uc ? (int)$uc->grade : 0;
-            $grade_name = ($grade_val > 0 && isset($scale_items[$grade_val - 1])) ? $scale_items[$grade_val - 1] : '';
+            $gradeval = $uc ? (int)$uc->grade : 0;
+            $gradename = ($gradeval > 0 && isset($scaleitems[$gradeval - 1])) ? $scaleitems[$gradeval - 1] : '';
 
-            // Progreso general en los cursos vinculados
-            $completed_courses_count = 0;
-            $total_course_progress = 0;
-            foreach ($user_courses as $ucourse) {
+            // Progreso general en los cursos vinculados.
+            $completedcoursescount = 0;
+            $totalcourseprogress = 0;
+            foreach ($usercourses as $ucourse) {
                 if ($ucourse['completed'] === 1) {
-                    $completed_courses_count++;
-                    $total_course_progress += 100;
+                    $completedcoursescount++;
+                    $totalcourseprogress += 100;
                 } else {
-                    $total_course_progress += $ucourse['progress'];
+                    $totalcourseprogress += $ucourse['progress'];
                 }
             }
-            $avg_progress = !empty($user_courses) ? (int)round($total_course_progress / count($user_courses)) : 0;
+            $avgprogress = !empty($usercourses) ? (int)round($totalcourseprogress / count($usercourses)) : 0;
 
-            $pending_count = isset($user_pending_map[$uid])
-                ? (int)$user_pending_map[$uid]
+            $pendingcount = isset($userpendingmap[$uid])
+                ? (int)$userpendingmap[$uid]
                 : (($uc && in_array((int)$uc->status, [1, 2])) ? 1 : 0);
 
-            $is_adhoc = in_array($uid, $adhoc_user_ids);
-            if ($is_adhoc) {
+            $isadhoc = in_array($uid, $adhocuserids);
+            if ($isadhoc) {
                 $source = 'adhoc';
-            } else if (!empty($user_courses)) {
+            } else if (!empty($usercourses)) {
                 $source = 'course';
             } else {
                 $source = 'usercomp';
             }
 
-            $users_output[] = [
+            $usersoutput[] = [
                 'userid'                 => $uid,
                 'fullname'               => trim(($ur->firstname ?? '') . ' ' . ($ur->lastname ?? '')),
                 'email'                  => (string)$ur->email,
                 'usercompid'             => $uc ? (int)$uc->id : 0,
-                'status'                 => $uc ? (int)$uc->status : 0, // 0=idle, 1=waiting_for_review, 2=in_review
-                'pendingreviewscount'    => $pending_count,
+                'status'                 => $uc ? (int)$uc->status : 0,
+                'pendingreviewscount'    => $pendingcount,
                 'proficiency'            => $uc ? (int)$uc->proficiency : 0,
-                'grade'                  => $grade_val,
-                'gradename'              => $grade_name,
-                'courses'                => $user_courses,
-                'coursescount'           => count($user_courses),
-                'completedcoursescount'  => $completed_courses_count,
-                'progress'               => $avg_progress,
-                'evidencescount'         => count($user_evidences),
-                'evidences'              => $user_evidences,
+                'grade'                  => $gradeval,
+                'gradename'              => $gradename,
+                'courses'                => $usercourses,
+                'coursescount'           => count($usercourses),
+                'completedcoursescount'  => $completedcoursescount,
+                'progress'               => $avgprogress,
+                'evidencescount'         => count($userevidences),
+                'evidences'              => $userevidences,
                 'source'                 => $source,
-                'is_adhoc'               => $is_adhoc ? 1 : 0,
+                'is_adhoc'               => $isadhoc ? 1 : 0,
             ];
         }
 
@@ -953,11 +1011,11 @@ class competency_repository {
             'totalcount' => $totalcount,
             'page'       => (int)$page,
             'perpage'    => (int)$perpage,
-            'users'      => $users_output,
+            'users'      => $usersoutput,
             'scale'      => [
-                'id'    => (int)($scale_info->id ?? 0),
-                'name'  => (string)($scale_info->name ?? 'Escala'),
-                'items' => $scale_items,
+                'id'    => (int)($scaleinfo->id ?? 0),
+                'name'  => (string)($scaleinfo->name ?? 'Escala'),
+                'items' => $scaleitems,
             ],
         ];
     }
@@ -965,18 +1023,18 @@ class competency_repository {
     /**
      * Ejecuta acciones de creación, edición, actualización de reglas y eliminación de competencias.
      *
-     * @param string $action create, edit, update_rule, delete
-     * @param int $competencyid
-     * @param int $frameworkid
-     * @param int $parentid
-     * @param string $shortname
-     * @param string $idnumber
-     * @param string $description
-     * @param string $ruletype
-     * @param int $ruleoutcome
-     * @param string $ruleconfig
-     * @param int $userid
-     * @return array
+     * @param string $action create, edit, update_rule, delete.
+     * @param int $competencyid Competency ID.
+     * @param int $frameworkid Framework ID.
+     * @param int $parentid Parent competency ID.
+     * @param string $shortname Competency short name.
+     * @param string $idnumber ID number.
+     * @param string $description Description text.
+     * @param string $ruletype Rule type.
+     * @param int $ruleoutcome Rule outcome value.
+     * @param string $ruleconfig Rule config string.
+     * @param int $userid Modifying user ID.
+     * @return array Result array.
      */
     public static function competency_action(
         string $action,
@@ -997,19 +1055,27 @@ class competency_repository {
         switch ($action) {
             case 'create':
                 if (empty($frameworkid)) {
-                    return ['success' => false, 'message' => 'Se requiere el ID del marco para crear la competencia.', 'affectedcount' => 0];
+                    return [
+                        'success'       => false,
+                        'message'       => 'Se requiere el ID del marco para crear la competencia.',
+                        'affectedcount' => 0,
+                    ];
                 }
                 if (empty(trim($shortname))) {
-                    return ['success' => false, 'message' => 'El nombre de la competencia es obligatorio.', 'affectedcount' => 0];
+                    return [
+                        'success'       => false,
+                        'message'       => 'El nombre de la competencia es obligatorio.',
+                        'affectedcount' => 0,
+                    ];
                 }
 
                 $framework = $DB->get_record('competency_framework', ['id' => $frameworkid], '*', MUST_EXIST);
 
                 $parent = null;
-                $target_parentid = $parentid;
-                if ($target_parentid > 0) {
+                $targetparentid = $parentid;
+                if ($targetparentid > 0) {
                     $parent = $DB->get_record('competency', [
-                        'id'                    => $target_parentid,
+                        'id'                    => $targetparentid,
                         'competencyframeworkid' => $framework->id,
                     ], '*', MUST_EXIST);
                     if ((int)$parent->parentid > 0) {
@@ -1019,16 +1085,17 @@ class competency_repository {
                         if ($grandparent && (int)$grandparent->parentid > 0) {
                             return [
                                 'success'       => false,
-                                'message'       => 'Solo se permiten hasta 3 niveles de jerarquía (competencia principal, subcompetencia y subcompetencia de tercer nivel).',
+                                'message'       => 'Solo se permiten hasta 3 niveles de jerarquía (competencia principal, ' .
+                                    'subcompetencia y subcompetencia de tercer nivel).',
                                 'affectedcount' => 0,
                             ];
                         }
                     }
                 }
 
-                $max_sort = (int)$DB->get_field_sql(
+                $maxsort = (int)$DB->get_field_sql(
                     "SELECT MAX(sortorder) FROM {competency} WHERE competencyframeworkid = :fid AND parentid = :pid",
-                    ['fid' => $framework->id, 'pid' => $target_parentid]
+                    ['fid' => $framework->id, 'pid' => $targetparentid]
                 );
 
                 $record = new \stdClass();
@@ -1037,9 +1104,9 @@ class competency_repository {
                 $record->description           = clean_text($description, FORMAT_HTML);
                 $record->descriptionformat     = FORMAT_HTML;
                 $record->competencyframeworkid = $framework->id;
-                $record->parentid              = $target_parentid;
+                $record->parentid              = $targetparentid;
                 $record->path                  = $parent ? $parent->path : '/0/';
-                $record->sortorder             = $max_sort + 1;
+                $record->sortorder             = $maxsort + 1;
                 $record->ruletype              = !empty($ruletype) ? trim($ruletype) : null;
                 $record->ruleoutcome           = $ruleoutcome;
                 $record->ruleconfig            = !empty($ruleconfig) ? trim($ruleconfig) : null;
@@ -1055,18 +1122,30 @@ class competency_repository {
                 $DB->set_field('competency', 'path', $newpath, ['id' => $newid]);
                 $DB->set_field('competency_framework', 'timemodified', $now, ['id' => $framework->id]);
 
+                $createmsg = $targetparentid > 0
+                    ? 'Subcompetencia creada exitosamente.'
+                    : 'Competencia creada exitosamente.';
+
                 return [
                     'success'       => true,
-                    'message'       => $target_parentid > 0 ? 'Subcompetencia creada exitosamente.' : 'Competencia creada exitosamente.',
+                    'message'       => $createmsg,
                     'affectedcount' => (int)$newid,
                 ];
 
             case 'edit':
                 if (empty($competencyid)) {
-                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia a editar.', 'affectedcount' => 0];
+                    return [
+                        'success'       => false,
+                        'message'       => 'Se requiere el ID de la competencia a editar.',
+                        'affectedcount' => 0,
+                    ];
                 }
                 if (empty(trim($shortname))) {
-                    return ['success' => false, 'message' => 'El nombre de la competencia es obligatorio.', 'affectedcount' => 0];
+                    return [
+                        'success'       => false,
+                        'message'       => 'El nombre de la competencia es obligatorio.',
+                        'affectedcount' => 0,
+                    ];
                 }
 
                 $existing = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
@@ -1078,70 +1157,81 @@ class competency_repository {
                 $existing->ruleconfig   = !empty($ruleconfig) ? trim($ruleconfig) : null;
 
                 if ($parentid !== (int)$existing->parentid) {
-                    $new_parentid = $parentid;
-                    if ($new_parentid === (int)$existing->id) {
-                        return ['success' => false, 'message' => 'Una competencia no puede ser padre de sí misma.', 'affectedcount' => 0];
+                    $newparentid = $parentid;
+                    if ($newparentid === (int)$existing->id) {
+                        return [
+                            'success'       => false,
+                            'message'       => 'Una competencia no puede ser padre de sí misma.',
+                            'affectedcount' => 0,
+                        ];
                     }
-                    if ($new_parentid > 0) {
+                    if ($newparentid > 0) {
                         $parent = $DB->get_record('competency', [
-                            'id'                    => $new_parentid,
+                            'id'                    => $newparentid,
                             'competencyframeworkid' => $existing->competencyframeworkid,
                         ], '*', MUST_EXIST);
 
-                        // Determinar nivel del nuevo padre
-                        $parent_clean_path = trim((string)$parent->path, '/');
-                        $parent_parts = array_filter(explode('/', $parent_clean_path), function($p) {
+                        // Determinar nivel del nuevo padre.
+                        $parentcleanpath = trim((string)$parent->path, '/');
+                        $parentparts = array_filter(explode('/', $parentcleanpath), function ($p) {
                             return $p !== '' && $p !== '0';
                         });
-                        $parent_level = max(1, count($parent_parts));
-                        if ($parent_level === 1 && (int)$parent->parentid > 0) {
-                            $parent_level = 2;
+                        $parentlevel = max(1, count($parentparts));
+                        if ($parentlevel === 1 && (int)$parent->parentid > 0) {
+                            $parentlevel = 2;
                             $gp = $DB->get_record('competency', ['id' => $parent->parentid], 'id, parentid');
                             if ($gp && (int)$gp->parentid > 0) {
-                                $parent_level = 3;
+                                $parentlevel = 3;
                             }
                         }
 
-                        if ($parent_level >= 3) {
+                        if ($parentlevel >= 3) {
                             return [
                                 'success'       => false,
-                                'message'       => 'Solo se permiten hasta 3 niveles de jerarquía. La competencia de destino ya está en el nivel máximo.',
+                                'message'       => 'Solo se permiten hasta 3 niveles de jerarquía. ' .
+                                    'La competencia de destino ya está en el nivel máximo.',
                                 'affectedcount' => 0,
                             ];
                         }
 
-                        // Verificar que los descendientes de la competencia no superen 3 niveles
-                        $has_children = $DB->record_exists('competency', ['parentid' => $existing->id]);
-                        if ($has_children && $parent_level >= 2) {
+                        // Verificar que los descendientes de la competencia no superen 3 niveles.
+                        $haschildren = $DB->record_exists('competency', ['parentid' => $existing->id]);
+                        if ($haschildren && $parentlevel >= 2) {
                             return [
                                 'success'       => false,
-                                'message'       => 'Esta competencia tiene subcompetencias y no puede moverse al nivel 3 porque excedería el límite de 3 niveles.',
+                                'message'       => 'Esta competencia tiene subcompetencias y no puede moverse ' .
+                                    'al nivel 3 porque excedería el límite de 3 niveles.',
                                 'affectedcount' => 0,
                             ];
                         }
 
-                        $has_grandchildren = $DB->record_exists_sql(
+                        $hasgrandchildren = $DB->record_exists_sql(
                             "SELECT 1 FROM {competency} c1 JOIN {competency} c2 ON c2.parentid = c1.id WHERE c1.parentid = :id",
                             ['id' => $existing->id]
                         );
-                        if ($has_grandchildren && $parent_level >= 1) {
+                        if ($hasgrandchildren && $parentlevel >= 1) {
                             return [
                                 'success'       => false,
-                                'message'       => 'Esta competencia tiene subcompetencias de tercer nivel y no puede moverse debajo de otra competencia.',
+                                'message'       => 'Esta competencia tiene subcompetencias de tercer nivel ' .
+                                    'y no puede moverse debajo de otra competencia.',
                                 'affectedcount' => 0,
                             ];
                         }
                     }
                     $oldpath = $existing->path;
-                    if ($new_parentid > 0) {
+                    if ($newparentid > 0) {
                         if (!empty($parent->path) && strpos($parent->path, $oldpath) === 0) {
-                            return ['success' => false, 'message' => 'No se puede mover una competencia dentro de sus propias subcompetencias.', 'affectedcount' => 0];
+                            return [
+                                'success'       => false,
+                                'message'       => 'No se puede mover una competencia dentro de sus propias subcompetencias.',
+                                'affectedcount' => 0,
+                            ];
                         }
                         $newpath = $parent->path . $existing->id . '/';
                     } else {
                         $newpath = '/0/' . $existing->id . '/';
                     }
-                    $existing->parentid = $new_parentid;
+                    $existing->parentid = $newparentid;
                     $existing->path = $newpath;
 
                     $descendants = $DB->get_records_select(
@@ -1169,7 +1259,11 @@ class competency_repository {
 
             case 'update_rule':
                 if (empty($competencyid)) {
-                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia para actualizar la regla.', 'affectedcount' => 0];
+                    return [
+                        'success'       => false,
+                        'message'       => 'Se requiere el ID de la competencia para actualizar la regla.',
+                        'affectedcount' => 0,
+                    ];
                 }
 
                 $existing = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
@@ -1190,7 +1284,11 @@ class competency_repository {
 
             case 'delete':
                 if (empty($competencyid)) {
-                    return ['success' => false, 'message' => 'Se requiere el ID de la competencia a eliminar.', 'affectedcount' => 0];
+                    return [
+                        'success'       => false,
+                        'message'       => 'Se requiere el ID de la competencia a eliminar.',
+                        'affectedcount' => 0,
+                    ];
                 }
 
                 $existing = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
@@ -1216,14 +1314,20 @@ class competency_repository {
     /**
      * Acciones de vinculación entre competencias y cursos (add, remove, update_rule).
      *
-     * @param string $action
-     * @param int $competencyid
-     * @param array $courseids
-     * @param int $ruleoutcome
-     * @param int $userid
-     * @return array
+     * @param string $action Action name (add, remove, update_rule).
+     * @param int $competencyid Competency ID.
+     * @param array $courseids Array of course IDs.
+     * @param int $ruleoutcome Rule outcome value.
+     * @param int $userid User ID performing action.
+     * @return array Result array.
      */
-    public static function competency_course_action(string $action, int $competencyid, array $courseids, int $ruleoutcome = 1, int $userid = 0): array {
+    public static function competency_course_action(
+        string $action,
+        int $competencyid,
+        array $courseids,
+        int $ruleoutcome = 1,
+        int $userid = 0
+    ): array {
         global $DB;
         $competency = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
         $now = time();
@@ -1252,17 +1356,18 @@ class competency_repository {
                                 $inserted = true;
                                 $affected++;
                             } catch (\Exception $e) {
+                                debugging('Course competency creation error: ' . $e->getMessage(), DEBUG_DEVELOPER);
                                 $inserted = false;
                             }
                         }
 
                         if (!$inserted) {
-                            $max_sort = (int)$DB->count_records('competency_coursecomp', ['courseid' => $cid]);
+                            $maxsort = (int)$DB->count_records('competency_coursecomp', ['courseid' => $cid]);
                             $record = new \stdClass();
                             $record->courseid     = $cid;
                             $record->competencyid = $competency->id;
                             $record->ruleoutcome  = $ruleoutcome;
-                            $record->sortorder    = $max_sort;
+                            $record->sortorder    = $maxsort;
                             $record->timecreated  = $now;
                             $record->timemodified = $now;
                             $record->usermodified = !empty($userid) ? $userid : 2;
@@ -1286,16 +1391,20 @@ class competency_repository {
                         continue;
                     }
 
-                    // Limpiar vínculos en actividades del curso (mdl_competency_modulecomp)
+                    // Limpiar vínculos en actividades del curso (mdl_competency_modulecomp).
                     try {
                         $cmids = $DB->get_fieldset_select('course_modules', 'id', 'course = :cid', ['cid' => $cid]);
                         if (!empty($cmids)) {
-                            list($insql, $inparams) = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
+                            [$insql, $inparams] = $DB->get_in_or_equal($cmids, SQL_PARAMS_NAMED, 'cm');
                             $inparams['compid'] = $competency->id;
-                            $DB->delete_records_select('competency_modulecomp', "competencyid = :compid AND cmid $insql", $inparams);
+                            $DB->delete_records_select(
+                                'competency_modulecomp',
+                                "competencyid = :compid AND cmid $insql",
+                                $inparams
+                            );
                         }
                     } catch (\Exception $e) {
-                        // Continuar con la desvinculación a nivel de curso
+                        debugging('Error cleaning module competency records: ' . $e->getMessage(), DEBUG_DEVELOPER);
                     }
 
                     $deleted = false;
@@ -1311,6 +1420,7 @@ class competency_repository {
                                 $affected++;
                             }
                         } catch (\Exception $e) {
+                            debugging('Error deleting course competency: ' . $e->getMessage(), DEBUG_DEVELOPER);
                             $deleted = false;
                         }
                     }
@@ -1349,6 +1459,7 @@ class competency_repository {
                                 $affected++;
                             }
                         } catch (\Exception $e) {
+                            debugging('Error updating course competency rule: ' . $e->getMessage(), DEBUG_DEVELOPER);
                             $updated = false;
                         }
                     }
@@ -1375,14 +1486,20 @@ class competency_repository {
     /**
      * Acciones de vinculación entre competencias y módulos de actividad (add, remove, update_rule).
      *
-     * @param string $action
-     * @param int $competencyid
-     * @param int $cmid
-     * @param int $ruleoutcome
-     * @param int $userid
-     * @return array
+     * @param string $action Action name (add, remove, update_rule).
+     * @param int $competencyid Competency ID.
+     * @param int $cmid Course module ID.
+     * @param int $ruleoutcome Rule outcome value.
+     * @param int $userid User ID performing action.
+     * @return array Result array.
      */
-    public static function module_competency_action(string $action, int $competencyid, int $cmid, int $ruleoutcome = 1, int $userid = 0): array {
+    public static function module_competency_action(
+        string $action,
+        int $competencyid,
+        int $cmid,
+        int $ruleoutcome = 1,
+        int $userid = 0
+    ): array {
         global $DB;
         $competency = $DB->get_record('competency', ['id' => $competencyid], '*', MUST_EXIST);
         $cm = $DB->get_record('course_modules', ['id' => $cmid], '*', MUST_EXIST);
@@ -1402,17 +1519,18 @@ class competency_repository {
                             $mc->create();
                             $inserted = true;
                         } catch (\Exception $e) {
+                            debugging('Error creating module competency: ' . $e->getMessage(), DEBUG_DEVELOPER);
                             $inserted = false;
                         }
                     }
 
                     if (!$inserted) {
-                        $max_sort = (int)$DB->count_records('competency_modulecomp', ['cmid' => $cm->id]);
+                        $maxsort = (int)$DB->count_records('competency_modulecomp', ['cmid' => $cm->id]);
                         $record = new \stdClass();
                         $record->cmid         = $cm->id;
                         $record->competencyid = $competency->id;
                         $record->ruleoutcome  = $ruleoutcome;
-                        $record->sortorder    = $max_sort;
+                        $record->sortorder    = $maxsort;
                         $record->timecreated  = $now;
                         $record->timemodified = $now;
                         $record->usermodified = !empty($userid) ? $userid : 2;
@@ -1440,6 +1558,7 @@ class competency_repository {
                             $deleted = true;
                         }
                     } catch (\Exception $e) {
+                        debugging('Error deleting module competency: ' . $e->getMessage(), DEBUG_DEVELOPER);
                         $deleted = false;
                     }
                 }
@@ -1471,6 +1590,7 @@ class competency_repository {
                             $updated = true;
                         }
                     } catch (\Exception $e) {
+                        debugging('Error updating module competency rule: ' . $e->getMessage(), DEBUG_DEVELOPER);
                         $updated = false;
                     }
                 }

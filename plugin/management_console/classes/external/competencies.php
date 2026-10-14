@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -43,41 +41,58 @@ use tool_management_console\repository\competency_framework_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competencies extends external_api {
-
     /**
-     * Helper para verificar permisos de visualización.
+     * Helper to verify view capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \moodle_exception
      */
-    protected static function check_view_capability($context) {
+    protected static function check_view_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
-        if (has_capability('moodle/competency:competencymanage', $context) ||
-            has_capability('moodle/competency:competencyview', $context)) {
+        if (
+            has_capability('moodle/competency:competencymanage', $context) ||
+            has_capability('moodle/competency:competencyview', $context)
+        ) {
             return;
         }
         throw new \moodle_exception('nopermissions', 'error', '', 'view competencies');
     }
 
     /**
-     * Helper para verificar permisos de gestión.
+     * Helper to verify manage capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \required_capability_exception
      */
-    protected static function check_manage_capability($context) {
+    protected static function check_manage_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
         require_capability('moodle/competency:competencymanage', $context);
     }
 
-    // ==========================================
-    // GET ALL COMPETENCIES (FLAT BULK)
-    // ==========================================
-    public static function get_all_competencies_parameters() {
+    /**
+     * Describes the parameters for get_all_competencies.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_all_competencies_parameters(): external_function_parameters {
         return new external_function_parameters([
             'frameworkid' => new external_value(PARAM_INT, 'Optional framework ID filter, 0 for all', VALUE_DEFAULT, 0),
         ]);
     }
 
-    public static function get_all_competencies($frameworkid = 0) {
+    /**
+     * Get all competencies in a flat list.
+     *
+     * @param int $frameworkid
+     * @return array
+     */
+    public static function get_all_competencies(int $frameworkid = 0): array {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
@@ -89,7 +104,7 @@ class competencies extends external_api {
         $competencies = competency_framework_repository::get_all_competencies_flat();
 
         if (!empty($params['frameworkid'])) {
-            $competencies = array_values(array_filter($competencies, function($c) use ($params) {
+            $competencies = array_values(array_filter($competencies, function ($c) use ($params) {
                 return (int)$c['frameworkid'] === (int)$params['frameworkid'];
             }));
         }
@@ -100,7 +115,12 @@ class competencies extends external_api {
         ];
     }
 
-    public static function get_all_competencies_returns() {
+    /**
+     * Describes the return structure for get_all_competencies.
+     *
+     * @return external_single_structure
+     */
+    public static function get_all_competencies_returns(): external_single_structure {
         return new external_single_structure([
             'competencies' => new external_multiple_structure(
                 new external_single_structure([
@@ -118,10 +138,12 @@ class competencies extends external_api {
         ]);
     }
 
-    // ==========================================
-    // COMPETENCY ACTION (CREATE/EDIT/DELETE/UPDATE_RULE)
-    // ==========================================
-    public static function competency_action_parameters() {
+    /**
+     * Describes the parameters for competency_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function competency_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'       => new external_value(PARAM_ALPHANUMEXT, 'Action: create, edit, delete, update_rule'),
             'competencyid' => new external_value(PARAM_INT, 'Competency ID (for edit/delete/update_rule)', VALUE_DEFAULT, 0),
@@ -131,15 +153,43 @@ class competencies extends external_api {
             'idnumber'     => new external_value(PARAM_TEXT, 'Competency ID number', VALUE_DEFAULT, ''),
             'description'  => new external_value(PARAM_RAW, 'Description', VALUE_DEFAULT, ''),
             'ruletype'     => new external_value(PARAM_RAW, 'Rule type classname or empty for none', VALUE_DEFAULT, ''),
-            'ruleoutcome'  => new external_value(PARAM_INT, 'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)', VALUE_DEFAULT, 1),
+            'ruleoutcome'  => new external_value(
+                PARAM_INT,
+                'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)',
+                VALUE_DEFAULT,
+                1
+            ),
             'ruleconfig'   => new external_value(PARAM_RAW, 'Rule configuration JSON', VALUE_DEFAULT, ''),
         ]);
     }
 
     /**
      * Perform competency item mutation actions (create, edit, delete, move).
+     *
+     * @param string $action
+     * @param int $competencyid
+     * @param int $frameworkid
+     * @param int $parentid
+     * @param string $shortname
+     * @param string $idnumber
+     * @param string $description
+     * @param string $ruletype
+     * @param int $ruleoutcome
+     * @param string $ruleconfig
+     * @return array
      */
-    public static function competency_action($action, $competencyid = 0, $frameworkid = 0, $parentid = 0, $shortname = '', $idnumber = '', $description = '', $ruletype = '', $ruleoutcome = 1, $ruleconfig = '') {
+    public static function competency_action(
+        string $action,
+        int $competencyid = 0,
+        int $frameworkid = 0,
+        int $parentid = 0,
+        string $shortname = '',
+        string $idnumber = '',
+        string $description = '',
+        string $ruletype = '',
+        int $ruleoutcome = 1,
+        string $ruleconfig = ''
+    ): array {
         global $USER;
 
         $context = context_system::instance();
@@ -175,7 +225,12 @@ class competencies extends external_api {
         );
     }
 
-    public static function competency_action_returns() {
+    /**
+     * Describes the return structure for competency_action.
+     *
+     * @return external_single_structure
+     */
+    public static function competency_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
             'message'       => new external_value(PARAM_TEXT, 'Status description message'),
@@ -183,16 +238,24 @@ class competencies extends external_api {
         ]);
     }
 
-    // ==========================================
-    // GET COMPETENCY DETAIL
-    // ==========================================
-    public static function get_competency_detail_parameters() {
+    /**
+     * Describes the parameters for get_competency_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_competency_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
         ]);
     }
 
-    public static function get_competency_detail($competencyid) {
+    /**
+     * Get details for a single competency including subcompetencies.
+     *
+     * @param int $competencyid
+     * @return array
+     */
+    public static function get_competency_detail(int $competencyid): array {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
@@ -206,7 +269,7 @@ class competencies extends external_api {
             throw new \moodle_exception('invalidrecord', 'error', '', 'competency');
         }
 
-        // Security TD-DATA-002: Framework context and visibility checks
+        // Security TD-DATA-002: Framework context and visibility checks.
         if (class_exists('\core_competency\api') && !empty($detail['competencyframeworkid'])) {
             $framework = \core_competency\api::read_framework($detail['competencyframeworkid']);
             if ($framework) {
@@ -219,7 +282,12 @@ class competencies extends external_api {
         return $detail;
     }
 
-    public static function get_competency_detail_returns() {
+    /**
+     * Describes the return structure for get_competency_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_competency_detail_returns(): external_single_structure {
         return new external_single_structure([
             'id'                    => new external_value(PARAM_INT, 'Competency ID'),
             'shortname'             => new external_value(PARAM_TEXT, 'Competency short name'),
@@ -239,7 +307,12 @@ class competencies extends external_api {
             'scaleid'               => new external_value(PARAM_INT, 'Scale ID'),
             'scalename'             => new external_value(PARAM_TEXT, 'Scale name'),
             'ruletype'              => new external_value(PARAM_RAW, 'Rule type classname', VALUE_DEFAULT, ''),
-            'ruleoutcome'           => new external_value(PARAM_INT, 'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)', VALUE_DEFAULT, 1),
+            'ruleoutcome'           => new external_value(
+                PARAM_INT,
+                'Rule outcome (0=None, 1=Evidence, 2=Complete, 3=Recommend)',
+                VALUE_DEFAULT,
+                1
+            ),
             'ruleconfig'            => new external_value(PARAM_RAW, 'Rule configuration JSON', VALUE_DEFAULT, ''),
             'childrencount'         => new external_value(PARAM_INT, 'Number of direct children subcompetencies', VALUE_DEFAULT, 0),
             'pendingreviewscount'   => new external_value(PARAM_INT, 'Pending reviews count', VALUE_DEFAULT, 0),

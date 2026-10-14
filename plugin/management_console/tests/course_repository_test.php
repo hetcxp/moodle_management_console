@@ -42,7 +42,6 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/
  * @covers     \tool_management_console\repository\course_repository
  */
 class course_repository_test extends advanced_testcase {
-
     public function setUp(): void {
         $this->resetAfterTest();
     }
@@ -56,7 +55,7 @@ class course_repository_test extends advanced_testcase {
             'fullname' => 'CourseRepo Fullname Test',
             'shortname' => 'CRTEST',
             'category' => $cat->id,
-            'visible' => 1
+            'visible' => 1,
         ]);
         $user = $this->getDataGenerator()->create_user(['firstname' => 'Course', 'lastname' => 'Student']);
         $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
@@ -77,23 +76,23 @@ class course_repository_test extends advanced_testcase {
             'sortorder' => 0,
             'timecreated' => time(),
             'timemodified' => time(),
-            'usermodified' => 2
+            'usermodified' => 2,
         ]);
 
         // 3. Probar get_courses_filtered
-        list($records, $totalcount, $kpis) = \tool_management_console\repository\course_repository::get_courses_filtered([
+        [$records, $totalcount, $kpis] = \tool_management_console\repository\course_repository::get_courses_filtered([
             'search' => 'CourseRepo',
             'category' => $cat->id,
             'visibility' => 1,
             'sort' => 'fullname',
             'dir' => 'ASC',
             'page' => 0,
-            'perpage' => 10
+            'perpage' => 10,
         ]);
         $this->assertGreaterThanOrEqual(1, $totalcount);
         $this->assertNotEmpty($records);
-        $first_record = reset($records);
-        $this->assertEquals(1, (int)$first_record->competenciescount);
+        $firstrecord = reset($records);
+        $this->assertEquals(1, (int)$firstrecord->competenciescount);
 
         // 4. Probar usuarios matriculados
         $enrolled = \tool_management_console\repository\course_repository::get_enrolled_users($course->id);

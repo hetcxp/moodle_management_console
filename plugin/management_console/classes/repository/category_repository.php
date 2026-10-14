@@ -24,8 +24,6 @@
 
 namespace tool_management_console\repository;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Category repository class.
  *
@@ -34,13 +32,24 @@ defined('MOODLE_INTERNAL') || die();
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class category_repository {
-
-    public static function count_all() {
+    /**
+     * Count all course categories.
+     *
+     * @return int
+     */
+    public static function count_all(): int {
         global $DB;
         return (int)$DB->count_records('course_categories');
     }
 
-    public static function get_paginated($page, $perpage) {
+    /**
+     * Get paginated categories with parent names.
+     *
+     * @param int $page Page index.
+     * @param int $perpage Items per page.
+     * @return array
+     */
+    public static function get_paginated(int $page, int $perpage): array {
         global $DB;
         $sql = "
             SELECT cc.id, cc.name, cc.idnumber, cc.description, cc.parent, cc.visible, cc.coursecount,
@@ -57,12 +66,26 @@ class category_repository {
         return $records;
     }
 
-    public static function get_flat_categories() {
+    /**
+     * Get all categories in flat list.
+     *
+     * @return array
+     */
+    public static function get_flat_categories(): array {
         global $DB;
-        return $DB->get_records('course_categories', null, 'sortorder ASC, name ASC', 'id, name, parent, depth, path, visible, coursecount');
+        $fields = 'id, name, parent, depth, path, visible, coursecount';
+        return $DB->get_records('course_categories', null, 'sortorder ASC, name ASC', $fields);
     }
 
-    public static function get_courses_by_category($categoryid, $limitfrom = 0, $limitnum = 200) {
+    /**
+     * Get courses belonging to category with enrolment and completion metrics.
+     *
+     * @param int $categoryid Category ID.
+     * @param int $limitfrom Offset.
+     * @param int $limitnum Limit.
+     * @return array
+     */
+    public static function get_courses_by_category(int $categoryid, int $limitfrom = 0, int $limitnum = 200): array {
         global $DB;
         $sql = "
             SELECT c.id, c.fullname, c.shortname, c.visible,
@@ -79,12 +102,18 @@ class category_repository {
         return $DB->get_records_sql($sql, ['categoryid' => $categoryid], $limitfrom, $limitnum);
     }
 
-    public static function get_course_users($courseid) {
+    /**
+     * Get distinct active enrolled user IDs for a course.
+     *
+     * @param int $courseid Course ID.
+     * @return array
+     */
+    public static function get_course_users(int $courseid): array {
         global $DB;
-        $sql_users = "SELECT DISTINCT ue.userid 
-                        FROM {enrol} e 
-                        JOIN {user_enrolments} ue ON ue.enrolid = e.id 
-                       WHERE e.courseid = :courseid AND ue.status = 0";
-        return $DB->get_fieldset_sql($sql_users, ['courseid' => $courseid]);
+        $sqlusers = "SELECT DISTINCT ue.userid
+                       FROM {enrol} e
+                       JOIN {user_enrolments} ue ON ue.enrolid = e.id
+                      WHERE e.courseid = :courseid AND ue.status = 0";
+        return $DB->get_fieldset_sql($sqlusers, ['courseid' => $courseid]);
     }
 }

@@ -135,6 +135,9 @@ export const ReportSelectorModal = ({
               </div>
             ) : (
               <ul className="divide-y divide-border/50">
+                <span id="report-exporting-status-desc" className="sr-only">
+                  Selección deshabilitada durante la exportación del reporte.
+                </span>
                 {data.map((item) => {
                   const isSelected = selectedIds.includes(item.id);
                   return (
@@ -147,6 +150,7 @@ export const ReportSelectorModal = ({
                         className="w-full text-left bg-transparent border-0 p-3 cursor-pointer flex items-center gap-3 hover:bg-muted/50 transition-colors"
                         onClick={() => !exporting && handleToggleRow(item.id)}
                         disabled={exporting}
+                        aria-describedby="report-exporting-status-desc"
                       >
                         <Checkbox
                           checked={isSelected}

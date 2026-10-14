@@ -43,7 +43,6 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @covers     \tool_management_console\external\dashboard
  */
 class external_services_test extends advanced_testcase {
-
     public function test_get_dashboard() {
         $this->resetAfterTest(true);
         $this->setAdminUser();
@@ -60,27 +59,35 @@ class external_services_test extends advanced_testcase {
         $this->setAdminUser();
 
         $cat = $this->getDataGenerator()->create_category(['name' => 'Test Cat']);
-        $course1 = $this->getDataGenerator()->create_course(['fullname' => 'Test Course A', 'category' => $cat->id, 'visible' => 1]);
-        $course2 = $this->getDataGenerator()->create_course(['fullname' => 'Test Course B', 'category' => $cat->id, 'visible' => 0]);
+        $course1 = $this->getDataGenerator()->create_course([
+            'fullname' => 'Test Course A',
+            'category' => $cat->id,
+            'visible' => 1,
+        ]);
+        $course2 = $this->getDataGenerator()->create_course([
+            'fullname' => 'Test Course B',
+            'category' => $cat->id,
+            'visible' => 0,
+        ]);
 
         $res = \tool_management_console\external\courses::get_courses(0, 10, 'fullname', 'ASC', 'Test Course');
         $this->assertGreaterThanOrEqual(2, $res['totalcount']);
         $this->assertArrayHasKey('competenciescount', $res['courses'][0]);
 
-        // Test hide
-        $hide_res = \tool_management_console\external\courses::course_action('hide', [$course1->id]);
-        $this->assertTrue($hide_res['success']);
-        $this->assertEquals(1, $hide_res['affectedcount']);
+        // Test hide.
+        $hideres = \tool_management_console\external\courses::course_action('hide', [$course1->id]);
+        $this->assertTrue($hideres['success']);
+        $this->assertEquals(1, $hideres['affectedcount']);
 
-        // Test show
-        $show_res = \tool_management_console\external\courses::course_action('show', [$course1->id]);
-        $this->assertTrue($show_res['success']);
+        // Test show.
+        $showres = \tool_management_console\external\courses::course_action('show', [$course1->id]);
+        $this->assertTrue($showres['success']);
 
-        // Test move
+        // Test move.
         $targetcat = $this->getDataGenerator()->create_category(['name' => 'Target Cat']);
-        $move_res = \tool_management_console\external\courses::course_action('move', [$course1->id], $targetcat->id);
-        $this->assertTrue($move_res['success']);
-        $this->assertEquals(1, $move_res['affectedcount']);
+        $moveres = \tool_management_console\external\courses::course_action('move', [$course1->id], $targetcat->id);
+        $this->assertTrue($moveres['success']);
+        $this->assertEquals(1, $moveres['affectedcount']);
     }
 
     public function test_get_categories() {
@@ -94,16 +101,16 @@ class external_services_test extends advanced_testcase {
         $flat = \tool_management_console\external\categories::get_categories_flat();
         $this->assertNotEmpty($flat['categories']);
 
-        // Test category create
-        $create_res = \tool_management_console\external\categories::category_action('create', [], 0, 'New Cat');
-        $this->assertTrue($create_res['success']);
-        $this->assertEquals(1, $create_res['affectedcount']);
+        // Test category create.
+        $createres = \tool_management_console\external\categories::category_action('create', [], 0, 'New Cat');
+        $this->assertTrue($createres['success']);
+        $this->assertEquals(1, $createres['affectedcount']);
 
-        // Test category delete
-        $cat_to_delete = $this->getDataGenerator()->create_category(['name' => 'Delete Me']);
-        $del_res = \tool_management_console\external\categories::category_action('delete', [$cat_to_delete->id]);
-        $this->assertTrue($del_res['success']);
-        $this->assertEquals(1, $del_res['affectedcount']);
+        // Test category delete.
+        $cattodelete = $this->getDataGenerator()->create_category(['name' => 'Delete Me']);
+        $delres = \tool_management_console\external\categories::category_action('delete', [$cattodelete->id]);
+        $this->assertTrue($delres['success']);
+        $this->assertEquals(1, $delres['affectedcount']);
     }
 
     public function test_get_users_and_permissions() {
@@ -115,13 +122,13 @@ class external_services_test extends advanced_testcase {
         $res = \tool_management_console\external\users::get_users(0, 10, 'lastaccess', 'DESC', 'John');
         $this->assertGreaterThanOrEqual(1, $res['totalcount']);
 
-        // Test suspend user
-        $susp_res = \tool_management_console\external\users::user_action('suspend', [$user->id]);
-        $this->assertTrue($susp_res['success']);
-        
-        // Test activate user
-        $act_res = \tool_management_console\external\users::user_action('activate', [$user->id]);
-        $this->assertTrue($act_res['success']);
+        // Test suspend user.
+        $suspres = \tool_management_console\external\users::user_action('suspend', [$user->id]);
+        $this->assertTrue($suspres['success']);
+
+        // Test activate user.
+        $actres = \tool_management_console\external\users::user_action('activate', [$user->id]);
+        $this->assertTrue($actres['success']);
 
         $perm = \tool_management_console\external\permissions::get_permissions();
         $this->assertEquals(1, $perm['is_siteadmin']);
@@ -163,8 +170,8 @@ class external_services_test extends advanced_testcase {
         $this->resetAfterTest(true);
         $this->setAdminUser();
         $user = $this->getDataGenerator()->create_user();
-        
-        // Redirect messages to sink for testing
+
+        // Redirect messages to sink for testing.
         $sink = $this->redirectMessages();
 
         $res = \tool_management_console\external\users::user_action('message', [$user->id], 'Test message');
@@ -188,9 +195,21 @@ class external_services_test extends advanced_testcase {
         $this->assertTrue($res['success']);
         $this->assertEquals(1, $res['affectedcount']);
 
-        $emails = method_exists($sink, 'get_messages') ? $sink->get_messages() : (method_exists($sink, 'get_emails') ? $sink->get_emails() : []);
+        if (method_exists($sink, 'get_messages')) {
+            $emails = $sink->get_messages();
+        } else if (method_exists($sink, 'get_emails')) {
+            $emails = $sink->get_emails();
+        } else {
+            $emails = [];
+        }
         $this->assertCount(1, $emails);
-        $to = isset($emails[0]->to) ? $emails[0]->to : (isset($emails[0]->header['to']) ? $emails[0]->header['to'] : 'temppass@example.com');
+
+        $to = 'temppass@example.com';
+        if (isset($emails[0]->to)) {
+            $to = $emails[0]->to;
+        } else if (isset($emails[0]->header['to'])) {
+            $to = $emails[0]->header['to'];
+        }
         $this->assertEquals('temppass@example.com', $to);
         $sink->close();
     }
@@ -219,11 +238,11 @@ class external_services_test extends advanced_testcase {
         $course = $this->getDataGenerator()->create_course();
         $user = $this->getDataGenerator()->create_user();
 
-        $enrol_res = \tool_management_console\external\users::user_course_action('add', $user->id, [$course->id]);
-        $this->assertTrue($enrol_res['success']);
+        $enrolres = \tool_management_console\external\users::user_course_action('add', $user->id, [$course->id]);
+        $this->assertTrue($enrolres['success']);
 
-        $unenrol_res = \tool_management_console\external\users::user_course_action('remove', $user->id, [$course->id]);
-        $this->assertTrue($unenrol_res['success']);
+        $unenrolres = \tool_management_console\external\users::user_course_action('remove', $user->id, [$course->id]);
+        $this->assertTrue($unenrolres['success']);
     }
 
     public function test_unauthorized_user_access() {
@@ -243,17 +262,17 @@ class external_services_test extends advanced_testcase {
         $user = $this->getDataGenerator()->create_user();
         cohort_add_member($cohort->id, $user->id);
 
-        $list_res = \tool_management_console\external\cohorts::get_cohorts(0, 10, 'name', 'ASC', 'Cohort Performance');
-        $this->assertNotEmpty($list_res['cohorts']);
-        $this->assertEquals(1, $list_res['cohorts'][0]['memberscount']);
+        $listres = \tool_management_console\external\cohorts::get_cohorts(0, 10, 'name', 'ASC', 'Cohort Performance');
+        $this->assertNotEmpty($listres['cohorts']);
+        $this->assertEquals(1, $listres['cohorts'][0]['memberscount']);
 
-        $detail_res = \tool_management_console\external\cohorts::get_cohort_detail($cohort->id);
-        $this->assertEquals($cohort->id, $detail_res['id']);
-        $this->assertCount(1, $detail_res['members']);
-        $this->assertEquals($user->id, $detail_res['members'][0]['id']);
+        $detailres = \tool_management_console\external\cohorts::get_cohort_detail($cohort->id);
+        $this->assertEquals($cohort->id, $detailres['id']);
+        $this->assertCount(1, $detailres['members']);
+        $this->assertEquals($user->id, $detailres['members'][0]['id']);
 
-        $act_res = \tool_management_console\external\cohorts::cohort_action('edit', $cohort->id, 'Updated Cohort');
-        $this->assertTrue($act_res['success']);
+        $actres = \tool_management_console\external\cohorts::cohort_action('edit', $cohort->id, 'Updated Cohort');
+        $this->assertTrue($actres['success']);
     }
 
     public function test_category_detail_progress() {
@@ -287,7 +306,12 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(1, $res['affectedcount']);
 
         // 3. Verify that the enrol instance has the student role assigned.
-        $instance = $DB->get_record('enrol', ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohort->id], '*', MUST_EXIST);
+        $instance = $DB->get_record(
+            'enrol',
+            ['enrol' => 'cohort', 'courseid' => $course->id, 'customint1' => $cohort->id],
+            '*',
+            MUST_EXIST
+        );
         $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
         $this->assertGreaterThan(0, $studentroleid);
         $this->assertEquals($studentroleid, (int)$instance->roleid);
@@ -308,19 +332,19 @@ class external_services_test extends advanced_testcase {
         role_unassign_all(['contextid' => $coursecontext->id, 'component' => 'enrol_cohort', 'itemid' => $instance->id]);
 
         // Call 'add' again - should repair role and re-sync.
-        $repair_res = \tool_management_console\external\courses::course_cohort_action('add', $course->id, [$cohort->id]);
-        $this->assertTrue($repair_res['success']);
-        $instance_repaired = $DB->get_record('enrol', ['id' => $instance->id]);
-        $this->assertEquals($studentroleid, (int)$instance_repaired->roleid);
+        $repairres = \tool_management_console\external\courses::course_cohort_action('add', $course->id, [$cohort->id]);
+        $this->assertTrue($repairres['success']);
+        $instancerepaired = $DB->get_record('enrol', ['id' => $instance->id]);
+        $this->assertEquals($studentroleid, (int)$instancerepaired->roleid);
 
-        $hasrole_repaired = $DB->record_exists('role_assignments', [
+        $hasrolerepaired = $DB->record_exists('role_assignments', [
             'contextid' => $coursecontext->id,
             'userid'    => $user->id,
             'roleid'    => $studentroleid,
             'component' => 'enrol_cohort',
             'itemid'    => $instance->id,
         ]);
-        $this->assertTrue($hasrole_repaired, 'The student role should be repaired and assigned to cohort member.');
+        $this->assertTrue($hasrolerepaired, 'The student role should be repaired and assigned to cohort member.');
     }
 
     public function test_get_competency_reviews_and_action() {

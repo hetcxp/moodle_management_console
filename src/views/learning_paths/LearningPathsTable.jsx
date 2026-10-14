@@ -88,7 +88,7 @@ export function LearningPathsTable({
       cell: (row) => {
         const hasStudents = row.enrolled_count > 0;
         return (
-          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1">
             {onViewInMoodle && (
               <Button
                 variant="ghost"
@@ -96,7 +96,10 @@ export function LearningPathsTable({
                 className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                 title="Ver en Moodle"
                 aria-label="Ver en Moodle"
-                onClick={() => onViewInMoodle(row.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewInMoodle(row.id);
+                }}
               >
                 <ExternalLink className="h-4 w-4" />
               </Button>
@@ -109,7 +112,10 @@ export function LearningPathsTable({
                 className="h-8 w-8 p-0"
                 title={row.visible === 1 ? 'Ocultar ruta' : 'Mostrar ruta'}
                 aria-label={row.visible === 1 ? 'Ocultar ruta' : 'Mostrar ruta'}
-                onClick={() => onToggleVisibility(row)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleVisibility(row);
+                }}
               >
                 {row.visible === 1 ? (
                   <EyeOff className="h-4 w-4 text-muted-foreground" />
@@ -127,7 +133,8 @@ export function LearningPathsTable({
               disabledReason={hasStudents ? 'No se puede eliminar: hay estudiantes matriculados' : undefined}
               title={hasStudents ? 'No se puede eliminar: hay estudiantes matriculados' : 'Eliminar ruta'}
               aria-label="Eliminar ruta"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (!hasStudents && onDelete) {
                   onDelete(row);
                 }

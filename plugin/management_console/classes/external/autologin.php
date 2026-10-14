@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_single_structure;
@@ -39,9 +37,14 @@ use core_external\external_value;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class autologin extends external_api {
-    public static function get_autologin_url_parameters() {
+    /**
+     * Describes the parameters for get_autologin_url.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_autologin_url_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'destination' => new external_value(PARAM_URL, 'Destination path')
+            'destination' => new external_value(PARAM_URL, 'Destination path'),
         ]);
     }
 
@@ -53,11 +56,11 @@ class autologin extends external_api {
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function get_autologin_url($destination) {
+    public static function get_autologin_url($destination): array {
         global $USER, $CFG;
 
         $params = self::validate_parameters(self::get_autologin_url_parameters(), [
-            'destination' => $destination
+            'destination' => $destination,
         ]);
 
         $context = \context_system::instance();
@@ -67,16 +70,18 @@ class autologin extends external_api {
             throw new \required_capability_exception($context, 'tool/management_console:access', 'nopermissions', '');
         }
 
-        // Security TD-AUTH-001: Validate destination to prevent open redirect
+        // Security TD-AUTH-001: Validate destination to prevent open redirect.
         $dest = trim($params['destination']);
         $allowed = false;
         if (str_starts_with($dest, '/') && !str_starts_with($dest, '//') && !str_starts_with($dest, '/\\')) {
             $allowed = true;
         } else {
-            $parsed_dest = parse_url($dest);
-            $parsed_www = parse_url($CFG->wwwroot);
-            if (!empty($parsed_dest['host']) && !empty($parsed_www['host']) &&
-                strcasecmp($parsed_dest['host'], $parsed_www['host']) === 0) {
+            $parseddest = parse_url($dest);
+            $parsedwww = parse_url($CFG->wwwroot);
+            if (
+                !empty($parseddest['host']) && !empty($parsedwww['host']) &&
+                strcasecmp($parseddest['host'], $parsedwww['host']) === 0
+            ) {
                 $allowed = true;
             }
         }
@@ -91,20 +96,25 @@ class autologin extends external_api {
             $key = create_user_key('tool/management_console', $USER->id, null, null, time() + 900);
         }
 
-        // Endpoint de autologin en plugin root: admin/tool/management_console/autologin.php
-        $autologin_url = new \moodle_url('/admin/tool/management_console/autologin.php', [
+        // Endpoint de autologin en plugin root: admin/tool/management_console/autologin.php.
+        $autologinurl = new \moodle_url('/admin/tool/management_console/autologin.php', [
             'token' => $key,
-            'redirect' => $dest
+            'redirect' => $dest,
         ]);
 
         return [
-            'url' => $autologin_url->out(false)
+            'url' => $autologinurl->out(false),
         ];
     }
 
-    public static function get_autologin_url_returns() {
+    /**
+     * Describes the return structure for get_autologin_url.
+     *
+     * @return external_single_structure
+     */
+    public static function get_autologin_url_returns(): external_single_structure {
         return new external_single_structure([
-            'url' => new external_value(PARAM_URL, 'Autologin URL')
+            'url' => new external_value(PARAM_URL, 'Autologin URL'),
         ]);
     }
 }

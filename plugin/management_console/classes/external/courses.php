@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_course;
 use context_system;
 use core_external\external_api;
@@ -45,8 +43,12 @@ use stdClass;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class courses extends external_api {
-
-    public static function get_courses_parameters() {
+    /**
+     * Parameter definition for get_courses.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_courses_parameters(): external_function_parameters {
         return new external_function_parameters([
             'page'       => new external_value(PARAM_INT, 'Page index starting from 0', VALUE_DEFAULT, 0),
             'perpage'    => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
@@ -54,12 +56,39 @@ class courses extends external_api {
             'dir'        => new external_value(PARAM_ALPHA, 'Sort direction ASC or DESC', VALUE_DEFAULT, 'DESC'),
             'search'     => new external_value(PARAM_TEXT, 'Search query text', VALUE_DEFAULT, ''),
             'category'   => new external_value(PARAM_INT, 'Category filter id', VALUE_DEFAULT, 0),
-            'visibility' => new external_value(PARAM_INT, 'Visibility filter -1:all, 1:visible, 0:hidden', VALUE_DEFAULT, -1),
+            'visibility' => new external_value(
+                PARAM_INT,
+                'Visibility filter -1:all, 1:visible, 0:hidden',
+                VALUE_DEFAULT,
+                -1
+            ),
             'filters'    => new external_value(PARAM_RAW, 'JSON encoded filters string', VALUE_DEFAULT, '{}'),
         ]);
     }
 
-    public static function get_courses($page = 0, $perpage = 20, $sort = 'timecreated', $dir = 'DESC', $search = '', $category = 0, $visibility = -1, $filters = '{}') {
+    /**
+     * Get paginated and filtered courses list.
+     *
+     * @param int $page Page index starting from 0.
+     * @param int $perpage Items per page.
+     * @param string $sort Sort field.
+     * @param string $dir Sort direction ASC or DESC.
+     * @param string $search Search query text.
+     * @param int $category Category filter id.
+     * @param int $visibility Visibility filter -1:all, 1:visible, 0:hidden.
+     * @param string $filters JSON encoded filters string.
+     * @return array
+     */
+    public static function get_courses(
+        int $page = 0,
+        int $perpage = 20,
+        string $sort = 'timecreated',
+        string $dir = 'DESC',
+        string $search = '',
+        int $category = 0,
+        int $visibility = -1,
+        string $filters = '{}'
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
         require_capability('moodle/course:view', $context);
@@ -74,9 +103,35 @@ class courses extends external_api {
             'visibility' => $visibility,
             'filters'    => $filters,
         ]);
-        $params['perpage'] = min(max(1, $params['perpage']), 200);
 
-        list($records, $totalcount, $kpis) = course_repository::get_courses_filtered($params);
+        // Defensive sanitization and boundary clamps.
+        $params['page'] = max(0, (int)$params['page']);
+        $params['perpage'] = min(max(1, (int)$params['perpage']), 200);
+
+        $allowedsorts = [
+            'id', 'fullname', 'shortname', 'categoryname', 'visible',
+            'enrolledcount', 'completedcount', 'cohortscount',
+            'competenciescount', 'progress', 'timecreated', 'startdate', 'enddate',
+        ];
+        if (!in_array($params['sort'], $allowedsorts, true)) {
+            $params['sort'] = 'timecreated';
+        }
+
+        $params['dir'] = strtoupper($params['dir']) === 'ASC' ? 'ASC' : 'DESC';
+
+        if (!in_array((int)$params['visibility'], [-1, 0, 1], true)) {
+            $params['visibility'] = -1;
+        }
+
+        // Validate JSON structure safely.
+        if (is_string($params['filters'])) {
+            $decoded = json_decode($params['filters'], true);
+            if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+                $params['filters'] = '{}';
+            }
+        }
+
+        [$records, $totalcount, $kpis] = course_repository::get_courses_filtered($params);
 
         $courses = [];
         foreach ($records as $r) {
@@ -100,7 +155,7 @@ class courses extends external_api {
                 'enrolledcount'    => $enrolled,
                 'completedcount'   => $completed,
                 'cohortscount'     => (int)$r->cohortscount,
-                'competenciescount'=> (int)($r->competenciescount ?? 0),
+                'competenciescount' => (int)($r->competenciescount ?? 0),
                 'progress_percent' => (int)$progress,
             ];
         }
@@ -114,7 +169,12 @@ class courses extends external_api {
         ];
     }
 
-    public static function get_courses_returns() {
+    /**
+     * Return structure for get_courses.
+     *
+     * @return external_single_structure
+     */
+    public static function get_courses_returns(): external_single_structure {
         return new external_single_structure([
             'totalcount' => new external_value(PARAM_INT, 'Total count of courses matching filter'),
             'page'       => new external_value(PARAM_INT, 'Current page index'),
@@ -133,7 +193,12 @@ class courses extends external_api {
                     'enrolledcount'    => new external_value(PARAM_INT, 'Number of enrolled active users'),
                     'completedcount'   => new external_value(PARAM_INT, 'Number of users who completed the course'),
                     'cohortscount'     => new external_value(PARAM_INT, 'Number of cohort enrolments'),
-                    'competenciescount'=> new external_value(PARAM_INT, 'Number of competencies linked to the course', VALUE_DEFAULT, 0),
+                    'competenciescount' => new external_value(
+                        PARAM_INT,
+                        'Number of competencies linked to the course',
+                        VALUE_DEFAULT,
+                        0
+                    ),
                     'progress_percent' => new external_value(PARAM_INT, 'Average completion percentage'),
                 ])
             ),
@@ -146,10 +211,23 @@ class courses extends external_api {
         ]);
     }
 
-    public static function course_action_parameters() {
+    /**
+     * Parameter definition for course_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function course_action_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'action'         => new external_value(PARAM_ALPHANUMEXT, 'Action: create, hide, show, delete, move, update, update_dates'),
-            'courseids'      => new external_multiple_structure(new external_value(PARAM_INT, 'Course ID'), 'Array of course IDs', VALUE_DEFAULT, []),
+            'action'         => new external_value(
+                PARAM_ALPHANUMEXT,
+                'Action: create, hide, show, delete, move, update, update_dates'
+            ),
+            'courseids'      => new external_multiple_structure(
+                new external_value(PARAM_INT, 'Course ID'),
+                'Array of course IDs',
+                VALUE_DEFAULT,
+                []
+            ),
             'categoryid'     => new external_value(PARAM_INT, 'Target category ID for move or create', VALUE_DEFAULT, 0),
             'fullname'       => new external_value(PARAM_TEXT, 'Course fullname for create or update', VALUE_DEFAULT, ''),
             'shortname'      => new external_value(PARAM_TEXT, 'Course shortname for create or update', VALUE_DEFAULT, ''),
@@ -176,7 +254,17 @@ class courses extends external_api {
      * @throws \moodle_exception
      * @throws \required_capability_exception
      */
-    public static function course_action($action, $courseids = [], $categoryid = 0, $fullname = '', $shortname = '', $summary = '', $visible = 1, $startdate = 0, $enddate = 0) {
+    public static function course_action(
+        string $action,
+        array $courseids = [],
+        int $categoryid = 0,
+        string $fullname = '',
+        string $shortname = '',
+        string $summary = '',
+        int $visible = 1,
+        int $startdate = 0,
+        int $enddate = 0
+    ): array {
         global $DB, $CFG;
 
         require_once($CFG->dirroot . '/course/lib.php');
@@ -208,7 +296,11 @@ class courses extends external_api {
                     \tool_management_console\license_manager::require_active_license();
                     if (empty($params['fullname']) || empty($params['shortname']) || empty($params['categoryid'])) {
                         $transaction->allow_commit();
-                        return ['success' => false, 'message' => 'fullname, shortname and categoryid are required.', 'affectedcount' => 0];
+                        return [
+                            'success'       => false,
+                            'message'       => 'fullname, shortname and categoryid are required.',
+                            'affectedcount' => 0,
+                        ];
                     }
 
                     $data = new \stdClass();
@@ -217,14 +309,14 @@ class courses extends external_api {
                     $data->summary = $params['summary'];
                     $data->category = $params['categoryid'];
                     $data->visible = $params['visible'];
-                    
+
                     if ($params['startdate'] > 0) {
                         $data->startdate = $params['startdate'];
                     }
                     if ($params['enddate'] > 0) {
                         $data->enddate = $params['enddate'];
                     }
-                    
+
                     $newcourse = create_course($data);
                     $transaction->allow_commit();
                     return [
@@ -289,7 +381,7 @@ class courses extends external_api {
                     $targetcatctx = \context_coursecat::instance($params['categoryid']);
                     require_capability('moodle/category:manage', $targetcatctx);
                     \tool_management_console\license_manager::require_active_license();
-                    
+
                     $validcids = [];
                     foreach ($params['courseids'] as $cid) {
                         if ($cid > 1) {
@@ -301,7 +393,7 @@ class courses extends external_api {
                             $validcids[] = $cid;
                         }
                     }
-                    
+
                     if (!empty($validcids)) {
                         if (move_courses($validcids, $params['categoryid'])) {
                             $affected = count($validcids);
@@ -362,7 +454,12 @@ class courses extends external_api {
         ];
     }
 
-    public static function course_action_returns() {
+    /**
+     * Return structure for course_action.
+     *
+     * @return external_single_structure
+     */
+    public static function course_action_returns(): external_single_structure {
         return new external_single_structure([
             'success'       => new external_value(PARAM_BOOL, 'True if operation succeeded'),
             'message'       => new external_value(PARAM_TEXT, 'Status description message'),
@@ -370,15 +467,33 @@ class courses extends external_api {
         ]);
     }
 
-    public static function get_course_detail_parameters() {
+    /**
+     * Parameter definition for get_course_detail.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_course_detail_parameters(): external_function_parameters {
         return new external_function_parameters([
             'courseid'  => new external_value(PARAM_INT, 'Course ID'),
             'limitfrom' => new external_value(PARAM_INT, 'Offset for enrolled users', VALUE_DEFAULT, 0),
-            'limitnum'  => new external_value(PARAM_INT, 'Limit for enrolled users (max 500, default 200)', VALUE_DEFAULT, 0),
+            'limitnum'  => new external_value(
+                PARAM_INT,
+                'Limit for enrolled users (max 500, default 200)',
+                VALUE_DEFAULT,
+                0
+            ),
         ]);
     }
 
-    public static function get_course_detail($courseid, $limitfrom = 0, $limitnum = 0) {
+    /**
+     * Get detailed information for a single course including enrolments, cohorts and competencies.
+     *
+     * @param int $courseid Course ID.
+     * @param int $limitfrom Offset for enrolled users.
+     * @param int $limitnum Limit for enrolled users.
+     * @return array
+     */
+    public static function get_course_detail(int $courseid, int $limitfrom = 0, int $limitnum = 0): array {
         $params = self::validate_parameters(self::get_course_detail_parameters(), [
             'courseid'  => $courseid,
             'limitfrom' => $limitfrom,
@@ -393,70 +508,85 @@ class courses extends external_api {
             require_capability('moodle/course:viewhiddencourses', $context);
         }
 
-        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500
+        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500.
         $offset = max(0, (int)$params['limitfrom']);
         $reqlimit = (int)$params['limitnum'];
         $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
 
-        $enrolled_users = course_enrolment_repository::get_course_enrolled_users_detail($course->id, $offset, $limit);
-        $userids = !empty($enrolled_users) ? array_map(function($u) { return (int)$u->id; }, $enrolled_users) : [];
-        $cohort_user_map = course_repository::get_course_user_cohort_map($course->id, $userids);
-        $all_enrolments = course_repository::get_course_all_enrolments($course->id, $userids);
+        $enrolledusers = course_enrolment_repository::get_course_enrolled_users_detail($course->id, $offset, $limit);
+        $userids = !empty($enrolledusers) ? array_map(function ($u) {
+            return (int)$u->id;
+        }, $enrolledusers) : [];
+        $cohortusermap = course_repository::get_course_user_cohort_map($course->id, $userids);
+        $allenrolments = course_repository::get_course_all_enrolments($course->id, $userids);
 
-        $user_enrolments_map = [];
-        foreach ($all_enrolments as $ue) {
-            $user_enrolments_map[$ue->userid][] = [
+        $userenrolmentsmap = [];
+        foreach ($allenrolments as $ue) {
+            $userenrolmentsmap[$ue->userid][] = [
                 'method' => (string)$ue->method,
                 'status' => (int)$ue->status,
                 'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend
+                'timeend' => (int)$ue->timeend,
             ];
         }
 
-        $user_roles_map = course_repository::get_course_user_roles_map($course->id, $userids);
+        $userrolesmap = course_repository::get_course_user_roles_map($course->id, $userids);
 
-        // Batch calculate completion progress for all enrolled users
+        // Batch calculate completion progress for all enrolled users.
         global $CFG;
         require_once($CFG->libdir . '/completionlib.php');
         $cinfo = new \completion_info($course);
-        $trackable_activities = $cinfo->is_enabled() ? $cinfo->get_activities() : [];
-        $total_activities = count($trackable_activities);
+        $trackableactivities = $cinfo->is_enabled() ? $cinfo->get_activities() : [];
+        $totalactivities = count($trackableactivities);
 
-        $user_cm_completed = [];
-        if ($total_activities > 0 && !empty($userids)) {
-            $user_cm_completed = course_repository::get_course_cm_completions(array_keys($trackable_activities), $userids);
+        $usercmcompleted = [];
+        if ($totalactivities > 0 && !empty($userids)) {
+            $usercmcompleted = course_repository::get_course_cm_completions(
+                array_keys($trackableactivities),
+                $userids
+            );
         }
 
-        $can_view_email = is_siteadmin() || has_capability('moodle/course:useremail', $context);
+        $canviewemail = is_siteadmin() || has_capability('moodle/course:useremail', $context);
 
         $users = [];
-        foreach ($enrolled_users as $u) {
-            $progress_val = 0;
+        foreach ($enrolledusers as $u) {
+            $u->firstnamephonetic = $u->firstnamephonetic ?? '';
+            $u->lastnamephonetic = $u->lastnamephonetic ?? '';
+            $u->middlename = $u->middlename ?? '';
+            $u->alternatename = $u->alternatename ?? '';
+            $u->email = $u->email ?? '';
+            $u->enrolstatus = $u->enrolstatus ?? 0;
+            $u->timestart = $u->timestart ?? 0;
+            $u->timecreated = $u->timecreated ?? 0;
+            $u->timeend = $u->timeend ?? 0;
+
+            $progressval = 0;
             if (!empty($u->timecompleted)) {
-                $progress_val = 100;
-            } else if ($total_activities > 0) {
-                $completed = isset($user_cm_completed[$u->id]) ? (int)$user_cm_completed[$u->id] : 0;
-                $progress_val = (int)round(($completed / $total_activities) * 100);
+                $progressval = 100;
+            } else if ($totalactivities > 0) {
+                $completed = isset($usercmcompleted[$u->id]) ? (int)$usercmcompleted[$u->id] : 0;
+                $progressval = (int)round(($completed / $totalactivities) * 100);
             }
 
             $users[] = [
                 'id' => (int)$u->id,
                 'fullname' => fullname($u),
-                'email' => $can_view_email ? (string)$u->email : '',
-                'progress' => $progress_val,
+                'email' => $canviewemail ? (string)$u->email : '',
+                'progress' => $progressval,
                 'status' => (int)$u->enrolstatus,
                 'timestart' => (int)$u->timestart > 0 ? (int)$u->timestart : (int)$u->timecreated,
                 'timeend' => (int)$u->timeend,
-                'enrolments' => $user_enrolments_map[$u->id] ?? [],
-                'cohortids' => isset($cohort_user_map[$u->id]) ? implode(',', $cohort_user_map[$u->id]) : '',
-                'roles' => isset($user_roles_map[$u->id]) ? implode(',', $user_roles_map[$u->id]) : 'student'
+                'enrolments' => $userenrolmentsmap[$u->id] ?? [],
+                'cohortids' => isset($cohortusermap[$u->id]) ? implode(',', $cohortusermap[$u->id]) : '',
+                'roles' => isset($userrolesmap[$u->id]) ? implode(',', $userrolesmap[$u->id]) : 'student',
             ];
         }
 
-        $linked_cohorts = course_repository::get_course_linked_cohorts($course->id);
+        $linkedcohorts = course_repository::get_course_linked_cohorts($course->id);
 
         $cohorts = [];
-        foreach ($linked_cohorts as $c) {
+        foreach ($linkedcohorts as $c) {
             $enrolled = (int)$c->enrolledcount;
             $completed = (int)$c->completedcount;
             $progress = 0;
@@ -472,7 +602,7 @@ class courses extends external_api {
                 'timecreated' => (int)$c->timecreated,
                 'enrolenddate' => (int)$c->enrolenddate,
                 'groupid' => (int)$c->groupid,
-                'progress' => $progress
+                'progress' => $progress,
             ];
         }
 
@@ -491,11 +621,16 @@ class courses extends external_api {
             'users' => $users,
             'cohorts' => $cohorts,
             'coursegroups' => $coursegroups,
-            'competencies' => $competencies
+            'competencies' => $competencies,
         ];
     }
 
-    public static function get_course_detail_returns() {
+    /**
+     * Return structure for get_course_detail.
+     *
+     * @return external_single_structure
+     */
+    public static function get_course_detail_returns(): external_single_structure {
         return new external_single_structure([
             'id' => new external_value(PARAM_INT, 'Course ID'),
             'fullname' => new external_value(PARAM_TEXT, 'Course fullname'),
@@ -559,12 +694,22 @@ class courses extends external_api {
                     'frameworkname'     => new external_value(PARAM_TEXT, 'Framework name'),
                     'frameworkidnumber' => new external_value(PARAM_TEXT, 'Framework ID number', VALUE_DEFAULT, ''),
                     'frameworkvisible'  => new external_value(PARAM_INT, 'Framework visibility', VALUE_DEFAULT, 1),
-                    'ruleoutcome'       => new external_value(PARAM_INT, 'Rule outcome when course completed', VALUE_DEFAULT, 1),
+                    'ruleoutcome'       => new external_value(
+                        PARAM_INT,
+                        'Rule outcome when course completed',
+                        VALUE_DEFAULT,
+                        1
+                    ),
                     'sortorder'         => new external_value(PARAM_INT, 'Sort order', VALUE_DEFAULT, 0),
                     'timecreated'       => new external_value(PARAM_INT, 'Time created', VALUE_DEFAULT, 0),
                     'enrolledcount'     => new external_value(PARAM_INT, 'Enrolled students count', VALUE_DEFAULT, 0),
                     'completedcount'    => new external_value(PARAM_INT, 'Students completed count', VALUE_DEFAULT, 0),
-                    'progress'          => new external_value(PARAM_INT, 'Completion progress percentage', VALUE_DEFAULT, 0),
+                    'progress'          => new external_value(
+                        PARAM_INT,
+                        'Completion progress percentage',
+                        VALUE_DEFAULT,
+                        0
+                    ),
                     'activities'        => new external_multiple_structure(
                         new external_single_structure([
                             'id'          => new external_value(PARAM_INT, 'Module competency link ID'),
@@ -587,84 +732,236 @@ class courses extends external_api {
         ]);
     }
 
-    // ==========================================
-    // BACKWARD COMPATIBILITY PROXY DELEGATIONS
-    // ==========================================
+    // Backward compatibility proxy delegations.
 
-    // Course Cohort Actions -> course_enrollments
-    public static function course_cohort_action_parameters() {
+    /**
+     * Parameter definition for course_cohort_action proxy.
+     *
+     * @return external_function_parameters
+     */
+    public static function course_cohort_action_parameters(): external_function_parameters {
         return course_enrollments::course_cohort_action_parameters();
     }
 
-    public static function course_cohort_action($action, $courseid, $cohortids, $groupid = 0, $newgroupname = '', $timeend = 0, $message_text = '', $roleid = 0) {
-        return course_enrollments::course_cohort_action($action, $courseid, $cohortids, $groupid, $newgroupname, $timeend, $message_text, $roleid);
+    /**
+     * Proxy for course cohort actions.
+     *
+     * @param string $action Action name.
+     * @param int $courseid Course ID.
+     * @param array $cohortids Array of cohort IDs.
+     * @param int $groupid Target group ID.
+     * @param string $newgroupname New group name if creating.
+     * @param int $timeend Expiration time.
+     * @param string $messagetext Message text.
+     * @param int $roleid Role ID.
+     * @return array
+     */
+    public static function course_cohort_action(
+        $action,
+        $courseid,
+        $cohortids,
+        $groupid = 0,
+        $newgroupname = '',
+        $timeend = 0,
+        $messagetext = '',
+        $roleid = 0
+    ): array {
+        return course_enrollments::course_cohort_action(
+            $action,
+            $courseid,
+            $cohortids,
+            $groupid,
+            $newgroupname,
+            $timeend,
+            $messagetext,
+            $roleid
+        );
     }
 
-    public static function course_cohort_action_returns() {
+    /**
+     * Return structure for course_cohort_action proxy.
+     *
+     * @return external_single_structure
+     */
+    public static function course_cohort_action_returns(): external_single_structure {
         return course_enrollments::course_cohort_action_returns();
     }
 
-    // Course User Actions -> course_enrollments
-    public static function course_user_action_parameters() {
+    /**
+     * Parameter definition for course_user_action proxy.
+     *
+     * @return external_function_parameters
+     */
+    public static function course_user_action_parameters(): external_function_parameters {
         return course_enrollments::course_user_action_parameters();
     }
 
-    public static function course_user_action($action, $courseid, $userids, $timeend = 0, $groupid = 0, $newgroupname = '', $message_text = '') {
-        return course_enrollments::course_user_action($action, $courseid, $userids, $timeend, $groupid, $newgroupname, $message_text);
+    /**
+     * Proxy for course user actions.
+     *
+     * @param string $action Action name.
+     * @param int $courseid Course ID.
+     * @param array $userids Array of user IDs.
+     * @param int $timeend Expiration time.
+     * @param int $groupid Group ID.
+     * @param string $newgroupname New group name.
+     * @param string $messagetext Message text.
+     * @return array
+     */
+    public static function course_user_action(
+        $action,
+        $courseid,
+        $userids,
+        $timeend = 0,
+        $groupid = 0,
+        $newgroupname = '',
+        $messagetext = ''
+    ): array {
+        return course_enrollments::course_user_action(
+            $action,
+            $courseid,
+            $userids,
+            $timeend,
+            $groupid,
+            $newgroupname,
+            $messagetext
+        );
     }
 
-    public static function course_user_action_returns() {
+    /**
+     * Return structure for course_user_action proxy.
+     *
+     * @return external_single_structure
+     */
+    public static function course_user_action_returns(): external_single_structure {
         return course_enrollments::course_user_action_returns();
     }
 
-    // Course User Detail -> course_enrollments
-    public static function get_course_user_detail_parameters() {
+    /**
+     * Parameter definition for get_course_user_detail proxy.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_course_user_detail_parameters(): external_function_parameters {
         return course_enrollments::get_course_user_detail_parameters();
     }
 
-    public static function get_course_user_detail($courseid, $userid) {
+    /**
+     * Proxy for get course user detail.
+     *
+     * @param int $courseid Course ID.
+     * @param int $userid User ID.
+     * @return array
+     */
+    public static function get_course_user_detail($courseid, $userid): array {
         return course_enrollments::get_course_user_detail($courseid, $userid);
     }
 
-    public static function get_course_user_detail_returns() {
+    /**
+     * Return structure for get_course_user_detail proxy.
+     *
+     * @return external_single_structure
+     */
+    public static function get_course_user_detail_returns(): external_single_structure {
         return course_enrollments::get_course_user_detail_returns();
     }
 
-    // Bulk Course CSV Upload -> course_csv
-    public static function upload_courses_csv_parameters() {
+    /**
+     * Parameter definition for upload_courses_csv proxy.
+     *
+     * @return external_function_parameters
+     */
+    public static function upload_courses_csv_parameters(): external_function_parameters {
         return course_csv::upload_courses_csv_parameters();
     }
 
-    public static function upload_courses_csv($fileContent) {
-        return course_csv::upload_courses_csv($fileContent);
+    /**
+     * Proxy for bulk course CSV upload.
+     *
+     * @param string $filecontent Base64 encoded file content.
+     * @return array
+     */
+    public static function upload_courses_csv($filecontent): array {
+        return course_csv::upload_courses_csv($filecontent);
     }
 
-    public static function upload_courses_csv_returns() {
+    /**
+     * Return structure for upload_courses_csv proxy.
+     *
+     * @return external_single_structure
+     */
+    public static function upload_courses_csv_returns(): external_single_structure {
         return course_csv::upload_courses_csv_returns();
     }
 
-    // Server Backups & Restore MBZ -> course_backups
-    public static function list_server_backups_parameters() {
+    /**
+     * Parameter definition for list_server_backups proxy.
+     *
+     * @return external_function_parameters
+     */
+    public static function list_server_backups_parameters(): external_function_parameters {
         return course_backups::list_server_backups_parameters();
     }
 
-    public static function list_server_backups() {
+    /**
+     * Proxy for list server backups.
+     *
+     * @return array
+     */
+    public static function list_server_backups(): array {
         return course_backups::list_server_backups();
     }
 
-    public static function list_server_backups_returns() {
+    /**
+     * Return structure for list_server_backups proxy.
+     *
+     * @return external_multiple_structure
+     */
+    public static function list_server_backups_returns(): external_multiple_structure {
         return course_backups::list_server_backups_returns();
     }
 
-    public static function restore_course_mbz_parameters() {
+    /**
+     * Parameter definition for restore_course_mbz proxy.
+     *
+     * @return external_function_parameters
+     */
+    public static function restore_course_mbz_parameters(): external_function_parameters {
         return course_backups::restore_course_mbz_parameters();
     }
 
-    public static function restore_course_mbz($backupfile, $categoryid, $fullname = '', $shortname = '', $courseid = 0) {
-        return course_backups::restore_course_mbz($backupfile, $categoryid, $fullname, $shortname, $courseid);
+    /**
+     * Proxy for restoring course MBZ.
+     *
+     * @param string $backupfile Server path or file name.
+     * @param int $categoryid Destination category ID.
+     * @param string $fullname Course fullname.
+     * @param string $shortname Course shortname.
+     * @param int $courseid Destination course ID if existing.
+     * @return array
+     */
+    public static function restore_course_mbz(
+        $backupfile,
+        $categoryid,
+        $fullname = '',
+        $shortname = '',
+        $courseid = 0
+    ): array {
+        return course_backups::restore_course_mbz(
+            $backupfile,
+            $categoryid,
+            $fullname,
+            $shortname,
+            $courseid
+        );
     }
 
-    public static function restore_course_mbz_returns() {
+    /**
+     * Return structure for restore_course_mbz proxy.
+     *
+     * @return external_single_structure
+     */
+    public static function restore_course_mbz_returns(): external_single_structure {
         return course_backups::restore_course_mbz_returns();
     }
 }

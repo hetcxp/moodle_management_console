@@ -24,8 +24,6 @@
 
 namespace tool_management_console\external;
 
-defined('MOODLE_INTERNAL') || die();
-
 use context_system;
 use core_external\external_api;
 use core_external\external_function_parameters;
@@ -43,46 +41,75 @@ use tool_management_console\repository\competency_repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_reviews extends external_api {
-
     /**
-     * Helper para verificar permisos de visualización.
+     * Helper to verify view capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \moodle_exception
      */
-    protected static function check_view_capability($context) {
+    protected static function check_view_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
-        if (has_capability('moodle/competency:competencymanage', $context) ||
-            has_capability('moodle/competency:competencyview', $context)) {
+        if (
+            has_capability('moodle/competency:competencymanage', $context) ||
+            has_capability('moodle/competency:competencyview', $context)
+        ) {
             return;
         }
         throw new \moodle_exception('nopermissions', 'error', '', 'view competencies');
     }
 
     /**
-     * Helper para verificar permisos de gestión.
+     * Helper to verify manage capabilities.
+     *
+     * @param \context $context
+     * @return void
+     * @throws \required_capability_exception
      */
-    protected static function check_manage_capability($context) {
+    protected static function check_manage_capability($context): void {
         if (is_siteadmin()) {
             return;
         }
         require_capability('moodle/competency:competencymanage', $context);
     }
 
-    // ==========================================
-    // 12. GET COMPETENCY REVIEWS (PENDING / IN REVIEW)
-    // ==========================================
-    public static function get_competency_reviews_parameters() {
+    /**
+     * Describes the parameters for get_competency_reviews.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_competency_reviews_parameters(): external_function_parameters {
         return new external_function_parameters([
             'page'        => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
             'perpage'     => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
             'frameworkid' => new external_value(PARAM_INT, 'Filter by framework ID', VALUE_DEFAULT, 0),
-            'competencyid'=> new external_value(PARAM_INT, 'Filter by competency ID', VALUE_DEFAULT, 0),
+            'competencyid' => new external_value(PARAM_INT, 'Filter by competency ID', VALUE_DEFAULT, 0),
             'userid'      => new external_value(PARAM_INT, 'Filter by student user ID', VALUE_DEFAULT, 0),
             'search'      => new external_value(PARAM_TEXT, 'Search query', VALUE_DEFAULT, ''),
         ]);
     }
 
-    public static function get_competency_reviews($page = 0, $perpage = 20, $frameworkid = 0, $competencyid = 0, $userid = 0, $search = '') {
+    /**
+     * Get pending competency reviews.
+     *
+     * @param int $page
+     * @param int $perpage
+     * @param int $frameworkid
+     * @param int $competencyid
+     * @param int $userid
+     * @param string $search
+     * @return array
+     */
+    public static function get_competency_reviews(
+        int $page = 0,
+        int $perpage = 20,
+        int $frameworkid = 0,
+        int $competencyid = 0,
+        int $userid = 0,
+        string $search = ''
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
@@ -106,7 +133,12 @@ class competency_reviews extends external_api {
         return competency_review_repository::get_pending_reviews($filters, $params['page'], $params['perpage']);
     }
 
-    public static function get_competency_reviews_returns() {
+    /**
+     * Describes the return structure for get_competency_reviews.
+     *
+     * @return external_single_structure
+     */
+    public static function get_competency_reviews_returns(): external_single_structure {
         return new external_single_structure([
             'totalcount' => new external_value(PARAM_INT, 'Total pending reviews count'),
             'page'       => new external_value(PARAM_INT, 'Current page index'),
@@ -143,10 +175,12 @@ class competency_reviews extends external_api {
         ]);
     }
 
-    // ==========================================
-    // 13. COMPETENCY REVIEW ACTION (EVALUATE / COMPLETE)
-    // ==========================================
-    public static function competency_review_action_parameters() {
+    /**
+     * Describes the parameters for competency_review_action.
+     *
+     * @return external_function_parameters
+     */
+    public static function competency_review_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'      => new external_value(PARAM_ALPHANUMEXT, 'Action: evaluate, complete'),
             'usercompid'  => new external_value(PARAM_INT, 'User competency record ID'),
@@ -158,8 +192,21 @@ class competency_reviews extends external_api {
 
     /**
      * Perform competency review assessment action.
+     *
+     * @param string $action
+     * @param int $usercompid
+     * @param int $grade
+     * @param int $proficiency
+     * @param string $note
+     * @return array
      */
-    public static function competency_review_action($action, $usercompid, $grade = 1, $proficiency = 1, $note = '') {
+    public static function competency_review_action(
+        string $action,
+        int $usercompid,
+        int $grade = 1,
+        int $proficiency = 1,
+        string $note = ''
+    ): array {
         global $USER;
         $context = context_system::instance();
         self::validate_context($context);
@@ -188,21 +235,33 @@ class competency_reviews extends external_api {
         ];
     }
 
-    public static function competency_review_action_returns() {
+    /**
+     * Describes the return structure for competency_review_action.
+     *
+     * @return external_single_structure
+     */
+    public static function competency_review_action_returns(): external_single_structure {
         return new external_single_structure([
             'success' => new external_value(PARAM_BOOL, 'True if operation succeeded'),
             'message' => new external_value(PARAM_TEXT, 'Status description message'),
         ]);
     }
 
-    // ==========================================
-    // 14. GET COMPETENCY USERS (ENROLLED & COMPETENCY PROGRESS + EVIDENCES)
-    // ==========================================
-    public static function get_competency_users_parameters() {
+    /**
+     * Describes the parameters for get_competency_users.
+     *
+     * @return external_function_parameters
+     */
+    public static function get_competency_users_parameters(): external_function_parameters {
         return new external_function_parameters([
             'competencyid' => new external_value(PARAM_INT, 'Competency ID'),
             'search'       => new external_value(PARAM_RAW, 'Search by user name or email', VALUE_DEFAULT, ''),
-            'status'       => new external_value(PARAM_ALPHANUMEXT, 'Filter status: all, proficient, not_proficient, in_review, pending_reviews', VALUE_DEFAULT, 'all'),
+            'status'       => new external_value(
+                PARAM_ALPHANUMEXT,
+                'Filter status: all, proficient, not_proficient, in_review, pending_reviews',
+                VALUE_DEFAULT,
+                'all'
+            ),
             'courseid'     => new external_value(PARAM_INT, 'Filter by specific course ID', VALUE_DEFAULT, 0),
             'page'         => new external_value(PARAM_INT, 'Page number', VALUE_DEFAULT, 0),
             'perpage'      => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
@@ -211,7 +270,29 @@ class competency_reviews extends external_api {
         ]);
     }
 
-    public static function get_competency_users($competencyid, $search = '', $status = 'all', $courseid = 0, $page = 0, $perpage = 20, $sort = 'lastname', $dir = 'ASC') {
+    /**
+     * Get users and evidence associated with a competency.
+     *
+     * @param int $competencyid
+     * @param string $search
+     * @param string $status
+     * @param int $courseid
+     * @param int $page
+     * @param int $perpage
+     * @param string $sort
+     * @param string $dir
+     * @return array
+     */
+    public static function get_competency_users(
+        int $competencyid,
+        string $search = '',
+        string $status = 'all',
+        int $courseid = 0,
+        int $page = 0,
+        int $perpage = 20,
+        string $sort = 'lastname',
+        string $dir = 'ASC'
+    ): array {
         $context = context_system::instance();
         self::validate_context($context);
         self::check_view_capability($context);
@@ -240,7 +321,12 @@ class competency_reviews extends external_api {
         );
     }
 
-    public static function get_competency_users_returns() {
+    /**
+     * Describes the return structure for get_competency_users.
+     *
+     * @return external_single_structure
+     */
+    public static function get_competency_users_returns(): external_single_structure {
         return new external_single_structure([
             'totalcount' => new external_value(PARAM_INT, 'Total count of users matching criteria'),
             'page'       => new external_value(PARAM_INT, 'Current page'),
@@ -285,7 +371,12 @@ class competency_reviews extends external_api {
                             'timecreated'        => new external_value(PARAM_INT, 'Evidence timestamp'),
                         ])
                     ),
-                    'source'                => new external_value(PARAM_ALPHA, 'User assignment source (adhoc, course, usercomp)', VALUE_DEFAULT, 'course'),
+                    'source'                => new external_value(
+                        PARAM_ALPHA,
+                        'User assignment source (adhoc, course, usercomp)',
+                        VALUE_DEFAULT,
+                        'course'
+                    ),
                     'is_adhoc'              => new external_value(PARAM_INT, 'Whether assigned via adhoc plan', VALUE_DEFAULT, 0),
                 ])
             ),
