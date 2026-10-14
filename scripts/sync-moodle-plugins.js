@@ -164,7 +164,7 @@ function packagePlugin(plugin) {
   console.log('  Ejecutando build de assets de frontend para Moodle (npm run build:moodle)...');
   execSync('npm run build:moodle', { cwd: projectRoot, stdio: 'inherit' });
 
-  const zipPath = path.resolve(scratchDir, `${plugin.component}.zip`);
+  const zipPath = path.resolve(scratchDir, `${plugin.component}_${process.pid}.zip`);
   if (fs.existsSync(zipPath)) {
     fs.unlinkSync(zipPath);
   }
@@ -252,10 +252,14 @@ async function installPluginViaWeb(page, plugin, zipPath) {
   // 5. Pantalla de validación del paquete
   console.log(`  Evaluando validación de paquete en: ${page.url()}`);
   const validationError = await page.evaluate(() => {
+    const text = document.body ? document.body.innerText : '';
+    const isSuccess = text.includes('Validación exitosa') || text.includes('Validation successful');
+    if (isSuccess) {
+      return null;
+    }
     const danger = document.querySelector('.alert-danger, .validation-error, .status-error');
     if (danger) return danger.innerText.trim();
-    const text = document.body ? document.body.innerText : '';
-    if (text.includes('Instalación abortada') || text.includes('Installation aborted') || text.includes('Revisión de acceso de escritura')) {
+    if (text.includes('Instalación abortada') || text.includes('Installation aborted') || text.includes('[ERR]') || text.includes('[FAIL]')) {
       const pre = document.querySelector('pre, .generalbox, .box');
       return pre ? pre.innerText.trim() : 'Instalación abortada debido a falla en validación de Moodle';
     }
@@ -309,32 +313,38 @@ async function installPluginViaWeb(page, plugin, zipPath) {
     await page.waitForFunction(() => document.readyState === 'complete' && !!document.body, { timeout: 30000 }).catch(() => {});
     await new Promise(r => setTimeout(r, 3000));
 
-    const btnInfo = await page.evaluate(() => {
-      const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
-      // 1. Priorizar botón de actualización de base de datos
-      const upgradeBtn = candidates.find(el => {
-        const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
-        return (txt.includes('actualizar') && (txt.includes('base de datos') || txt.includes('moodle'))) ||
-               (txt.includes('upgrade') && (txt.includes('database') || txt.includes('moodle')));
-      });
-      if (upgradeBtn) return { text: (upgradeBtn.value || upgradeBtn.innerText || 'Upgrade').trim() };
+    let btnInfo = null;
+    for (let retry = 1; retry <= 15; retry++) {
+      btnInfo = await page.evaluate(() => {
+        const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
+        // 1. Priorizar botón de actualización de base de datos
+        const upgradeBtn = candidates.find(el => {
+          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+          return (txt.includes('actualizar') && (txt.includes('base de datos') || txt.includes('moodle'))) ||
+                 (txt.includes('upgrade') && (txt.includes('database') || txt.includes('moodle')));
+        });
+        if (upgradeBtn) return { text: (upgradeBtn.value || upgradeBtn.innerText || 'Upgrade').trim() };
 
-      // 2. Botón de continuar
-      const continueBtn = candidates.find(el => {
-        const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
-        return txt.includes('continuar') || txt.includes('continue');
-      });
-      if (continueBtn) return { text: (continueBtn.value || continueBtn.innerText || 'Continuar').trim() };
+        // 2. Botón de continuar
+        const continueBtn = candidates.find(el => {
+          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+          return txt.includes('continuar') || txt.includes('continue');
+        });
+        if (continueBtn) return { text: (continueBtn.value || continueBtn.innerText || 'Continuar').trim() };
 
-      // 3. Botón de guardar cambios si aparece pantalla de ajustes
-      const saveBtn = candidates.find(el => {
-        const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
-        return txt.includes('guardar cambios') || txt.includes('save changes');
-      });
-      if (saveBtn) return { text: (saveBtn.value || saveBtn.innerText || 'Guardar cambios').trim() };
+        // 3. Botón de guardar cambios si aparece pantalla de ajustes
+        const saveBtn = candidates.find(el => {
+          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+          return txt.includes('guardar cambios') || txt.includes('save changes');
+        });
+        if (saveBtn) return { text: (saveBtn.value || saveBtn.innerText || 'Guardar cambios').trim() };
 
-      return null;
-    });
+        return null;
+      });
+
+      if (btnInfo) break;
+      await new Promise(r => setTimeout(r, 2000));
+    }
 
     if (btnInfo) {
       console.log(`  Presionando botón de progreso: "${btnInfo.text}"...`);
@@ -495,7 +505,13 @@ async function installPluginViaWeb(page, plugin, zipPath) {
 
     for (const plugin of pluginsToInstall) {
       const zipPath = packagePlugin(plugin);
-      await installPluginViaWeb(page, plugin, zipPath);
+      try {
+        await installPluginViaWeb(page, plugin, zipPath);
+      } finally {
+        if (fs.existsSync(zipPath)) {
+          try { fs.unlinkSync(zipPath); } catch {}
+        }
+      }
     }
 
     // 4. Quality Gate de Verificación Final
