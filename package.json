@@ -13,6 +13,7 @@
     "dev:rasacademy": "vite --mode rasacademy",
     "dev:inspiringacademy": "vite --mode inspiringacademy",
     "dev:musk": "vite --mode musk",
+    "dev:mopcuy": "vite --mode mopcuy",
     "build": "vite build",
     "build:moodle": "vite build --mode moodle",
     "preview": "vite preview",

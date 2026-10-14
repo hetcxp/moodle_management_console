@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   
   // Target can be local or remote LTS / viasano
-  const proxyTarget = env.VITE_PROXY_TARGET || (mode === 'lts' ? 'https://lts.academyfactory.online' : mode === 'viasano' ? 'https://academiaviasano.online' : 'http://localhost:8000');
+  const proxyTarget = env.VITE_PROXY_TARGET || (mode === 'lts' ? 'https://lts.academyfactory.online' : mode === 'viasano' ? 'https://academiaviasano.online' : mode === 'mopcuy' ? 'https://mopcuy.academyfactory.online' : 'http://localhost:8000');
 
   return {
     base: mode === 'production' ? '/management_console/' : mode === 'moodle' ? '/admin/tool/management_console/app/' : '/',
