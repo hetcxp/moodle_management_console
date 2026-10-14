@@ -118,7 +118,7 @@ function getLocalPlugins() {
 // -------------------------------------------------------------
 async function scrapeRemotePluginVersions(page, expectedComponents) {
   console.log(`  Navegando a ${CONFIG.baseUrl}/admin/plugins.php...`);
-  await page.goto(`${CONFIG.baseUrl}/admin/plugins.php`, { waitUntil: 'networkidle2', timeout: 60000 });
+  await page.goto(`${CONFIG.baseUrl}/admin/plugins.php`, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
   return await page.evaluate((components) => {
     const results = {};
@@ -191,8 +191,8 @@ async function installPluginViaWeb(page, plugin, zipPath) {
 
   // 1. Acceder al instalador
   await page.goto(`${CONFIG.baseUrl}/admin/tool/installaddon/index.php`, {
-    waitUntil: 'networkidle2',
-    timeout: 60000
+    waitUntil: 'domcontentloaded',
+    timeout: 90000
   });
 
   // 2. Abrir Filepicker de Moodle
@@ -245,8 +245,8 @@ async function installPluginViaWeb(page, plugin, zipPath) {
   console.log('  Enviando formulario de instalación...');
   const submitInstallBtn = await page.$('#id_submitbutton');
   await Promise.all([
-    submitInstallBtn.click(),
-    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 90000 })
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {}),
+    submitInstallBtn.click()
   ]);
 
   // 5. Pantalla de validación del paquete
@@ -289,14 +289,14 @@ async function installPluginViaWeb(page, plugin, zipPath) {
   console.log(`  Confirmando validación mediante botón "${confirmText.trim()}"...`);
 
   await Promise.all([
-    confirmBtn.click(),
-    page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 120000 })
+    page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 120000 }).catch(() => {}),
+    confirmBtn.click()
   ]);
 
   // 6. Actualización de Base de Datos y Pantallas Intermedias
   console.log('  Procesando actualización de base de datos...');
   let loopCount = 0;
-  while (loopCount < 6) {
+  while (loopCount < 8) {
     loopCount++;
     const currentUrl = page.url();
     console.log(`  Paso migración BD (${loopCount}): ${currentUrl}`);
@@ -309,45 +309,49 @@ async function installPluginViaWeb(page, plugin, zipPath) {
     await page.waitForFunction(() => document.readyState === 'complete' && !!document.body, { timeout: 30000 }).catch(() => {});
     await new Promise(r => setTimeout(r, 3000));
 
-    let progressBtn = null;
-    for (let retry = 0; retry < 8; retry++) {
-      const progressHandle = await page.evaluateHandle(() => {
-        const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
-        // 1. Priorizar botón de actualización de base de datos
-        const upgradeBtn = candidates.find(el => {
-          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
-          return (txt.includes('actualizar') && (txt.includes('base de datos') || txt.includes('moodle'))) ||
-                 (txt.includes('upgrade') && (txt.includes('database') || txt.includes('moodle')));
-        });
-        if (upgradeBtn) return upgradeBtn;
-
-        // 2. Botón de continuar
-        const continueBtn = candidates.find(el => {
-          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
-          return txt.includes('continuar') || txt.includes('continue');
-        });
-        if (continueBtn) return continueBtn;
-
-        // 3. Botón de guardar cambios si aparece pantalla de ajustes
-        const saveBtn = candidates.find(el => {
-          const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
-          return txt.includes('guardar cambios') || txt.includes('save changes');
-        });
-        return saveBtn || null;
+    const btnInfo = await page.evaluate(() => {
+      const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
+      // 1. Priorizar botón de actualización de base de datos
+      const upgradeBtn = candidates.find(el => {
+        const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+        return (txt.includes('actualizar') && (txt.includes('base de datos') || txt.includes('moodle'))) ||
+               (txt.includes('upgrade') && (txt.includes('database') || txt.includes('moodle')));
       });
+      if (upgradeBtn) return { text: (upgradeBtn.value || upgradeBtn.innerText || 'Upgrade').trim() };
 
-      progressBtn = progressHandle.asElement();
-      if (progressBtn) break;
-      await new Promise(r => setTimeout(r, 2000));
-    }
+      // 2. Botón de continuar
+      const continueBtn = candidates.find(el => {
+        const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+        return txt.includes('continuar') || txt.includes('continue');
+      });
+      if (continueBtn) return { text: (continueBtn.value || continueBtn.innerText || 'Continuar').trim() };
 
-    if (progressBtn) {
-      const btnText = await page.evaluate(el => el.value || el.innerText, progressBtn);
-      console.log(`  Presionando botón de progreso: "${btnText.trim()}"...`);
+      // 3. Botón de guardar cambios si aparece pantalla de ajustes
+      const saveBtn = candidates.find(el => {
+        const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+        return txt.includes('guardar cambios') || txt.includes('save changes');
+      });
+      if (saveBtn) return { text: (saveBtn.value || saveBtn.innerText || 'Guardar cambios').trim() };
+
+      return null;
+    });
+
+    if (btnInfo) {
+      console.log(`  Presionando botón de progreso: "${btnInfo.text}"...`);
       try {
         await Promise.all([
-          progressBtn.click(),
-          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 180000 }).catch(() => {})
+          page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 180000 }).catch(() => {}),
+          page.evaluate(() => {
+            const candidates = Array.from(document.querySelectorAll('button[type="submit"], input[type="submit"], .singlebutton input, .singlebutton button, a.btn, button'));
+            const btn = candidates.find(el => {
+              const txt = (el.value || el.innerText || el.textContent || '').trim().toLowerCase();
+              return (txt.includes('actualizar') && (txt.includes('base de datos') || txt.includes('moodle'))) ||
+                     (txt.includes('upgrade') && (txt.includes('database') || txt.includes('moodle'))) ||
+                     txt.includes('continuar') || txt.includes('continue') ||
+                     txt.includes('guardar cambios') || txt.includes('save changes');
+            });
+            if (btn) btn.click();
+          })
         ]);
         await new Promise(r => setTimeout(r, 4000));
       } catch (err) {

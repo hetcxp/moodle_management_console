@@ -42,7 +42,7 @@ export async function loginMoodle(page, config = {}) {
   }
 
   console.log(`  Autenticando en ${baseUrl}/login/index.php como '${user}'...`);
-  await page.goto(`${baseUrl}/login/index.php`, { waitUntil: 'networkidle2', timeout: 60000 });
+  await page.goto(`${baseUrl}/login/index.php`, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
   // Si ya hay sesión activa
   if (!page.url().includes('/login/index.php')) {
@@ -62,8 +62,8 @@ export async function loginMoodle(page, config = {}) {
     await page.type('#password', pass, { delay: 20 });
 
     await Promise.all([
-      page.click('#loginbtn'),
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 60000 })
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 120000 }),
+      page.click('#loginbtn')
     ]);
 
     if (!page.url().includes('/login/index.php')) {
