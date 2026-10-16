@@ -274,7 +274,7 @@ class cohort_repository {
         $trackablebycourse = [];
         $alltrackablecmids = [];
         foreach ($coursesrecords as $c) {
-            $cinfo = new \completion_info($c);
+            $cinfo = \tool_management_console\moodle_version_helper::get_completion_info($c);
             if ($cinfo->is_enabled()) {
                 $acts = $cinfo->get_activities();
                 $trackablebycourse[$c->id] = count($acts);

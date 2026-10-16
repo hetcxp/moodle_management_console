@@ -420,7 +420,7 @@ class user_repository {
         foreach ($enrolledcourses as $c) {
             $courseobj = \tool_management_console\repository\course_repository::get_course($c->id);
             if ($courseobj) {
-                $cinfo = new \completion_info($courseobj);
+                $cinfo = \tool_management_console\moodle_version_helper::get_completion_info($courseobj);
                 if ($cinfo->is_enabled()) {
                     $acts = $cinfo->get_activities();
                     $trackablebycourse[$c->id] = count($acts);

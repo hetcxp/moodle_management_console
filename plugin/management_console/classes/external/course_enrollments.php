@@ -30,6 +30,7 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use tool_management_console\application\enrollments\course_cohort_action_usecase;
 use tool_management_console\repository\course_repository;
 use tool_management_console\repository\course_enrolment_repository;
 use tool_management_console\repository\user_repository;
@@ -91,10 +92,6 @@ class course_enrollments extends external_api {
         $messagetext = '',
         $roleid = 0
     ): array {
-        global $CFG, $DB;
-        require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
-        require_once($CFG->dirroot . '/group/lib.php');
-
         $context = context_system::instance();
         self::validate_context($context);
 
@@ -109,201 +106,7 @@ class course_enrollments extends external_api {
             'roleid' => $roleid,
         ]);
 
-        $coursecontext = \context_course::instance($params['courseid']);
-        require_capability('moodle/course:enrolreview', $coursecontext);
-        \tool_management_console\license_manager::require_active_license();
-
-        $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
-        $enrolplugin = enrol_get_plugin('cohort');
-
-        // Resolve group.
-        $resolvedgroupid = $params['groupid'];
-        if (!empty($params['newgroupname'])) {
-            require_capability('moodle/course:managegroups', $coursecontext);
-            $newgroup = new \stdClass();
-            $newgroup->courseid = $course->id;
-            $newgroup->name = $params['newgroupname'];
-            $resolvedgroupid = groups_create_group($newgroup);
-        }
-
-        $affected = 0;
-
-        switch ($params['action']) {
-            case 'add':
-                require_capability('enrol/cohort:config', $coursecontext);
-                $studentroleid = (int)$DB->get_field('role', 'id', ['shortname' => 'student']);
-                $roleid = !empty($params['roleid']) ? $params['roleid'] : ($studentroleid ?: 5);
-
-                foreach ($params['cohortids'] as $cid) {
-                    $existing = $DB->get_record('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-
-                    if (!$existing) {
-                        $instanceid = $enrolplugin->add_instance($course, [
-                            'customint1' => $cid,
-                            'roleid' => $roleid,
-                            'customint2' => $resolvedgroupid,
-                        ]);
-                        if ($instanceid) {
-                            $instance = $DB->get_record('enrol', ['id' => $instanceid]);
-                            enrol_cohort_sync(new \null_progress_trace(), $course->id);
-                            $affected++;
-                        }
-                    } else if (empty($existing->roleid)) {
-                        $DB->set_field('enrol', 'roleid', $roleid, ['id' => $existing->id]);
-                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'remove':
-                require_capability('enrol/cohort:config', $coursecontext);
-                foreach ($params['cohortids'] as $cid) {
-                    $instances = $DB->get_records('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-                    foreach ($instances as $instance) {
-                        $enrolplugin->delete_instance($instance);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'suspend':
-                require_capability('enrol/cohort:config', $coursecontext);
-                foreach ($params['cohortids'] as $cid) {
-                    $instances = $DB->get_records('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-                    foreach ($instances as $instance) {
-                        $enrolplugin->update_status($instance, ENROL_INSTANCE_DISABLED);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'activate':
-                require_capability('enrol/cohort:config', $coursecontext);
-                foreach ($params['cohortids'] as $cid) {
-                    $instances = $DB->get_records('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-                    foreach ($instances as $instance) {
-                        $enrolplugin->update_status($instance, ENROL_INSTANCE_ENABLED);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'set_group':
-                require_capability('enrol/cohort:config', $coursecontext);
-                foreach ($params['cohortids'] as $cid) {
-                    $instances = $DB->get_records('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-                    foreach ($instances as $instance) {
-                        $DB->set_field('enrol', 'customint2', $resolvedgroupid, ['id' => $instance->id]);
-                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'set_expiration':
-                require_capability('enrol/cohort:config', $coursecontext);
-                foreach ($params['cohortids'] as $cid) {
-                    $instances = $DB->get_records('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-                    foreach ($instances as $instance) {
-                        $enrolend = $params['timeend'];
-                        if ($enrolend > 0 && $enrolend > time()) {
-                            $duration = $enrolend - time();
-                            $DB->set_field('enrol', 'enrolperiod', $duration, ['id' => $instance->id]);
-                        } else if ($enrolend == 0) {
-                            $DB->set_field('enrol', 'enrolperiod', 0, ['id' => $instance->id]);
-                        }
-                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'sync':
-                require_capability('enrol/cohort:config', $coursecontext);
-                foreach ($params['cohortids'] as $cid) {
-                    $instances = $DB->get_records('enrol', [
-                        'courseid' => $course->id,
-                        'enrol' => 'cohort',
-                        'customint1' => $cid,
-                    ]);
-                    foreach ($instances as $instance) {
-                        enrol_cohort_sync(new \null_progress_trace(), $course->id);
-                        $affected++;
-                    }
-                }
-                break;
-
-            case 'message':
-                require_capability('moodle/site:senderrormessage', $coursecontext);
-                global $USER;
-                $userids = [];
-                foreach ($params['cohortids'] as $cid) {
-                    $members = $DB->get_records('cohort_members', ['cohortid' => $cid], '', 'userid');
-                    foreach ($members as $m) {
-                        $userids[$m->userid] = true;
-                    }
-                }
-
-                $msg = trim($params['message_text']);
-                if (empty($msg)) {
-                    throw new \moodle_exception('error', 'moodle', '', 'Message text cannot be empty');
-                }
-
-                foreach (array_keys($userids) as $uid) {
-                    $recipient = $DB->get_record('user', ['id' => $uid]);
-                    if ($recipient) {
-                        $eventdata = new \core\message\message();
-                        $eventdata->courseid          = $course->id;
-                        $eventdata->component         = 'moodle';
-                        $eventdata->name              = 'instantmessage';
-                        $eventdata->userfrom          = $USER;
-                        $eventdata->userto            = $recipient;
-                        $eventdata->subject           = 'Notice regarding course: ' . $course->fullname;
-                        $eventdata->fullmessage       = $msg;
-                        $eventdata->fullmessageformat = FORMAT_MARKDOWN;
-                        $eventdata->fullmessagehtml   = format_text($msg, FORMAT_MARKDOWN);
-                        $eventdata->smallmessage      = $msg;
-                        $eventdata->notification      = 0;
-                        message_send($eventdata);
-                        $affected++;
-                    }
-                }
-                break;
-
-            default:
-                throw new \moodle_exception('error', 'moodle', '', 'Invalid action');
-        }
-
-        return [
-            'success' => true,
-            'message' => "Cohort action '{$params['action']}' completed.",
-            'affectedcount' => $affected,
-        ];
+        return course_cohort_action_usecase::execute($params);
     }
 
     /**

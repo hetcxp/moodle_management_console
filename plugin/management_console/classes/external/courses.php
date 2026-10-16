@@ -31,6 +31,8 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use tool_management_console\application\courses\course_action_usecase;
+use tool_management_console\application\courses\get_course_detail_usecase;
 use tool_management_console\repository\course_repository;
 use tool_management_console\repository\course_enrolment_repository;
 use stdClass;
@@ -265,10 +267,6 @@ class courses extends external_api {
         int $startdate = 0,
         int $enddate = 0
     ): array {
-        global $DB, $CFG;
-
-        require_once($CFG->dirroot . '/course/lib.php');
-
         $context = context_system::instance();
         self::validate_context($context);
 
@@ -284,174 +282,7 @@ class courses extends external_api {
             'enddate'        => $enddate,
         ]);
 
-        $affected = 0;
-        $act = $params['action'];
-
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            switch ($act) {
-                case 'create':
-                    $catcontext = \context_coursecat::instance($params['categoryid']);
-                    require_capability('moodle/course:create', $catcontext);
-                    \tool_management_console\license_manager::require_active_license();
-                    if (empty($params['fullname']) || empty($params['shortname']) || empty($params['categoryid'])) {
-                        $transaction->allow_commit();
-                        return [
-                            'success'       => false,
-                            'message'       => 'fullname, shortname and categoryid are required.',
-                            'affectedcount' => 0,
-                        ];
-                    }
-
-                    $data = new \stdClass();
-                    $data->fullname = $params['fullname'];
-                    $data->shortname = $params['shortname'];
-                    $data->summary = $params['summary'];
-                    $data->category = $params['categoryid'];
-                    $data->visible = $params['visible'];
-
-                    if ($params['startdate'] > 0) {
-                        $data->startdate = $params['startdate'];
-                    }
-                    if ($params['enddate'] > 0) {
-                        $data->enddate = $params['enddate'];
-                    }
-
-                    $newcourse = create_course($data);
-                    $transaction->allow_commit();
-                    return [
-                        'success' => true,
-                        'message' => 'Course created successfully with ID ' . $newcourse->id,
-                        'affectedcount' => 1,
-                    ];
-
-                case 'hide':
-                    foreach ($params['courseids'] as $cid) {
-                        if ($cid > 1) {
-                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
-                            if (!$cctx) {
-                                continue;
-                            }
-                            require_capability('moodle/course:visibility', $cctx);
-                            \tool_management_console\license_manager::require_active_license();
-                            course_change_visibility($cid, false);
-                            $affected++;
-                        }
-                    }
-                    break;
-
-                case 'show':
-                    foreach ($params['courseids'] as $cid) {
-                        if ($cid > 1) {
-                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
-                            if (!$cctx) {
-                                continue;
-                            }
-                            require_capability('moodle/course:visibility', $cctx);
-                            \tool_management_console\license_manager::require_active_license();
-                            course_change_visibility($cid, true);
-                            $affected++;
-                        }
-                    }
-                    break;
-
-                case 'delete':
-                    foreach ($params['courseids'] as $cid) {
-                        if ($cid > 1) {
-                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
-                            if (!$cctx) {
-                                continue;
-                            }
-                            require_capability('moodle/course:delete', $cctx);
-                            \tool_management_console\license_manager::require_active_license();
-                            $course = $DB->get_record('course', ['id' => $cid]);
-                            if ($course) {
-                                delete_course($course, false);
-                                $affected++;
-                            }
-                        }
-                    }
-                    break;
-
-                case 'move':
-                    if (empty($params['categoryid'])) {
-                        $transaction->allow_commit();
-                        return ['success' => false, 'message' => 'categoryid is required to move courses.', 'affectedcount' => 0];
-                    }
-                    $targetcatctx = \context_coursecat::instance($params['categoryid']);
-                    require_capability('moodle/category:manage', $targetcatctx);
-                    \tool_management_console\license_manager::require_active_license();
-
-                    $validcids = [];
-                    foreach ($params['courseids'] as $cid) {
-                        if ($cid > 1) {
-                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
-                            if (!$cctx) {
-                                continue;
-                            }
-                            require_capability('moodle/course:update', $cctx);
-                            $validcids[] = $cid;
-                        }
-                    }
-
-                    if (!empty($validcids)) {
-                        if (move_courses($validcids, $params['categoryid'])) {
-                            $affected = count($validcids);
-                        }
-                    }
-                    break;
-
-                case 'update':
-                case 'update_dates':
-                    foreach ($params['courseids'] as $cid) {
-                        if ($cid > 1) {
-                            $cctx = \context_course::instance($cid, IGNORE_MISSING);
-                            if (!$cctx) {
-                                continue;
-                            }
-                            require_capability('moodle/course:update', $cctx);
-                            \tool_management_console\license_manager::require_active_license();
-                            $course = $DB->get_record('course', ['id' => $cid]);
-                            if ($course) {
-                                $data = new \stdClass();
-                                $data->id = $cid;
-                                if (!empty($params['fullname'])) {
-                                    $data->fullname = $params['fullname'];
-                                }
-                                if (!empty($params['shortname'])) {
-                                    $data->shortname = $params['shortname'];
-                                }
-                                if ($params['categoryid'] > 0) {
-                                    $data->category = $params['categoryid'];
-                                }
-                                if ($params['summary'] !== '') {
-                                    $data->summary = $params['summary'];
-                                }
-                                $data->startdate = $params['startdate'] > 0 ? $params['startdate'] : 0;
-                                $data->enddate = $params['enddate'] > 0 ? $params['enddate'] : 0;
-                                update_course($data);
-                                $affected++;
-                            }
-                        }
-                    }
-                    break;
-
-                default:
-                    $transaction->allow_commit();
-                    return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
-            }
-
-            $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
-        }
-
-        return [
-            'success'       => true,
-            'message'       => "Action {$act} executed successfully.",
-            'affectedcount' => $affected,
-        ];
+        return course_action_usecase::execute($params);
     }
 
     /**
@@ -503,126 +334,12 @@ class courses extends external_api {
         $course = course_repository::get_course_strict($params['courseid']);
         $context = context_course::instance($course->id);
         self::validate_context($context);
-        require_capability('moodle/course:view', $context);
-        if (empty($course->visible)) {
-            require_capability('moodle/course:viewhiddencourses', $context);
-        }
 
-        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500.
-        $offset = max(0, (int)$params['limitfrom']);
-        $reqlimit = (int)$params['limitnum'];
-        $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
-
-        $enrolledusers = course_enrolment_repository::get_course_enrolled_users_detail($course->id, $offset, $limit);
-        $userids = !empty($enrolledusers) ? array_map(function ($u) {
-            return (int)$u->id;
-        }, $enrolledusers) : [];
-        $cohortusermap = course_repository::get_course_user_cohort_map($course->id, $userids);
-        $allenrolments = course_repository::get_course_all_enrolments($course->id, $userids);
-
-        $userenrolmentsmap = [];
-        foreach ($allenrolments as $ue) {
-            $userenrolmentsmap[$ue->userid][] = [
-                'method' => (string)$ue->method,
-                'status' => (int)$ue->status,
-                'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend,
-            ];
-        }
-
-        $userrolesmap = course_repository::get_course_user_roles_map($course->id, $userids);
-
-        // Batch calculate completion progress for all enrolled users.
-        global $CFG;
-        require_once($CFG->libdir . '/completionlib.php');
-        $cinfo = new \completion_info($course);
-        $trackableactivities = $cinfo->is_enabled() ? $cinfo->get_activities() : [];
-        $totalactivities = count($trackableactivities);
-
-        $usercmcompleted = [];
-        if ($totalactivities > 0 && !empty($userids)) {
-            $usercmcompleted = course_repository::get_course_cm_completions(
-                array_keys($trackableactivities),
-                $userids
-            );
-        }
-
-        $canviewemail = is_siteadmin() || has_capability('moodle/course:useremail', $context);
-
-        $users = [];
-        foreach ($enrolledusers as $u) {
-            $u->firstnamephonetic = $u->firstnamephonetic ?? '';
-            $u->lastnamephonetic = $u->lastnamephonetic ?? '';
-            $u->middlename = $u->middlename ?? '';
-            $u->alternatename = $u->alternatename ?? '';
-            $u->email = $u->email ?? '';
-            $u->enrolstatus = $u->enrolstatus ?? 0;
-            $u->timestart = $u->timestart ?? 0;
-            $u->timecreated = $u->timecreated ?? 0;
-            $u->timeend = $u->timeend ?? 0;
-
-            $progressval = 0;
-            if (!empty($u->timecompleted)) {
-                $progressval = 100;
-            } else if ($totalactivities > 0) {
-                $completed = isset($usercmcompleted[$u->id]) ? (int)$usercmcompleted[$u->id] : 0;
-                $progressval = (int)round(($completed / $totalactivities) * 100);
-            }
-
-            $users[] = [
-                'id' => (int)$u->id,
-                'fullname' => fullname($u),
-                'email' => $canviewemail ? (string)$u->email : '',
-                'progress' => $progressval,
-                'status' => (int)$u->enrolstatus,
-                'timestart' => (int)$u->timestart > 0 ? (int)$u->timestart : (int)$u->timecreated,
-                'timeend' => (int)$u->timeend,
-                'enrolments' => $userenrolmentsmap[$u->id] ?? [],
-                'cohortids' => isset($cohortusermap[$u->id]) ? implode(',', $cohortusermap[$u->id]) : '',
-                'roles' => isset($userrolesmap[$u->id]) ? implode(',', $userrolesmap[$u->id]) : 'student',
-            ];
-        }
-
-        $linkedcohorts = course_repository::get_course_linked_cohorts($course->id);
-
-        $cohorts = [];
-        foreach ($linkedcohorts as $c) {
-            $enrolled = (int)$c->enrolledcount;
-            $completed = (int)$c->completedcount;
-            $progress = 0;
-            if ($enrolled > 0) {
-                $progress = round(($completed / $enrolled) * 100);
-            }
-            $cohorts[] = [
-                'id' => (int)$c->id,
-                'name' => (string)$c->name,
-                'idnumber' => (string)$c->idnumber,
-                'enrolid' => (int)$c->enrolid,
-                'status' => (int)$c->enrolstatus,
-                'timecreated' => (int)$c->timecreated,
-                'enrolenddate' => (int)$c->enrolenddate,
-                'groupid' => (int)$c->groupid,
-                'progress' => $progress,
-            ];
-        }
-
-        $coursegroups = course_repository::get_course_groups_list($course->id);
-        $categoryname = course_repository::get_course_category_name($course->category);
-        $competencies = course_repository::get_course_competencies($course->id);
-
-        return [
-            'id' => (int)$course->id,
-            'fullname' => $course->fullname,
-            'shortname' => $course->shortname,
-            'categoryname' => $categoryname,
-            'timecreated' => (int)$course->timecreated,
-            'startdate' => (int)$course->startdate,
-            'enddate' => (int)$course->enddate,
-            'users' => $users,
-            'cohorts' => $cohorts,
-            'coursegroups' => $coursegroups,
-            'competencies' => $competencies,
-        ];
+        return get_course_detail_usecase::execute(
+            (int)$course->id,
+            (int)$params['limitfrom'],
+            (int)$params['limitnum']
+        );
     }
 
     /**

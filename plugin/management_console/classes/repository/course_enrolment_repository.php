@@ -330,8 +330,15 @@ class course_enrolment_repository {
                 }
             }
             $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
+        } catch (\Throwable $e) {
+            try {
+                $transaction->rollback($e);
+            } catch (\Throwable $rollbackex) {
+                if ($rollbackex !== $e) {
+                    throw $rollbackex;
+                }
+            }
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
         return ['success' => true, 'message' => "Successfully processed $affected enrolments"];
@@ -433,8 +440,15 @@ class course_enrolment_repository {
                 }
             }
             $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
+        } catch (\Throwable $e) {
+            try {
+                $transaction->rollback($e);
+            } catch (\Throwable $rollbackex) {
+                if ($rollbackex !== $e) {
+                    throw $rollbackex;
+                }
+            }
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 

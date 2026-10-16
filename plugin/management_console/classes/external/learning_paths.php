@@ -640,12 +640,7 @@ class learning_paths extends external_api {
                             'status'     => ENROL_INSTANCE_ENABLED,
                         ]);
                     }
-                    if (function_exists('enrol_cohort_sync')) {
-                        require_once($CFG->dirroot . '/enrol/cohort/locallib.php');
-                        $trace = new \null_progress_trace();
-                        enrol_cohort_sync($trace, $course->id);
-                        $trace->finished();
-                    }
+                    \tool_management_console\moodle_version_helper::sync_cohort_enrolments($course->id);
                 } else if ($params['action'] === 'remove') {
                     $instance = $DB->get_record('enrol', [
                         'enrol'      => 'cohort',

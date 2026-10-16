@@ -369,8 +369,18 @@ class categories extends external_api {
                     return ['success' => false, 'message' => 'Unknown action: ' . $act, 'affectedcount' => 0];
             }
             $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
+        } catch (\Throwable $e) {
+            try {
+                $transaction->rollback($e);
+            } catch (\Throwable $rollbackex) {
+                if ($rollbackex !== $e) {
+                    throw $rollbackex;
+                }
+            }
+            if ($e instanceof \required_capability_exception) {
+                throw $e;
+            }
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 

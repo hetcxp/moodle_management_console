@@ -30,6 +30,9 @@ use core_external\external_function_parameters;
 use core_external\external_multiple_structure;
 use core_external\external_single_structure;
 use core_external\external_value;
+use tool_management_console\application\users\user_action_usecase;
+use tool_management_console\application\users\user_cohort_action_usecase;
+use tool_management_console\application\users\get_user_detail_usecase;
 use tool_management_console\repository\user_repository;
 use tool_management_console\repository\course_enrolment_repository;
 
@@ -283,10 +286,6 @@ class users extends external_api {
      * @throws \required_capability_exception
      */
     public static function user_action(string $action, array $userids = [], string $messagetext = ''): array {
-        global $DB, $CFG;
-
-        require_once($CFG->dirroot . '/user/lib.php');
-
         $context = context_system::instance();
         self::validate_context($context);
 
@@ -296,124 +295,11 @@ class users extends external_api {
             'message_text' => $messagetext,
         ]);
 
-        $act = $params['action'];
-        $ids = $params['userids'];
-        $msg = $params['message_text'];
-        $affected = 0;
-
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            switch ($act) {
-                case 'suspend':
-                    require_capability('moodle/user:update', $context);
-                    \tool_management_console\license_manager::require_active_license();
-                    foreach ($ids as $uid) {
-                        if ($uid > 1 && !is_siteadmin($uid)) {
-                            $user = user_repository::get_user($uid);
-                            if ($user && !$user->suspended) {
-                                $user->suspended = 1;
-                                if (method_exists(\core\user::class, 'update_user')) {
-                                    \core\user::update_user($user, false, false);
-                                } else {
-                                    user_update_user($user, false, false);
-                                }
-                                $affected++;
-                            }
-                        }
-                    }
-                    break;
-
-                case 'activate':
-                    require_capability('moodle/user:update', $context);
-                    \tool_management_console\license_manager::require_active_license();
-                    foreach ($ids as $uid) {
-                        if ($uid > 1) {
-                            $user = user_repository::get_user($uid);
-                            if ($user && $user->suspended) {
-                                $user->suspended = 0;
-                                if (method_exists(\core\user::class, 'update_user')) {
-                                    \core\user::update_user($user, false, false);
-                                } else {
-                                    user_update_user($user, false, false);
-                                }
-                                $affected++;
-                            }
-                        }
-                    }
-                    break;
-
-                case 'delete':
-                    require_capability('moodle/user:delete', $context);
-                    \tool_management_console\license_manager::require_active_license();
-                    foreach ($ids as $uid) {
-                        if ($uid > 1 && !is_siteadmin($uid)) {
-                            $user = user_repository::get_user($uid);
-                            if ($user) {
-                                delete_user($user);
-                                $affected++;
-                            }
-                        }
-                    }
-                    break;
-
-                case 'message':
-                    \tool_management_console\license_manager::require_active_license();
-                    global $USER;
-                    foreach ($ids as $uid) {
-                        $recipient = user_repository::get_user($uid);
-                        if ($recipient && !empty($msg)) {
-                            $message = new \core\message\message();
-                            $message->component         = 'moodle';
-                            $message->name              = 'instantmessage';
-                            $message->userfrom          = $USER;
-                            $message->userto            = $recipient;
-                            $cleanmsg = clean_text(substr($msg, 0, 65535), FORMAT_HTML);
-                            $message->subject           = 'Mensaje';
-                            $message->fullmessage       = $cleanmsg;
-                            $message->fullmessageformat = FORMAT_HTML;
-                            $message->fullmessagehtml   = $cleanmsg;
-                            $message->smallmessage      = strip_tags($cleanmsg);
-                            message_send($message);
-                            $affected++;
-                        }
-                    }
-                    break;
-
-                case 'send_temp_password':
-                case 'reset_password':
-                    require_capability('moodle/user:update', $context);
-                    \tool_management_console\license_manager::require_active_license();
-                    foreach ($ids as $uid) {
-                        if ($uid > 1) {
-                            $user = user_repository::get_user($uid);
-                            if ($user && empty($user->deleted) && $user->auth !== 'nologin') {
-                                $sent = setnew_password_and_mail($user);
-                                if ($sent) {
-                                    $affected++;
-                                }
-                            }
-                        }
-                    }
-                    break;
-
-                default:
-                    $transaction->allow_commit();
-                    return ['success' => false, 'message' => 'Invalid action: ' . $act, 'affectedcount' => 0];
-            }
-            $transaction->allow_commit();
-            if ($act !== 'send_temp_password' && $act !== 'reset_password') {
-                \tool_management_console\cache_manager::invalidate_kpis('user_kpis');
-            }
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
-        }
-
-        return [
-            'success'       => true,
-            'message'       => "User action {$act} executed on {$affected} users.",
-            'affectedcount' => $affected,
-        ];
+        return user_action_usecase::execute(
+            $params['action'],
+            $params['userids'],
+            $params['message_text']
+        );
     }
 
     /**
@@ -456,8 +342,6 @@ class users extends external_api {
      * @return array
      */
     public static function get_user_detail(int $userid, int $limitfrom = 0, int $limitnum = 0): array {
-        global $CFG;
-
         $params = self::validate_parameters(self::get_user_detail_parameters(), [
             'userid'    => $userid,
             'limitfrom' => $limitfrom,
@@ -467,94 +351,12 @@ class users extends external_api {
         $user = user_repository::get_user_strict($params['userid']);
         $context = \context_user::instance($user->id);
         self::validate_context($context);
-        require_capability('moodle/user:viewdetails', $context);
 
-        // Security TD-DATA-001: Server-side bounded pagination with ceiling of 500.
-        $offset = max(0, (int)$params['limitfrom']);
-        $reqlimit = (int)$params['limitnum'];
-        $limit = ($reqlimit > 0 && $reqlimit <= 500) ? $reqlimit : 200;
-
-        $enrolledcourses = user_repository::get_user_enrolled_courses($user->id, $offset, $limit);
-        $allenrolments = user_repository::get_user_all_enrolments($user->id, 0, 500);
-
-        $courseenrolmentsmap = [];
-        foreach ($allenrolments as $ue) {
-            $courseenrolmentsmap[$ue->courseid][] = [
-                'method' => (string)$ue->method,
-                'status' => (int)$ue->status,
-                'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend,
-            ];
-        }
-
-        require_once($CFG->libdir . '/completionlib.php');
-
-        $progressmap = user_repository::get_user_courses_progress_data($user->id, $enrolledcourses);
-
-        $courses = [];
-        foreach ($enrolledcourses as $c) {
-            $progressval = $progressmap[$c->id] ?? 0;
-
-            $courses[] = [
-                'id' => (int)$c->id,
-                'fullname' => $c->fullname,
-                'shortname' => $c->shortname,
-                'progress' => $progressval,
-                'enrolmethod' => $c->enrolmethod,
-                'enrolstatus' => (int)$c->enrolstatus,
-                'enrolments' => $courseenrolmentsmap[$c->id] ?? [],
-            ];
-        }
-
-        // Cohortes a las que pertenece (acotadas a 100).
-        $linkedcohorts = user_repository::get_user_cohorts($user->id, 0, 100);
-
-        $cohorts = [];
-        foreach ($linkedcohorts as $coh) {
-            $cohorts[] = [
-                'id' => (int)$coh->id,
-                'name' => (string)$coh->name,
-                'idnumber' => (string)$coh->idnumber,
-            ];
-        }
-
-        // Calculate progress summary based only on active enrolled courses.
-        $activecourses = array_filter($courses, function ($c) {
-            return isset($c['enrolstatus']) && (int)$c['enrolstatus'] === 0;
-        });
-        $enrolledcount = count($activecourses);
-        $completedcount = count(array_filter($activecourses, function ($c) {
-            return (int)($c['progress'] ?? 0) === 100;
-        }));
-        $progress = ($enrolledcount > 0) ? min(100, round(($completedcount / $enrolledcount) * 100)) : 0;
-
-        $siteadmins = explode(',', $CFG->siteadmins ?? '');
-        $isadmin = in_array($user->id, $siteadmins) ? 1 : 0;
-
-        $systemroles = user_repository::get_user_system_roles($user->id);
-        $competencies = user_repository::get_user_competencies($user->id);
-
-        $canviewemail = is_siteadmin() || has_capability('moodle/user:viewalldetails', \context_system::instance());
-        $cleanemail = $canviewemail ? trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$user->email)) : '';
-
-        return [
-            'id' => (int)$user->id,
-            'username' => (string)$user->username,
-            'fullname' => fullname($user),
-            'email' => (string)$cleanemail,
-            'suspended' => (int)$user->suspended,
-            'is_active' => empty($user->suspended) ? 1 : 0,
-            'is_admin' => $isadmin,
-            'lastaccess' => (int)$user->lastaccess,
-            'enrolled_courses' => $enrolledcount,
-            'completed_courses' => $completedcount,
-            'cohorts_count' => count($cohorts),
-            'progress' => (int)$progress,
-            'courses' => $courses,
-            'cohorts' => $cohorts,
-            'system_roles' => $systemroles,
-            'competencies' => $competencies,
-        ];
+        return get_user_detail_usecase::execute(
+            (int)$user->id,
+            (int)$params['limitfrom'],
+            (int)$params['limitnum']
+        );
     }
 
     /**
@@ -697,7 +499,7 @@ class users extends external_api {
      * @throws \required_capability_exception
      */
     public static function user_cohort_action(string $action, int $userid, array $cohortids): array {
-        global $CFG, $DB;
+        global $CFG;
         require_once($CFG->dirroot . '/cohort/lib.php');
 
         $context = context_system::instance();
@@ -711,35 +513,7 @@ class users extends external_api {
             'cohortids' => $cohortids,
         ]);
 
-        $user = user_repository::get_user_strict($params['userid']);
-        $affected = 0;
-
-        $transaction = $DB->start_delegated_transaction();
-        try {
-            foreach ($params['cohortids'] as $cohortid) {
-                if ($params['action'] === 'add') {
-                    if (!cohort_is_member($cohortid, $user->id)) {
-                        cohort_add_member($cohortid, $user->id);
-                        $affected++;
-                    }
-                } else if ($params['action'] === 'remove') {
-                    if (cohort_is_member($cohortid, $user->id)) {
-                        cohort_remove_member($cohortid, $user->id);
-                        $affected++;
-                    }
-                }
-            }
-            $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Cohorts updated for user.',
-            'affectedcount' => $affected,
-        ];
+        return user_cohort_action_usecase::execute($params);
     }
 
     /**

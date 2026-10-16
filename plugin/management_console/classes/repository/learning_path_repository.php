@@ -35,6 +35,83 @@ use moodle_exception;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class learning_path_repository {
+    /** @var array Cache en memoria para categorías de curso consultadas. */
+    private static $categorycache = [];
+
+    /** @var array Cache en memoria para IDs de módulos consultados. */
+    private static $modulecache = [];
+
+    /**
+     * Invalida y limpia las cachés estáticas en memoria (útil en tests y mutaciones).
+     *
+     * @return void
+     */
+    public static function reset_caches(): void {
+        self::$categorycache = [];
+        self::$modulecache = [];
+    }
+
+    /**
+     * Obtiene una categoría de curso cacheada en memoria por nombre para evitar consultas duplicadas.
+     *
+     * @param string $catname Nombre de la categoría.
+     * @return \stdClass|null Registro de la categoría o null si no existe.
+     */
+    public static function get_cached_category(string $catname): ?\stdClass {
+        global $DB;
+        if (!array_key_exists($catname, self::$categorycache)) {
+            $cat = $DB->get_record('course_categories', ['name' => $catname]);
+            self::$categorycache[$catname] = $cat ?: null;
+        }
+        return self::$categorycache[$catname];
+    }
+
+    /**
+     * Obtiene el ID de un módulo de Moodle cacheado en memoria por nombre para evitar consultas repetidas.
+     *
+     * @param string $modulename Nombre del módulo (ej. 'subcourse').
+     * @return int ID del módulo.
+     */
+    public static function get_cached_module_id(string $modulename = 'subcourse'): int {
+        global $DB;
+        if (!array_key_exists($modulename, self::$modulecache)) {
+            self::$modulecache[$modulename] = (int)$DB->get_field('modules', 'id', ['name' => $modulename]);
+        }
+        return self::$modulecache[$modulename];
+    }
+
+    /**
+     * Construye determinísticamente la cláusula SQL LIKE para búsquedas de cursos por fullname y shortname.
+     *
+     * @param string $search Término de búsqueda.
+     * @param array $sqlparams Array de parámetros SQL por referencia.
+     * @param string $prefix Prefijo único de parámetro para evitar colisiones.
+     * @return string Cláusula SQL condicional.
+     */
+    public static function build_course_search_conditions(string $search, array &$sqlparams, string $prefix = 'search'): string {
+        global $DB;
+        $paramfull = $prefix . '_fn';
+        $paramshort = $prefix . '_sn';
+        $sqlparams[$paramfull] = '%' . $search . '%';
+        $sqlparams[$paramshort] = '%' . $search . '%';
+        return "(" . $DB->sql_like('c.fullname', ':' . $paramfull, false, false) .
+               " OR " . $DB->sql_like('c.shortname', ':' . $paramshort, false, false) . ")";
+    }
+
+    /**
+     * Ejecuta una consulta paginada centralizada en base de datos.
+     *
+     * @param string $sql Consulta SQL.
+     * @param array $sqlparams Parámetros SQL.
+     * @param int $limitfrom Offset.
+     * @param int $perpage Límite por página.
+     * @return array Registros obtenidos.
+     */
+    public static function fetch_paginated_records(string $sql, array $sqlparams, int $limitfrom, int $perpage): array {
+        global $DB;
+        return $DB->get_records_sql($sql, $sqlparams, $limitfrom, $perpage) ?: [];
+    }
+
     /**
      * Obtiene el ID de la categoría de rutas de aprendizaje sin mutación colateral opcionalmente.
      *
@@ -42,13 +119,12 @@ class learning_path_repository {
      * @return int ID de la categoría (0 si no existe y no se fuerza creación).
      */
     public static function get_lp_category_id(bool $createifmissing = false): int {
-        global $DB;
         $catname = get_config('tool_management_console', 'tool_management_console_lp_category_name');
         if (empty($catname)) {
             $catname = 'Rutas de Aprendizaje';
         }
 
-        $cat = $DB->get_record('course_categories', ['name' => $catname]);
+        $cat = self::get_cached_category($catname);
         if ($cat) {
             return (int)$cat->id;
         }
@@ -73,7 +149,7 @@ class learning_path_repository {
             $catname = 'Rutas de Aprendizaje';
         }
 
-        $cat = $DB->get_record('course_categories', ['name' => $catname]);
+        $cat = self::get_cached_category($catname);
         if ($cat) {
             return (int)$cat->id;
         }
@@ -84,6 +160,7 @@ class learning_path_repository {
                 'parent' => 0,
                 'visible' => 1,
             ]);
+            self::$categorycache[$catname] = (object)['id' => (int)$newcat->id, 'name' => $catname];
             return (int)$newcat->id;
         }
 
@@ -96,6 +173,7 @@ class learning_path_repository {
         $catrecord->depth = 1;
         $id = $DB->insert_record('course_categories', $catrecord);
         $DB->set_field('course_categories', 'path', '/' . $id, ['id' => $id]);
+        self::$categorycache[$catname] = (object)['id' => (int)$id, 'name' => $catname];
         return (int)$id;
     }
 
@@ -121,14 +199,11 @@ class learning_path_repository {
         $sqlparams = ['lpcategory' => $lpcategoryid];
 
         if (!empty($search)) {
-            $where .= " AND (" . $DB->sql_like('c.fullname', ':search1', false, false) .
-                      " OR " . $DB->sql_like('c.shortname', ':search2', false, false) . ")";
-            $sqlparams['search1'] = '%' . $search . '%';
-            $sqlparams['search2'] = '%' . $search . '%';
+            $where .= " AND " . self::build_course_search_conditions($search, $sqlparams, 'search');
         }
 
         // Subcourse module count.
-        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+        $submoduleid = self::get_cached_module_id('subcourse');
 
         $sql = "
             SELECT c.id, c.fullname, c.shortname, c.visible, c.startdate, c.timecreated,
@@ -163,7 +238,7 @@ class learning_path_repository {
         $sqlparams['submoduleid'] = $submoduleid;
 
         $limitfrom = $page * $perpage;
-        $records = $DB->get_records_sql($sql, $sqlparams, $limitfrom, $perpage);
+        $records = self::fetch_paginated_records($sql, $sqlparams, $limitfrom, $perpage);
 
         $result = [];
         if ($records) {
@@ -210,7 +285,7 @@ class learning_path_repository {
             throw new moodle_exception('invalidcourseid', 'error');
         }
 
-        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+        $submoduleid = self::get_cached_module_id('subcourse');
 
         // Secciones y módulos asociados.
         $sqlsections = "
@@ -474,7 +549,7 @@ class learning_path_repository {
             require_once($CFG->dirroot . '/mod/subcourse/lib.php');
         }
 
-        $submoduleid = (int)$DB->get_field('modules', 'id', ['name' => 'subcourse']);
+        $submoduleid = self::get_cached_module_id('subcourse');
         $total = count($subcourseids);
         self::sync_numsections($courseid, max(1, $total));
 
@@ -691,10 +766,7 @@ class learning_path_repository {
         }
 
         if (!empty($search)) {
-            $where .= " AND (" . $DB->sql_like('c.fullname', ':search1', false, false) .
-                      " OR " . $DB->sql_like('c.shortname', ':search2', false, false) . ")";
-            $sqlparams['search1'] = '%' . $search . '%';
-            $sqlparams['search2'] = '%' . $search . '%';
+            $where .= " AND " . self::build_course_search_conditions($search, $sqlparams, 'srch');
         }
 
         $sql = "
@@ -706,7 +778,7 @@ class learning_path_repository {
         ";
 
         $limitfrom = $page * $perpage;
-        $records = $DB->get_records_sql($sql, $sqlparams, $limitfrom, $perpage);
+        $records = self::fetch_paginated_records($sql, $sqlparams, $limitfrom, $perpage);
 
         $items = [];
         if ($records) {

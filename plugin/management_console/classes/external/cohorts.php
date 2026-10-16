@@ -259,8 +259,18 @@ class cohorts extends external_api {
             }
             $transaction->allow_commit();
             \tool_management_console\cache_manager::invalidate_kpis('cohort_kpis');
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
+        } catch (\Throwable $e) {
+            try {
+                $transaction->rollback($e);
+            } catch (\Throwable $rollbackex) {
+                if ($rollbackex !== $e) {
+                    throw $rollbackex;
+                }
+            }
+            if ($e instanceof \required_capability_exception) {
+                throw $e;
+            }
+            debugging($e->getMessage(), DEBUG_DEVELOPER);
             return ['success' => false, 'message' => $e->getMessage(), 'affectedcount' => 0];
         }
 
