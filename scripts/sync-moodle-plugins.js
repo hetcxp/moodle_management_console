@@ -161,8 +161,12 @@ function packagePlugin(plugin) {
   console.log(`  Empaquetando ${plugin.component} (${plugin.dirName})...`);
 
   // Asegurar compilación de Vite
-  console.log('  Ejecutando build de assets de frontend para Moodle (npm run build:moodle)...');
-  execSync('npm run build:moodle', { cwd: projectRoot, stdio: 'inherit' });
+  if (!process.env.SKIP_BUILD) {
+    console.log('  Ejecutando build de assets de frontend para Moodle (npm run build:moodle)...');
+    execSync('npm run build:moodle', { cwd: projectRoot, stdio: 'inherit' });
+  } else {
+    console.log('  Omitiendo build de Vite (SKIP_BUILD activo, usando assets ya compilados)...');
+  }
 
   const zipPath = path.resolve(scratchDir, `${plugin.component}_${process.pid}.zip`);
   if (fs.existsSync(zipPath)) {
