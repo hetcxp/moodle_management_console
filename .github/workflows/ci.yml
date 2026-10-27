@@ -95,4 +95,10 @@ jobs:
 
       - name: Run PHPUnit Test Suite
         run: |
-          moodle-plugin-ci phpunit ./plugin/management_console
+          moodle-plugin-ci phpunit ./plugin/management_console 2>&1 | tee phpunit.log || {
+            echo "### PHPUnit Test Failures" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -n 80 phpunit.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            exit 1
+          }
