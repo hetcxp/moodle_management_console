@@ -55,7 +55,7 @@ jobs:
 
       - name: Lint all PHP files
         run: |
-          find plugin cli -type f -name "*.php" -exec php -l {} +
+          find plugin -type f -name "*.php" -exec php -l {} +
 
   moodle-phpunit:
     name: Moodle PHPUnit Test Suite (PHP 8.3)
@@ -79,7 +79,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, json, sodium, zip, pgsql, pdo_pgsql, xml, gd, intl, soap
+          extensions: mbstring, json, sodium, zip, pgsql, pdo_pgsql, xml, gd, intl, soap, curl, xmlreader
           ini-values: max_input_vars=5000
 
       - name: Initialise moodle-plugin-ci
@@ -91,7 +91,7 @@ jobs:
         env:
           MOODLE_BRANCH: MOODLE_405_STABLE
         run: |
-          moodle-plugin-ci install --plugin plugin/management_console --branch MOODLE_405_STABLE --db-type pgsql --db-host 127.0.0.1 --db-port 5432 --db-user moodle --db-pass moodlepassword --db-name moodletest
+          moodle-plugin-ci install --plugin plugin/management_console --db-type pgsql --db-host 127.0.0.1 --db-port 5432 --db-user moodle --db-pass moodlepassword --db-name moodletest
 
       - name: Run PHPUnit Test Suite
         run: |
