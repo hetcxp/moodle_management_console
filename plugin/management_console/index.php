@@ -37,8 +37,6 @@ $PAGE->set_title(get_string('pluginname', 'tool_management_console'));
 
 // 3. Generar wstoken para el usuario actual.
 global $DB, $USER, $CFG, $OUTPUT;
-require_once($CFG->libdir . '/externallib.php');
-
 $service = $DB->get_record('external_services', ['shortname' => 'management_console_service']);
 if (!$service) {
     http_response_code(503);
@@ -51,13 +49,25 @@ if (!$service) {
 }
 // Buscar token existente o crear uno nuevo con validez acotada (8 horas de sesión).
 $validuntil = time() + (8 * 3600);
-$token = external_generate_token(
-    EXTERNAL_TOKEN_PERMANENT,
-    $service,
-    $USER->id,
-    $context,
-    $validuntil
-);
+$tokentype = defined('EXTERNAL_TOKEN_PERMANENT') ? EXTERNAL_TOKEN_PERMANENT : 0;
+if (class_exists('\core_external\util') && method_exists('\core_external\util', 'generate_token')) {
+    $token = \core_external\util::generate_token(
+        $tokentype,
+        $service,
+        $USER->id,
+        $context,
+        $validuntil
+    );
+} else {
+    require_once($CFG->libdir . '/externallib.php');
+    $token = external_generate_token(
+        $tokentype,
+        $service,
+        $USER->id,
+        $context,
+        $validuntil
+    );
+}
 
 // Registrar evento de log de acceso.
 try {
