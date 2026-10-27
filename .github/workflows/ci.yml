@@ -64,9 +64,8 @@ jobs:
       postgres:
         image: postgres:16
         env:
-          POSTGRES_USER: moodle
-          POSTGRES_PASSWORD: moodlepassword
-          POSTGRES_DB: moodletest
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
         options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
@@ -89,9 +88,10 @@ jobs:
 
       - name: Install Moodle & Plugin
         env:
+          DB: pgsql
           MOODLE_BRANCH: MOODLE_405_STABLE
         run: |
-          moodle-plugin-ci install --plugin plugin/management_console --db-type pgsql --db-host 127.0.0.1 --db-port 5432 --db-user moodle --db-pass moodlepassword --db-name moodletest
+          moodle-plugin-ci install --plugin ./plugin/management_console --db-host=127.0.0.1
 
       - name: Run PHPUnit Test Suite
         run: |
