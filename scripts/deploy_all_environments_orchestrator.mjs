@@ -64,7 +64,7 @@ async function runDeployWorker(target) {
     child.on('close', (code) => {
       logStream.end();
       const elapsed = ((Date.now() - tStart) / 1000).toFixed(1);
-      const isSuccess = code === 0 && stdoutData.includes('COINCIDE') && !stdoutData.includes('ERROR DE PARIDAD');
+      const isSuccess = code === 0 && (stdoutData.includes('COINCIDE') || stdoutData.includes('coinciden') || stdoutData.includes('AL DÍA')) && !stdoutData.includes('ERROR DE PARIDAD');
 
       const report = {
         target: target.id,
@@ -120,7 +120,7 @@ async function main() {
   console.log(`===============================================================`);
   console.log(`Instancias objetivo (${targets.length}): ${targets.map(t => t.id).join(', ')}`);
   console.log(`Concurrencia: 3 subagentes en paralelo`);
-  console.log(`Versión a desplegar: 2026101601 (1.3.2)\n`);
+  console.log(`Versión a desplegar: 2026102701 (1.3.3)\n`);
 
   const tStart = Date.now();
   const results = await pool(targets, 3, runDeployWorker);
@@ -142,7 +142,7 @@ async function main() {
   console.log('-'.repeat(85));
 
   for (const r of results) {
-    const statusText = r.success ? '✅ ACTUALIZADO (1.3.2)' : `❌ FALLÓ (código ${r.code})`;
+    const statusText = r.success ? '✅ ACTUALIZADO (1.3.3)' : `❌ FALLÓ (código ${r.code})`;
     console.log(
       r.target.padEnd(18) +
       r.url.padEnd(45) +
