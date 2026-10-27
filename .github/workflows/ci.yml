@@ -95,4 +95,4 @@ jobs:
 
       - name: Run PHPUnit Test Suite
         run: |
-          moodle-plugin-ci phpunit
+          moodle-plugin-ci phpunit ./plugin/management_console
