@@ -23,7 +23,30 @@
  */
 
 // phpcs:ignore moodle.Files.RequireLogin.Missing
-require_once(__DIR__ . '/../../../config.php');
+// Robust config.php locator supporting symlinked plugin directory.
+$config_paths = [
+    __DIR__ . '/../../../config.php',
+];
+if (isset($_SERVER['SCRIPT_FILENAME'])) {
+    $config_paths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
+    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
+    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
+}
+if (isset($_SERVER['DOCUMENT_ROOT'])) {
+    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
+    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+}
+$config_loaded = false;
+foreach ($config_paths as $config_path) {
+    if (file_exists($config_path)) {
+        require_once($config_path);
+        $config_loaded = true;
+        break;
+    }
+}
+if (!$config_loaded) {
+    die('Failed to locate Moodle config.php for tool_management_console.');
+}
 require_once($CFG->dirroot . '/user/lib.php');
 
 /**

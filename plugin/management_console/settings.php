@@ -43,4 +43,23 @@ if ($hassiteconfig) {
             'moodle/site:config'
         )
     );
+
+    $settings = new admin_settingpage(
+        'tool_management_console_settings',
+        get_string('settings', 'tool_management_console')
+    );
+    $settings->add(new admin_setting_configcheckbox(
+        'tool_management_console/enable_feedback',
+        get_string('enable_feedback', 'tool_management_console'),
+        get_string('enable_feedback_desc', 'tool_management_console'),
+        1
+    ));
+    $settings->add(new admin_setting_configtext(
+        'tool_management_console/supportuserid',
+        get_string('supportuserid', 'tool_management_console'),
+        get_string('supportuserid_desc', 'tool_management_console'),
+        '',
+        PARAM_INT
+    ));
+    $ADMIN->add('tools', $settings);
 }

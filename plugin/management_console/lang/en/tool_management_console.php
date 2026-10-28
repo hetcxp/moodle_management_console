@@ -28,6 +28,8 @@ $string['pluginname'] = 'Management Console';
 $string['privacy:metadata'] = 'The Management Console plugin does not store any personal data.';
 $string['management_console'] = 'Management Console';
 $string['management_console:access'] = 'Access Management Console panel';
+$string['management_console:manage_feedback'] = 'Manage feedback and support tickets';
+
 
 // License system.
 $string['license_required_for_actions']    = 'An active license is required to perform this action.';
@@ -56,6 +58,13 @@ $string['license_remove_confirm']          = 'Are you sure you want to remove th
 $string['license_removed']                 = 'License successfully removed.';
 $string['license_saved']                   = 'License successfully activated.';
 $string['license_back_console']            = 'Return to Management Console';
+
+// Feedback & support settings.
+$string['settings']                        = 'General Settings';
+$string['enable_feedback']                 = 'Enable floating feedback button';
+$string['enable_feedback_desc']            = 'Displays a floating button at the bottom-right corner allowing users to report issues and suggestions with viewport screenshots.';
+$string['supportuserid']                   = 'Support User ID';
+$string['supportuserid_desc']              = 'Numeric Moodle user ID that will receive feedback report notifications. If left blank, notifications will be sent to the primary site administrator.';
 $string['license_copy_site_id']            = 'Copy Site ID';
 $string['event_license_clock_tampered']    = 'License clock tampering detected';
 $string['event_license_status_warning']    = 'License status warning';

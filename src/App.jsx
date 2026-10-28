@@ -36,8 +36,10 @@ const RubricEditorView = lazy(() => import('./views/RubricEditorView').then(m =>
 const ReportsView = lazy(() => import('./views/ReportsView').then(m => ({ default: m.ReportsView })));
 const LearningPathsView = lazy(() => import('./views/LearningPathsView').then(m => ({ default: m.LearningPathsView })));
 const LearningPathDetailView = lazy(() => import('./views/LearningPathDetailView').then(m => ({ default: m.LearningPathDetailView })));
+const FeedbackReportsView = lazy(() => import('./views/FeedbackReportsView').then(m => ({ default: m.FeedbackReportsView })));
 const NotFoundView = lazy(() => import('./views/NotFoundView').then(m => ({ default: m.NotFoundView })));
 
+import { FeedbackFab } from './components/feedback/FeedbackFab';
 import { navigateToDetail } from './lib/navigation';
 
 const AdminerApp = () => {
@@ -55,6 +57,7 @@ const AdminerApp = () => {
     if (location.startsWith('/learning-paths')) return 'learning-paths';
     if (location.startsWith('/competencies')) return 'competencies';
     if (location.startsWith('/reports')) return 'reports';
+    if (location.startsWith('/my-reports')) return 'my-reports';
     return 'dashboard';
   }, [location]);
 
@@ -280,6 +283,11 @@ const AdminerApp = () => {
                   <ReportsView />
                 </Route>
 
+                {/* Feedback & Support Reports */}
+                <Route path="/my-reports">
+                  <FeedbackReportsView />
+                </Route>
+
                 {/* Default */}
                 <Route>
                   <NotFoundView onNavigateHome={() => setLocation('/')} />
@@ -289,6 +297,7 @@ const AdminerApp = () => {
           </ErrorBoundary>
         </main>
         <HelpDrawer />
+        <FeedbackFab onNavigateToReports={() => setLocation('/my-reports')} />
       </div>
     </div>
     </HelpProvider>

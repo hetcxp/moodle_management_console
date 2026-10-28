@@ -1,1 +1,0 @@
-import{j as o}from"./index-cW2GsFTD.js";import{a}from"./sanitizer-BinkvF9r.js";function m({html:t,className:n="",as:r="div",...e}){if(!t||typeof t!="string")return null;const s=a(t);return o.jsx(r,{className:n,dangerouslySetInnerHTML:{__html:s},...e})}export{m as S};

@@ -3,3 +3,4 @@ export { CoursesApi } from './courses-api.js';
 export { UsersApi } from './users-api.js';
 export { CompetenciesApi } from './competencies-api.js';
 export { LearningPathsApi } from './learning-paths-api.js';
+export { FeedbackApi } from './feedback-api.js';

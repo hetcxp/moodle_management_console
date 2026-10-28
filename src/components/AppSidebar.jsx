@@ -1,5 +1,4 @@
-import React from 'react';
-import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, SlidersHorizontal, DownloadCloud, KeyRound } from 'lucide-react';
+import { LayoutDashboard, BookOpen, FolderTree, Users, Layers, Milestone, Award, Shield, SlidersHorizontal, DownloadCloud, KeyRound, MessageSquare } from 'lucide-react';
 import { Link } from 'wouter';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
@@ -60,6 +59,12 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
       icon: DownloadCloud,
       capability: 'can_view_courses', // Usamos can_view_courses como base
     },
+    {
+      id: 'my-reports',
+      label: 'Mis Soportes',
+      icon: MessageSquare,
+      capability: null, // Visible para todos los usuarios con acceso a la consola
+    },
   ];
 
   return (
@@ -112,7 +117,7 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-            const hasPermission = permissions?.is_siteadmin === 1 || permissions?.[item.capability] === 1;
+            const hasPermission = !item.capability || permissions?.is_siteadmin === 1 || permissions?.[item.capability] === 1;
 
             if (!hasPermission) {
               return (

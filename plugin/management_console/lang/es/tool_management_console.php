@@ -30,6 +30,8 @@ $string['pluginname'] = 'Consola de Gestión';
 $string['privacy:metadata'] = 'El plugin Management Console no almacena datos personales.';
 $string['management_console'] = 'Consola de Gestión';
 $string['management_console:access'] = 'Acceder al panel de la Consola de Gestión';
+$string['management_console:manage_feedback'] = 'Gestionar reportes y tickets de feedback';
+
 
 // Sistema de licencias.
 $string['license_required_for_actions']    = 'Se requiere una licencia activa para realizar esta acción.';
@@ -58,6 +60,13 @@ $string['license_remove_confirm']          = '¿Está seguro de que desea remove
 $string['license_removed']                 = 'Licencia removida exitosamente.';
 $string['license_saved']                   = 'Licencia activada exitosamente.';
 $string['license_back_console']            = 'Volver a la Consola de Gestión';
+
+// Configuración de soporte y feedback.
+$string['settings']                        = 'Configuración General';
+$string['enable_feedback']                 = 'Habilitar botón flotante de reporte';
+$string['enable_feedback_desc']            = 'Muestra un botón en la esquina inferior derecha para que los usuarios reporten errores y sugerencias con captura de pantalla.';
+$string['supportuserid']                   = 'ID de Usuario de Soporte';
+$string['supportuserid_desc']              = 'ID numérico del usuario de Moodle que recibirá las notificaciones de los reportes. Si se deja vacío, las notificaciones se enviarán al Administrador principal del sitio.';
 $string['license_copy_site_id']            = 'Copiar ID de Sitio';
 $string['event_license_clock_tampered']    = 'Manipulación del reloj de licencia detectada';
 $string['event_license_status_warning']    = 'Advertencia de estado de licencia';
