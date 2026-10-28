@@ -109,18 +109,39 @@ async function pool(items, concurrency, fn) {
   return Promise.all(results);
 }
 
+function getTargetPluginVersion() {
+  const versionFile = path.resolve(projectRoot, 'plugin', 'management_console', 'version.php');
+  if (!fs.existsSync(versionFile)) {
+    throw new Error(`Archivo crítico de versión no encontrado: ${versionFile}`);
+  }
+  let content;
+  try {
+    content = fs.readFileSync(versionFile, 'utf8');
+  } catch (err) {
+    throw new Error(`Error leyendo ${versionFile}: ${err.message}`);
+  }
+  const vMatch = content.match(/\$plugin->version\s*=\s*([0-9]+);/);
+  const rMatch = content.match(/\$plugin->release\s*=\s*['"]([^'"]+)['"];/);
+  if (!vMatch || !rMatch) {
+    throw new Error(`No se pudo parsear $plugin->version o $plugin->release en ${versionFile}`);
+  }
+  return { version: vMatch[1], release: rMatch[1].trim() };
+}
+
 async function main() {
   const cliTargets = process.argv.slice(2);
   const targets = cliTargets.length > 0
     ? TARGETS.filter(t => cliTargets.includes(t.id) || cliTargets.includes(t.url))
     : TARGETS;
 
+  const pluginInfo = getTargetPluginVersion();
+
   console.log(`===============================================================`);
   console.log(`  ORQUESTADOR MULTIAGENTE: DESPLIEGUE MASIVO DE ENTORNOS`);
   console.log(`===============================================================`);
   console.log(`Instancias objetivo (${targets.length}): ${targets.map(t => t.id).join(', ')}`);
   console.log(`Concurrencia: 3 subagentes en paralelo`);
-  console.log(`Versión a desplegar: 2026102701 (1.3.3)\n`);
+  console.log(`Versión a desplegar: ${pluginInfo.version} (${pluginInfo.release})\n`);
 
   const tStart = Date.now();
   const results = await pool(targets, 3, runDeployWorker);
@@ -142,7 +163,7 @@ async function main() {
   console.log('-'.repeat(85));
 
   for (const r of results) {
-    const statusText = r.success ? '✅ ACTUALIZADO (1.3.3)' : `❌ FALLÓ (código ${r.code})`;
+    const statusText = r.success ? `✅ ACTUALIZADO (${pluginInfo.release})` : `❌ FALLÓ (código ${r.code})`;
     console.log(
       r.target.padEnd(18) +
       r.url.padEnd(45) +
