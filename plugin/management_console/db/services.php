@@ -38,7 +38,7 @@ $functions = [
         'methodname'    => 'get_dashboard',
         'description'   => 'Get dashboard overview counters',
         'type'          => 'read',
-        'capabilities'  => 'moodle/site:config',
+        'capabilities'  => 'tool/management_console:access',
         'ajax'          => true,
     ],
     'tool_management_console_get_courses' => [

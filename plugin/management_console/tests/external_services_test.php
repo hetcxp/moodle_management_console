@@ -54,6 +54,21 @@ class external_services_test extends advanced_testcase {
         $this->assertArrayHasKey('cohorts_total', $result);
     }
 
+    public function test_get_dashboard_as_manager() {
+        global $DB;
+        $this->resetAfterTest(true);
+        $user = $this->getDataGenerator()->create_user();
+        $managerrole = $DB->get_record('role', ['shortname' => 'manager']);
+        role_assign($managerrole->id, $user->id, \context_system::instance()->id);
+        $this->setUser($user);
+
+        $result = \tool_management_console\external\dashboard::get_dashboard();
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('courses_total', $result);
+        $this->assertArrayHasKey('users_total', $result);
+        $this->assertArrayHasKey('cohorts_total', $result);
+    }
+
     public function test_get_courses_and_actions() {
         $this->resetAfterTest(true);
         $this->setAdminUser();

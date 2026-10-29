@@ -57,7 +57,7 @@ class dashboard extends external_api {
 
         $context = context_system::instance();
         self::validate_context($context);
-        require_capability('moodle/site:config', $context);
+        require_capability('tool/management_console:access', $context);
 
         $coursestotal = (int)$DB->count_records_select('course', 'id <> 1');
         $coursesactive = (int)$DB->count_records_select('course', 'id <> 1 AND visible = 1');
