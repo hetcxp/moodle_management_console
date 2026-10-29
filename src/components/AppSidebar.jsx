@@ -15,7 +15,7 @@ export const AppSidebar = ({ activeTab, onTabChange: _onTabChange, open, onClose
       id: 'dashboard',
       label: 'Panel Principal',
       icon: LayoutDashboard,
-      capability: 'can_config_site',
+      capability: null, // Visible para todos los usuarios con acceso a la consola
     },
     {
       id: 'courses',
