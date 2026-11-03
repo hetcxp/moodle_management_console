@@ -46,7 +46,7 @@ class feedback_notification_service {
         $supportuserid = (int)get_config('tool_management_console', 'supportuserid');
         if ($supportuserid > 0) {
             $user = $DB->get_record('user', ['id' => $supportuserid, 'deleted' => 0, 'suspended' => 0]);
-            if ($user) {
+            if ($user && is_siteadmin($user->id)) {
                 return $user;
             }
         }

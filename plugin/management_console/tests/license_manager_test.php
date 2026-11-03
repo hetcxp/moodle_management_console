@@ -345,4 +345,71 @@ class license_manager_test extends \advanced_testcase {
         $this->assertArrayHasKey('v1', $keys);
         $this->assertArrayNotHasKey('test', $keys);
     }
+
+    /**
+     * Test that \tool_management_console\admin\license_setting::write_setting is idempotent on empty input.
+     */
+    public function test_license_setting_write_setting_empty(): void {
+        $this->resetAfterTest(true);
+        $setting = new \tool_management_console\admin\license_setting();
+
+        // 1. Initially no license.
+        $this->assertEquals('', $setting->write_setting(''));
+        $this->assertFalse(get_config('tool_management_console', 'license_key'));
+
+        $this->assertEquals('', $setting->write_setting("   \n\t  "));
+        $this->assertFalse(get_config('tool_management_console', 'license_key'));
+
+        // 2. When a license is already stored, empty submit does NOT overwrite or clear it.
+        $key = $this->create_test_license_key();
+        license_manager::save_license($key);
+        $this->assertEquals('active', license_manager::get_license_info()['status']);
+
+        $this->assertEquals('', $setting->write_setting(''));
+        $this->assertEquals($key, get_config('tool_management_console', 'license_key'));
+        $this->assertEquals('active', license_manager::get_license_info()['status']);
+    }
+
+    /**
+     * Test that \tool_management_console\admin\license_setting::write_setting activates valid key.
+     */
+    public function test_license_setting_write_setting_valid(): void {
+        $this->resetAfterTest(true);
+        $setting = new \tool_management_console\admin\license_setting();
+
+        $key = $this->create_test_license_key();
+        $res = $setting->write_setting($key);
+        $this->assertEquals('', $res);
+        $this->assertEquals($key, get_config('tool_management_console', 'license_key'));
+        $this->assertEquals('active', license_manager::get_license_info()['status']);
+    }
+
+    /**
+     * Test that \tool_management_console\admin\license_setting::write_setting returns localized error on invalid key.
+     */
+    public function test_license_setting_write_setting_invalid(): void {
+        $this->resetAfterTest(true);
+        $setting = new \tool_management_console\admin\license_setting();
+
+        $res = $setting->write_setting('invalid-token-content');
+        $this->assertNotEmpty($res);
+        $this->assertStringContainsString('Invalid', $res);
+        $this->assertFalse(get_config('tool_management_console', 'license_key'));
+    }
+
+    /**
+     * Test that \tool_management_console\admin\license_setting::output_html renders cards and no nested forms.
+     */
+    public function test_license_setting_output_html(): void {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $setting = new \tool_management_console\admin\license_setting();
+
+        $html = $setting->output_html('');
+        $this->assertNotEmpty($html);
+        $this->assertStringContainsString('tmc-site-id-input', $html);
+        $this->assertStringContainsString('tool_management_console_license_panel', $html);
+        // Ensure no nested <form> tags are present inside the setting HTML.
+        $this->assertStringNotContainsString('<form', strtolower($html));
+    }
 }

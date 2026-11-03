@@ -25,42 +25,70 @@
 defined('MOODLE_INTERNAL') || die();
 
 $ADMIN->add(
-    'modules',
+    'tools',
+    new admin_category(
+        'tool_management_console_category',
+        get_string('pluginname', 'tool_management_console')
+    )
+);
+
+$ADMIN->add(
+    'tool_management_console_category',
     new admin_externalpage(
         'tool_management_console',
-        get_string('pluginname', 'tool_management_console'),
+        get_string('access_console', 'tool_management_console'),
         new moodle_url('/admin/tool/management_console/index.php'),
         'tool/management_console:access'
     )
 );
 
 if ($hassiteconfig) {
-    $ADMIN->add(
-        'tools',
-        new admin_externalpage(
-            'tool_management_console_license',
-            get_string('license_settings', 'tool_management_console'),
-            new moodle_url('/admin/tool/management_console/license.php'),
-            'moodle/site:config'
-        )
-    );
-
     $settings = new admin_settingpage(
         'tool_management_console_settings',
         get_string('settings', 'tool_management_console')
     );
-    $settings->add(new admin_setting_configcheckbox(
-        'tool_management_console/enable_feedback',
-        get_string('enable_feedback', 'tool_management_console'),
-        get_string('enable_feedback_desc', 'tool_management_console'),
-        1
-    ));
-    $settings->add(new admin_setting_configtext(
-        'tool_management_console/supportuserid',
-        get_string('supportuserid', 'tool_management_console'),
-        get_string('supportuserid_desc', 'tool_management_console'),
-        '',
-        PARAM_INT
-    ));
-    $ADMIN->add('tools', $settings);
+    if ($ADMIN->fulltree) {
+        // 1. Feedback & Support Section.
+        $settings->add(new admin_setting_heading(
+            'tool_management_console/feedback_heading',
+            get_string('feedback_settings_heading', 'tool_management_console'),
+            get_string('feedback_settings_heading_desc', 'tool_management_console')
+        ));
+
+        $settings->add(new admin_setting_configcheckbox(
+            'tool_management_console/enable_feedback',
+            get_string('enable_feedback', 'tool_management_console'),
+            get_string('enable_feedback_desc', 'tool_management_console'),
+            1
+        ));
+
+        $adminoptions = [
+            0 => get_string('supportuserid_default', 'tool_management_console'),
+        ];
+        foreach (get_admins() as $admin) {
+            $adminoptions[(int)$admin->id] = fullname($admin) . ' (' . $admin->email . ')';
+        }
+
+        $settings->add(new admin_setting_configselect(
+            'tool_management_console/supportuserid',
+            get_string('supportuserid', 'tool_management_console'),
+            get_string('supportuserid_desc', 'tool_management_console'),
+            0,
+            $adminoptions
+        ));
+
+        // 2. License Management Section.
+        $settings->add(new admin_setting_heading(
+            'tool_management_console/license_heading',
+            get_string('license_settings_heading', 'tool_management_console'),
+            get_string('license_settings_heading_desc', 'tool_management_console')
+        ));
+
+        $settings->add(new \tool_management_console\admin\license_setting(
+            'tool_management_console/license_panel',
+            get_string('license_management', 'tool_management_console'),
+            get_string('license_setting_desc', 'tool_management_console')
+        ));
+    }
+    $ADMIN->add('tool_management_console_category', $settings);
 }

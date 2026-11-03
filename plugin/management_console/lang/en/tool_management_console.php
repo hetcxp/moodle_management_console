@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Management Console';
+$string['access_console'] = 'Access Console';
 $string['privacy:metadata'] = 'The Management Console plugin does not store any personal data.';
 $string['management_console'] = 'Management Console';
 $string['management_console:access'] = 'Access Management Console panel';
@@ -58,13 +59,28 @@ $string['license_remove_confirm']          = 'Are you sure you want to remove th
 $string['license_removed']                 = 'License successfully removed.';
 $string['license_saved']                   = 'License successfully activated.';
 $string['license_back_console']            = 'Return to Management Console';
+$string['license_id']                      = 'License ID';
+$string['license_update_title']            = 'Update License Key';
+$string['license_update_btn']              = 'Update License';
+$string['license_site_id_help']            = 'Provide this Site ID to your license provider to generate or renew your license key:';
+$string['license_remove_warning']          = 'If you remove the license key, Management Console will revert to read-only mode.';
+$string['license_copied_clipboard']        = 'Site ID copied to clipboard';
+$string['license_setting_desc']            = 'Manage the license key for this site.';
+$string['license_days']                    = 'days';
+
+// Section headings for unified settings page.
+$string['feedback_settings_heading']       = 'Feedback and Support';
+$string['feedback_settings_heading_desc']  = 'Configuration options for the floating feedback widget and support notifications.';
+$string['license_settings_heading']        = 'License Management';
+$string['license_settings_heading_desc']   = 'Activation, renewal, and status of the Management Console license.';
 
 // Feedback & support settings.
-$string['settings']                        = 'General Settings';
+$string['settings']                        = 'Management Console General Settings';
 $string['enable_feedback']                 = 'Enable floating feedback button';
 $string['enable_feedback_desc']            = 'Displays a floating button at the bottom-right corner allowing users to report issues and suggestions with viewport screenshots.';
-$string['supportuserid']                   = 'Support User ID';
-$string['supportuserid_desc']              = 'Numeric Moodle user ID that will receive feedback report notifications. If left blank, notifications will be sent to the primary site administrator.';
+$string['supportuserid']                   = 'Support user';
+$string['supportuserid_desc']              = 'Site administrator who will receive feedback report notifications. By default, notifications are sent to the primary site administrator.';
+$string['supportuserid_default']          = 'Primary site administrator (default)';
 $string['license_copy_site_id']            = 'Copy Site ID';
 $string['event_license_clock_tampered']    = 'License clock tampering detected';
 $string['event_license_status_warning']    = 'License status warning';

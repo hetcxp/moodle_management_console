@@ -27,6 +27,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Consola de Gestión';
+$string['access_console'] = 'Acceso a la Consola';
 $string['privacy:metadata'] = 'El plugin Management Console no almacena datos personales.';
 $string['management_console'] = 'Consola de Gestión';
 $string['management_console:access'] = 'Acceder al panel de la Consola de Gestión';
@@ -60,13 +61,28 @@ $string['license_remove_confirm']          = '¿Está seguro de que desea remove
 $string['license_removed']                 = 'Licencia removida exitosamente.';
 $string['license_saved']                   = 'Licencia activada exitosamente.';
 $string['license_back_console']            = 'Volver a la Consola de Gestión';
+$string['license_id']                      = 'ID de Licencia';
+$string['license_update_title']            = 'Actualizar Clave de Licencia';
+$string['license_update_btn']              = 'Actualizar Licencia';
+$string['license_site_id_help']            = 'Proporcione este Identificador de Sitio a su proveedor para generar o renovar su clave de licencia:';
+$string['license_remove_warning']          = 'Si remueve la clave de licencia, la Consola de Gestión volverá a operar en modo solo lectura.';
+$string['license_copied_clipboard']        = 'ID copiado al portapapeles';
+$string['license_setting_desc']            = 'Administre la clave de licencia para este sitio.';
+$string['license_days']                    = 'días';
+
+// Encabezados de sección para página de configuración unificada.
+$string['feedback_settings_heading']       = 'Feedback y Soporte';
+$string['feedback_settings_heading_desc']  = 'Opciones de configuración para el widget flotante de feedback y notificaciones de soporte.';
+$string['license_settings_heading']        = 'Gestión de Licencia';
+$string['license_settings_heading_desc']   = 'Activación, renovación y estado de la licencia de la Consola de Gestión.';
 
 // Configuración de soporte y feedback.
-$string['settings']                        = 'Configuración General';
+$string['settings']                        = 'Configuración General de Consola de Gestión';
 $string['enable_feedback']                 = 'Habilitar botón flotante de reporte';
 $string['enable_feedback_desc']            = 'Muestra un botón en la esquina inferior derecha para que los usuarios reporten errores y sugerencias con captura de pantalla.';
-$string['supportuserid']                   = 'ID de Usuario de Soporte';
-$string['supportuserid_desc']              = 'ID numérico del usuario de Moodle que recibirá las notificaciones de los reportes. Si se deja vacío, las notificaciones se enviarán al Administrador principal del sitio.';
+$string['supportuserid']                   = 'Usuario de soporte';
+$string['supportuserid_desc']              = 'Administrador del sitio que recibirá las notificaciones de los reportes. Por defecto, las notificaciones se envían al administrador principal del sitio.';
+$string['supportuserid_default']          = 'Administrador principal del sitio (por defecto)';
 $string['license_copy_site_id']            = 'Copiar ID de Sitio';
 $string['event_license_clock_tampered']    = 'Manipulación del reloj de licencia detectada';
 $string['event_license_status_warning']    = 'Advertencia de estado de licencia';

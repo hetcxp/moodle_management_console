@@ -99,12 +99,36 @@ class feedback_test extends advanced_testcase {
     }
 
     public function test_support_user_resolution_fallback() {
+        global $CFG;
         $this->resetAfterTest();
-        unset_config('supportuserid', 'tool_management_console');
+        $primaryadmin = get_admin();
 
+        // 1. Unset config -> Fallback to primary admin.
+        unset_config('supportuserid', 'tool_management_console');
         $supportuser = feedback_notification_service::resolve_support_user();
         $this->assertNotNull($supportuser);
+        $this->assertEquals($primaryadmin->id, $supportuser->id);
         $this->assertTrue(is_siteadmin($supportuser));
+
+        // 2. Set to 0 (default choice in selector) -> Fallback to primary admin.
+        set_config('supportuserid', 0, 'tool_management_console');
+        $supportuser = feedback_notification_service::resolve_support_user();
+        $this->assertEquals($primaryadmin->id, $supportuser->id);
+
+        // 3. Regular non-admin user -> Ignored and falls back to primary admin.
+        $regularuser = $this->getDataGenerator()->create_user();
+        set_config('supportuserid', $regularuser->id, 'tool_management_console');
+        $supportuser = feedback_notification_service::resolve_support_user();
+        $this->assertEquals($primaryadmin->id, $supportuser->id);
+
+        // 4. Secondary site admin -> Successfully resolved.
+        $admin2 = $this->getDataGenerator()->create_user();
+        set_config('siteadmins', $CFG->siteadmins . ',' . $admin2->id);
+        $this->assertTrue(is_siteadmin($admin2->id));
+
+        set_config('supportuserid', $admin2->id, 'tool_management_console');
+        $supportuser = feedback_notification_service::resolve_support_user();
+        $this->assertEquals($admin2->id, $supportuser->id);
     }
 
     public function test_external_submit_feedback() {
@@ -153,4 +177,3 @@ class feedback_test extends advanced_testcase {
         $this->assertNotEmpty($feedback->screenshotfileid);
     }
 }
-
