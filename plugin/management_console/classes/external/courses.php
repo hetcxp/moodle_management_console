@@ -54,7 +54,7 @@ class courses extends external_api {
         return new external_function_parameters([
             'page'       => new external_value(PARAM_INT, 'Page index starting from 0', VALUE_DEFAULT, 0),
             'perpage'    => new external_value(PARAM_INT, 'Items per page', VALUE_DEFAULT, 20),
-            'sort'       => new external_value(PARAM_ALPHA, 'Sort field', VALUE_DEFAULT, 'timecreated'),
+            'sort'       => new external_value(PARAM_ALPHANUMEXT, 'Sort field', VALUE_DEFAULT, 'timecreated'),
             'dir'        => new external_value(PARAM_ALPHA, 'Sort direction ASC or DESC', VALUE_DEFAULT, 'DESC'),
             'search'     => new external_value(PARAM_TEXT, 'Search query text', VALUE_DEFAULT, ''),
             'category'   => new external_value(PARAM_INT, 'Category filter id', VALUE_DEFAULT, 0),
@@ -113,7 +113,7 @@ class courses extends external_api {
         $allowedsorts = [
             'id', 'fullname', 'shortname', 'categoryname', 'visible',
             'enrolledcount', 'completedcount', 'cohortscount',
-            'competenciescount', 'progress', 'timecreated', 'startdate', 'enddate',
+            'competenciescount', 'progress', 'progress_percent', 'timecreated', 'startdate', 'enddate',
         ];
         if (!in_array($params['sort'], $allowedsorts, true)) {
             $params['sort'] = 'timecreated';
@@ -137,11 +137,14 @@ class courses extends external_api {
 
         $courses = [];
         foreach ($records as $r) {
-            $progress = 0;
             $enrolled = (int)$r->enrolledcount;
             $completed = (int)$r->completedcount;
-            if ($enrolled > 0) {
-                $progress = round(($completed / $enrolled) * 100);
+            if (isset($r->progress_sort)) {
+                $progress = (int)round((float)$r->progress_sort);
+            } else if ($enrolled > 0) {
+                $progress = (int)round(($completed / $enrolled) * 100);
+            } else {
+                $progress = 0;
             }
 
             $courses[] = [

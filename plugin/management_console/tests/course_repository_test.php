@@ -40,6 +40,7 @@ require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/
  * @copyright  2026 Hector Teran
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @covers     \tool_management_console\repository\course_repository
+ * @covers     \tool_management_console\external\courses
  */
 class course_repository_test extends advanced_testcase {
     public function setUp(): void {
@@ -68,13 +69,12 @@ class course_repository_test extends advanced_testcase {
         $this->assertEquals($course->id, $strict->id);
 
         // 2b. Vincular una competencia al curso
-        global $DB;
-        $DB->insert_record('competency_coursecomp', (object)[
-            'courseid' => $course->id,
+        $this->insert_test_record('competency_coursecomp', [
+            'courseid'     => $course->id,
             'competencyid' => 101,
-            'ruleoutcome' => 1,
-            'sortorder' => 0,
-            'timecreated' => time(),
+            'ruleoutcome'  => 1,
+            'sortorder'    => 0,
+            'timecreated'  => time(),
             'timemodified' => time(),
             'usermodified' => 2,
         ]);
@@ -102,5 +102,98 @@ class course_repository_test extends advanced_testcase {
         // 5. Probar get_course_category_name
         $catname = \tool_management_console\repository\course_repository::get_course_category_name($cat->id);
         $this->assertEquals('CourseRepo Cat', $catname);
+
+        // 6. Probar cálculo de progreso promedio con actividades rastreables y ordenamiento direccional.
+        $course2 = $this->getDataGenerator()->create_course([
+            'fullname'         => 'CourseRepo Completion Track Test',
+            'shortname'        => 'CRTRACK',
+            'category'         => $cat->id,
+            'visible'          => 1,
+            'enablecompletion' => 1,
+        ]);
+        $this->getDataGenerator()->enrol_user($user->id, $course2->id, 'student');
+
+        $cm1 = $this->insert_test_record('course_modules', [
+            'course'             => $course2->id,
+            'module'             => 1,
+            'instance'           => 1,
+            'section'            => 1,
+            'added'              => time(),
+            'completion'         => 1,
+            'deletioninprogress' => 0,
+        ]);
+        $cm2 = $this->insert_test_record('course_modules', [
+            'course'             => $course2->id,
+            'module'             => 1,
+            'instance'           => 2,
+            'section'            => 1,
+            'added'              => time(),
+            'completion'         => 1,
+            'deletioninprogress' => 0,
+        ]);
+
+        // Completar 1 de 2 actividades (50% de progreso).
+        $this->insert_test_record('course_modules_completion', [
+            'coursemoduleid'  => $cm1,
+            'userid'          => $user->id,
+            'completionstate' => 1,
+            'timemodified'    => time(),
+        ]);
+
+        [$records50] = \tool_management_console\repository\course_repository::get_courses_filtered([
+            'category' => $cat->id,
+            'sort'     => 'progress',
+            'dir'      => 'DESC',
+        ]);
+        $this->assertEquals(50, (int)$records50[$course2->id]->progress_sort);
+        $this->assertEquals(0, (int)$records50[$course2->id]->completedcount);
+
+        $res50 = \tool_management_console\external\courses::get_courses(0, 10, 'progress', 'DESC', '', $cat->id);
+        $this->assertCount(2, $res50['courses']);
+        $this->assertEquals($course2->id, $res50['courses'][0]['id']);
+        $this->assertEquals(50, $res50['courses'][0]['progress_percent']);
+        $this->assertEquals(0, $res50['courses'][0]['completedcount']);
+        $this->assertEquals($course->id, $res50['courses'][1]['id']);
+        $this->assertEquals(0, $res50['courses'][1]['progress_percent']);
+
+        // Verificar que dir => 'ASC' invierte el orden de los dos cursos.
+        $resasc = \tool_management_console\external\courses::get_courses(0, 10, 'progress', 'ASC', '', $cat->id);
+        $this->assertCount(2, $resasc['courses']);
+        $this->assertEquals($course->id, $resasc['courses'][0]['id']);
+        $this->assertEquals($course2->id, $resasc['courses'][1]['id']);
+
+        // Completar 2 de 2 actividades (100% de progreso y completedcount = 1).
+        $this->insert_test_record('course_modules_completion', [
+            'coursemoduleid'  => $cm2,
+            'userid'          => $user->id,
+            'completionstate' => 1,
+            'timemodified'    => time(),
+        ]);
+
+        [$records100] = \tool_management_console\repository\course_repository::get_courses_filtered([
+            'category' => $cat->id,
+            'sort'     => 'progress',
+            'dir'      => 'DESC',
+        ]);
+        $this->assertEquals(100, (int)$records100[$course2->id]->progress_sort);
+        $this->assertEquals(1, (int)$records100[$course2->id]->completedcount);
+
+        $res100 = \tool_management_console\external\courses::get_courses(0, 10, 'progress', 'DESC', '', $cat->id);
+        $this->assertEquals($course2->id, $res100['courses'][0]['id']);
+        $this->assertEquals(100, $res100['courses'][0]['progress_percent']);
+        $this->assertEquals(1, $res100['courses'][0]['completedcount']);
+    }
+
+    /**
+     * Insert a test record into the given table.
+     *
+     * @param string $table
+     * @param array $data
+     * @return int
+     */
+    private function insert_test_record(string $table, array $data): int {
+        global $DB;
+        $record = (object)$data;
+        return (int)$DB->insert_record($table, $record);
     }
 }

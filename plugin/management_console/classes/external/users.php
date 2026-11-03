@@ -117,7 +117,7 @@ class users extends external_api {
         return new external_function_parameters([
             'page'    => new external_value(PARAM_INT, 'Page number index', VALUE_DEFAULT, 0),
             'perpage' => new external_value(PARAM_INT, 'Users per page', VALUE_DEFAULT, 20),
-            'sort'    => new external_value(PARAM_ALPHA, 'Sort column', VALUE_DEFAULT, 'lastaccess'),
+            'sort'    => new external_value(PARAM_ALPHANUMEXT, 'Sort column', VALUE_DEFAULT, 'lastaccess'),
             'dir'     => new external_value(PARAM_ALPHA, 'Sort direction ASC or DESC', VALUE_DEFAULT, 'DESC'),
             'search'  => new external_value(PARAM_TEXT, 'Search query for name or email', VALUE_DEFAULT, ''),
             'filters' => new external_value(PARAM_RAW, 'JSON encoded filters string', VALUE_DEFAULT, '{}'),
@@ -163,7 +163,8 @@ class users extends external_api {
 
         $allowedsorts = [
             'id', 'firstname', 'lastname', 'email', 'suspended',
-            'lastaccess', 'cohorts', 'competencies', 'courses', 'progress',
+            'lastaccess', 'cohorts', 'cohorts_count', 'competencies', 'competencies_count',
+            'courses', 'enrolled_courses', 'completed_courses', 'progress',
         ];
         if (!in_array($params['sort'], $allowedsorts, true)) {
             $params['sort'] = 'lastaccess';
@@ -187,7 +188,13 @@ class users extends external_api {
             $fullname = fullname($u);
             $enrolled = (int)$u->enrolled_courses;
             $completed = (int)$u->completed_courses;
-            $progress = ($enrolled > 0) ? min(100, round(($completed / $enrolled) * 100)) : 0;
+            if (isset($u->progress_sort)) {
+                $progress = min(100, max(0, (int)round((float)$u->progress_sort)));
+            } else if ($enrolled > 0) {
+                $progress = min(100, (int)round(($completed / $enrolled) * 100));
+            } else {
+                $progress = 0;
+            }
             $isadmin = in_array($u->id, $siteadmins);
 
             $cleanemail = trim(preg_replace('/[\s\x{00a0}]+/u', '', (string)$u->email));

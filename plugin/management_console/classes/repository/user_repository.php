@@ -63,6 +63,70 @@ class user_repository {
     }
 
     /**
+     * Build SQL subquery calculating enrolled courses, completed courses and progress per user.
+     *
+     * @return string SQL subquery.
+     */
+    private static function build_user_progress_subquery(): string {
+        return "
+            SELECT eu.userid,
+                   COUNT(eu.courseid) AS enrolled_courses,
+                   COALESCE(SUM(
+                       CASE
+                           WHEN cc_usr.is_cc = 1 THEN 1
+                           WHEN COALESCE(cm_tot.total_cm, 0) > 0
+                                AND COALESCE(cm_usr.done_cm, 0) >= cm_tot.total_cm THEN 1
+                           ELSE 0
+                       END
+                   ), 0) AS completed_courses,
+                   CASE
+                       WHEN COUNT(eu.courseid) > 0
+                       THEN ROUND((SUM(
+                           CASE
+                               WHEN cc_usr.is_cc = 1 THEN 1
+                               WHEN COALESCE(cm_tot.total_cm, 0) > 0
+                                    AND COALESCE(cm_usr.done_cm, 0) >= cm_tot.total_cm THEN 1
+                               ELSE 0
+                           END
+                       ) * 100.0) / COUNT(eu.courseid))
+                       ELSE 0
+                   END AS progress_sort
+              FROM (
+                  SELECT DISTINCT ue.userid, e.courseid
+                    FROM {user_enrolments} ue
+                    JOIN {enrol} e ON e.id = ue.enrolid
+                    JOIN {course} c ON c.id = e.courseid
+                   WHERE ue.status = 0 AND c.id <> 1
+              ) eu
+         LEFT JOIN (
+                  SELECT ccmp.course AS courseid, ccmp.userid, 1 AS is_cc
+                    FROM {course_completions} ccmp
+                   WHERE ccmp.timecompleted > 0
+                GROUP BY ccmp.course, ccmp.userid
+              ) cc_usr ON cc_usr.courseid = eu.courseid AND cc_usr.userid = eu.userid
+         LEFT JOIN (
+                  SELECT cm.course AS courseid, COUNT(cm.id) AS total_cm
+                    FROM {course} c_cm
+                    JOIN {course_modules} cm ON cm.course = c_cm.id
+                   WHERE c_cm.enablecompletion = 1
+                     AND cm.completion > 0
+                     AND cm.deletioninprogress = 0
+                GROUP BY cm.course
+              ) cm_tot ON cm_tot.courseid = eu.courseid
+         LEFT JOIN (
+                  SELECT cm.course AS courseid, cmc.userid, COUNT(DISTINCT cmc.coursemoduleid) AS done_cm
+                    FROM {course_modules} cm
+                    JOIN {course_modules_completion} cmc ON cmc.coursemoduleid = cm.id
+                   WHERE cm.completion > 0
+                     AND cm.deletioninprogress = 0
+                     AND cmc.completionstate IN (1, 2)
+                GROUP BY cm.course, cmc.userid
+              ) cm_usr ON cm_usr.courseid = eu.courseid AND cm_usr.userid = eu.userid
+          GROUP BY eu.userid
+        ";
+    }
+
+    /**
      * Get average progress for users KPI.
      *
      * @param array $sqlparams Base SQL parameters.
@@ -70,100 +134,191 @@ class user_repository {
      */
     public static function get_users_kpi_avg_progress(array $sqlparams) {
         global $DB;
+        $adminid = 1;
+        if (isset($sqlparams['adminid'])) {
+            $adminid = (int)$sqlparams['adminid'];
+        } else {
+            $primaryadmin = get_admin();
+            if ($primaryadmin) {
+                $adminid = (int)$primaryadmin->id;
+            }
+        }
+        $guestid = 0;
+        if (isset($sqlparams['guestid'])) {
+            $guestid = (int)$sqlparams['guestid'];
+        }
+        $sqlsubenr = self::build_user_progress_subquery();
         $sqlprogress = "
-            SELECT ROUND(AVG(
-                CASE WHEN enr.enrolled > 0 THEN (COALESCE(cmp.completed, 0) * 100.0 / enr.enrolled) ELSE 0 END
-            ), 1) AS avg_progress
-            FROM (
-                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled
-                  FROM {user_enrolments} ue
-                  JOIN {enrol} e ON e.id = ue.enrolid
-                  JOIN {user} u ON u.id = ue.userid
-                 WHERE ue.status = 0 AND u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
-                 GROUP BY ue.userid
-            ) enr
-            LEFT JOIN (
-                SELECT ue2.userid, COUNT(DISTINCT e2.courseid) AS completed
-                  FROM {user_enrolments} ue2
-                  JOIN {enrol} e2 ON e2.id = ue2.enrolid
-                  JOIN {course_completions} cc ON cc.userid = ue2.userid AND cc.course = e2.courseid
-                  JOIN {user} u2 ON u2.id = ue2.userid
-                 WHERE ue2.status = 0 AND cc.timecompleted > 0 AND u2.deleted = 0 AND u2.id <> :adminid2 AND u2.id <> :guestid2
-                 GROUP BY ue2.userid
-            ) cmp ON cmp.userid = enr.userid
+            SELECT ROUND(AVG(COALESCE(enr.progress_sort, 0)), 1) AS avg_progress
+              FROM ($sqlsubenr) enr
+              JOIN {user} u ON u.id = enr.userid
+             WHERE u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid
         ";
-        $primaryadmin = get_admin();
-        $defaultadminid = $primaryadmin ? (int)$primaryadmin->id : 1;
-        $params = array_merge($sqlparams, [
-            'adminid2' => $sqlparams['adminid'] ?? $defaultadminid,
-            'guestid2' => $sqlparams['guestid'] ?? 0,
+        return $DB->get_field_sql($sqlprogress, [
+            'adminid' => $adminid,
+            'guestid' => $guestid,
         ]);
-        return $DB->get_field_sql($sqlprogress, $params);
     }
 
     /**
-     * Get users filtered with pagination.
+     * Detect competency tables and build unions for user competencies count.
      *
-     * @param array $params Filter and pagination parameters.
-     * @return array Array containing records and total count.
+     * @return array Array of SQL union queries.
      */
-    public static function get_users_filtered(array $params): array {
-        global $DB, $CFG;
+    private static function detect_competency_unions(): array {
+        global $DB;
 
         $dbman = $DB->get_manager();
         $hascomp = $dbman->table_exists('competency');
-        $hasusercomp = $hascomp && $dbman->table_exists('competency_usercomp');
-        $hasplancomp = $hascomp && $dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp');
-        $hascoursecomp = $hascomp && $dbman->table_exists('competency_coursecomp');
-        $hasusercompcourse = $hascomp && $dbman->table_exists('competency_usercompcourse');
+        if (!$hascomp) {
+            return [];
+        }
 
         $compunions = [];
-        if ($hasusercomp) {
+        if ($dbman->table_exists('competency_usercomp')) {
             $compunions[] = "SELECT uc.userid, uc.competencyid FROM {competency_usercomp} uc " .
                 "JOIN {competency} c ON c.id = uc.competencyid";
         }
-        if ($hasplancomp) {
+        if ($dbman->table_exists('competency_plan') && $dbman->table_exists('competency_plancomp')) {
             $compunions[] = "SELECT p.userid, pc.competencyid FROM {competency_plancomp} pc " .
                 "JOIN {competency_plan} p ON p.id = pc.planid JOIN {competency} c ON c.id = pc.competencyid";
         }
-        if ($hascoursecomp) {
+        if ($dbman->table_exists('competency_coursecomp')) {
             $compunions[] = "SELECT ue.userid, cc.competencyid FROM {competency_coursecomp} cc " .
                 "JOIN {enrol} e ON e.courseid = cc.courseid " .
                 "JOIN {user_enrolments} ue ON ue.enrolid = e.id " .
                 "JOIN {competency} c ON c.id = cc.competencyid";
         }
-        if ($hasusercompcourse) {
+        if ($dbman->table_exists('competency_usercompcourse')) {
             $compunions[] = "SELECT ucc.userid, ucc.competencyid FROM {competency_usercompcourse} ucc " .
                 "JOIN {competency} c ON c.id = ucc.competencyid";
         }
 
-        $hascompetencies = !empty($compunions);
+        return $compunions;
+    }
 
-        $allowedsorts = [
-            'id'           => 'u.id',
-            'firstname'    => 'u.firstname',
-            'lastname'     => 'u.lastname',
-            'email'        => 'u.email',
-            'suspended'    => 'u.suspended',
-            'lastaccess'   => 'u.lastaccess',
-            'cohorts'      => 'coh.cohorts_count',
-            'competencies' => $hascompetencies ? 'comp_uc.competencies_count' : '0',
-            'courses'      => 'enr.enrolled_courses',
-            'progress'     => 'progress_sort',
+    /**
+     * Build competencies JOIN and SELECT fragments.
+     *
+     * @param array $compunions
+     * @return array [bool $hascompetencies, string $compjoin, string $compselect, string $compcol]
+     */
+    private static function build_competencies_join(array $compunions): array {
+        $hascompetencies = !empty($compunions);
+        if (!$hascompetencies) {
+            return [
+                false,
+                '',
+                '0 AS competencies_count,',
+                '0',
+            ];
+        }
+
+        $unionsql = implode("\n                        UNION\n                        ", $compunions);
+        $compjoin = "
+         LEFT JOIN (
+                SELECT all_comp.userid, COUNT(DISTINCT all_comp.competencyid) AS competencies_count
+                  FROM (
+                        $unionsql
+                  ) all_comp
+              GROUP BY all_comp.userid
+         ) comp_uc ON comp_uc.userid = u.id";
+        $compselect = "COALESCE(comp_uc.competencies_count, 0) AS competencies_count,";
+        $compcol = "COALESCE(comp_uc.competencies_count, 0)";
+
+        return [$hascompetencies, $compjoin, $compselect, $compcol];
+    }
+
+    /**
+     * Get sortable columns mapping for users query.
+     *
+     * @param bool $hascompetencies
+     * @return array
+     */
+    private static function get_sortable_columns(bool $hascompetencies): array {
+        $compcol = '0';
+        if ($hascompetencies) {
+            $compcol = 'COALESCE(comp_uc.competencies_count, 0)';
+        }
+
+        return [
+            'id'                 => 'u.id',
+            'firstname'          => 'u.firstname',
+            'lastname'           => 'u.lastname',
+            'email'              => 'u.email',
+            'suspended'          => 'u.suspended',
+            'lastaccess'         => 'u.lastaccess',
+            'cohorts'            => 'COALESCE(coh.cohorts_count, 0)',
+            'cohorts_count'      => 'COALESCE(coh.cohorts_count, 0)',
+            'competencies'       => $compcol,
+            'competencies_count' => $compcol,
+            'courses'            => 'COALESCE(enr.enrolled_courses, 0)',
+            'enrolled_courses'   => 'COALESCE(enr.enrolled_courses, 0)',
+            'completed_courses'  => 'COALESCE(enr.completed_courses, 0)',
+            'progress'           => 'COALESCE(enr.progress_sort, 0)',
+        ];
+    }
+
+    /**
+     * Resolve order by clause for users query.
+     *
+     * @param array $params
+     * @param array $sortablecolumns
+     * @return string
+     */
+    private static function resolve_user_order_by(array $params, array $sortablecolumns): string {
+        $sort = 'lastaccess';
+        if (isset($params['sort']) && array_key_exists($params['sort'], $sortablecolumns)) {
+            $sort = $params['sort'];
+        }
+
+        $direction = 'DESC';
+        if (isset($params['dir']) && strtoupper($params['dir']) === 'ASC') {
+            $direction = 'ASC';
+        }
+
+        if ($sort === 'progress') {
+            return "COALESCE(enr.progress_sort, 0) $direction, " .
+                   "COALESCE(enr.completed_courses, 0) $direction, " .
+                   "COALESCE(enr.enrolled_courses, 0) $direction, " .
+                   "u.id $direction";
+        }
+
+        $sortfield = $sortablecolumns[$sort];
+        if ($sortfield === '0') {
+            return "u.id $direction";
+        }
+
+        return "$sortfield $direction, u.id $direction";
+    }
+
+    /**
+     * Build where clause and parameters for users query.
+     *
+     * @param array $params
+     * @param array $sortablecolumns
+     * @return array
+     */
+    private static function build_users_where_clause(array $params, array $sortablecolumns): array {
+        global $DB, $CFG;
+
+        $adminid = 1;
+        $primaryadmin = get_admin();
+        if ($primaryadmin) {
+            $adminid = (int)$primaryadmin->id;
+        }
+
+        $guestid = 0;
+        if (isset($CFG->siteguest)) {
+            $guestid = (int)$CFG->siteguest;
+        }
+
+        $where = "u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid";
+        $sqlparams = [
+            'adminid' => $adminid,
+            'guestid' => $guestid,
         ];
 
-        $sort = $params['sort'] ?? 'lastaccess';
-        if (!array_key_exists($sort, $allowedsorts)) {
-            $sort = 'lastaccess';
-        }
-        $sortfield = $allowedsorts[$sort];
-        $direction = strtoupper($params['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
-
-        $primaryadmin = get_admin();
-        $adminid = $primaryadmin ? (int)$primaryadmin->id : 1;
-        $guestid = $CFG->siteguest ?? 0;
-        $where = "u.deleted = 0 AND u.id <> :adminid AND u.id <> :guestid";
-        $sqlparams = ['adminid' => $adminid, 'guestid' => $guestid];
         if (!empty($params['search'])) {
             $searchlike = '%' . $params['search'] . '%';
             $where .= " AND (" . $DB->sql_like('u.firstname', ':search1', false, false) .
@@ -176,46 +331,144 @@ class user_repository {
             $sqlparams['search4'] = $searchlike;
         }
 
-        $rawfilters = $params['filters'] ?? null;
-        $decodedfilters = is_string($rawfilters) ? json_decode($rawfilters, true) : ($rawfilters ?? []);
-        if (is_array($decodedfilters) && !empty($decodedfilters)) {
-            $filterindex = 1;
-            foreach ($decodedfilters as $key => $value) {
-                if (array_key_exists($key, $allowedsorts) && $value !== '') {
-                    $fieldname = $allowedsorts[$key];
-                    if ($key === 'suspended') {
-                        $where .= " AND $fieldname = :filterval$filterindex";
-                        $sqlparams["filterval$filterindex"] = (int)$value;
-                    } else if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filterindex", false, false);
-                        $sqlparams["filterval$filterindex"] = '%' . $value . '%';
-                    }
-                    $filterindex++;
-                } else if ($key === 'cohortid' && $value !== '' && $value !== '0') {
-                    $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f " .
-                        "WHERE cm_f.userid = u.id AND cm_f.cohortid = :filterval$filterindex)";
-                    $sqlparams["filterval$filterindex"] = (int)$value;
-                    $filterindex++;
-                }
-            }
+        return self::append_decoded_user_filters($params, $sortablecolumns, $where, $sqlparams);
+    }
+
+    /**
+     * Append decoded json filters to users where clause.
+     *
+     * @param array $params
+     * @param array $sortablecolumns
+     * @param string $where
+     * @param array $sqlparams
+     * @return array
+     */
+    private static function append_decoded_user_filters(
+        array $params,
+        array $sortablecolumns,
+        string $where,
+        array $sqlparams
+    ): array {
+        $rawfilters = null;
+        if (isset($params['filters'])) {
+            $rawfilters = $params['filters'];
+        }
+        $decoded = $rawfilters;
+        if (is_string($rawfilters)) {
+            $decoded = json_decode($rawfilters, true);
+        }
+        if (!is_array($decoded) || empty($decoded)) {
+            return [$where, $sqlparams];
         }
 
-        $compselect = $hascompetencies
-            ? "COALESCE(comp_uc.competencies_count, 0) AS competencies_count,"
-            : "0 AS competencies_count,";
-
-        $compjoin = '';
-        if ($hascompetencies) {
-            $unionsql = implode("\n                        UNION\n                        ", $compunions);
-            $compjoin = "
-         LEFT JOIN (
-                SELECT all_comp.userid, COUNT(DISTINCT all_comp.competencyid) AS competencies_count
-                  FROM (
-                        $unionsql
-                  ) all_comp
-              GROUP BY all_comp.userid
-         ) comp_uc ON comp_uc.userid = u.id";
+        $filterindex = 1;
+        foreach ($decoded as $key => $value) {
+            [$where, $sqlparams, $filterindex] = self::apply_single_user_filter(
+                (string)$key,
+                $value,
+                $sortablecolumns,
+                $where,
+                $sqlparams,
+                $filterindex
+            );
         }
+
+        return [$where, $sqlparams];
+    }
+
+    /**
+     * Apply a single user filter entry to where clause and parameters.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param array $sortablecolumns
+     * @param string $where
+     * @param array $sqlparams
+     * @param int $filterindex
+     * @return array
+     */
+    private static function apply_single_user_filter(
+        string $key,
+        $value,
+        array $sortablecolumns,
+        string $where,
+        array $sqlparams,
+        int $filterindex
+    ): array {
+        if ($key === 'cohortid' && $value !== '' && $value !== '0' && $value !== 0) {
+            $where .= " AND EXISTS (SELECT 1 FROM {cohort_members} cm_f " .
+                "WHERE cm_f.userid = u.id AND cm_f.cohortid = :filterval$filterindex)";
+            $sqlparams["filterval$filterindex"] = (int)$value;
+            return [$where, $sqlparams, $filterindex + 1];
+        }
+
+        if (array_key_exists($key, $sortablecolumns) && $value !== '') {
+            $fieldname = $sortablecolumns[$key];
+            return self::apply_column_user_filter(
+                $key,
+                $value,
+                $fieldname,
+                $where,
+                $sqlparams,
+                $filterindex
+            );
+        }
+
+        return [$where, $sqlparams, $filterindex];
+    }
+
+    /**
+     * Apply column-based user filter condition.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param string $fieldname
+     * @param string $where
+     * @param array $sqlparams
+     * @param int $filterindex
+     * @return array
+     */
+    private static function apply_column_user_filter(
+        string $key,
+        $value,
+        string $fieldname,
+        string $where,
+        array $sqlparams,
+        int $filterindex
+    ): array {
+        global $DB;
+
+        if ($key === 'suspended') {
+            $where .= " AND $fieldname = :filterval$filterindex";
+            $sqlparams["filterval$filterindex"] = (int)$value;
+            return [$where, $sqlparams, $filterindex + 1];
+        }
+
+        if (is_string($value)) {
+            $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filterindex", false, false);
+            $sqlparams["filterval$filterindex"] = '%' . $value . '%';
+            return [$where, $sqlparams, $filterindex + 1];
+        }
+
+        return [$where, $sqlparams, $filterindex];
+    }
+
+    /**
+     * Get users filtered with pagination.
+     *
+     * @param array $params Filter and pagination parameters.
+     * @return array Array containing records and total count.
+     */
+    public static function get_users_filtered(array $params): array {
+        global $DB;
+
+        $compunions = self::detect_competency_unions();
+        [$hascompetencies, $compjoin, $compselect] = self::build_competencies_join($compunions);
+        $sortablecolumns = self::get_sortable_columns($hascompetencies);
+        $orderby = self::resolve_user_order_by($params, $sortablecolumns);
+        [$where, $sqlparams] = self::build_users_where_clause($params, $sortablecolumns);
+
+        $sqlsubenr = self::build_user_progress_subquery();
 
         $sqlselect = "
             SELECT u.id, u.username, u.firstname, u.lastname, u.email, u.suspended, u.lastaccess,
@@ -223,12 +476,8 @@ class user_repository {
                    COALESCE(coh.cohorts_count, 0) AS cohorts_count,
                    $compselect
                    COALESCE(enr.enrolled_courses, 0) AS enrolled_courses,
-                   COALESCE(cmp.completed_courses, 0) AS completed_courses,
-                   CASE
-                       WHEN COALESCE(enr.enrolled_courses, 0) > 0
-                       THEN ROUND((COALESCE(cmp.completed_courses, 0) * 100.0) / enr.enrolled_courses)
-                       ELSE 0
-                   END AS progress_sort
+                   COALESCE(enr.completed_courses, 0) AS completed_courses,
+                   COALESCE(enr.progress_sort, 0) AS progress_sort
               FROM {user} u
          LEFT JOIN (
                 SELECT userid, COUNT(id) AS cohorts_count
@@ -237,29 +486,23 @@ class user_repository {
          ) coh ON coh.userid = u.id
          $compjoin
          LEFT JOIN (
-                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS enrolled_courses
-                  FROM {user_enrolments} ue
-                  JOIN {enrol} e ON e.id = ue.enrolid
-                 WHERE ue.status = 0
-              GROUP BY ue.userid
+             $sqlsubenr
          ) enr ON enr.userid = u.id
-         LEFT JOIN (
-                SELECT ue.userid, COUNT(DISTINCT e.courseid) AS completed_courses
-                  FROM {user_enrolments} ue
-                  JOIN {enrol} e ON e.id = ue.enrolid
-                  JOIN {course_completions} cc ON cc.userid = ue.userid AND cc.course = e.courseid
-                 WHERE ue.status = 0 AND cc.timecompleted > 0
-              GROUP BY ue.userid
-         ) cmp ON cmp.userid = u.id
              WHERE $where
-          ORDER BY $sortfield $direction, u.id DESC
+          ORDER BY $orderby
         ";
 
         $sqlcount = "SELECT COUNT(u.id) FROM {user} u WHERE $where";
         $totalcount = (int)$DB->count_records_sql($sqlcount, $sqlparams);
 
-        $page = (int)($params['page'] ?? 0);
-        $perpage = (int)($params['perpage'] ?? 20);
+        $page = 0;
+        if (isset($params['page'])) {
+            $page = (int)$params['page'];
+        }
+        $perpage = 20;
+        if (isset($params['perpage'])) {
+            $perpage = (int)$params['perpage'];
+        }
         $limitfrom = $page * $perpage;
         $records = $DB->get_records_sql($sqlselect, $sqlparams, $limitfrom, $perpage);
 

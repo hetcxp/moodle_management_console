@@ -41,28 +41,135 @@ class course_repository {
     public static function get_courses_filtered(array $params): array {
         global $DB;
 
-        $sortablecolumns = [
-            'id'            => 'c.id',
-            'fullname'      => 'c.fullname',
-            'shortname'     => 'c.shortname',
-            'categoryname'  => 'cc.name',
-            'visible'       => 'c.visible',
-            'enrolledcount' => 'enr.enrolledcount',
-            'completedcount' => 'cmp.completedcount',
-            'cohortscount'  => 'coh.cohortscount',
-            'competenciescount' => 'comp.competenciescount',
-            'progress'      => 'progress_sort',
-            'timecreated'   => 'c.timecreated',
-            'startdate'     => 'c.startdate',
-            'enddate'       => 'c.enddate',
-        ];
+        $sortablecolumns = self::get_sortable_columns();
+        $orderby = self::resolve_course_order_by($params, $sortablecolumns);
+        [$where, $sqlparams] = self::build_courses_where_clause($params, $sortablecolumns);
 
-        $sort = $params['sort'] ?? 'timecreated';
-        if (!array_key_exists($sort, $sortablecolumns)) {
-            $sort = 'timecreated';
+        $sqlsubenr = self::build_course_progress_subquery();
+        $sqlsubcoh = "
+            SELECT e.courseid, COUNT(DISTINCT e.customint1) AS cohortscount
+              FROM {enrol} e
+             WHERE e.enrol = 'cohort'
+          GROUP BY e.courseid
+        ";
+        $sqlsubcomp = "
+            SELECT ccomp.courseid, COUNT(DISTINCT ccomp.competencyid) AS competenciescount
+              FROM {competency_coursecomp} ccomp
+          GROUP BY ccomp.courseid
+        ";
+
+        $sqlselect = "
+            SELECT c.id, c.fullname, c.shortname, c.visible, c.timecreated, c.category, c.startdate, c.enddate,
+                   cc.name AS categoryname,
+                   COALESCE(enr.enrolledcount, 0) AS enrolledcount,
+                   COALESCE(enr.completedcount, 0) AS completedcount,
+                   COALESCE(coh.cohortscount, 0) AS cohortscount,
+                   COALESCE(comp.competenciescount, 0) AS competenciescount,
+                   COALESCE(enr.progress_sort, 0) AS progress_sort
+              FROM {course} c
+              JOIN {course_categories} cc ON cc.id = c.category
+         LEFT JOIN ($sqlsubenr) enr ON enr.courseid = c.id
+         LEFT JOIN ($sqlsubcoh) coh ON coh.courseid = c.id
+         LEFT JOIN ($sqlsubcomp) comp ON comp.courseid = c.id
+             WHERE $where
+          ORDER BY $orderby
+        ";
+
+        $sqlkpis = "
+            SELECT
+                COUNT(c.id) AS total_courses,
+                COALESCE(SUM(COALESCE(enr.enrolledcount, 0)), 0) AS total_enrolled,
+                COALESCE(AVG(COALESCE(enr.progress_sort, 0)), 0) AS avg_progress,
+                SUM(CASE WHEN COALESCE(enr.enrolledcount, 0) = 0 THEN 1 ELSE 0 END) AS empty_courses
+            FROM {course} c
+            JOIN {course_categories} cc ON cc.id = c.category
+            LEFT JOIN ($sqlsubenr) enr ON enr.courseid = c.id
+            WHERE $where
+        ";
+
+        $kpidata = $DB->get_record_sql($sqlkpis, $sqlparams);
+        $kpis = self::format_courses_kpis($kpidata);
+        $totalcount = $kpis['total_courses'];
+
+        $page = 0;
+        if (!empty($params['page'])) {
+            $page = (int)$params['page'];
         }
+        $perpage = 20;
+        if (!empty($params['perpage'])) {
+            $perpage = (int)$params['perpage'];
+        }
+        $limitfrom = $page * $perpage;
+        $records = [];
+        if ($totalcount > 0) {
+            $records = $DB->get_records_sql($sqlselect, $sqlparams, $limitfrom, $perpage);
+        }
+
+        return [$records, $totalcount, $kpis];
+    }
+
+    /**
+     * Get sortable columns mapping for courses query.
+     *
+     * @return array
+     */
+    private static function get_sortable_columns(): array {
+        return [
+            'id'                => 'c.id',
+            'fullname'          => 'c.fullname',
+            'shortname'         => 'c.shortname',
+            'categoryname'      => 'cc.name',
+            'visible'           => 'c.visible',
+            'enrolledcount'     => 'COALESCE(enr.enrolledcount, 0)',
+            'completedcount'    => 'COALESCE(enr.completedcount, 0)',
+            'cohortscount'      => 'COALESCE(coh.cohortscount, 0)',
+            'competenciescount' => 'COALESCE(comp.competenciescount, 0)',
+            'progress'          => 'COALESCE(enr.progress_sort, 0)',
+            'progress_percent'  => 'COALESCE(enr.progress_sort, 0)',
+            'timecreated'       => 'c.timecreated',
+            'startdate'         => 'c.startdate',
+            'enddate'           => 'c.enddate',
+        ];
+    }
+
+    /**
+     * Resolve order by clause for courses query.
+     *
+     * @param array $params
+     * @param array $sortablecolumns
+     * @return string
+     */
+    private static function resolve_course_order_by(array $params, array $sortablecolumns): string {
+        $sort = 'timecreated';
+        if (isset($params['sort']) && array_key_exists($params['sort'], $sortablecolumns)) {
+            $sort = $params['sort'];
+        }
+
+        $direction = 'DESC';
+        if (isset($params['dir']) && strtoupper($params['dir']) === 'ASC') {
+            $direction = 'ASC';
+        }
+
+        if ($sort === 'progress' || $sort === 'progress_percent') {
+            return "COALESCE(enr.progress_sort, 0) $direction, " .
+                   "COALESCE(enr.completedcount, 0) $direction, " .
+                   "COALESCE(enr.enrolledcount, 0) $direction, " .
+                   "c.id $direction";
+        }
+
         $sortfield = $sortablecolumns[$sort];
-        $direction = strtoupper($params['dir'] ?? 'DESC') === 'ASC' ? 'ASC' : 'DESC';
+        return "$sortfield $direction, c.id $direction";
+    }
+
+    /**
+     * Build where clause and parameters for courses query.
+     *
+     * @param array $params
+     * @param array $sortablecolumns
+     * @return array
+     */
+    private static function build_courses_where_clause(array $params, array $sortablecolumns): array {
+        global $DB;
 
         $where = "c.id <> 1";
         $sqlparams = [];
@@ -84,124 +191,231 @@ class course_repository {
             $sqlparams['visibility'] = $params['visibility'];
         }
 
-        $decodedfilters = is_string($params['filters'] ?? null)
-            ? json_decode($params['filters'], true)
-            : ($params['filters'] ?? []);
-        if (is_array($decodedfilters) && !empty($decodedfilters)) {
-            $filterindex = 1;
-            foreach ($decodedfilters as $key => $value) {
-                if ($key === 'empty_only' && $value) {
-                    $where .= " AND NOT EXISTS (
-                        SELECT 1 FROM {enrol} filter_e
-                        JOIN {user_enrolments} filter_ue ON filter_e.id = filter_ue.enrolid
-                        WHERE filter_e.courseid = c.id AND filter_ue.status = 0
-                    )";
-                } else if ($key === 'exclude_category' && $value) {
-                    $where .= " AND c.category != :filterval$filterindex";
-                    $sqlparams["filterval$filterindex"] = (int)$value;
-                    $filterindex++;
-                } else if (array_key_exists($key, $sortablecolumns) && $value !== '') {
-                    $fieldname = $sortablecolumns[$key];
-                    if ($key === 'visible') {
-                        $where .= " AND $fieldname = :filterval$filterindex";
-                        $sqlparams["filterval$filterindex"] = (int)$value;
-                    } else if (is_string($value)) {
-                        $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filterindex", false, false);
-                        $sqlparams["filterval$filterindex"] = '%' . $value . '%';
-                    }
-                    $filterindex++;
-                }
-            }
+        return self::append_decoded_course_filters($params, $sortablecolumns, $where, $sqlparams);
+    }
+
+    /**
+     * Append decoded json filters to courses where clause.
+     *
+     * @param array $params
+     * @param array $sortablecolumns
+     * @param string $where
+     * @param array $sqlparams
+     * @return array
+     */
+    private static function append_decoded_course_filters(
+        array $params,
+        array $sortablecolumns,
+        string $where,
+        array $sqlparams
+    ): array {
+        $rawfilters = null;
+        if (isset($params['filters'])) {
+            $rawfilters = $params['filters'];
+        }
+        $decoded = $rawfilters;
+        if (is_string($rawfilters)) {
+            $decoded = json_decode($rawfilters, true);
+        }
+        if (!is_array($decoded) || empty($decoded)) {
+            return [$where, $sqlparams];
         }
 
-        $sqlsubenr = "
-            SELECT e.courseid, COUNT(DISTINCT ue.userid) AS enrolledcount
-              FROM {enrol} e
-              JOIN {user_enrolments} ue ON ue.enrolid = e.id
-              JOIN {user} u ON u.id = ue.userid
-             WHERE ue.status = 0 AND u.deleted = 0
-          GROUP BY e.courseid
-        ";
+        $filterindex = 1;
+        foreach ($decoded as $key => $value) {
+            [$where, $sqlparams, $filterindex] = self::apply_single_course_filter(
+                (string)$key,
+                $value,
+                $sortablecolumns,
+                $where,
+                $sqlparams,
+                $filterindex
+            );
+        }
 
-        $sqlsubcmp = "
-            SELECT ccmp.course AS courseid, COUNT(DISTINCT ccmp.userid) AS completedcount
-              FROM {course_completions} ccmp
-              JOIN {enrol} e ON e.courseid = ccmp.course
-              JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.userid = ccmp.userid
-              JOIN {user} u ON u.id = ccmp.userid
-             WHERE ccmp.timecompleted > 0 AND ue.status = 0 AND u.deleted = 0
-          GROUP BY ccmp.course
-        ";
+        return [$where, $sqlparams];
+    }
 
-        $sqlsubcoh = "
-            SELECT e.courseid, COUNT(DISTINCT e.customint1) AS cohortscount
-              FROM {enrol} e
-             WHERE e.enrol = 'cohort'
-          GROUP BY e.courseid
-        ";
+    /**
+     * Apply a single filter entry to where clause and parameters.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param array $sortablecolumns
+     * @param string $where
+     * @param array $sqlparams
+     * @param int $filterindex
+     * @return array
+     */
+    private static function apply_single_course_filter(
+        string $key,
+        $value,
+        array $sortablecolumns,
+        string $where,
+        array $sqlparams,
+        int $filterindex
+    ): array {
+        if ($key === 'empty_only' && !empty($value)) {
+            $where .= " AND NOT EXISTS (
+                SELECT 1 FROM {enrol} filter_e
+                JOIN {user_enrolments} filter_ue ON filter_e.id = filter_ue.enrolid
+                WHERE filter_e.courseid = c.id AND filter_ue.status = 0
+            )";
+            return [$where, $sqlparams, $filterindex];
+        }
 
-        $sqlsubcomp = "
-            SELECT ccomp.courseid, COUNT(DISTINCT ccomp.competencyid) AS competenciescount
-              FROM {competency_coursecomp} ccomp
-          GROUP BY ccomp.courseid
-        ";
+        if ($key === 'exclude_category' && !empty($value)) {
+            $where .= " AND c.category != :filterval$filterindex";
+            $sqlparams["filterval$filterindex"] = (int)$value;
+            return [$where, $sqlparams, $filterindex + 1];
+        }
 
-        $sqlselect = "
-            SELECT c.id, c.fullname, c.shortname, c.visible, c.timecreated, c.category, c.startdate, c.enddate,
-                   cc.name AS categoryname,
-                   COALESCE(enr.enrolledcount, 0) AS enrolledcount,
-                   COALESCE(cmp.completedcount, 0) AS completedcount,
-                   COALESCE(coh.cohortscount, 0) AS cohortscount,
-                   COALESCE(comp.competenciescount, 0) AS competenciescount,
-                   CASE
-                       WHEN COALESCE(enr.enrolledcount, 0) > 0
-                       THEN ROUND((COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount)
-                       ELSE 0
-                   END AS progress_sort
-              FROM {course} c
-              JOIN {course_categories} cc ON cc.id = c.category
-         LEFT JOIN ($sqlsubenr) enr ON enr.courseid = c.id
-         LEFT JOIN ($sqlsubcmp) cmp ON cmp.courseid = c.id
-         LEFT JOIN ($sqlsubcoh) coh ON coh.courseid = c.id
-         LEFT JOIN ($sqlsubcomp) comp ON comp.courseid = c.id
-             WHERE $where
-          ORDER BY $sortfield $direction, c.id DESC
-        ";
+        if (array_key_exists($key, $sortablecolumns) && $value !== '') {
+            $fieldname = $sortablecolumns[$key];
+            return self::apply_column_course_filter(
+                $key,
+                $value,
+                $fieldname,
+                $where,
+                $sqlparams,
+                $filterindex
+            );
+        }
 
-        $sqlkpis = "
-            SELECT
-                COUNT(c.id) AS total_courses,
-                COALESCE(SUM(COALESCE(enr.enrolledcount, 0)), 0) AS total_enrolled,
-                COALESCE(AVG(
-                    CASE
-                        WHEN COALESCE(enr.enrolledcount, 0) > 0
-                        THEN (COALESCE(cmp.completedcount, 0) * 100.0) / enr.enrolledcount
-                        ELSE 0
-                    END
-                ), 0) AS avg_progress,
-                SUM(CASE WHEN COALESCE(enr.enrolledcount, 0) = 0 THEN 1 ELSE 0 END) AS empty_courses
-            FROM {course} c
-            JOIN {course_categories} cc ON cc.id = c.category
-            LEFT JOIN ($sqlsubenr) enr ON enr.courseid = c.id
-            LEFT JOIN ($sqlsubcmp) cmp ON cmp.courseid = c.id
-            WHERE $where
-        ";
+        return [$where, $sqlparams, $filterindex];
+    }
 
-        $kpidata = $DB->get_record_sql($sqlkpis, $sqlparams);
-        $totalcount = (int)($kpidata->total_courses ?? 0);
-        $kpis = [
-            'total_courses'  => $totalcount,
-            'total_enrolled' => (int)($kpidata->total_enrolled ?? 0),
-            'avg_progress'   => (int)round($kpidata->avg_progress ?? 0),
-            'empty_courses'  => (int)($kpidata->empty_courses ?? 0),
+    /**
+     * Apply column-based filter condition.
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param string $fieldname
+     * @param string $where
+     * @param array $sqlparams
+     * @param int $filterindex
+     * @return array
+     */
+    private static function apply_column_course_filter(
+        string $key,
+        $value,
+        string $fieldname,
+        string $where,
+        array $sqlparams,
+        int $filterindex
+    ): array {
+        global $DB;
+
+        if ($key === 'visible') {
+            $where .= " AND $fieldname = :filterval$filterindex";
+            $sqlparams["filterval$filterindex"] = (int)$value;
+            return [$where, $sqlparams, $filterindex + 1];
+        }
+
+        if (is_string($value)) {
+            $where .= " AND " . $DB->sql_like($fieldname, ":filterval$filterindex", false, false);
+            $sqlparams["filterval$filterindex"] = '%' . $value . '%';
+            return [$where, $sqlparams, $filterindex + 1];
+        }
+
+        return [$where, $sqlparams, $filterindex];
+    }
+
+    /**
+     * Format KPIs structure from raw database record.
+     *
+     * @param mixed $kpidata
+     * @return array
+     */
+    private static function format_courses_kpis($kpidata): array {
+        $totalcourses = 0;
+        if (isset($kpidata->total_courses)) {
+            $totalcourses = (int)$kpidata->total_courses;
+        }
+
+        $totalenrolled = 0;
+        if (isset($kpidata->total_enrolled)) {
+            $totalenrolled = (int)$kpidata->total_enrolled;
+        }
+
+        $avgprogress = 0;
+        if (isset($kpidata->avg_progress)) {
+            $avgprogress = (int)round((float)$kpidata->avg_progress);
+        }
+
+        $emptycourses = 0;
+        if (isset($kpidata->empty_courses)) {
+            $emptycourses = (int)$kpidata->empty_courses;
+        }
+
+        return [
+            'total_courses'  => $totalcourses,
+            'total_enrolled' => $totalenrolled,
+            'avg_progress'   => $avgprogress,
+            'empty_courses'  => $emptycourses,
         ];
+    }
 
-        $page = (int)($params['page'] ?? 0);
-        $perpage = (int)($params['perpage'] ?? 20);
-        $limitfrom = $page * $perpage;
-        $records = $totalcount > 0 ? $DB->get_records_sql($sqlselect, $sqlparams, $limitfrom, $perpage) : [];
-
-        return [$records, $totalcount, $kpis];
+    /**
+     * Build SQL subquery calculating enrolled count, completed count and average progress per course.
+     *
+     * @return string SQL subquery.
+     */
+    private static function build_course_progress_subquery(): string {
+        return "
+            SELECT eu.courseid,
+                   COUNT(eu.userid) AS enrolledcount,
+                   SUM(
+                       CASE
+                           WHEN cc_usr.is_cc = 1 THEN 1
+                           WHEN COALESCE(cm_tot.total_cm, 0) > 0
+                                AND COALESCE(cm_usr.done_cm, 0) >= cm_tot.total_cm THEN 1
+                           ELSE 0
+                       END
+                   ) AS completedcount,
+                   ROUND(AVG(
+                       CASE
+                           WHEN cc_usr.is_cc = 1 THEN 100.0
+                           WHEN COALESCE(cm_tot.total_cm, 0) > 0
+                                AND COALESCE(cm_usr.done_cm, 0) >= cm_tot.total_cm THEN 100.0
+                           WHEN COALESCE(cm_tot.total_cm, 0) > 0
+                           THEN ROUND((COALESCE(cm_usr.done_cm, 0) * 100.0) / cm_tot.total_cm)
+                           ELSE 0.0
+                       END
+                   )) AS progress_sort
+              FROM (
+                  SELECT DISTINCT e.courseid, ue.userid
+                    FROM {enrol} e
+                    JOIN {user_enrolments} ue ON ue.enrolid = e.id
+                    JOIN {user} u ON u.id = ue.userid
+                   WHERE ue.status = 0 AND u.deleted = 0
+              ) eu
+         LEFT JOIN (
+                  SELECT ccmp.course AS courseid, ccmp.userid, 1 AS is_cc
+                    FROM {course_completions} ccmp
+                   WHERE ccmp.timecompleted > 0
+                GROUP BY ccmp.course, ccmp.userid
+              ) cc_usr ON cc_usr.courseid = eu.courseid AND cc_usr.userid = eu.userid
+         LEFT JOIN (
+                  SELECT cm.course AS courseid, COUNT(cm.id) AS total_cm
+                    FROM {course} c_cm
+                    JOIN {course_modules} cm ON cm.course = c_cm.id
+                   WHERE c_cm.enablecompletion = 1
+                     AND cm.completion > 0
+                     AND cm.deletioninprogress = 0
+                GROUP BY cm.course
+              ) cm_tot ON cm_tot.courseid = eu.courseid
+         LEFT JOIN (
+                  SELECT cm.course AS courseid, cmc.userid, COUNT(DISTINCT cmc.coursemoduleid) AS done_cm
+                    FROM {course_modules} cm
+                    JOIN {course_modules_completion} cmc ON cmc.coursemoduleid = cm.id
+                   WHERE cm.completion > 0
+                     AND cm.deletioninprogress = 0
+                     AND cmc.completionstate IN (1, 2)
+                GROUP BY cm.course, cmc.userid
+              ) cm_usr ON cm_usr.courseid = eu.courseid AND cm_usr.userid = eu.userid
+          GROUP BY eu.courseid
+        ";
     }
 
 
