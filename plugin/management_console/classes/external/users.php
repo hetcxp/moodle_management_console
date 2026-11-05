@@ -172,10 +172,37 @@ class users extends external_api {
 
         $params['dir'] = strtoupper($params['dir']) === 'ASC' ? 'ASC' : 'DESC';
 
-        if (is_string($params['filters'])) {
-            $decoded = json_decode($params['filters'], true);
+        // Validate JSON structure safely.
+        if (!is_string($params['filters']) || strlen($params['filters']) > 4096) {
+            $params['filters'] = '{}';
+        } else {
+            $decoded = json_decode($params['filters'], true, 4);
             if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
                 $params['filters'] = '{}';
+            } else {
+                $sanitized = [];
+                foreach ($decoded as $k => $v) {
+                    if (!is_string($k)) {
+                        continue;
+                    }
+
+                    if (!(is_scalar($v) || $v === null)) {
+                        continue;
+                    }
+
+                    if ($v === null) {
+                        $sanitized[$k] = null;
+                    } else if (is_bool($v)) {
+                        $sanitized[$k] = $v;
+                    } else if (is_int($v)) {
+                        $sanitized[$k] = $v;
+                    } else if (is_float($v)) {
+                        $sanitized[$k] = $v;
+                    } else {
+                        $sanitized[$k] = (string)$v;
+                    }
+                }
+                $params['filters'] = !empty($sanitized) ? json_encode($sanitized) : '{}';
             }
         }
 

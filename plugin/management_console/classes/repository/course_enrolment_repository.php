@@ -458,4 +458,177 @@ class course_enrolment_repository {
             'affectedcount' => $affected,
         ];
     }
+
+    /**
+     * Get learning path assigned cohorts.
+     *
+     * @param int $courseid
+     * @return array
+     */
+    public static function get_learning_path_cohorts(int $courseid): array {
+        global $DB;
+        $sqlcohorts = "
+            SELECT e.id AS enrolid, e.customint1 AS cohortid, coh.name AS cohortname,
+                   COUNT(DISTINCT ue.userid) AS membercount
+              FROM {enrol} e
+              JOIN {cohort} coh ON coh.id = e.customint1
+         LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
+             WHERE e.courseid = :courseid AND e.enrol = 'cohort'
+          GROUP BY e.id, e.customint1, coh.name
+          ORDER BY coh.name ASC
+        ";
+        $cohortrecords = $DB->get_records_sql($sqlcohorts, ['courseid' => $courseid], 0, 100);
+        if (!$cohortrecords) {
+            return [];
+        }
+        return array_values(array_map(function ($c) {
+            return [
+                'enrol_id'     => (int)$c->enrolid,
+                'cohort_id'    => (int)$c->cohortid,
+                'name'         => $c->cohortname,
+                'member_count' => (int)$c->membercount,
+            ];
+        }, $cohortrecords));
+    }
+
+    /**
+     * Get learning path enrolled users with pagination.
+     *
+     * @param int $courseid
+     * @param int $limitfrom
+     * @param int $limitnum
+     * @return array
+     */
+    public static function get_learning_path_enrolled_users(int $courseid, int $limitfrom = 0, int $limitnum = 100): array {
+        global $DB;
+        $offset = max(0, $limitfrom);
+        $limit = ($limitnum > 0 && $limitnum <= 500) ? $limitnum : 100;
+        $sqlenrolledusers = "
+            SELECT ue.id AS userenrolid, u.id, u.firstname, u.lastname, u.email,
+                   ue.status, ue.timecreated, e.enrol AS enrolmethod
+              FROM {user} u
+              JOIN {user_enrolments} ue ON ue.userid = u.id
+              JOIN {enrol} e ON e.id = ue.enrolid
+             WHERE e.courseid = :courseid AND u.deleted = 0
+          ORDER BY u.lastname ASC, u.firstname ASC
+        ";
+        $enrolleduserrecords = $DB->get_records_sql($sqlenrolledusers, ['courseid' => $courseid], $offset, $limit);
+        $enrolledusers = [];
+        if ($enrolleduserrecords) {
+            foreach ($enrolleduserrecords as $eur) {
+                $uid = (int)$eur->id;
+                if (!isset($enrolledusers[$uid])) {
+                    $enrolledusers[$uid] = [
+                        'id'           => $uid,
+                        'fullname'     => $eur->firstname . ' ' . $eur->lastname,
+                        'email'        => $eur->email,
+                        'status'       => (int)$eur->status,
+                        'enrol_method' => $eur->enrolmethod,
+                        'timecreated'  => (int)$eur->timecreated,
+                    ];
+                } else if ($eur->enrolmethod === 'manual') {
+                    $enrolledusers[$uid]['enrol_method'] = 'manual';
+                }
+            }
+        }
+        return array_values($enrolledusers);
+    }
+
+    /**
+     * Get user enrolled courses list.
+     *
+     * @param int $userid User ID.
+     * @param int $limitfrom Offset.
+     * @param int $limitnum Limit.
+     * @return array Enrolled courses.
+     */
+    public static function get_user_enrolled_courses(int $userid, int $limitfrom = 0, int $limitnum = 0): array {
+        global $DB;
+        $sqlcourses = "
+            SELECT c.id, c.fullname, c.shortname, MAX(e.enrol) as enrolmethod, MIN(ue.status) as enrolstatus
+              FROM {course} c
+              JOIN {enrol} e ON e.courseid = c.id
+              JOIN {user_enrolments} ue ON ue.enrolid = e.id
+             WHERE ue.userid = :userid
+          GROUP BY c.id, c.fullname, c.shortname
+          ORDER BY c.fullname ASC
+        ";
+        return $DB->get_records_sql($sqlcourses, ['userid' => $userid], $limitfrom, $limitnum);
+    }
+
+    /**
+     * Calculate completion progress for a user across a set of courses.
+     *
+     * @param int $userid User ID.
+     * @param array $enrolledcourses Enrolled courses array.
+     * @return array Progress map indexed by course ID.
+     */
+    public static function get_user_courses_progress_data(int $userid, array $enrolledcourses): array {
+        global $DB, $CFG;
+        if (empty($enrolledcourses)) {
+            return [];
+        }
+
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $courseids = array_keys($enrolledcourses);
+        [$incsql, $incparams] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'c');
+        $params = array_merge(['userid' => $userid], $incparams);
+
+        // Direct course completions (100%).
+        $sqlcompletions = "
+            SELECT course, 100 AS progress
+              FROM {course_completions}
+             WHERE userid = :userid AND course $incsql AND timecompleted > 0
+        ";
+        $completedmap = $DB->get_records_sql_menu($sqlcompletions, $params) ?: [];
+
+        // Trackable activities by course.
+        $trackablebycourse = [];
+        $allcmids = [];
+        foreach ($enrolledcourses as $c) {
+            $courseobj = \tool_management_console\repository\course_repository::get_course($c->id);
+            if ($courseobj) {
+                $cinfo = \tool_management_console\moodle_version_helper::get_completion_info($courseobj);
+                if ($cinfo->is_enabled()) {
+                    $acts = $cinfo->get_activities();
+                    $trackablebycourse[$c->id] = count($acts);
+                    foreach (array_keys($acts) as $cmid) {
+                        $allcmids[$cmid] = $c->id;
+                    }
+                } else {
+                    $trackablebycourse[$c->id] = 0;
+                }
+            }
+        }
+
+        // Batch fetch completed modules.
+        $cmcompletedcounts = [];
+        if (!empty($allcmids)) {
+            [$incmsql, $incmparams] = $DB->get_in_or_equal(array_keys($allcmids), SQL_PARAMS_NAMED, 'cm');
+            $cmparams = array_merge(['userid' => $userid], $incmparams);
+            $sqlcm = "
+                SELECT cm.course, COUNT(DISTINCT cmc.coursemoduleid) as completed_count
+                  FROM {course_modules_completion} cmc
+                  JOIN {course_modules} cm ON cm.id = cmc.coursemoduleid
+                 WHERE cmc.userid = :userid AND cmc.coursemoduleid $incmsql AND cmc.completionstate IN (1, 2)
+              GROUP BY cm.course
+            ";
+            $cmcompletedcounts = $DB->get_records_sql_menu($sqlcm, $cmparams) ?: [];
+        }
+
+        $progressmap = [];
+        foreach ($enrolledcourses as $c) {
+            if (isset($completedmap[$c->id])) {
+                $progressmap[$c->id] = 100;
+            } else if (!empty($trackablebycourse[$c->id])) {
+                $cmdone = isset($cmcompletedcounts[$c->id]) ? (int)$cmcompletedcounts[$c->id] : 0;
+                $progressmap[$c->id] = (int)round(($cmdone / $trackablebycourse[$c->id]) * 100);
+            } else {
+                $progressmap[$c->id] = 0;
+            }
+        }
+
+        return $progressmap;
+    }
 }

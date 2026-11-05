@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Scheduled task: verify license and update time watermark.
+ * Scheduled task: verify license and refresh time watermark.
  *
  * @package    tool_management_console
  * @copyright  2026 Hector Teran

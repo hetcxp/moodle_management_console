@@ -605,7 +605,7 @@ class competency_framework_repository {
                     return ['success' => false, 'message' => 'Se requiere el ID del marco a eliminar.', 'affectedcount' => 0];
                 }
 
-                $DB->delete_records('competency', ['competencyframeworkid' => $frameworkid]);
+                competency_crud_repository::delete_by_framework($frameworkid);
                 $DB->delete_records('competency_framework', ['id' => $frameworkid]);
                 \tool_management_console\cache_manager::invalidate_kpis('competency_kpis');
 

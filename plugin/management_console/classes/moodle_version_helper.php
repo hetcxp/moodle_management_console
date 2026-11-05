@@ -129,7 +129,7 @@ class moodle_version_helper {
     }
 
     /**
-     * Update user record using modern core\user API on Moodle 4.5+ / 5.x,
+     * Modify user record using modern core\user API on Moodle 4.5+ / 5.x,
      * falling back to user_update_user on legacy releases.
      *
      * @param stdClass $user User object with updated fields.

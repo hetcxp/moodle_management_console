@@ -242,7 +242,7 @@ $functions = [
     'tool_management_console_scale_action' => [
         'classname'     => 'tool_management_console\external\competency_scales',
         'methodname'    => 'scale_action',
-        'description'   => 'Create, update or delete a global scale (courseid=0)',
+        'description'   => 'Create, edit or delete a global scale (courseid=0)',
         'type'          => 'write',
         'capabilities'  => 'moodle/competency:competencymanage',
         'ajax'          => true,
@@ -408,7 +408,7 @@ $functions = [
     'tool_management_console_update_lp_structure' => [
         'classname'    => 'tool_management_console\external\learning_paths',
         'methodname'   => 'update_learning_path_structure',
-        'description'  => 'Update subcourse sequence and availability rules for a learning path',
+        'description'  => 'Modify subcourse sequence and availability rules for a learning path',
         'type'         => 'write',
         'capabilities' => 'moodle/course:update',
         'ajax'         => true,
@@ -496,7 +496,7 @@ $functions = [
     'tool_management_console_update_feedback_status' => [
         'classname'    => 'tool_management_console\external\feedback',
         'methodname'   => 'update_feedback_status',
-        'description'  => 'Update feedback ticket status and notify user',
+        'description'  => 'Modify feedback ticket status and notify user',
         'type'         => 'write',
         'capabilities' => 'tool/management_console:manage_feedback',
         'ajax'         => true,

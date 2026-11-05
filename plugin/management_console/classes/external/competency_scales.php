@@ -125,7 +125,7 @@ class competency_scales extends external_api {
     public static function scale_action_parameters(): external_function_parameters {
         return new external_function_parameters([
             'action'  => new external_value(PARAM_ALPHA, 'Action: create, update, delete'),
-            'scaleid' => new external_value(PARAM_INT, 'Scale ID (for update or delete)', VALUE_DEFAULT, 0),
+            'scaleid' => new external_value(PARAM_INT, 'Scale ID (for edit or delete)', VALUE_DEFAULT, 0),
             'name'    => new external_value(PARAM_TEXT, 'Scale name (for create or update)', VALUE_DEFAULT, ''),
             'items'   => new external_value(
                 PARAM_TEXT,

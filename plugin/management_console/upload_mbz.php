@@ -25,31 +25,33 @@
 define('NO_MOODLE_COOKIES', true);
 define('AJAX_SCRIPT', true);
 
+// phpcs:disable moodle.Files.MoodleInternal.MoodleInternalGlobalState
 // phpcs:ignore moodle.Files.RequireLogin.Missing
 // Robust config.php locator supporting symlinked plugin directory.
-$config_paths = [
+$configpaths = [
     __DIR__ . '/../../../config.php',
 ];
 if (isset($_SERVER['SCRIPT_FILENAME'])) {
-    $config_paths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
-    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
-    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
+    $configpaths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
+    $configpaths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
+    $configpaths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
 }
 if (isset($_SERVER['DOCUMENT_ROOT'])) {
-    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
-    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+    $configpaths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
+    $configpaths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 }
-$config_loaded = false;
-foreach ($config_paths as $config_path) {
-    if (file_exists($config_path)) {
-        require_once($config_path);
-        $config_loaded = true;
+$configloaded = false;
+foreach ($configpaths as $configpath) {
+    if (file_exists($configpath)) {
+        require_once($configpath);
+        $configloaded = true;
         break;
     }
 }
-if (!$config_loaded) {
+if (!$configloaded) {
     die('Failed to locate Moodle config.php for tool_management_console.');
 }
+// phpcs:enable moodle.Files.MoodleInternal.MoodleInternalGlobalState
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -89,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // Security TD-BKP-001: Strictly reject authentication tokens passed via query or body parameters.
-if (isset($_GET['token']) || isset($_POST['token'])) {
+if (optional_param('token', '', PARAM_RAW) !== '') {
     http_response_code(400);
     echo json_encode([
         'error' => 'Passing authentication tokens via query or body parameters is strictly forbidden. ' .

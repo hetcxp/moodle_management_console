@@ -137,6 +137,29 @@ class learning_path_repository {
     }
 
     /**
+     * Count learning path courses.
+     *
+     * @param string|null $search Optional search query.
+     * @return int
+     */
+    public static function count_learning_paths(?string $search = null): int {
+        global $DB;
+        $lpcategoryid = self::get_lp_category_id(false);
+        if (!$lpcategoryid) {
+            return 0;
+        }
+        $where = "category = :lpcat AND id <> 1";
+        $sqlparams = ['lpcat' => $lpcategoryid];
+        if (!empty($search)) {
+            $where .= " AND (" . $DB->sql_like('fullname', ':search1', false, false) .
+                      " OR " . $DB->sql_like('shortname', ':search2', false, false) . ")";
+            $sqlparams['search1'] = '%' . $search . '%';
+            $sqlparams['search2'] = '%' . $search . '%';
+        }
+        return (int)$DB->count_records_select('course', $where, $sqlparams);
+    }
+
+    /**
      * Obtiene o crea la categoría de rutas de aprendizaje.
      * Lee el ajuste configurable 'tool_management_console_lp_category_name'.
      *
@@ -338,28 +361,7 @@ class learning_path_repository {
         }
 
         // Cohortes asignadas al contenedor (acotado a 100).
-        $sqlcohorts = "
-            SELECT e.id AS enrolid, e.customint1 AS cohortid, coh.name AS cohortname,
-                   COUNT(DISTINCT ue.userid) AS membercount
-              FROM {enrol} e
-              JOIN {cohort} coh ON coh.id = e.customint1
-         LEFT JOIN {user_enrolments} ue ON ue.enrolid = e.id AND ue.status = 0
-             WHERE e.courseid = :courseid AND e.enrol = 'cohort'
-          GROUP BY e.id, e.customint1, coh.name
-          ORDER BY coh.name ASC
-        ";
-        $cohortrecords = $DB->get_records_sql($sqlcohorts, ['courseid' => $courseid], 0, 100);
-        $cohorts = [];
-        if ($cohortrecords) {
-            $cohorts = array_values(array_map(function ($c) {
-                return [
-                    'enrol_id'     => (int)$c->enrolid,
-                    'cohort_id'    => (int)$c->cohortid,
-                    'name'         => $c->cohortname,
-                    'member_count' => (int)$c->membercount,
-                ];
-            }, $cohortrecords));
-        }
+        $cohorts = course_enrolment_repository::get_learning_path_cohorts($courseid);
 
         // Matriz de progreso.
         $sqlusers = "
@@ -416,36 +418,7 @@ class learning_path_repository {
         }
 
         // Usuarios matriculados en la ruta con límite y offset (TD-DATA-001 / TD-PERF-001).
-        $offset = max(0, $limitfrom);
-        $limit = ($limitnum > 0 && $limitnum <= 500) ? $limitnum : 100;
-        $sqlenrolledusers = "
-            SELECT ue.id AS userenrolid, u.id, u.firstname, u.lastname, u.email,
-                   ue.status, ue.timecreated, e.enrol AS enrolmethod
-              FROM {user} u
-              JOIN {user_enrolments} ue ON ue.userid = u.id
-              JOIN {enrol} e ON e.id = ue.enrolid
-             WHERE e.courseid = :courseid AND u.deleted = 0
-          ORDER BY u.lastname ASC, u.firstname ASC
-        ";
-        $enrolleduserrecords = $DB->get_records_sql($sqlenrolledusers, ['courseid' => $courseid], $offset, $limit);
-        $enrolledusers = [];
-        if ($enrolleduserrecords) {
-            foreach ($enrolleduserrecords as $eur) {
-                $uid = (int)$eur->id;
-                if (!isset($enrolledusers[$uid])) {
-                    $enrolledusers[$uid] = [
-                        'id'           => $uid,
-                        'fullname'     => $eur->firstname . ' ' . $eur->lastname,
-                        'email'        => $eur->email,
-                        'status'       => (int)$eur->status,
-                        'enrol_method' => $eur->enrolmethod,
-                        'timecreated'  => (int)$eur->timecreated,
-                    ];
-                } else if ($eur->enrolmethod === 'manual') {
-                    $enrolledusers[$uid]['enrol_method'] = 'manual';
-                }
-            }
-        }
+        $enrolledusers = course_enrolment_repository::get_learning_path_enrolled_users($courseid, $limitfrom, $limitnum);
 
         $detail = new stdClass();
         $detail->id = (int)$course->id;
@@ -458,7 +431,7 @@ class learning_path_repository {
         $detail->sections = $sections;
         $detail->enforce_sequence = $hassequentialrules;
         $detail->cohorts = $cohorts;
-        $detail->users = array_values($enrolledusers);
+        $detail->users = $enrolledusers;
         $detail->progress_matrix = $progressmatrix;
 
         return $detail;

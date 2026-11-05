@@ -38,6 +38,15 @@ namespace tool_management_console\repository;
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class competency_repository {
+    /** @var string Origin course source identifier. */
+    public const SOURCE_COURSE = 'course';
+
+    /** @var string Origin adhoc plan source identifier. */
+    public const SOURCE_ADHOC = 'adhoc';
+
+    /** @var string Origin usercomp source identifier. */
+    public const SOURCE_USERCOMP = 'usercomp';
+
     /**
      * Devuelve los detalles de una competencia individual y sus subcompetencias hijas.
      *
@@ -352,5 +361,15 @@ class competency_repository {
             $ruleoutcome,
             $userid
         );
+    }
+
+    /**
+     * Get user competencies with evidence and scale info.
+     *
+     * @param int $userid User ID.
+     * @return array
+     */
+    public static function get_user_competencies(int $userid): array {
+        return competency_review_repository::get_user_competencies($userid);
     }
 }

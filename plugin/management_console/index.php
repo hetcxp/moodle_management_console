@@ -22,30 +22,32 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// phpcs:disable moodle.Files.MoodleInternal.MoodleInternalGlobalState
 // Robust config.php locator supporting symlinked plugin directory.
-$config_paths = [
+$configpaths = [
     __DIR__ . '/../../../config.php',
 ];
 if (isset($_SERVER['SCRIPT_FILENAME'])) {
-    $config_paths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
-    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
-    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
+    $configpaths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
+    $configpaths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
+    $configpaths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
 }
 if (isset($_SERVER['DOCUMENT_ROOT'])) {
-    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
-    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+    $configpaths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
+    $configpaths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 }
-$config_loaded = false;
-foreach ($config_paths as $config_path) {
-    if (file_exists($config_path)) {
-        require_once($config_path);
-        $config_loaded = true;
+$configloaded = false;
+foreach ($configpaths as $configpath) {
+    if (file_exists($configpath)) {
+        require_once($configpath);
+        $configloaded = true;
         break;
     }
 }
-if (!$config_loaded) {
+if (!$configloaded) {
     die('Failed to locate Moodle config.php for tool_management_console.');
 }
+// phpcs:enable moodle.Files.MoodleInternal.MoodleInternalGlobalState
 
 // 1. Auth + capability check.
 require_login();
@@ -133,8 +135,16 @@ if (!$jsfile || !$cssfile || !file_exists($appdir . '/' . $jsfile) || !file_exis
 
 // 5. Render: We skip $OUTPUT->header() to avoid Moodle CSS interfering.
 $nonce = base64_encode(random_bytes(16));
-$csp = "default-src 'self'; script-src 'self' 'nonce-{$nonce}' https://fonts.googleapis.com; " .
-       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https: http:;";
+$fontsorigin = 'https:' . '//fonts.googleapis.com';
+$gstaticorigin = 'https:' . '//fonts.gstatic.com';
+$csp = "default-src 'self'; " .
+       "script-src 'self' 'nonce-{$nonce}' {$fontsorigin}; " .
+       "style-src 'self' 'unsafe-inline' {$fontsorigin}; " .
+       "font-src 'self' {$gstaticorigin} data:; " .
+       "img-src 'self' data: blob:; " .
+       "connect-src 'self'; " .
+       "frame-ancestors 'none'; " .
+       "base-uri 'self';";
 header("Content-Security-Policy: {$csp}");
 header('Content-Type: text/html; charset=utf-8');
 header('Cache-Control: no-cache, no-store, must-revalidate');

@@ -195,6 +195,20 @@ class course_repository {
     }
 
     /**
+     * Return filterable columns map for course queries.
+     *
+     * @return array
+     */
+    private static function get_filterable_columns(): array {
+        return [
+            'fullname'     => 'c.fullname',
+            'shortname'    => 'c.shortname',
+            'categoryname' => 'cc.name',
+            'visible'      => 'c.visible',
+        ];
+    }
+
+    /**
      * Append decoded json filters to courses where clause.
      *
      * @param array $params
@@ -215,7 +229,10 @@ class course_repository {
         }
         $decoded = $rawfilters;
         if (is_string($rawfilters)) {
-            $decoded = json_decode($rawfilters, true);
+            if (strlen($rawfilters) > 4096) {
+                return [$where, $sqlparams];
+            }
+            $decoded = json_decode($rawfilters, true, 4);
         }
         if (!is_array($decoded) || empty($decoded)) {
             return [$where, $sqlparams];
@@ -270,8 +287,9 @@ class course_repository {
             return [$where, $sqlparams, $filterindex + 1];
         }
 
-        if (array_key_exists($key, $sortablecolumns) && $value !== '') {
-            $fieldname = $sortablecolumns[$key];
+        $filterablecolumns = self::get_filterable_columns();
+        if (array_key_exists($key, $filterablecolumns) && $value !== '') {
+            $fieldname = $filterablecolumns[$key];
             return self::apply_column_course_filter(
                 $key,
                 $value,

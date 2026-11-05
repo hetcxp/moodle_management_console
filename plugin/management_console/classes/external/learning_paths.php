@@ -113,19 +113,7 @@ class learning_paths extends external_api {
         global $DB;
         $items = learning_path_repository::get_learning_paths($params);
 
-        $lpcategoryid = learning_path_repository::get_lp_category_id(false);
-        $total = 0;
-        if ($lpcategoryid) {
-            $where = "category = :lpcat AND id <> 1";
-            $sqlparams = ['lpcat' => $lpcategoryid];
-            if (!empty($params['search'])) {
-                $where .= " AND (" . $DB->sql_like('fullname', ':search1', false, false) .
-                          " OR " . $DB->sql_like('shortname', ':search2', false, false) . ")";
-                $sqlparams['search1'] = '%' . $params['search'] . '%';
-                $sqlparams['search2'] = '%' . $params['search'] . '%';
-            }
-            $total = (int)$DB->count_records_select('course', $where, $sqlparams);
-        }
+        $total = learning_path_repository::count_learning_paths($params['search']);
 
         return [
             'items'   => $items,
@@ -619,7 +607,7 @@ class learning_paths extends external_api {
         require_capability('moodle/course:enrolreview', $context);
         \tool_management_console\license_manager::require_active_license();
 
-        $course = $DB->get_record('course', ['id' => $params['courseid']], '*', MUST_EXIST);
+        $course = get_course($params['courseid']);
         $enrolplugin = enrol_get_plugin('cohort');
 
         if (!empty($params['cohortids']) && $enrolplugin) {

@@ -34,7 +34,7 @@ $string['management_console:manage_feedback'] = 'Manage feedback and support tic
 
 // License system.
 $string['license_required_for_actions']    = 'An active license is required to perform this action.';
-$string['verifylicensetask']               = 'Verify license and update time watermark';
+$string['verifylicensetask']               = 'Verify license and refresh time watermark';
 $string['license_status_missing']          = 'No license key registered.';
 $string['license_status_active']           = 'License active.';
 $string['license_status_expired']          = 'License expired.';

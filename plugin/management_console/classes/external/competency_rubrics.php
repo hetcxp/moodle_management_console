@@ -162,7 +162,7 @@ class competency_rubrics extends external_api {
      */
     public static function rubric_template_action_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'action'      => new external_value(PARAM_ALPHA, 'Action: create, update or delete'),
+            'action'      => new external_value(PARAM_ALPHA, 'Action: create, edit or delete'),
             'templateid'  => new external_value(PARAM_INT, 'Template ID (for delete or update)', VALUE_DEFAULT, 0),
             'name'        => new external_value(PARAM_TEXT, 'Rubric name (for create or update)', VALUE_DEFAULT, ''),
             'description' => new external_value(PARAM_RAW, 'Rubric description (for create or update)', VALUE_DEFAULT, ''),

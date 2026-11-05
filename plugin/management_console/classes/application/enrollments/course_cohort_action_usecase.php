@@ -509,8 +509,8 @@ class course_cohort_action_usecase {
      * @return bool
      */
     private static function send_cohort_user_message(stdClass $course, int $uid, string $msg): bool {
-        global $DB, $USER;
-        $recipient = $DB->get_record('user', ['id' => $uid]);
+        global $USER;
+        $recipient = \core_user::get_user($uid);
         if (!$recipient) {
             return false;
         }

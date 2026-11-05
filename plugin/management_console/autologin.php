@@ -22,31 +22,33 @@
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+// phpcs:disable moodle.Files.MoodleInternal.MoodleInternalGlobalState
 // phpcs:ignore moodle.Files.RequireLogin.Missing
 // Robust config.php locator supporting symlinked plugin directory.
-$config_paths = [
+$configpaths = [
     __DIR__ . '/../../../config.php',
 ];
 if (isset($_SERVER['SCRIPT_FILENAME'])) {
-    $config_paths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
-    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
-    $config_paths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
+    $configpaths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';
+    $configpaths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/config.php';
+    $configpaths[] = dirname(dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME'])))) . '/../config.php';
 }
 if (isset($_SERVER['DOCUMENT_ROOT'])) {
-    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
-    $config_paths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
+    $configpaths[] = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';
+    $configpaths[] = $_SERVER['DOCUMENT_ROOT'] . '/config.php';
 }
-$config_loaded = false;
-foreach ($config_paths as $config_path) {
-    if (file_exists($config_path)) {
-        require_once($config_path);
-        $config_loaded = true;
+$configloaded = false;
+foreach ($configpaths as $configpath) {
+    if (file_exists($configpath)) {
+        require_once($configpath);
+        $configloaded = true;
         break;
     }
 }
-if (!$config_loaded) {
+if (!$configloaded) {
     die('Failed to locate Moodle config.php for tool_management_console.');
 }
+// phpcs:enable moodle.Files.MoodleInternal.MoodleInternalGlobalState
 require_once($CFG->dirroot . '/user/lib.php');
 
 /**

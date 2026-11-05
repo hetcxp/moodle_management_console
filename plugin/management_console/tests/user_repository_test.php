@@ -165,6 +165,174 @@ class user_repository_test extends advanced_testcase {
     }
 
     /**
+     * Test that filters on non-filterable calculated columns are ignored safely.
+     */
+    public function test_user_filters_calculated_columns_ignored(): void {
+        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user([
+            'firstname' => 'CalcFilter',
+            'lastname'  => 'IgnoredUser',
+            'email'     => 'calcfilter@example.com',
+        ]);
+
+        $filters = json_encode([
+            'progress'           => '50',
+            'enrolled_courses'   => '2',
+            'completed_courses'  => '1',
+            'cohorts_count'      => '3',
+            'competencies_count' => '4',
+            'invalid_column'     => 'ignore_me',
+        ]);
+
+        [$records, $totalcount] = \tool_management_console\repository\user_repository::get_users_filtered([
+            'filters' => $filters,
+        ]);
+
+        $this->assertGreaterThanOrEqual(1, $totalcount);
+        $this->assertArrayHasKey($user->id, $records);
+    }
+
+    /**
+     * Test that external users::get_users enforces moodle/user:viewalldetails capability.
+     */
+    public function test_get_users_capability_required(): void {
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $this->expectException(\required_capability_exception::class);
+        \tool_management_console\external\users::get_users();
+    }
+
+    /**
+     * Test that deep, oversized, or malformed JSON filters are safely handled in users::get_users.
+     */
+    public function test_get_users_filters_sanitization(): void {
+        $this->setAdminUser();
+        $user = $this->getDataGenerator()->create_user([
+            'firstname' => 'SanitizeUser',
+            'lastname'  => 'TargetSanitize',
+            'email'     => 'sanitize_unique@example.com',
+        ]);
+
+        // Malformed JSON.
+        $resmalformed = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            '{invalid json'
+        );
+        $this->assertGreaterThanOrEqual(1, $resmalformed['totalcount']);
+
+        // Deep JSON (>4 levels depth).
+        $deepjson = json_encode(['level1' => ['level2' => ['level3' => ['level4' => ['level5' => 'nested']]]]]);
+        $resdeep = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            $deepjson
+        );
+        $this->assertGreaterThanOrEqual(1, $resdeep['totalcount']);
+
+        // Oversized JSON (>4096 characters).
+        $oversized = json_encode(['email' => str_repeat('A', 4100)]);
+        $resover = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            $oversized
+        );
+        $this->assertGreaterThanOrEqual(1, $resover['totalcount']);
+
+        // Test scalar and non scalar values normalization.
+        $scalartypespayload = json_encode([
+            'null_value'  => null,
+            'bool_true'   => true,
+            'bool_false'  => false,
+            'int_zero'    => 0,
+            'int_one'     => 1,
+            'float_val'   => 1.5,
+            'string_val'  => 'abc',
+            'array_empty' => [],
+            'obj_empty'   => new \stdClass(),
+        ]);
+        $resscalar = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            $scalartypespayload
+        );
+        $this->assertGreaterThanOrEqual(1, $resscalar['totalcount']);
+
+        $decoded = json_decode($scalartypespayload, true, 4);
+        $this->assertArrayHasKey('null_value', $decoded);
+        $this->assertNull($decoded['null_value']);
+        $this->assertArrayHasKey('array_empty', $decoded);
+        $this->assertArrayHasKey('obj_empty', $decoded);
+
+        // Verify that users::get_users strips out non-scalar/non-null structures safely.
+        $this->assertIsArray($resscalar['users']);
+        $this->assertGreaterThanOrEqual(1, $resscalar['totalcount']);
+        $reswithoutnested = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            '{}'
+        );
+        $this->assertSame($reswithoutnested['totalcount'], $resscalar['totalcount']);
+
+        // Valid filterable column should filter accurately.
+        $validfilter = json_encode(['email' => 'sanitize_unique@example.com']);
+        $resvalid = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            $validfilter
+        );
+        $this->assertCount(1, $resvalid['users']);
+        $this->assertEquals($user->id, $resvalid['users'][0]['id']);
+    }
+
+    /**
+     * Test filters depth greater than four is rejected or neutralised.
+     */
+    public function test_filters_depth_greater_than_four_is_rejected(): void {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $this->getDataGenerator()->create_user(['email' => 'depthuser@example.com']);
+
+        $deepjson = '{"a":{"b":{"c":{"d":{"e":"x"}}}}}';
+        $res = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            $deepjson
+        );
+        $resdefault = \tool_management_console\external\users::get_users(
+            0,
+            10,
+            'lastaccess',
+            'DESC',
+            '',
+            '{}'
+        );
+        $this->assertSame($resdefault['totalcount'], $res['totalcount']);
+    }
+
+    /**
      * Find index of a user in the external api users result list.
      *
      * @param array $users

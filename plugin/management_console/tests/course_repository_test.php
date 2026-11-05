@@ -185,6 +185,192 @@ class course_repository_test extends advanced_testcase {
     }
 
     /**
+     * Test that filters on non-filterable calculated columns are ignored safely.
+     */
+    public function test_course_filters_calculated_columns_ignored(): void {
+        $this->setAdminUser();
+        $cat = $this->getDataGenerator()->create_category(['name' => 'Filter Calc Cat']);
+        $this->getDataGenerator()->create_course([
+            'fullname' => 'Filter Calc Course',
+            'category' => $cat->id,
+        ]);
+
+        $filters = json_encode([
+            'progress'          => '50',
+            'enrolledcount'     => '10',
+            'completedcount'    => '5',
+            'cohortscount'      => '2',
+            'competenciescount' => '3',
+            'invalid_column'    => 'ignore_me',
+        ]);
+
+        [$records, $totalcount] = \tool_management_console\repository\course_repository::get_courses_filtered([
+            'category' => $cat->id,
+            'filters'  => $filters,
+        ]);
+
+        $this->assertGreaterThanOrEqual(1, $totalcount);
+        $this->assertNotEmpty($records);
+    }
+
+    /**
+     * Test that external courses::get_courses enforces moodle/course:view capability.
+     */
+    public function test_get_courses_capability_required(): void {
+        $user = $this->getDataGenerator()->create_user();
+        $this->setUser($user);
+
+        $this->expectException(\required_capability_exception::class);
+        \tool_management_console\external\courses::get_courses();
+    }
+
+    /**
+     * Test that deep, oversized, or malformed JSON filters are safely handled in courses::get_courses.
+     */
+    public function test_get_courses_filters_sanitization(): void {
+        $this->setAdminUser();
+        $cat = $this->getDataGenerator()->create_category(['name' => 'Sanitize Cat']);
+        $course = $this->getDataGenerator()->create_course([
+            'fullname' => 'Sanitize Course Target',
+            'category' => $cat->id,
+        ]);
+
+        // Malformed JSON.
+        $resmalformed = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            '{invalid json'
+        );
+        $this->assertGreaterThanOrEqual(1, $resmalformed['totalcount']);
+
+        // Deep JSON (>4 levels depth).
+        $deepjson = json_encode(['level1' => ['level2' => ['level3' => ['level4' => ['level5' => 'nested']]]]]);
+        $resdeep = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            $deepjson
+        );
+        $this->assertGreaterThanOrEqual(1, $resdeep['totalcount']);
+
+        // Oversized JSON (>4096 characters).
+        $oversized = json_encode(['fullname' => str_repeat('A', 4100)]);
+        $resover = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            $oversized
+        );
+        $this->assertGreaterThanOrEqual(1, $resover['totalcount']);
+
+        // Test scalar and non scalar values normalization.
+        $scalartypespayload = json_encode([
+            'null_value'  => null,
+            'bool_true'   => true,
+            'bool_false'  => false,
+            'int_zero'    => 0,
+            'int_one'     => 1,
+            'float_val'   => 1.5,
+            'string_val'  => 'abc',
+            'array_empty' => [],
+            'obj_empty'   => new \stdClass(),
+        ]);
+        $resscalar = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            $scalartypespayload
+        );
+        $this->assertGreaterThanOrEqual(1, $resscalar['totalcount']);
+
+        $decoded = json_decode($scalartypespayload, true, 4);
+        $this->assertArrayHasKey('null_value', $decoded);
+        $this->assertNull($decoded['null_value']);
+        $this->assertArrayHasKey('array_empty', $decoded);
+        $this->assertArrayHasKey('obj_empty', $decoded);
+
+        // Verify that courses::get_courses strips out non-scalar/non-null structures safely.
+        $this->assertIsArray($resscalar['courses']);
+        $this->assertGreaterThanOrEqual(1, $resscalar['totalcount']);
+        $reswithoutnested = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            '{}'
+        );
+        $this->assertSame($reswithoutnested['totalcount'], $resscalar['totalcount']);
+
+        // Valid filterable column should filter accurately.
+        $validfilter = json_encode(['fullname' => 'Target']);
+        $resvalid = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            $validfilter
+        );
+        $this->assertCount(1, $resvalid['courses']);
+        $this->assertEquals($course->id, $resvalid['courses'][0]['id']);
+    }
+
+    /**
+     * Test filters depth greater than four is rejected or neutralised.
+     */
+    public function test_filters_depth_greater_than_four_is_rejected(): void {
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+        $cat = $this->getDataGenerator()->create_category();
+        $this->getDataGenerator()->create_course(['category' => $cat->id, 'fullname' => 'Depth Course']);
+
+        $deepjson = '{"a":{"b":{"c":{"d":{"e":"x"}}}}}';
+        $res = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            $deepjson
+        );
+        $resdefault = \tool_management_console\external\courses::get_courses(
+            0,
+            10,
+            'timecreated',
+            'DESC',
+            '',
+            $cat->id,
+            -1,
+            '{}'
+        );
+        $this->assertSame($resdefault['totalcount'], $res['totalcount']);
+    }
+
+    /**
      * Insert a test record into the given table.
      *
      * @param string $table

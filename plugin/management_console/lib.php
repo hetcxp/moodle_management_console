@@ -69,7 +69,8 @@ function tool_management_console_pluginfile(
     if (!$feedback) {
         return false;
     }
-    if ((int)$feedback->userid !== (int)$USER->id && !has_capability('tool/management_console:manage_feedback', $context) && !is_siteadmin($USER)) {
+    $canmanage = has_capability('tool/management_console:manage_feedback', $context) || is_siteadmin($USER);
+    if ((int)$feedback->userid !== (int)$USER->id && !$canmanage) {
         return false;
     }
 

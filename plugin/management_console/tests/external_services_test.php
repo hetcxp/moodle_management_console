@@ -391,4 +391,323 @@ class external_services_test extends advanced_testcase {
         $this->assertNotEmpty($detail['courses']);
         $this->assertEquals($course->id, $detail['courses'][0]['id']);
     }
+
+    /**
+     * Test learning path detail returns structure stability and contract validation.
+     */
+    public function test_learning_path_detail_returns_structure_contract(): void {
+        $structure = \tool_management_console\external\learning_paths::get_learning_path_detail_returns();
+        $this->assertInstanceOf(\core_external\external_single_structure::class, $structure);
+        $this->assertArrayHasKey('progress_matrix', $structure->keys);
+
+        $matrixstructure = $structure->keys['progress_matrix'];
+        $this->assertInstanceOf(\core_external\external_multiple_structure::class, $matrixstructure);
+        $itemstructure = $matrixstructure->content;
+        $this->assertInstanceOf(\core_external\external_single_structure::class, $itemstructure);
+
+        // Prove that the contract explicitly exposes the 'user_id' literal field.
+        $this->assertArrayHasKey('user_id', $itemstructure->keys);
+        $this->assertEquals(PARAM_INT, $itemstructure->keys['user_id']->type);
+
+        // Validate clean_returnvalue contract stability on the progress_matrix item structure.
+        $sampleitem = [
+            'user_id'  => 101,
+            'fullname' => 'Sample User',
+            'email'    => 'sample@example.com',
+            'modules'  => [],
+        ];
+
+        $cleaned = \core_external\external_api::clean_returnvalue($itemstructure, $sampleitem);
+        $this->assertIsArray($cleaned);
+        $this->assertArrayHasKey('user_id', $cleaned);
+        $this->assertEquals(101, $cleaned['user_id']);
+    }
+
+    /**
+     * Test architectural decoupling: competency_review_repository must not depend on user_repository.
+     */
+    public function test_competency_review_repository_decoupled_from_user_repository(): void {
+        $reflector = new \ReflectionClass(\tool_management_console\repository\competency_review_repository::class);
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $content = file_get_contents($filepath);
+        $this->assertNotEmpty($content);
+        $this->assertStringNotContainsString('user_repository::', $content);
+        $this->assertStringNotContainsString('user_repository', $content);
+    }
+
+    /**
+     * Test architectural compliance: user_cohort_action_usecase delegates user and cohort data to repository.
+     */
+    public function test_user_cohort_action_usecase_audited_for_ccp_ssot(): void {
+        $reflector = new \ReflectionClass(
+            \tool_management_console\application\users\user_cohort_action_usecase::class
+        );
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $contents = file_get_contents($filepath);
+        $this->assertNotFalse($contents);
+        $this->assertStringNotContainsString("FROM {user}", $contents);
+        $this->assertStringNotContainsString("FROM {cohort}", $contents);
+        $this->assertStringContainsString("user_repository::get_user_strict", $contents);
+        $this->assertStringContainsString("user_repository::get_existing_cohort_ids", $contents);
+    }
+
+    /**
+     * Test contractual return type of competency_repository facade delegating get_user_competencies.
+     */
+    public function test_competency_repository_user_competencies_contract(): void {
+        $this->resetAfterTest(true);
+        $result = \tool_management_console\repository\competency_repository::get_user_competencies(0);
+        $this->assertIsArray($result);
+    }
+
+    /**
+     * Test contractual return type of competency_crud_repository delete_by_framework.
+     */
+    public function test_delete_by_framework_contract(): void {
+        $this->resetAfterTest(true);
+        $result = \tool_management_console\repository\competency_crud_repository::delete_by_framework(999999);
+        $this->assertIsBool($result);
+        $this->assertSame(true, $result);
+    }
+
+    /**
+     * Test contractual return type of learning_path_repository count_learning_paths.
+     */
+    public function test_count_learning_paths_contract(): void {
+        $this->resetAfterTest(true);
+        $count = \tool_management_console\repository\learning_path_repository::count_learning_paths();
+        $this->assertIsInt($count);
+    }
+
+    /**
+     * Test contractual return type of course_enrolment_repository get_learning_path_cohorts.
+     */
+    public function test_learning_path_cohorts_contract(): void {
+        $this->resetAfterTest(true);
+        $result = \tool_management_console\repository\course_enrolment_repository::get_learning_path_cohorts(1);
+        $this->assertIsArray($result);
+    }
+
+    /**
+     * Test contractual return type of course_enrolment_repository get_learning_path_enrolled_users.
+     */
+    public function test_learning_path_enrolled_users_contract(): void {
+        $this->resetAfterTest(true);
+        $result = \tool_management_console\repository\course_enrolment_repository::get_learning_path_enrolled_users(1);
+        $this->assertIsArray($result);
+    }
+
+    /**
+     * Test architectural behavioral delegation of competency_repository facade to review repository.
+     */
+    public function test_competency_repository_delegates_to_review_repository(): void {
+        $this->resetAfterTest(true);
+        $facaderesult = \tool_management_console\repository\competency_repository::get_user_competencies(0);
+        $delegatedresult = \tool_management_console\repository\competency_review_repository::get_user_competencies(0);
+        $this->assertIsArray($facaderesult);
+        $this->assertIsArray($delegatedresult);
+        $this->assertSame($delegatedresult, $facaderesult);
+    }
+
+    /**
+     * Test architectural compliance: course_cohort_action_usecase delegates user access to core_user.
+     */
+    public function test_course_cohort_action_usecase_audited_for_ccp_ssot(): void {
+        $reflector = new \ReflectionClass(
+            \tool_management_console\application\enrollments\course_cohort_action_usecase::class
+        );
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $contents = file_get_contents($filepath);
+        $this->assertNotFalse($contents);
+        $this->assertStringNotContainsString("get_record('user'", $contents);
+        $this->assertStringContainsString('\core_user::get_user', $contents);
+    }
+
+    /**
+     * Test public web services metadata contracts remain strictly backward-compatible.
+     */
+    public function test_external_services_public_contracts_metadata_unaltered(): void {
+        $servicesfile = __DIR__ . '/../db/services.php';
+        $functions = [];
+        require($servicesfile);
+
+        $this->assertArrayHasKey('tool_management_console_scale_action', $functions);
+        $this->assertSame(
+            'tool_management_console\external\competency_scales',
+            $functions['tool_management_console_scale_action']['classname']
+        );
+        $this->assertSame('scale_action', $functions['tool_management_console_scale_action']['methodname']);
+        $this->assertSame('moodle/competency:competencymanage', $functions['tool_management_console_scale_action']['capabilities']);
+        $this->assertTrue($functions['tool_management_console_scale_action']['ajax']);
+        $this->assertSame('write', $functions['tool_management_console_scale_action']['type']);
+
+        $this->assertArrayHasKey('tool_management_console_update_lp_structure', $functions);
+        $this->assertSame(
+            'tool_management_console\external\learning_paths',
+            $functions['tool_management_console_update_lp_structure']['classname']
+        );
+        $this->assertSame(
+            'update_learning_path_structure',
+            $functions['tool_management_console_update_lp_structure']['methodname']
+        );
+        $this->assertSame('moodle/course:update', $functions['tool_management_console_update_lp_structure']['capabilities']);
+        $this->assertTrue($functions['tool_management_console_update_lp_structure']['ajax']);
+        $this->assertSame('write', $functions['tool_management_console_update_lp_structure']['type']);
+
+        $this->assertArrayHasKey('tool_management_console_update_feedback_status', $functions);
+        $this->assertSame(
+            'tool_management_console\external\feedback',
+            $functions['tool_management_console_update_feedback_status']['classname']
+        );
+        $this->assertSame('update_feedback_status', $functions['tool_management_console_update_feedback_status']['methodname']);
+        $this->assertSame(
+            'tool/management_console:manage_feedback',
+            $functions['tool_management_console_update_feedback_status']['capabilities']
+        );
+        $this->assertTrue($functions['tool_management_console_update_feedback_status']['ajax']);
+        $this->assertSame('write', $functions['tool_management_console_update_feedback_status']['type']);
+    }
+
+    /**
+     * Test architectural compliance: course_enrolment_repository is isolated to enrol/cohort bounded context.
+     */
+    public function test_course_enrolment_repository_is_ccp_boundary(): void {
+        $reflector = new \ReflectionClass(
+            \tool_management_console\repository\course_enrolment_repository::class
+        );
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $content = file_get_contents($filepath);
+        $this->assertNotEmpty($content);
+        // Bounded context: no UI/renderers and no external network calls.
+        $this->assertStringNotContainsString('$OUTPUT', $content);
+        $this->assertStringNotContainsString('curl', $content);
+        $this->assertStringNotContainsString('file_get_contents', $content);
+    }
+
+    /**
+     * Test feedback external service contract stability and parameter/return definitions.
+     */
+    public function test_feedback_external_contract_is_stable(): void {
+        $this->assertTrue(class_exists(\tool_management_console\external\feedback::class));
+        $params = \tool_management_console\external\feedback::get_feedback_tickets_parameters();
+        $this->assertInstanceOf(\core_external\external_function_parameters::class, $params);
+        $returns = \tool_management_console\external\feedback::get_feedback_tickets_returns();
+        $this->assertInstanceOf(\core_external\external_single_structure::class, $returns);
+
+        $updateparams = \tool_management_console\external\feedback::update_feedback_status_parameters();
+        $this->assertInstanceOf(\core_external\external_function_parameters::class, $updateparams);
+        $updatereturns = \tool_management_console\external\feedback::update_feedback_status_returns();
+        $this->assertInstanceOf(\core_external\external_single_structure::class, $updatereturns);
+    }
+
+    /**
+     * Test feedback repository boundary is preserved without prohibited UI or external network dependencies.
+     */
+    public function test_feedback_repository_boundary_is_preserved(): void {
+        $reflector = new \ReflectionClass(\tool_management_console\repository\feedback_repository::class);
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $content = file_get_contents($filepath);
+        $this->assertNotEmpty($content);
+        $this->assertStringNotContainsString('$OUTPUT', $content);
+        $this->assertStringNotContainsString('renderer', $content);
+        $this->assertStringNotContainsString('curl', $content);
+    }
+
+    /**
+     * Test update feedback status usecase boundary is preserved without UI/renderer dependencies.
+     */
+    public function test_update_feedback_status_usecase_boundary_is_preserved(): void {
+        $reflector = new \ReflectionClass(
+            \tool_management_console\application\feedback\update_feedback_status_usecase::class
+        );
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $content = file_get_contents($filepath);
+        $this->assertNotEmpty($content);
+        $this->assertStringNotContainsString('$OUTPUT', $content);
+        $this->assertStringNotContainsString('echo', $content);
+        $this->assertStringNotContainsString('print', $content);
+    }
+
+    /**
+     * Test webservice function metadata is backward compatible across updated services.
+     */
+    public function test_webservice_function_metadata_is_backward_compatible(): void {
+        $servicesfile = __DIR__ . '/../db/services.php';
+        $functions = [];
+        require($servicesfile);
+
+        $targets = [
+            'tool_management_console_scale_action' => [
+                'classname'    => 'tool_management_console\external\competency_scales',
+                'methodname'   => 'scale_action',
+                'ajax'         => true,
+                'capabilities' => 'moodle/competency:competencymanage',
+                'type'         => 'write',
+            ],
+            'tool_management_console_update_lp_structure' => [
+                'classname'    => 'tool_management_console\external\learning_paths',
+                'methodname'   => 'update_learning_path_structure',
+                'ajax'         => true,
+                'capabilities' => 'moodle/course:update',
+                'type'         => 'write',
+            ],
+            'tool_management_console_update_feedback_status' => [
+                'classname'    => 'tool_management_console\external\feedback',
+                'methodname'   => 'update_feedback_status',
+                'ajax'         => true,
+                'capabilities' => 'tool/management_console:manage_feedback',
+                'type'         => 'write',
+            ],
+        ];
+
+        foreach ($targets as $funcname => $expected) {
+            $this->assertArrayHasKey($funcname, $functions);
+            $fn = $functions[$funcname];
+            $this->assertSame($expected['classname'], $fn['classname']);
+            $this->assertSame($expected['methodname'], $fn['methodname']);
+            $this->assertSame($expected['ajax'], $fn['ajax']);
+            $this->assertSame($expected['capabilities'], $fn['capabilities']);
+            $this->assertSame($expected['type'], $fn['type']);
+            // Document and assert that only description is modified.
+            $this->assertNotEmpty($fn['description']);
+        }
+    }
+
+    /**
+     * Test competency review repository has no forbidden dependencies (UI, views, controllers).
+     */
+    public function test_competency_review_repository_has_no_forbidden_dependencies(): void {
+        $reflector = new \ReflectionClass(
+            \tool_management_console\repository\competency_review_repository::class
+        );
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $content = file_get_contents($filepath);
+        $this->assertNotEmpty($content);
+        $this->assertStringNotContainsString('$OUTPUT', $content);
+        $this->assertStringNotContainsString('renderer', $content);
+        $this->assertStringNotContainsString('curl', $content);
+    }
+
+    /**
+     * Test course enrolment repository has no forbidden dependencies (UI, views, controllers).
+     */
+    public function test_course_enrolment_repository_has_no_forbidden_dependencies(): void {
+        $reflector = new \ReflectionClass(
+            \tool_management_console\repository\course_enrolment_repository::class
+        );
+        $filepath = $reflector->getFileName();
+        $this->assertFileExists($filepath);
+        $content = file_get_contents($filepath);
+        $this->assertNotEmpty($content);
+        $this->assertStringNotContainsString('$OUTPUT', $content);
+        $this->assertStringNotContainsString('renderer', $content);
+        $this->assertStringNotContainsString('curl', $content);
+    }
 }

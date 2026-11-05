@@ -158,7 +158,8 @@ class feedback_test extends advanced_testcase {
         $this->setAdminUser();
 
         // 1x1 transparent PNG base64
-        $pngbase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+        $pngbase64 = 'data:image/png;base64,' .
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
         $res = \tool_management_console\external\feedback::submit_feedback(
             'error',

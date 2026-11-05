@@ -84,9 +84,8 @@ class user_cohort_action_usecase {
             ];
         }
 
-        [$incsql, $incparams] = $DB->get_in_or_equal($cohortids, SQL_PARAMS_NAMED);
-        $existingcohorts = $DB->get_fieldset_sql("SELECT id FROM {cohort} WHERE id $incsql", $incparams) ?: [];
-        $cohortids = array_values(array_intersect($cohortids, array_map('intval', $existingcohorts)));
+        $existingcohorts = user_repository::get_existing_cohort_ids($cohortids);
+        $cohortids = array_values(array_intersect($cohortids, $existingcohorts));
 
         if (empty($cohortids)) {
             return [
@@ -141,7 +140,7 @@ class user_cohort_action_usecase {
             debugging('Cohort update failed: ' . get_class($e) . ' (' . $e->getCode() . ')', DEBUG_DEVELOPER);
             return [
                 'success'       => false,
-                'message'       => 'Failed to update user cohorts.',
+                'message'       => 'Failed to modify user cohorts.',
                 'affectedcount' => 0,
             ];
         }

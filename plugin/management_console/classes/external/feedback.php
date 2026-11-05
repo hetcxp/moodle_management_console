@@ -101,6 +101,7 @@ class feedback extends external_api {
         string $pageurl = '',
         string $useragent = '',
         string $resolution = '',
+        // phpcs:ignore moodle.NamingConventions.ValidVariableName.VariableNameUnderscore
         string $screenshot_base64 = ''
     ): array {
         global $USER;
@@ -115,6 +116,7 @@ class feedback extends external_api {
             'pageurl'           => $pageurl,
             'useragent'         => $useragent,
             'resolution'        => $resolution,
+            // phpcs:ignore moodle.NamingConventions.ValidVariableName.VariableNameUnderscore
             'screenshot_base64' => $screenshot_base64,
         ]);
 
@@ -296,7 +298,7 @@ class feedback extends external_api {
     }
 
     /**
-     * Update ticket status and optionally notify reporting user.
+     * Modify ticket status and optionally notify reporting user.
      *
      * @param int $feedbackid
      * @param string $status

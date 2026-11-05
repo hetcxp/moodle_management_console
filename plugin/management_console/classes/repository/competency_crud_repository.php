@@ -642,11 +642,11 @@ class competency_crud_repository {
 
             $isadhoc = in_array($uid, $adhocuserids);
             if ($isadhoc) {
-                $source = 'adhoc';
+                $source = competency_repository::SOURCE_ADHOC;
             } else if (!empty($usercourses)) {
-                $source = 'course';
+                $source = competency_repository::SOURCE_COURSE;
             } else {
-                $source = 'usercomp';
+                $source = competency_repository::SOURCE_USERCOMP;
             }
 
             $usersoutput[] = [
@@ -970,5 +970,17 @@ class competency_crud_repository {
             default:
                 return ['success' => false, 'message' => 'Acción no reconocida: ' . $action, 'affectedcount' => 0];
         }
+    }
+
+    /**
+     * Delete all competencies belonging to a framework.
+     *
+     * @param int $frameworkid
+     * @return bool
+     */
+    public static function delete_by_framework(int $frameworkid): bool {
+        global $DB;
+        $DB->delete_records('competency', ['competencyframeworkid' => $frameworkid]);
+        return true;
     }
 }
