@@ -26,10 +26,26 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Management Console';
 $string['access_console'] = 'Access Console';
-$string['privacy:metadata'] = 'The Management Console plugin does not store any personal data.';
 $string['management_console'] = 'Management Console';
 $string['management_console:access'] = 'Access Management Console panel';
 $string['management_console:manage_feedback'] = 'Manage feedback and support tickets';
+
+// Privacy API.
+$string['privacy:feedbackpath'] = 'Feedback and support tickets';
+$string['privacy:metadata'] = 'The Management Console plugin stores feedback tickets and associated attachments.';
+$string['privacy:metadata:core_files'] = 'Management Console stores screenshot files attached to feedback tickets in the Moodle file system.';
+$string['privacy:metadata:tool_mng_feedback'] = 'Stores user feedback, bug reports, and support requests.';
+$string['privacy:metadata:tool_mng_feedback:admincomment'] = 'Comments added by administrators while reviewing the ticket.';
+$string['privacy:metadata:tool_mng_feedback:assignedto'] = 'The ID of the administrator assigned to the ticket.';
+$string['privacy:metadata:tool_mng_feedback:description'] = 'The detailed description of the feedback or issue.';
+$string['privacy:metadata:tool_mng_feedback:pageurl'] = 'The URL of the page where the feedback was submitted.';
+$string['privacy:metadata:tool_mng_feedback:resolution'] = 'The screen resolution at the time of submission.';
+$string['privacy:metadata:tool_mng_feedback:status'] = 'The current workflow status of the ticket.';
+$string['privacy:metadata:tool_mng_feedback:timecreated'] = 'The time when the feedback record was created.';
+$string['privacy:metadata:tool_mng_feedback:timemodified'] = 'The time when the feedback record was last modified.';
+$string['privacy:metadata:tool_mng_feedback:type'] = 'The type of feedback report (issue, suggestion, etc.).';
+$string['privacy:metadata:tool_mng_feedback:useragent'] = 'The browser user agent string at the time of submission.';
+$string['privacy:metadata:tool_mng_feedback:userid'] = 'The ID of the user who submitted the feedback ticket.';
 
 
 // License system.

@@ -25,12 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-
-global $CFG;
-require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/competency_repository.php');
 
 /**
  * Competency repository test cases.
@@ -46,7 +41,7 @@ class competency_repository_test extends advanced_testcase {
         $this->resetAfterTest();
     }
 
-    public function test_get_scales() {
+    public function test_get_scales(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -59,7 +54,7 @@ class competency_repository_test extends advanced_testcase {
         }
     }
 
-    public function test_get_kpis() {
+    public function test_get_kpis(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -72,7 +67,7 @@ class competency_repository_test extends advanced_testcase {
         $this->assertArrayHasKey('pending_reviews', $kpis);
     }
 
-    public function test_framework_and_competency_crud_and_batch_queries() {
+    public function test_framework_and_competency_crud_and_batch_queries(): void {
         global $DB;
         $this->resetAfterTest();
         $this->setAdminUser();
@@ -86,7 +81,7 @@ class competency_repository_test extends advanced_testcase {
         $framework->visible = 1;
         $framework->scaleid = 1;
         $framework->scaleconfiguration = json_encode([['scaleid' => 1]]);
-        $framework->contextid = \context_system::instance()->id;
+        $framework->contextid = \core\context\system::instance()->id;
         $framework->timecreated = time();
         $framework->timemodified = time();
         $framework->usermodified = 2;
@@ -158,7 +153,7 @@ class competency_repository_test extends advanced_testcase {
     /**
      * Test competency_review_repository::sanitize_url with valid and dangerous schemes (TD-URL-002).
      */
-    public function test_sanitize_url() {
+    public function test_sanitize_url(): void {
         // Valid HTTPS and HTTP URLs.
         $this->assertEquals(
             'https://example.com/evidence.pdf',

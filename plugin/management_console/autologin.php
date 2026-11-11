@@ -27,6 +27,7 @@
 // Robust config.php locator supporting symlinked plugin directory.
 $configpaths = [
     __DIR__ . '/../../../config.php',
+    dirname(__DIR__, 4) . '/config.php',
 ];
 if (isset($_SERVER['SCRIPT_FILENAME'])) {
     $configpaths[] = dirname(dirname(dirname($_SERVER['SCRIPT_FILENAME']))) . '/config.php';

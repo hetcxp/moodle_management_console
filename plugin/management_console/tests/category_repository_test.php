@@ -25,12 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-
-global $CFG;
-require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/category_repository.php');
 
 /**
  * Category repository test cases.
@@ -46,7 +41,7 @@ class category_repository_test extends advanced_testcase {
         $this->resetAfterTest();
     }
 
-    public function test_count_all() {
+    public function test_count_all(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 
@@ -58,7 +53,7 @@ class category_repository_test extends advanced_testcase {
         $this->assertGreaterThanOrEqual(2, $count);
     }
 
-    public function test_get_paginated() {
+    public function test_get_paginated(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 

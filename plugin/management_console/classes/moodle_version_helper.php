@@ -151,12 +151,26 @@ class moodle_version_helper {
             }
         }
 
+        self::ensure_legacy_user_lib();
+
         if (function_exists('user_update_user')) {
-            user_update_user($user, $triggerevent, $haspassword);
+            user_update_user($user, $haspassword, $triggerevent);
             return;
         }
 
         throw new coding_exception('No supported Moodle user update API available in current runtime.');
+    }
+
+    /**
+     * Ensure legacy user library is loaded if procedural user_update_user is needed.
+     *
+     * @return void
+     */
+    private static function ensure_legacy_user_lib(): void {
+        global $CFG;
+        if (!function_exists('user_update_user') && isset($CFG->dirroot) && file_exists($CFG->dirroot . '/user/lib.php')) {
+            require_once($CFG->dirroot . '/user/lib.php');
+        }
     }
 
     /**

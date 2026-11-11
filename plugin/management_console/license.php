@@ -27,8 +27,14 @@
 // Robust config.php locator supporting symlinked plugin directory.
 // @codingStandardsIgnoreLine
 $candidate = __DIR__ . '/../../../config.php';
+if (!file_exists($candidate)) {
+    $candidate = dirname(__DIR__, 4) . '/config.php';
+}
 if (!file_exists($candidate) && isset($_SERVER['SCRIPT_FILENAME'])) {
     $candidate = dirname($_SERVER['SCRIPT_FILENAME'], 3) . '/config.php';
+    if (!file_exists($candidate)) {
+        $candidate = dirname($_SERVER['SCRIPT_FILENAME'], 4) . '/config.php';
+    }
 }
 if (!file_exists($candidate) && isset($_SERVER['DOCUMENT_ROOT'])) {
     $candidate = $_SERVER['DOCUMENT_ROOT'] . '/../config.php';

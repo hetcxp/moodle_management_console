@@ -25,12 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-
-global $CFG;
-require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/course_repository.php');
 
 /**
  * Course repository test cases.
@@ -47,7 +42,7 @@ class course_repository_test extends advanced_testcase {
         $this->resetAfterTest();
     }
 
-    public function test_course_repository_operations() {
+    public function test_course_repository_operations(): void {
         $this->setAdminUser();
 
         // 1. Crear categoría, curso y usuario

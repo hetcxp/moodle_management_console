@@ -25,13 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-use context_system;
-
-global $CFG;
-require_once($CFG->dirroot . '/webservice/tests/helpers.php');
 
 /**
  * Unit tests for tool_management_console web services.
@@ -43,7 +37,7 @@ require_once($CFG->dirroot . '/webservice/tests/helpers.php');
  * @covers     \tool_management_console\external\dashboard
  */
 class external_services_test extends advanced_testcase {
-    public function test_get_dashboard() {
+    public function test_get_dashboard(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -54,12 +48,12 @@ class external_services_test extends advanced_testcase {
         $this->assertArrayHasKey('cohorts_total', $result);
     }
 
-    public function test_get_dashboard_as_manager() {
+    public function test_get_dashboard_as_manager(): void {
         global $DB;
         $this->resetAfterTest(true);
         $user = $this->getDataGenerator()->create_user();
         $managerrole = $DB->get_record('role', ['shortname' => 'manager']);
-        role_assign($managerrole->id, $user->id, \context_system::instance()->id);
+        role_assign($managerrole->id, $user->id, \core\context\system::instance()->id);
         $this->setUser($user);
 
         $result = \tool_management_console\external\dashboard::get_dashboard();
@@ -69,7 +63,7 @@ class external_services_test extends advanced_testcase {
         $this->assertArrayHasKey('cohorts_total', $result);
     }
 
-    public function test_get_courses_and_actions() {
+    public function test_get_courses_and_actions(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -105,7 +99,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(1, $moveres['affectedcount']);
     }
 
-    public function test_get_categories() {
+    public function test_get_categories(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -128,7 +122,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(1, $delres['affectedcount']);
     }
 
-    public function test_get_users_and_permissions() {
+    public function test_get_users_and_permissions(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -150,7 +144,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(1, $perm['can_config_site']);
     }
 
-    public function test_get_users_kpis() {
+    public function test_get_users_kpis(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
         $this->getDataGenerator()->create_user(['suspended' => 0]);
@@ -166,7 +160,7 @@ class external_services_test extends advanced_testcase {
         $this->assertGreaterThanOrEqual(1, $res['suspended_users']);
     }
 
-    public function test_get_user_detail_enriched() {
+    public function test_get_user_detail_enriched(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
         $user = $this->getDataGenerator()->create_user(['firstname' => 'Detail', 'lastname' => 'Test']);
@@ -181,7 +175,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(1, $res['is_active']);
     }
 
-    public function test_user_action_message() {
+    public function test_user_action_message(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
         $user = $this->getDataGenerator()->create_user();
@@ -199,7 +193,7 @@ class external_services_test extends advanced_testcase {
         $sink->close();
     }
 
-    public function test_user_action_send_temp_password() {
+    public function test_user_action_send_temp_password(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
         $user = $this->getDataGenerator()->create_user(['email' => 'temppass@example.com']);
@@ -229,7 +223,7 @@ class external_services_test extends advanced_testcase {
         $sink->close();
     }
 
-    public function test_get_course_detail_and_enrolled_progress() {
+    public function test_get_course_detail_and_enrolled_progress(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -246,7 +240,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals(0, $res['users'][0]['progress']);
     }
 
-    public function test_user_course_action_transaction() {
+    public function test_user_course_action_transaction(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -260,7 +254,7 @@ class external_services_test extends advanced_testcase {
         $this->assertTrue($unenrolres['success']);
     }
 
-    public function test_unauthorized_user_access() {
+    public function test_unauthorized_user_access(): void {
         $this->resetAfterTest(true);
         $user = $this->getDataGenerator()->create_user();
         $this->setUser($user);
@@ -269,7 +263,7 @@ class external_services_test extends advanced_testcase {
         \tool_management_console\external\dashboard::get_dashboard();
     }
 
-    public function test_cohort_detail_and_actions() {
+    public function test_cohort_detail_and_actions(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -290,7 +284,7 @@ class external_services_test extends advanced_testcase {
         $this->assertTrue($actres['success']);
     }
 
-    public function test_category_detail_progress() {
+    public function test_category_detail_progress(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -304,7 +298,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals($course->id, $res['courses'][0]['id']);
     }
 
-    public function test_course_cohort_action_assigns_student_role() {
+    public function test_course_cohort_action_assigns_student_role(): void {
         global $DB;
         $this->resetAfterTest(true);
         $this->setAdminUser();
@@ -332,7 +326,7 @@ class external_services_test extends advanced_testcase {
         $this->assertEquals($studentroleid, (int)$instance->roleid);
 
         // 4. Verify that the cohort member has the student role assigned in the course context.
-        $coursecontext = \context_course::instance($course->id);
+        $coursecontext = \core\context\course::instance($course->id);
         $hasrole = $DB->record_exists('role_assignments', [
             'contextid' => $coursecontext->id,
             'userid'    => $user->id,
@@ -362,7 +356,7 @@ class external_services_test extends advanced_testcase {
         $this->assertTrue($hasrolerepaired, 'The student role should be repaired and assigned to cohort member.');
     }
 
-    public function test_get_competency_reviews_and_action() {
+    public function test_get_competency_reviews_and_action(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 
@@ -373,7 +367,7 @@ class external_services_test extends advanced_testcase {
         $this->assertIsInt($res['totalcount']);
     }
 
-    public function test_get_cohort_detail_with_courses() {
+    public function test_get_cohort_detail_with_courses(): void {
         $this->resetAfterTest(true);
         $this->setAdminUser();
 

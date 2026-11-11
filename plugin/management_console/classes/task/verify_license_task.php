@@ -47,38 +47,94 @@ class verify_license_task extends \core\task\scheduled_task {
      * @return void
      */
     public function execute(): void {
-        // 1. Attempt to anchor the watermark to a trusted network time source.
-        $url = get_config('tool_management_console', 'license_time_url') ?: 'https://www.google.com';
+        $this->refresh_time_watermark();
+        $this->check_license_status();
+    }
+
+    /**
+     * Resolve and validate trusted network time URL.
+     *
+     * @return string Validated HTTPS URL.
+     */
+    protected function resolve_time_url(): string {
+        $url = get_config('tool_management_console', 'license_time_url');
+        if (empty($url)) {
+            return 'https://www.google.com';
+        }
         $parsed = parse_url($url);
         $trustedhosts = ['www.google.com', 'google.com', 'time.cloudflare.com', 'cloudflare.com'];
-        if (
-            empty($parsed['scheme']) || strtolower($parsed['scheme']) !== 'https' ||
-            empty($parsed['host']) || !in_array(strtolower($parsed['host']), $trustedhosts, true)
-        ) {
-            $url = 'https://www.google.com';
+        $scheme = isset($parsed['scheme']) ? strtolower($parsed['scheme']) : '';
+        $host = isset($parsed['host']) ? strtolower($parsed['host']) : '';
+        if ($scheme !== 'https') {
+            return 'https://www.google.com';
         }
-        $ctx = stream_context_create(['http' => ['method' => 'HEAD', 'timeout' => 3]]);
+        if (!in_array($host, $trustedhosts, true)) {
+            return 'https://www.google.com';
+        }
+        return $url;
+    }
 
-        // Suppress warnings — failures are intentionally ignored.
-        $headers = @get_headers($url, 1, $ctx);
+    /**
+     * Parse timestamp from HTTP response headers.
+     *
+     * @param array $headers Response headers array.
+     * @return int Parsed Unix timestamp or 0.
+     */
+    protected function extract_nettime_from_headers(array $headers): int {
+        $dateheader = null;
+        if (isset($headers['date'])) {
+            $dateheader = $headers['date'];
+        } else if (isset($headers['Date'])) {
+            $dateheader = $headers['Date'];
+        }
+        if (is_array($dateheader)) {
+            $dateheader = end($dateheader);
+        }
+        if (empty($dateheader)) {
+            return 0;
+        }
+        $parsed = (int)strtotime($dateheader);
+        return max(0, $parsed);
+    }
 
-        if ($headers && isset($headers['Date'])) {
-            $nettime = strtotime($headers['Date']);
+    /**
+     * Attempt to anchor the watermark to a trusted network time source.
+     *
+     * @return void
+     */
+    protected function refresh_time_watermark(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/filelib.php');
+
+        $url = $this->resolve_time_url();
+
+        try {
+            $curl = new \curl();
+            $curl->head($url, [
+                'CURLOPT_TIMEOUT' => 4,
+                'CURLOPT_CONNECTTIMEOUT' => 3,
+            ]);
+            $headers = $curl->getResponse();
+            $nettime = $this->extract_nettime_from_headers($headers);
             if ($nettime > 0) {
-                $watermark = (int) get_config('tool_management_console', 'license_time_watermark');
-                set_config(
-                    'license_time_watermark',
-                    max($watermark, $nettime),
-                    'tool_management_console'
-                );
+                $watermark = (int)get_config('tool_management_console', 'license_time_watermark');
+                set_config('license_time_watermark', max($watermark, $nettime), 'tool_management_console');
             }
+        } catch (\Throwable $e) {
+            unset($e);
         }
+    }
 
-        // 2. Check current license status and emit an event on problems.
+    /**
+     * Check current license status and emit warning event on problems.
+     *
+     * @return void
+     */
+    protected function check_license_status(): void {
         $info = \tool_management_console\license_manager::get_license_info();
         if (in_array($info['status'], ['expired', 'tampered'], true)) {
             $event = \tool_management_console\event\license_status_warning::create([
-                'context' => \context_system::instance(),
+                'context' => \core\context\system::instance(),
                 'other'   => ['status' => $info['status']],
             ]);
             $event->trigger();

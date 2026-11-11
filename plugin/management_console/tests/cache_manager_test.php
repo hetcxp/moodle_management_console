@@ -25,12 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-
-global $CFG;
-require_once($CFG->dirroot . '/admin/tool/management_console/classes/cache_manager.php');
 
 /**
  * Cache manager test cases.
@@ -46,7 +41,7 @@ class cache_manager_test extends advanced_testcase {
         $this->resetAfterTest();
     }
 
-    public function test_cache_operations() {
+    public function test_cache_operations(): void {
         $this->resetAfterTest();
 
         // 1. Get cache instance

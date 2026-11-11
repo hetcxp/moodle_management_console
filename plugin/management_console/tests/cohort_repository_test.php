@@ -25,12 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-
-global $CFG;
-require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/cohort_repository.php');
 
 /**
  * Cohort repository test cases.
@@ -46,7 +41,7 @@ class cohort_repository_test extends advanced_testcase {
         $this->resetAfterTest();
     }
 
-    public function test_cohort_repository_operations() {
+    public function test_cohort_repository_operations(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 

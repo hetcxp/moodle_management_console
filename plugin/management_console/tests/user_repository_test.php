@@ -25,12 +25,7 @@
 
 namespace tool_management_console;
 
-defined('MOODLE_INTERNAL') || die();
-
 use advanced_testcase;
-
-global $CFG;
-require_once($CFG->dirroot . '/admin/tool/management_console/classes/repository/user_repository.php');
 
 /**
  * User repository test cases.
@@ -47,7 +42,7 @@ class user_repository_test extends advanced_testcase {
         $this->resetAfterTest();
     }
 
-    public function test_user_repository_operations() {
+    public function test_user_repository_operations(): void {
         $this->resetAfterTest();
         $this->setAdminUser();
 

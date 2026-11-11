@@ -27,7 +27,6 @@ namespace tool_management_console;
 
 use advanced_testcase;
 use coding_exception;
-use context_system;
 use RuntimeException;
 use stdClass;
 
@@ -39,6 +38,7 @@ use stdClass;
  * @copyright  2026 Hector Teran
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+#[\PHPUnit\Framework\Attributes\CoversClass(\tool_management_console\moodle_version_helper::class)]
 class moodle_version_helper_test extends advanced_testcase {
     /**
      * Set up tests.
@@ -81,6 +81,7 @@ class moodle_version_helper_test extends advanced_testcase {
         global $DB;
         $persisted = $DB->get_record('user', ['id' => $user->id]);
         $this->assertEquals('ModifiedFirst', $persisted->firstname);
+        $this->assertSame($user->password, $persisted->password);
 
         $invalid = new stdClass();
         $this->expectException(coding_exception::class);
@@ -144,7 +145,7 @@ class moodle_version_helper_test extends advanced_testcase {
      */
     public function test_capability_helpers(): void {
         $this->setAdminUser();
-        $context = context_system::instance();
+        $context = \core\context\system::instance();
 
         $this->assertTrue(moodle_version_helper::has_capability('moodle/site:config', $context));
         moodle_version_helper::require_capability('moodle/site:config', $context);
@@ -228,7 +229,7 @@ class moodle_version_helper_test extends advanced_testcase {
      * Test capability helpers reject invalid user arguments.
      */
     public function test_capability_helpers_invalid_user(): void {
-        $context = context_system::instance();
+        $context = \core\context\system::instance();
         $this->expectException(coding_exception::class);
         moodle_version_helper::has_capability('moodle/site:config', $context, -5);
     }

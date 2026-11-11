@@ -218,4 +218,139 @@ class feedback_repository {
             'timemodified'     => time(),
         ]);
     }
+
+    /**
+     * Check if any feedback records exist for a given user (as author or assignee).
+     *
+     * @param int $userid User ID.
+     * @return bool True if records exist.
+     */
+    public static function has_user_data(int $userid): bool {
+        global $DB;
+        return $DB->record_exists_select(
+            self::TABLE,
+            'userid = :userid OR assignedto = :assignedto',
+            ['userid' => $userid, 'assignedto' => $userid]
+        );
+    }
+
+    /**
+     * Get all unique user IDs involved in feedback (authors and assignees).
+     *
+     * @return int[] Array of unique user IDs.
+     */
+    public static function get_all_involved_userids(): array {
+        global $DB;
+        $sql1 = "SELECT DISTINCT userid FROM {" . self::TABLE . "} WHERE userid > 0";
+        $records1 = $DB->get_fieldset_sql($sql1);
+        $sql2 = "SELECT DISTINCT assignedto FROM {" . self::TABLE . "} WHERE assignedto IS NOT NULL AND assignedto > 0";
+        $records2 = $DB->get_fieldset_sql($sql2);
+        $all = array_unique(array_map('intval', array_merge($records1, $records2)));
+        return array_values($all);
+    }
+
+    /**
+     * Get all feedback records associated with a user for privacy export.
+     *
+     * @param int $userid User ID.
+     * @return array Array of record objects.
+     */
+    public static function get_user_privacy_records(int $userid): array {
+        global $DB;
+        return array_values($DB->get_records_select(
+            self::TABLE,
+            'userid = :userid OR assignedto = :assignedto',
+            ['userid' => $userid, 'assignedto' => $userid],
+            'timecreated ASC, id ASC'
+        ));
+    }
+
+    /**
+     * Build parameterized IN condition for user IDs.
+     *
+     * @param array $userids Array of user IDs.
+     * @return array{0: string, 1: array}|null Tuple of SQL snippet and parameters, or null if empty.
+     */
+    private static function get_userids_in_params(array $userids): ?array {
+        global $DB;
+        $cleaned = array_values(array_filter(array_map('intval', $userids)));
+        if (empty($cleaned)) {
+            return null;
+        }
+        return $DB->get_in_or_equal($cleaned, SQL_PARAMS_NAMED);
+    }
+
+    /**
+     * Execute an update on feedback records filtered by a user column IN clause.
+     *
+     * @param string $filtercol 'userid' or 'assignedto'.
+     * @param array $userids Array of user IDs.
+     * @param array $updates Associative array of field => value.
+     * @return bool True on success.
+     */
+    private static function update_feedback_fields_by_users(string $filtercol, array $userids, array $updates): bool {
+        global $DB;
+        $inclause = self::get_userids_in_params($userids);
+        if ($inclause === null) {
+            return true;
+        }
+        [$insql, $inparams] = $inclause;
+        $setparts = [];
+        foreach ($updates as $col => $val) {
+            $paramkey = 'upd_' . $col;
+            $setparts[] = "{$col} = :{$paramkey}";
+            $inparams[$paramkey] = $val;
+        }
+        $setparts[] = 'timemodified = :timemodified';
+        $inparams['timemodified'] = time();
+
+        $sql = "UPDATE {" . self::TABLE . "} SET " . implode(', ', $setparts) . " WHERE {$filtercol} {$insql}";
+        $DB->execute($sql, $inparams);
+        return true;
+    }
+
+    /**
+     * Get ticket IDs submitted by specific users.
+     *
+     * @param array $userids Array of user IDs.
+     * @return int[] Array of ticket IDs.
+     */
+    public static function get_feedback_ids_by_userids(array $userids): array {
+        global $DB;
+        $inclause = self::get_userids_in_params($userids);
+        if ($inclause === null) {
+            return [];
+        }
+        [$insql, $inparams] = $inclause;
+        $sql = "SELECT id FROM {" . self::TABLE . "} WHERE userid {$insql}";
+        $ids = $DB->get_fieldset_sql($sql, $inparams);
+        return array_values(array_map('intval', $ids));
+    }
+
+    /**
+     * Anonymize feedback records for specified users (GDPR right to be forgotten).
+     *
+     * @param array $userids Array of user IDs to anonymize.
+     * @return bool True on success.
+     */
+    public static function anonymize_users_feedback(array $userids): bool {
+        return self::update_feedback_fields_by_users('userid', $userids, [
+            'userid'           => 0,
+            'useragent'        => null,
+            'screenshotfileid' => null,
+        ]);
+    }
+
+    /**
+     * Reassign tickets assigned to deleted/anonymized users to a fallback admin.
+     *
+     * @param array $userids User IDs whose assigned tickets must be reassigned.
+     * @param int|null $fallbackadminid New assignee ID or null if unassigned.
+     * @return bool True on success.
+     */
+    public static function reassign_assigned_tickets(array $userids, ?int $fallbackadminid): bool {
+        return self::update_feedback_fields_by_users('assignedto', $userids, [
+            'assignedto' => $fallbackadminid,
+        ]);
+    }
 }

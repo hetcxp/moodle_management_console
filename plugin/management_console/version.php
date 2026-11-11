@@ -25,7 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'tool_management_console';
-$plugin->version   = 2026110302;
+$plugin->version   = 2026111100;
 $plugin->requires  = 2024100700;
+$plugin->supported = [405, 503];
 $plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.3.8';
+$plugin->release   = '1.3.9';
