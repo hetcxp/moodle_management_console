@@ -8,6 +8,7 @@ import { UserCohortsTab } from '../views/users/UserCohortsTab';
 import { UserEvidencesTab } from '../views/users/UserEvidencesTab';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { formatDateOnly } from '../lib/utils';
 
 // Mock AdminerApi
 vi.mock('../services/adminer-api', () => ({
@@ -611,5 +612,51 @@ describe('Refactor Vista Detalle de Usuario', () => {
     if (sortButton) {
       fireEvent.click(sortButton);
     }
+  });
+
+  it('UserCoursesTab pagina client-side a 20 cursos por página y formatea fechas con formatDateOnly', () => {
+    const twentyNineCourses = Array.from({ length: 29 }, (_, i) => ({
+      id: 500 + i + 1,
+      fullname: `Curso Paginado ${i + 1}`,
+      shortname: `CP-${i + 1}`,
+      progress: 50,
+      enrolstatus: 0,
+      enrolmethod: 'manual',
+      enrolments: [{ method: 'manual', status: 0, timestart: 1700000000, timeend: 1700086400 }],
+    }));
+
+    renderWithProviders(
+      <UserCoursesTab
+        courses={twentyNineCourses}
+        loading={false}
+        userId={10}
+        userFullname="Juan Pérez"
+        onOpenSelector={vi.fn()}
+        handleUnenrollCourse={vi.fn()}
+        handleBulkUnenrollCourses={vi.fn()}
+        handleUserCourseAction={vi.fn()}
+        onNavigateToDetail={vi.fn()}
+      />
+    );
+
+    // Página 1 de 2: 20 cursos visibles
+    expect(screen.getByText('Página 1 de 2')).toBeDefined();
+    expect(screen.getByText('Curso Paginado 1')).toBeDefined();
+    expect(screen.getByText('Curso Paginado 20')).toBeDefined();
+    expect(screen.queryByText('Curso Paginado 21')).toBeNull();
+
+    // Formato de fechas con formatDateOnly (sin incluir hora HH:MM)
+    const expectedFormattedDate = formatDateOnly(1700000000);
+    expect(screen.getAllByText(new RegExp(expectedFormattedDate)).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull();
+
+    // Clic en Siguiente cambia a página 2 con 9 cursos restantes
+    const nextBtn = screen.getByRole('button', { name: /siguiente/i });
+    fireEvent.click(nextBtn);
+
+    expect(screen.getByText('Página 2 de 2')).toBeDefined();
+    expect(screen.queryByText('Curso Paginado 1')).toBeNull();
+    expect(screen.getByText('Curso Paginado 21')).toBeDefined();
+    expect(screen.getByText('Curso Paginado 29')).toBeDefined();
   });
 });

@@ -100,39 +100,38 @@ export const CourseCohortsTab = ({
       header: 'Cohorte',
       sortKey: 'name',
       filterType: 'text',
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 font-bold">
-            <Layers className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-foreground">{row.name}</div>
-            <div className="text-xs font-mono text-muted-foreground">{row.idnumber || 'Sin código'}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'Estado',
-      sortKey: 'status',
-      filterType: 'select',
-      filterOptions: [
-        { label: 'Activa', value: '0' },
-        { label: 'Suspendida', value: '1' }
+      extraFilters: [
+        {
+          key: 'groupid',
+          label: 'Filtrar por Grupo',
+          filterType: 'text',
+          accessor: (row) => {
+            const g = coursegroups?.find(cg => Number(cg.id) === Number(row.groupid));
+            return g ? g.name : 'Sin grupo';
+          }
+        }
       ],
-      cell: (row) => (
-        <Badge variant={row.status === 0 ? 'success' : 'destructive'}>
-          {row.status === 0 ? 'Activa' : 'Suspendida'}
-        </Badge>
-      )
-    },
-    {
-      header: 'Grupo',
-      sortKey: 'groupid',
-      filterType: 'text',
       cell: (row) => {
         const group = coursegroups?.find(g => g.id === row.groupid);
-        return <span className="text-sm text-muted-foreground">{group ? group.name : 'Sin grupo'}</span>;
+        const groupName = group ? group.name : 'Sin grupo';
+        return (
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 font-bold shrink-0">
+              <Layers className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-semibold text-foreground">{row.name}</div>
+              <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
+                {row.idnumber && (
+                  <span className="text-xs font-mono text-muted-foreground">{row.idnumber}</span>
+                )}
+                <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[11px] font-medium">
+                  {groupName}
+                </span>
+              </div>
+            </div>
+          </div>
+        );
       }
     },
     {
@@ -140,9 +139,26 @@ export const CourseCohortsTab = ({
       sortKey: 'timecreated',
       filterType: 'text',
       accessor: (row) => `${formatDate(row.timecreated)} - ${row.enrolenddate ? formatDate(row.enrolenddate) : 'Sin límite'}`,
+      extraFilters: [
+        {
+          key: 'status',
+          label: 'Filtrar por Estado',
+          filterType: 'select',
+          accessor: (row) => row.status,
+          filterOptions: [
+            { label: 'Activa', value: '0' },
+            { label: 'Suspendida', value: '1' }
+          ]
+        }
+      ],
       cell: (row) => (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground whitespace-nowrap">
-          {formatDate(row.timecreated)} - {row.enrolenddate ? formatDate(row.enrolenddate) : 'Sin límite'}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant={row.status === 0 ? 'success' : 'destructive'}>
+            {row.status === 0 ? 'Activa' : 'Suspendida'}
+          </Badge>
+          <span className="text-sm text-muted-foreground whitespace-nowrap">
+            {formatDate(row.timecreated)} - {row.enrolenddate ? formatDate(row.enrolenddate) : 'Sin límite'}
+          </span>
         </div>
       )
     },
@@ -156,7 +172,7 @@ export const CourseCohortsTab = ({
       ],
       cell: (row) => (
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[100px] max-w-[200px]">
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[72px] max-w-[140px]">
             <div
               className={`h-full ${row.progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
               style={{ width: `${row.progress}%` }}
@@ -170,26 +186,26 @@ export const CourseCohortsTab = ({
       header: 'Acciones',
       className: 'text-center',
       cell: (row) => (
-        <PermissionGate capability="can_manage_courses">
+        <PermissionGate capability="can_update_courses">
           <div className="flex justify-center gap-1">
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 handleCohortAction(row.status === 0 ? 'suspend' : 'activate', [row.id]);
                 setSelectedCohorts([]); 
               }}
-              className={row.status === 0 ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 px-2' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 px-2'}
+              className={row.status === 0 ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 h-8 w-8 shrink-0' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 h-8 w-8 shrink-0'}
               title={row.status === 0 ? 'Suspender' : 'Activar'}
             >
-              {row.status === 0 ? <Ban className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+              {row.status === 0 ? <Ban className="h-4 w-4 shrink-0" /> : <Check className="h-4 w-4 shrink-0" />}
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation();
                 setSelectedCohortDetail(row);
@@ -198,15 +214,15 @@ export const CourseCohortsTab = ({
                 setCohortNewGroupName('');
                 setCohortGroupModalOpen(true);
               }}
-              className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-2"
+              className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 h-8 w-8 shrink-0"
               title="Configurar Grupo"
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation();
                 setSelectedCohortDetail(row);
@@ -219,15 +235,15 @@ export const CourseCohortsTab = ({
                 }
                 setCohortExpirationModalOpen(true);
               }}
-              className="text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-2"
+              className="text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 h-8 w-8 shrink-0"
               title="Configurar Expiración"
             >
-              <CalendarClock className="h-4 w-4" />
+              <CalendarClock className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation();
                 setSelectedCohortDetail(row);
@@ -235,24 +251,24 @@ export const CourseCohortsTab = ({
                 setCohortMessageText('');
                 setCohortMessageModalOpen(true);
               }}
-              className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 px-2"
+              className="text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 h-8 w-8 shrink-0"
               title="Enviar Mensaje"
             >
-              <MessageSquare className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 handleCohortAction('remove', [row.id]);
                 setSelectedCohorts([]); 
               }}
-              className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-2"
+              className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 h-8 w-8 shrink-0"
               title="Desvincular"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
           </div>
         </PermissionGate>
@@ -284,8 +300,8 @@ export const CourseCohortsTab = ({
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <PermissionGate capability="can_manage_courses">
-          <LicensedActionButton capability="can_manage_courses" onClick={onOpenSelector}>
+        <PermissionGate capability="can_update_courses">
+          <LicensedActionButton capability="can_update_courses" onClick={onOpenSelector}>
             <Layers className="h-4 w-4 mr-2" /> Vincular Cohorte
           </LicensedActionButton>
         </PermissionGate>

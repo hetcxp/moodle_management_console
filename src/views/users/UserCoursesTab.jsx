@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
-import { formatDate } from '../../lib/utils';
+import { formatDateOnly } from '../../lib/utils';
 import { useToast } from '../../components/ui/Toast';
 import { AdminerApi } from '../../services/adminer-api';
 import { exportToCsv } from '../../components/CsvExporter';
@@ -192,7 +192,7 @@ export const UserCoursesTab = ({
               <div key={i} className="flex items-center gap-2">
                 {getEnrolmentIcon(enr.method, i)}
                 <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {formatDate(enr.timestart)} - {enr.timeend ? formatDate(enr.timeend) : 'Sin límite'}
+                  {formatDateOnly(enr.timestart)} - {enr.timeend ? formatDateOnly(enr.timeend) : 'Sin límite'}
                 </span>
               </div>
             ))

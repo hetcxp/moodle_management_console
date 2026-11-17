@@ -8,6 +8,11 @@ import { CohortDetailView } from '../views/CohortDetailView';
 import { CourseUserDetailView } from '../views/CourseUserDetailView';
 import { CourseDetailView } from '../views/CourseDetailView';
 import { AdminerApi } from '../services/adminer-api';
+import { exportToCsv } from '../components/CsvExporter';
+
+vi.mock('../components/CsvExporter', () => ({
+  exportToCsv: vi.fn(),
+}));
 
 // Mock AdminerApi
 vi.mock('../services/adminer-api', () => ({
@@ -134,7 +139,8 @@ vi.mock('../services/adminer-api', () => ({
         { method: 'manual', status: 0, timestart: 1725148800, timeend: 0 }
       ],
       activities: [
-        { id: 1, name: 'Quiz 1: Hooks', modname: 'quiz', completionstatus: 1, grade: '10/10' }
+        { id: 1, name: 'Quiz 1: Hooks', modname: 'quiz', completionstatus: 1, timecompleted: 1725235200, grade: '10/10' },
+        { id: 2, name: 'Tarea: Componentes', modname: 'assign', completionstatus: 0, timecompleted: 0, grade: '' }
       ]
     }),
     userAction: vi.fn().mockResolvedValue({ success: true, affectedcount: 1 }),
@@ -267,6 +273,50 @@ describe('Detail Views Integration (TD-012)', () => {
 
     expect(screen.getByText('jdoe@example.com')).toBeDefined();
     expect(screen.getByText('Activo en Curso')).toBeDefined();
+    expect(screen.getByText('Quiz 1: Hooks')).toBeDefined();
+    expect(screen.getByText('Tarea: Componentes')).toBeDefined();
+
+    // Check "Fecha de Finalización" header exists
+    const dateHeader = screen.getByRole('columnheader', { name: /fecha de finalización/i });
+    expect(dateHeader).toBeDefined();
+    expect(dateHeader.getAttribute('aria-sort')).toBe('none');
+
+    // Click sort on "Fecha de Finalización" -> ASC
+    fireEvent.click(dateHeader);
+    expect(dateHeader.getAttribute('aria-sort')).toBe('ascending');
+
+    // Click sort again -> DESC
+    fireEvent.click(dateHeader);
+    expect(dateHeader.getAttribute('aria-sort')).toBe('descending');
+
+    // Test Export CSV button
+    const exportBtn = screen.getByRole('button', { name: /exportar csv/i });
+    expect(exportBtn).toBeDefined();
+    expect(exportBtn.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.click(exportBtn);
+
+    expect(exportToCsv).toHaveBeenCalledTimes(1);
+    const [filename, rows, columns] = exportToCsv.mock.calls[0];
+    expect(filename).toBe('react_101_usuario_42_actividades');
+    expect(rows).toHaveLength(2);
+    expect(columns.map((c) => c.label)).toEqual([
+      'Actividad',
+      'Tipo de Actividad',
+      'Estado de Finalización',
+      'Fecha de Finalización',
+      'Calificación'
+    ]);
+
+    // Test column accessors on rows
+    const completedRow = rows.find((r) => r.id === 1);
+    const incompleteRow = rows.find((r) => r.id === 2);
+    expect(columns[0].accessor(completedRow)).toBe('Quiz 1: Hooks');
+    expect(columns[1].accessor(completedRow)).toBe('Cuestionario');
+    expect(columns[2].accessor(completedRow)).toBe('Completado');
+    expect(columns[2].accessor(incompleteRow)).toBe('Incompleto');
+    expect(columns[4].accessor(completedRow)).toBe('10/10');
+    expect(columns[4].accessor(incompleteRow)).toBe('-');
   });
 
   it('renders CourseDetailView with course name and enrolled users tab', async () => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { useCourseUserDetail, useCourseUserAction, useCourseDetail } from '../hooks/useAdminerQueries';
 import { useToast } from '../components/ui/Toast';
@@ -7,10 +7,11 @@ import { Badge } from '../components/ui/Badge';
 import { DataTable } from '../components/DataTable';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
-import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText, ExternalLink, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText, ExternalLink, BookOpen, Download } from 'lucide-react';
 import { PermissionGate, LicensedActionButton } from '../components/PermissionGate';
 import { navigateToDetail } from '../lib/navigation';
 import { formatDate as formatAppDate } from '../lib/utils';
+import { exportToCsv } from '../components/CsvExporter';
 
 export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
@@ -27,6 +28,9 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
   const courseUserAction = useCourseUserAction();
 
   const [activeTab, setActiveTab] = useState('performance'); // 'performance' | 'audit'
+
+  const [sortKey, setSortKey] = useState('');
+  const [sortDir, setSortDir] = useState('ASC');
 
   const [expirationModalOpen, setExpirationModalOpen] = useState(false);
   const [expirationDate, setExpirationDate] = useState('');
@@ -111,6 +115,57 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
     return names[modname] || modname;
   };
 
+  const getCompletionStatusText = (status) => {
+    if (status === 1 || status === 2) return 'Completado';
+    if (status === 3) return 'Fallado';
+    return 'Incompleto';
+  };
+
+  const sortedActivities = useMemo(() => {
+    const rawActivities = data?.activities || [];
+    if (!sortKey) return rawActivities;
+
+    return [...rawActivities].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === 'name') {
+        cmp = (a.name || '').localeCompare(b.name || '');
+      } else if (sortKey === 'completionstatus') {
+        cmp = (Number(a.completionstatus) || 0) - (Number(b.completionstatus) || 0);
+      } else if (sortKey === 'timecompleted') {
+        cmp = (Number(a.timecompleted) || 0) - (Number(b.timecompleted) || 0);
+      } else if (sortKey === 'grade') {
+        const aVal = a.grade === '' || a.grade == null ? -Infinity : parseFloat(a.grade);
+        const bVal = b.grade === '' || b.grade == null ? -Infinity : parseFloat(b.grade);
+        if (!Number.isNaN(aVal) && !Number.isNaN(bVal)) {
+          cmp = aVal - bVal;
+        } else {
+          cmp = String(a.grade || '').localeCompare(String(b.grade || ''));
+        }
+      }
+
+      if (cmp !== 0) {
+        return sortDir === 'ASC' ? cmp : -cmp;
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [data?.activities, sortKey, sortDir]);
+
+  const handleExportActivities = () => {
+    if (!sortedActivities.length) return;
+    const cols = [
+      { label: 'Actividad', accessor: (row) => row.name || '' },
+      { label: 'Tipo de Actividad', accessor: (row) => formatActivityName(row.modname) },
+      {
+        label: 'Estado de Finalización',
+        accessor: (row) => getCompletionStatusText(row.completionstatus)
+      },
+      { label: 'Fecha de Finalización', accessor: (row) => formatDate(row.timecompleted) },
+      { label: 'Calificación', accessor: (row) => (row.grade !== '' && row.grade != null ? row.grade : '-') }
+    ];
+    const courseSlug = (course?.shortname || `curso_${courseId}`).replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    exportToCsv(`${courseSlug}_usuario_${userId}_actividades`, sortedActivities, cols);
+  };
+
   if (loading && !data) {
     return (
       <div className="flex justify-center p-12">
@@ -144,16 +199,14 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
       sortKey: 'completionstatus',
       cell: (row) => {
         let icon = <XCircle className="h-4 w-4 text-muted-foreground" />;
-        let text = 'Incompleto';
         let color = 'text-muted-foreground';
+        const text = getCompletionStatusText(row.completionstatus);
 
         if (row.completionstatus === 1 || row.completionstatus === 2) {
           icon = <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-          text = 'Completado';
           color = 'text-emerald-600';
         } else if (row.completionstatus === 3) {
           icon = <XCircle className="h-4 w-4 text-rose-500" />;
-          text = 'Fallado';
           color = 'text-rose-600';
         }
 
@@ -163,6 +216,15 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
           </div>
         );
       }
+    },
+    {
+      header: 'Fecha de Finalización',
+      sortKey: 'timecompleted',
+      cell: (row) => (
+        <span className="text-sm text-muted-foreground">
+          {formatDate(row.timecompleted)}
+        </span>
+      )
     },
     {
       header: 'Calificación',
@@ -348,10 +410,31 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
             </div>
           </div>
 
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-base font-semibold text-foreground">Actividades del Curso</h3>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportActivities}
+              disabled={sortedActivities.length === 0}
+              className="gap-1.5"
+              title="Exportar a CSV"
+            >
+              <Download className="h-4 w-4" />
+              <span>Exportar CSV</span>
+            </Button>
+          </div>
+
           <DataTable
             columns={activitiesCols}
-            data={data.activities || []}
-            totalCount={(data.activities || []).length}
+            data={sortedActivities}
+            totalCount={sortedActivities.length}
+            sort={sortKey}
+            dir={sortDir}
+            onSortChange={(key, dir) => {
+              setSortKey(key);
+              setSortDir(dir);
+            }}
             selectable={false}
           />
         </div>

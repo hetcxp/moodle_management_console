@@ -9,7 +9,14 @@ import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle
 import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { useCourseUserActions } from '../../hooks/useCourseUserActions';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
-import { formatDate } from '../../lib/utils';
+import { formatDateOnly } from '../../lib/utils';
+
+const ROLE_MAP = {
+  student: 'Estudiante',
+  editingteacher: 'Prof. Edición',
+  teacher: 'Profesor',
+  manager: 'Manager'
+};
 
 export const CourseUsersTab = ({ 
   courseId, 
@@ -85,41 +92,39 @@ export const CourseUsersTab = ({
       header: 'Usuario',
       sortKey: 'fullname',
       filterType: 'text',
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 font-bold">
-            <Users className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-semibold text-foreground">{row.fullname}</div>
-            <div className="text-xs text-muted-foreground">{row.email}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'Rol',
-      accessor: (row) => row.roles || 'student',
-      sortKey: 'roles',
-      filterType: 'select',
-      filterOptions: [
-        { label: 'Estudiante', value: 'student' },
-        { label: 'Profesor (Edición)', value: 'editingteacher' },
-        { label: 'Profesor', value: 'teacher' },
-        { label: 'Manager', value: 'manager' }
+      extraFilters: [
+        {
+          key: 'roles',
+          label: 'Filtrar por Rol',
+          filterType: 'select',
+          accessor: (row) => row.roles || 'student',
+          filterOptions: [
+            { label: 'Estudiante', value: 'student' },
+            { label: 'Profesor (Edición)', value: 'editingteacher' },
+            { label: 'Profesor', value: 'teacher' },
+            { label: 'Manager', value: 'manager' }
+          ]
+        }
       ],
       cell: (row) => {
-        const roleMap = {
-          'student': 'Estudiante',
-          'editingteacher': 'Prof. Edición',
-          'teacher': 'Profesor',
-          'manager': 'Manager'
-        };
-        const r = (row.roles || 'student').split(',')[0];
+        const roles = (row.roles || 'student').split(',').map(r => r.trim()).filter(Boolean);
         return (
-          <span className="text-xs font-medium bg-secondary text-secondary-foreground px-2 py-1 rounded">
-            {roleMap[r] || r}
-          </span>
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 font-bold shrink-0">
+              <Users className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center flex-wrap gap-1.5">
+                <span className="font-semibold text-foreground">{row.fullname}</span>
+                {roles.map(r => (
+                  <span key={r} className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[11px] font-medium">
+                    {ROLE_MAP[r] || r}
+                  </span>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground">{row.email}</div>
+            </div>
+          </div>
         );
       }
     },
@@ -133,7 +138,7 @@ export const CourseUsersTab = ({
       ],
       cell: (row) => (
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[100px] max-w-[200px]">
+          <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden min-w-[72px] max-w-[140px]">
             <div
               className={`h-full ${row.progress === 100 ? 'bg-emerald-500' : 'bg-primary'}`}
               style={{ width: `${row.progress}%` }}
@@ -141,20 +146,6 @@ export const CourseUsersTab = ({
           </div>
           <span className="text-xs text-muted-foreground w-8 text-right">{row.progress}%</span>
         </div>
-      )
-    },
-    {
-      header: 'Estado',
-      sortKey: 'status',
-      filterType: 'select',
-      filterOptions: [
-        { label: 'Activo', value: '0' },
-        { label: 'Suspendido', value: '1' }
-      ],
-      cell: (row) => (
-        <Badge variant={row.status === 0 ? 'success' : 'destructive'}>
-          {row.status === 0 ? 'Activo' : 'Suspendido'}
-        </Badge>
       )
     },
     {
@@ -168,19 +159,47 @@ export const CourseUsersTab = ({
         { label: 'Auto-matriculación', value: 'self' },
         { label: 'Invitado', value: 'guest' }
       ],
+      extraFilters: [
+        {
+          key: 'status',
+          label: 'Filtrar por Estado',
+          filterType: 'select',
+          accessor: (row) => row.status,
+          filterOptions: [
+            { label: 'Activo', value: '0' },
+            { label: 'Suspendido', value: '1' }
+          ]
+        }
+      ],
       cell: (row) => (
-        <div className="flex flex-col gap-2">
-          {row.enrolments?.length > 0 ? (
-            row.enrolments.map((enr, i) => (
-              <div key={i} className="flex items-center gap-2">
-                {getEnrolmentIcon(enr.method, i)}
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {formatDate(enr.timestart)} - {enr.timeend ? formatDate(enr.timeend) : 'Sin límite'}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant={row.status === 0 ? 'success' : 'destructive'}>
+              {row.status === 0 ? 'Activo' : 'Suspendido'}
+            </Badge>
+            {row.enrolments?.length === 1 && (
+              <div className="flex items-center gap-1.5">
+                {getEnrolmentIcon(row.enrolments[0].method, 0)}
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {formatDateOnly(row.enrolments[0].timestart)} - {row.enrolments[0].timeend ? formatDateOnly(row.enrolments[0].timeend) : 'Sin límite'}
                 </span>
               </div>
-            ))
-          ) : (
-            <span className="text-sm text-muted-foreground">-</span>
+            )}
+          </div>
+          {row.enrolments?.length > 1 && (
+            <div className="flex flex-col gap-1">
+              {row.enrolments.map((enr, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  {getEnrolmentIcon(enr.method, i)}
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
+                    {formatDateOnly(enr.timestart)} - {enr.timeend ? formatDateOnly(enr.timeend) : 'Sin límite'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {(!row.enrolments || row.enrolments.length === 0) && (
+            <span className="text-xs text-muted-foreground">-</span>
           )}
         </div>
       )
@@ -189,26 +208,26 @@ export const CourseUsersTab = ({
       header: 'Acciones',
       className: 'text-center',
       cell: (row) => (
-        <PermissionGate capability="can_manage_courses">
+        <PermissionGate capability="can_update_courses">
           <div className="flex justify-center gap-1">
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 handleUserAction(row.status === 0 ? 'suspend' : 'activate', [row.id]); 
                 setSelectedUsers([]);
               }}
-              className={row.status === 0 ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 px-2' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 px-2'}
+              className={row.status === 0 ? 'text-amber-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 h-8 w-8 shrink-0' : 'text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 h-8 w-8 shrink-0'}
               title={row.status === 0 ? 'Suspender' : 'Activar'}
             >
-              {row.status === 0 ? <Ban className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+              {row.status === 0 ? <Ban className="h-4 w-4 shrink-0" /> : <Check className="h-4 w-4 shrink-0" />}
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 setSelectedUsers([row.id]);
@@ -216,30 +235,30 @@ export const CourseUsersTab = ({
                 setUserNewGroupName('');
                 setUserGroupModalOpen(true);
               }}
-              className="text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-2"
+              className="text-indigo-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 h-8 w-8 shrink-0"
               title="Asignar a Grupo"
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 setSelectedUsers([row.id]);
                 setUserMessageText('');
                 setUserMessageModalOpen(true);
               }}
-              className="text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/30 px-2"
+              className="text-sky-500 hover:text-sky-600 hover:bg-sky-50 dark:hover:bg-sky-900/30 h-8 w-8 shrink-0"
               title="Enviar Mensaje"
             >
-              <MessageSquare className="h-4 w-4" />
+              <MessageSquare className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 setExpirationUserIds([row.id]); 
@@ -252,24 +271,24 @@ export const CourseUsersTab = ({
                 }
                 setExpirationModalOpen(true); 
               }}
-              className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 px-2"
+              className="text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 h-8 w-8 shrink-0"
               title="Configurar Expiración"
             >
-              <CalendarClock className="h-4 w-4" />
+              <CalendarClock className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
             <LicensedActionButton
-              capability="can_manage_courses"
+              capability="can_update_courses"
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={(e) => { 
                 e.stopPropagation(); 
                 handleUserAction('remove', [row.id]); 
                 setSelectedUsers([]);
               }}
-              className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 px-2"
+              className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 h-8 w-8 shrink-0"
               title="Desmatricular"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-4 w-4 shrink-0" />
             </LicensedActionButton>
           </div>
         </PermissionGate>
@@ -304,8 +323,8 @@ export const CourseUsersTab = ({
         <Button variant="outline" onClick={() => setExportModalOpen(true)}>
           <Download className="h-4 w-4 mr-2" /> Exportar CSV
         </Button>
-        <PermissionGate capability="can_manage_courses">
-          <LicensedActionButton capability="can_manage_courses" onClick={onOpenSelector}>
+        <PermissionGate capability="can_update_courses">
+          <LicensedActionButton capability="can_update_courses" onClick={onOpenSelector}>
             <Users className="h-4 w-4 mr-2" /> Matricular Usuarios
           </LicensedActionButton>
         </PermissionGate>
