@@ -196,7 +196,25 @@ export const AuthService = {
 
   isEmbedded() {
     return typeof window !== 'undefined' && Boolean(
-      window.MANAGEMENT_CONSOLE_CONFIG?.token || window.ADMINER_CONFIG?.token
+      window.MANAGEMENT_CONSOLE_CONFIG?.embedded ||
+      window.ADMINER_CONFIG?.embedded ||
+      window.MANAGEMENT_CONSOLE_CONFIG?.token ||
+      window.ADMINER_CONFIG?.token
     );
+  },
+
+  getMoodleMyUrl() {
+    if (typeof window !== 'undefined') {
+      const config = window.MANAGEMENT_CONSOLE_CONFIG || window.ADMINER_CONFIG;
+      const rawUrl = typeof config?.moodleUrl === 'string' ? config.moodleUrl.trim().replace(/\/+$/, '') : '';
+      if (rawUrl) {
+        const normalizedUrl =
+          window.location?.protocol === 'https:' && rawUrl.startsWith('http://')
+            ? 'https://' + rawUrl.slice(7)
+            : rawUrl;
+        return `${normalizedUrl}/my`;
+      }
+    }
+    return '/my';
   }
 };

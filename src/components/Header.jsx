@@ -3,7 +3,7 @@ import { useLocation } from 'wouter';
 import { useAuth } from '../context/AuthContext';
 import { useLicenseUi } from '../context/LicenseUiContext';
 import { AuthService } from '../services/auth';
-import { LogOut, User, ShieldCheck, HelpCircle, KeyRound } from 'lucide-react';
+import { LogOut, User, ShieldCheck, HelpCircle, KeyRound, ArrowLeft } from 'lucide-react';
 import { Button } from './ui/Button';
 import { ThemeSelector } from './ThemeSelector';
 import { useHelp } from '../context/HelpContext';
@@ -148,7 +148,17 @@ export const Header = ({ onToggleSidebar, sidebarOpen, currentTheme, onSelectThe
               {user.fullname ? user.fullname.charAt(0).toUpperCase() : <User className="h-4 w-4" aria-hidden="true" />}
             </div>
 
-            {!AuthService.isEmbedded() && (
+            {AuthService.isEmbedded() ? (
+              <a
+                href={AuthService.getMoodleMyUrl()}
+                aria-label="Volver a Moodle"
+                title="Volver al Área Personal de Moodle (/my)"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border border-border/80 bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary transition-colors"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden md:inline">Volver a Moodle</span>
+              </a>
+            ) : (
               <Button
                 variant="ghost"
                 size="icon"
