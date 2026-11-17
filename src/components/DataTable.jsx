@@ -31,6 +31,13 @@ export const DataTable = memo(({
   const [localFilters, setLocalFilters] = useState({});
   const filterRef = useRef(null);
 
+  const [internalPage, setInternalPage] = useState(0);
+  const isClientPaginated = typeof onPageChange !== 'function';
+
+  useEffect(() => {
+    if (isClientPaginated) setInternalPage(0);
+  }, [data, isClientPaginated]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (filterRef.current && !filterRef.current.contains(e.target)) {
@@ -51,6 +58,8 @@ export const DataTable = memo(({
     setLocalFilters(newFilters);
     if (onFilterChange) {
       onFilterChange(newFilters);
+    } else {
+      setInternalPage(0);
     }
   };
 
@@ -61,7 +70,7 @@ export const DataTable = memo(({
     return data.filter(row => {
       return Object.entries(localFilters).every(([key, value]) => {
         if (value === '' || value == null) return true;
-        const col = columns.find(c => (c.sortKey || c.accessor) === key);
+        const col = columns.find(c => (c.filterKey || c.sortKey || c.accessor) === key);
         if (!col) return true;
         
         let rowValue;
@@ -83,8 +92,18 @@ export const DataTable = memo(({
     });
   }, [data, localFilters, onFilterChange, columns]);
 
-  // Calculate selection based on processedData
-  const allIdsOnPage = processedData.map((item) => item[keyField]);
+  const displayTotalCount = onFilterChange ? totalCount : processedData.length;
+  const totalPages = Math.ceil(displayTotalCount / perPage) || 1;
+  const effectivePage = isClientPaginated ? Math.min(internalPage, Math.max(0, totalPages - 1)) : page;
+  const handlePageChange = isClientPaginated ? setInternalPage : onPageChange;
+  const paginatedData = useMemo(() => {
+    if (!isClientPaginated) return processedData;
+    return processedData.slice(effectivePage * perPage, (effectivePage + 1) * perPage);
+  }, [isClientPaginated, processedData, effectivePage, perPage]);
+  const currentDataLength = onFilterChange ? data.length : paginatedData.length;
+
+  // Calculate selection based on paginatedData
+  const allIdsOnPage = paginatedData.map((item) => item[keyField]);
   const isAllSelected = allIdsOnPage.length > 0 && allIdsOnPage.every((id) => selectedIds.includes(id));
   const isSomeSelected = allIdsOnPage.some((id) => selectedIds.includes(id)) && !isAllSelected;
 
@@ -115,12 +134,6 @@ export const DataTable = memo(({
     }
   };
 
-  // If local filtering is active and no onFilterChange, we might need to adjust totalCount for display
-  const displayTotalCount = onFilterChange ? totalCount : processedData.length;
-  const totalPages = Math.ceil(displayTotalCount / perPage) || 1;
-  const currentDataLength = onFilterChange ? data.length : processedData.length;
-
-
   return (
     <div className={cn('relative space-y-4', className)}>
       {/* Floating Bulk Actions Bar */}
@@ -145,7 +158,7 @@ export const DataTable = memo(({
           )}
 
           <table className="w-full text-left text-sm border-collapse" aria-busy={loading}>
-            <caption className="sr-only">Tabla de datos, mostrando {processedData.length} de {displayTotalCount} registros</caption>
+            <caption className="sr-only">Tabla de datos, mostrando {paginatedData.length} de {displayTotalCount} registros</caption>
             <thead>
               <tr className="bg-muted/40 text-xs uppercase tracking-wider text-muted-foreground font-semibold">
                 {selectable && (
@@ -161,17 +174,23 @@ export const DataTable = memo(({
                 )}
 
                 {columns.map((col, idx) => {
-                  const filterKey = col.sortKey || col.accessor;
-                  const isSortable = !!col.sortKey;
+                  const hasSortOptions = Array.isArray(col.sortOptions) && col.sortOptions.length > 0;
+                  const filterKey = col.filterKey || col.sortKey || (hasSortOptions ? col.sortOptions[0].key : undefined) || col.accessor;
+                  const isSortable = !hasSortOptions && !!col.sortKey;
                   const isCurrentSort = sort === col.sortKey;
+                  const activeSortOpt = hasSortOptions ? col.sortOptions.find((opt) => opt.key === sort) : null;
                   const isFilterable = !!col.filterType && typeof filterKey === 'string';
-                  const hasActiveFilter = isFilterable && localFilters[filterKey] !== undefined;
+                  const hasActiveFilter = isFilterable && localFilters[filterKey] !== undefined && localFilters[filterKey] !== '';
 
                   return (
                     <th
                       key={idx}
                       scope="col"
-                      aria-sort={isSortable ? (isCurrentSort ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none') : undefined}
+                      aria-sort={
+                        isSortable
+                          ? (isCurrentSort ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none')
+                          : (activeSortOpt ? (dir === 'ASC' ? 'ascending' : 'descending') : undefined)
+                      }
                       className={cn(
                         'px-4 py-3.5 select-none relative',
                         isSortable && 'hover:bg-muted/70 hover:text-foreground cursor-pointer',
@@ -180,22 +199,64 @@ export const DataTable = memo(({
                       onClick={() => isSortable && handleSort(col.sortKey)}
                     >
                       <div className="flex items-center justify-between gap-1.5">
-                        <div className="flex items-center gap-1.5 flex-1">
-                          <span>{col.header}</span>
-                          {isSortable && (
-                            <span className="text-muted-foreground">
-                              {isCurrentSort ? (
-                                dir === 'ASC' ? (
-                                  <ChevronUp className="h-3.5 w-3.5 text-primary stroke-[2.5]" />
+                        {hasSortOptions ? (
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <span className="font-semibold">{col.header}</span>
+                            <div
+                              className="inline-flex items-center gap-0.5 rounded-md bg-muted/60 p-0.5"
+                              role="group"
+                              aria-label={`Ordenar ${col.header}`}
+                            >
+                              {col.sortOptions.map((opt) => {
+                                const isActive = sort === opt.key;
+                                const OptIcon = opt.icon;
+                                return (
+                                  <button
+                                    key={opt.key}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSort(opt.key);
+                                    }}
+                                    title={`Ordenar por ${opt.label}`}
+                                    aria-label={`Ordenar por ${opt.label}`}
+                                    aria-pressed={isActive}
+                                    className={cn(
+                                      'inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[11px] transition-colors',
+                                      isActive
+                                        ? 'bg-background text-primary shadow-sm font-semibold'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                  >
+                                    {OptIcon && <OptIcon className="h-3 w-3 shrink-0" />}
+                                    {isActive && (
+                                      dir === 'ASC'
+                                        ? <ChevronUp className="h-3 w-3 text-primary shrink-0" />
+                                        : <ChevronDown className="h-3 w-3 text-primary shrink-0" />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 flex-1">
+                            <span>{col.header}</span>
+                            {isSortable && (
+                              <span className="text-muted-foreground">
+                                {isCurrentSort ? (
+                                  dir === 'ASC' ? (
+                                    <ChevronUp className="h-3.5 w-3.5 text-primary stroke-[2.5]" />
+                                  ) : (
+                                    <ChevronDown className="h-3.5 w-3.5 text-primary stroke-[2.5]" />
+                                  )
                                 ) : (
-                                  <ChevronDown className="h-3.5 w-3.5 text-primary stroke-[2.5]" />
-                                )
-                              ) : (
-                                <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
-                              )}
-                            </span>
-                          )}
-                        </div>
+                                  <ChevronsUpDown className="h-3.5 w-3.5 opacity-50" />
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        )}
                         {isFilterable && (
                           <div className="relative" ref={openFilterKey === filterKey ? filterRef : null}>
                             <button
@@ -214,11 +275,15 @@ export const DataTable = memo(({
                             
                             {/* Filter Popover */}
                             {openFilterKey === filterKey && (
-                              <div className="absolute z-30 mt-2 p-3 bg-card border border-border rounded-xl shadow-xl top-full right-0 w-56 normal-case tracking-normal font-normal">
+                              <div 
+                                className="absolute z-30 mt-2 p-3 bg-card border border-border rounded-xl shadow-xl top-full right-0 w-56 normal-case tracking-normal font-normal"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs font-semibold text-foreground">Filtrar {col.header}</span>
                                   {hasActiveFilter && (
                                     <button 
+                                      type="button"
                                       aria-label="Limpiar filtro"
                                       onClick={() => handleApplyFilter(filterKey, '')}
                                       className="text-muted-foreground hover:text-destructive transition-colors"
@@ -266,7 +331,7 @@ export const DataTable = memo(({
             </thead>
 
             <tbody className="divide-y divide-border/50">
-              {processedData.length === 0 && !loading ? (
+              {paginatedData.length === 0 && !loading ? (
                 <tr>
                   <td
                     colSpan={columns.length + (selectable ? 1 : 0)}
@@ -282,6 +347,7 @@ export const DataTable = memo(({
                             onClick={() => {
                               setLocalFilters({});
                               if (onFilterChange) onFilterChange({});
+                              else setInternalPage(0);
                             }}
                             className="text-xs text-primary hover:underline font-medium"
                           >
@@ -295,7 +361,7 @@ export const DataTable = memo(({
                   </td>
                 </tr>
               ) : (
-                processedData.map((row, index) => {
+                paginatedData.map((row, index) => {
                   const rowId = row[keyField];
                   const isSelected = selectedIds.includes(rowId);
 
@@ -346,13 +412,13 @@ export const DataTable = memo(({
 
         {/* Pagination Footer */}
         <DataTablePagination 
-          page={page}
+          page={effectivePage}
           perPage={perPage}
           currentDataLength={currentDataLength}
           displayTotalCount={displayTotalCount}
           totalPages={totalPages}
           loading={loading}
-          onPageChange={onPageChange}
+          onPageChange={handlePageChange}
         />
       </div>
     </div>

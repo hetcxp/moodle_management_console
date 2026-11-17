@@ -6,8 +6,8 @@ import { Button } from '../../components/ui/Button';
 import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { AdminerApi } from '../../services/adminer-api';
 import { API_CONFIG } from '../../config/api';
-import { formatDate } from '../../lib/utils';
-import { ExternalLink, UserCheck, UserX, KeyRound, Trash2, Mail, Layers, Award } from 'lucide-react';
+import { formatDate, formatDateOnly } from '../../lib/utils';
+import { ExternalLink, UserCheck, UserX, KeyRound, Trash2, Mail, Layers, Award, ShieldCheck } from 'lucide-react';
 
 export function UsersTable({
   users, loading, totalCount, page, perPage,
@@ -47,26 +47,38 @@ export function UsersTable({
     },
     {
       header: 'Estado',
-      sortKey: 'suspended',
+      filterKey: 'suspended',
       filterType: 'select',
-      filterOptions: [{ label: 'Activo', value: '0' }, { label: 'Suspendido', value: '1' }],
-      cell: (row) => <Badge variant={row.is_active === 1 ? 'success' : 'destructive'}>{row.is_active === 1 ? 'Activo' : 'Suspendido'}</Badge>
-    },
-    {
-      header: 'Cohortes',
-      sortKey: 'cohorts',
+      filterOptions: [
+        { value: '0', label: 'Activo' },
+        { value: '1', label: 'Suspendido' }
+      ],
+      sortOptions: [
+        { key: 'suspended', label: 'Estado', icon: ShieldCheck },
+        { key: 'cohorts', label: 'Cohortes', icon: Layers },
+        { key: 'competencies', label: 'Competencias', icon: Award },
+      ],
       cell: (row) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <Layers className="h-3.5 w-3.5" /><span>{row.cohorts_count}</span>
-        </div>
-      )
-    },
-    {
-      header: 'Competencias',
-      sortKey: 'competencies',
-      cell: (row) => (
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-          <Award className="h-3.5 w-3.5" /><span>{row.competencies_count ?? 0}</span>
+        <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <Badge variant={row.is_active === 1 ? 'success' : 'destructive'}>
+            {row.is_active === 1 ? 'Activo' : 'Suspendido'}
+          </Badge>
+          <span
+            className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground font-medium"
+            title={`Cohortes: ${row.cohorts_count ?? 0}`}
+            aria-label={`Cohortes: ${row.cohorts_count ?? 0}`}
+          >
+            <Layers className="h-3 w-3 shrink-0" />
+            <span>{row.cohorts_count ?? 0}</span>
+          </span>
+          <span
+            className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs text-muted-foreground font-medium"
+            title={`Competencias: ${row.competencies_count ?? 0}`}
+            aria-label={`Competencias: ${row.competencies_count ?? 0}`}
+          >
+            <Award className="h-3 w-3 shrink-0" />
+            <span>{row.competencies_count ?? 0}</span>
+          </span>
         </div>
       )
     },
@@ -92,7 +104,18 @@ export function UsersTable({
     {
       header: 'Último Acceso',
       sortKey: 'lastaccess',
-      cell: (row) => <span className="text-xs text-muted-foreground">{formatDate(row.lastaccess)}</span>
+      cell: (row) => {
+        const dateOnly = formatDateOnly(row.lastaccess);
+        const isNever = dateOnly === 'Nunca';
+        return (
+          <span
+            title={isNever ? 'Sin accesos registrados' : formatDate(row.lastaccess)}
+            className={isNever ? 'text-xs text-muted-foreground/60 italic whitespace-nowrap' : 'text-xs text-muted-foreground whitespace-nowrap'}
+          >
+            {dateOnly}
+          </span>
+        );
+      }
     },
     {
       header: 'Acciones',

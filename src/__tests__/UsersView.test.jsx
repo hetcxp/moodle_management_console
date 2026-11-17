@@ -4,6 +4,7 @@ import { screen, waitFor, fireEvent } from '@testing-library/react';
 import { renderWithProviders } from '../test-utils';
 import { UsersView } from '../views/UsersView';
 import { AdminerApi } from '../services/adminer-api';
+import { formatDate, formatDateOnly } from '../lib/utils';
 
 // Mock the API
 vi.mock('../services/adminer-api', () => import('./__mocks__/adminer-api'));
@@ -33,6 +34,7 @@ describe('UsersView', () => {
           is_admin: 0,
           lastaccess: 1725148800,
           cohorts_count: 1,
+          competencies_count: 3,
           enrolled_courses: 2,
           completed_courses: 1,
           progress: 50
@@ -47,6 +49,15 @@ describe('UsersView', () => {
     });
 
     expect(screen.getByTitle('Enviar link de contraseña temporal')).toBeDefined();
+    expect(screen.getByLabelText('Cohortes: 1')).toBeDefined();
+    expect(screen.getByLabelText('Competencias: 3')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Estado' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Cohortes' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Competencias' })).toBeDefined();
+
+    const lastAccessEl = screen.getByText(formatDateOnly(1725148800));
+    expect(lastAccessEl).toBeDefined();
+    expect(lastAccessEl.getAttribute('title')).toBe(formatDate(1725148800));
   });
 
   it('renders add user modal with email as username and create/send password checkboxes', async () => {
