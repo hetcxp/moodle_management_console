@@ -8,11 +8,16 @@ import { CohortDetailView } from '../views/CohortDetailView';
 import { CourseUserDetailView } from '../views/CourseUserDetailView';
 import { CourseDetailView } from '../views/CourseDetailView';
 import { AdminerApi } from '../services/adminer-api';
-import { exportToCsv } from '../components/CsvExporter';
+import { exportToCsv, sanitizeCsvFilename } from '../components/CsvExporter';
+import { formatDate, formatDateOnly } from '../lib/utils';
 
-vi.mock('../components/CsvExporter', () => ({
-  exportToCsv: vi.fn(),
-}));
+vi.mock('../components/CsvExporter', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    exportToCsv: vi.fn(),
+  };
+});
 
 // Mock AdminerApi
 vi.mock('../services/adminer-api', () => ({
@@ -84,7 +89,28 @@ vi.mock('../services/adminer-api', () => ({
       progress: 0,
       enrolledcount: 2,
       users: [
-        { id: 42, fullname: 'John Doe', email: 'jdoe@example.com', progress: 75, status: 0, roles: 'student', enrolstatus: 0, enrolments: [] }
+        {
+          id: 42,
+          fullname: 'John Doe',
+          email: 'jdoe@example.com',
+          progress: 75,
+          status: 0,
+          roles: 'student',
+          enrolstatus: 0,
+          lastaccess: 1725148800,
+          enrolments: [{ method: 'manual', status: 0, timestart: 1725148800, timeend: 0 }]
+        },
+        {
+          id: 43,
+          fullname: 'Jane Roe',
+          email: 'jroe@example.com',
+          progress: 0,
+          status: 0,
+          roles: 'student',
+          enrolstatus: 0,
+          lastaccess: 0,
+          enrolments: []
+        }
       ],
       cohorts: [],
       coursegroups: [],
@@ -327,6 +353,14 @@ describe('Detail Views Integration (TD-012)', () => {
     });
 
     expect(screen.getByText('John Doe')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Nombre' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Rol' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Método' })).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Ordenar por Estado' })).toBeDefined();
+    const lastAccessCell = screen.getByTitle(formatDate(1725148800));
+    expect(lastAccessCell.textContent).toBe(formatDateOnly(1725148800));
+    const neverCell = screen.getByTitle('Sin accesos registrados');
+    expect(neverCell.textContent).toBe('Nunca');
   });
 
   it('allows editing course fullname, shortname and dates in CourseDetailView', async () => {
@@ -479,11 +513,18 @@ describe('Detail Views Integration (TD-012)', () => {
       expect(screen.getByText('Usuarios Matriculados')).toBeDefined();
     });
 
-    const userRow = screen.getByTitle('Ver detalle del usuario');
+    const userRow = screen.getAllByTitle('Ver detalle del usuario')[0];
     expect(userRow).toBeDefined();
     fireEvent.click(userRow);
 
     expect(onNavigateToDetail).toHaveBeenCalledWith('user', 42);
+  });
+
+  it('sanitizes CSV filenames stripping leading/trailing underscores and special characters', () => {
+    expect(sanitizeCsvFilename('  __Mi Reporte (2026)!__  ')).toBe('mi_reporte_2026');
+    expect(sanitizeCsvFilename('REACT-101_Usuario')).toBe('react-101_usuario');
+    expect(sanitizeCsvFilename('___')).toBe('export');
+    expect(sanitizeCsvFilename('')).toBe('export');
   });
 });
 

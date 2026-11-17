@@ -49,10 +49,12 @@ class course_enrolment_repository {
                    MIN(ue.timestart) as timestart,
                    MAX(ue.timeend) as timeend,
                    MIN(ue.timecreated) as timecreated,
+                   MAX(COALESCE(ula.timeaccess, 0)) as lastaccess,
                    COALESCE(ccmp.timecompleted, 0) as timecompleted
               FROM {user} u
               JOIN {user_enrolments} ue ON ue.userid = u.id
               JOIN {enrol} e ON e.id = ue.enrolid
+         LEFT JOIN {user_lastaccess} ula ON ula.userid = u.id AND ula.courseid = e.courseid
          LEFT JOIN {course_completions} ccmp ON ccmp.userid = u.id AND ccmp.course = e.courseid
              WHERE e.courseid = :courseid AND u.deleted = 0
           GROUP BY u.id, u.firstname, u.lastname, u.email,

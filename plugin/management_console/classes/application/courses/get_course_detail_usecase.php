@@ -145,6 +145,7 @@ class get_course_detail_usecase {
             'status'     => $status,
             'timestart'  => self::resolve_timestart($u),
             'timeend'    => $timeend,
+            'lastaccess' => isset($u->lastaccess) ? (int)$u->lastaccess : 0,
             'enrolments' => self::resolve_user_enrolments($uid, $maps['enrolments']),
             'cohortids'  => self::resolve_cohorts_str($uid, $maps['cohorts']),
             'roles'      => self::resolve_roles_str($uid, $maps['roles']),

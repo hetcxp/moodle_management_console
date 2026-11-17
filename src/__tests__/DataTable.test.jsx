@@ -188,6 +188,7 @@ describe('DataTable component', () => {
 
     const group = screen.getByRole('group', { name: 'Ordenar Estado' });
     expect(group).toBeDefined();
+    expect(screen.getByRole('columnheader', { name: /Estado/i }).getAttribute('aria-sort')).toBe('ascending');
 
     const statusBtn = screen.getByRole('button', { name: 'Ordenar por Estado' });
     const cohortsBtn = screen.getByRole('button', { name: 'Ordenar por Cohortes' });
@@ -212,7 +213,33 @@ describe('DataTable component', () => {
       />
     );
 
+    expect(screen.getByRole('columnheader', { name: /Estado/i }).getAttribute('aria-sort')).toBe('descending');
     expect(screen.getByRole('button', { name: 'Ordenar por Cohortes' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'Ordenar por Estado' }).getAttribute('aria-pressed')).toBe('false');
+
+    rerender(
+      <DataTable
+        columns={columnsWithSortOptions}
+        data={sampleData}
+        sort="other_col"
+        dir="ASC"
+        onSortChange={handleSortChange}
+      />
+    );
+
+    expect(screen.getByRole('columnheader', { name: /Estado/i }).getAttribute('aria-sort')).toBe('none');
+  });
+
+  it('exposes aria-live="polite" on pagination summary', () => {
+    render(
+      <DataTable
+        columns={sampleColumns}
+        data={sampleData}
+        totalCount={2}
+      />
+    );
+
+    const summary = screen.getByText(/resultados/i).closest('div');
+    expect(summary?.getAttribute('aria-live')).toBe('polite');
   });
 });

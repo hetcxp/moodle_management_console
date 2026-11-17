@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/Badge';
 import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
-import { formatDateOnly } from '../../lib/utils';
+import { formatDate, formatDateOnly } from '../../lib/utils';
 import { useToast } from '../../components/ui/Toast';
 import { AdminerApi } from '../../services/adminer-api';
 import { exportToCsv } from '../../components/CsvExporter';
@@ -186,18 +186,25 @@ export const UserCoursesTab = ({
       accessor: (row) => row.enrolments?.[0]?.method || '',
       sortKey: 'enrolMethod',
       cell: (row) => (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           {row.enrolments?.length > 0 ? (
-            row.enrolments.map((enr, i) => (
-              <div key={i} className="flex items-center gap-2">
-                {getEnrolmentIcon(enr.method, i)}
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {formatDateOnly(enr.timestart)} - {enr.timeend ? formatDateOnly(enr.timeend) : 'Sin límite'}
-                </span>
-              </div>
-            ))
+            row.enrolments.map((enr, i) => {
+              const startFull = formatDate(enr.timestart);
+              const endFull = enr.timeend ? formatDate(enr.timeend) : 'Sin límite';
+              return (
+                <div key={i} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  {getEnrolmentIcon(enr.method, i)}
+                  <span
+                    className="text-xs text-muted-foreground whitespace-nowrap"
+                    title={`${startFull} - ${endFull}`}
+                  >
+                    {formatDateOnly(enr.timestart)} - {enr.timeend ? formatDateOnly(enr.timeend) : 'Sin límite'}
+                  </span>
+                </div>
+              );
+            })
           ) : (
-            <span className="text-sm text-muted-foreground">-</span>
+            <span className="text-xs text-muted-foreground">-</span>
           )}
         </div>
       )

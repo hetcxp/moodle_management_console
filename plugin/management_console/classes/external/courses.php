@@ -394,6 +394,7 @@ class courses extends external_api {
                     'status' => new external_value(PARAM_INT, 'Enrolment status (0=active, 1=suspended)'),
                     'timestart' => new external_value(PARAM_INT, 'Enrolment start time'),
                     'timeend' => new external_value(PARAM_INT, 'Enrolment end time'),
+                    'lastaccess' => new external_value(PARAM_INT, 'User last access to course', VALUE_DEFAULT, 0),
                     'enrolments' => new external_multiple_structure(
                         new external_single_structure([
                             'method' => new external_value(PARAM_ALPHANUMEXT, 'Enrol method'),

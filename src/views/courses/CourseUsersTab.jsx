@@ -5,11 +5,11 @@ import { Badge } from '../../components/ui/Badge';
 import { DataTable } from '../../components/DataTable';
 import { Dialog } from '../../components/ui/Dialog';
 import { Input } from '../../components/ui/Input';
-import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers } from 'lucide-react';
+import { Users, Trash2, Ban, Check, CalendarClock, UserCog, UserPlus, HelpCircle, MessageSquare, Download, Layers, ShieldCheck } from 'lucide-react';
 import { PermissionGate, LicensedActionButton } from '../../components/PermissionGate';
 import { useCourseUserActions } from '../../hooks/useCourseUserActions';
 import { useBulkSelection } from '../../hooks/useBulkSelection';
-import { formatDateOnly } from '../../lib/utils';
+import { formatDate, formatDateOnly } from '../../lib/utils';
 
 const ROLE_MAP = {
   student: 'Estudiante',
@@ -35,9 +35,14 @@ export const CourseUsersTab = ({
   // Compute sorting once to pass to hook and local grid
   const sortedUsers = useMemo(() => {
     if (!users) return [];
+    const getSortValue = (item, key) => {
+      if (key === 'enrolMethod') return item.enrolments?.[0]?.method || '';
+      if (key === 'lastaccess') return Number(item.lastaccess || 0);
+      return item[key] ?? '';
+    };
     return [...users].sort((a, b) => {
-      let aVal = a[sortUserKey] ?? '';
-      let bVal = b[sortUserKey] ?? '';
+      const aVal = getSortValue(a, sortUserKey);
+      const bVal = getSortValue(b, sortUserKey);
 
       if (aVal === bVal) return 0;
       if (typeof aVal === 'number' && typeof bVal === 'number') {
@@ -87,11 +92,31 @@ export const CourseUsersTab = ({
     }
   };
 
+  const renderEnrolmentBadge = (enr, i) => {
+    const startTitle = formatDate(enr.timestart);
+    const endTitle = enr.timeend ? formatDate(enr.timeend) : 'Sin límite';
+    return (
+      <div key={i} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        {getEnrolmentIcon(enr.method, i)}
+        <span
+          className="text-xs text-muted-foreground whitespace-nowrap"
+          title={`${startTitle} - ${endTitle}`}
+        >
+          {formatDateOnly(enr.timestart)} - {enr.timeend ? formatDateOnly(enr.timeend) : 'Sin límite'}
+        </span>
+      </div>
+    );
+  };
+
   const usersCols = [
     {
       header: 'Usuario',
-      sortKey: 'fullname',
+      filterKey: 'fullname',
       filterType: 'text',
+      sortOptions: [
+        { key: 'fullname', label: 'Nombre', icon: Users },
+        { key: 'roles', label: 'Rol', icon: ShieldCheck },
+      ],
       extraFilters: [
         {
           key: 'roles',
@@ -151,13 +176,17 @@ export const CourseUsersTab = ({
     {
       header: 'Matriculaciones',
       accessor: (row) => row.enrolments?.[0]?.method || '',
-      sortKey: 'enrolMethod',
+      filterKey: 'enrolMethod',
       filterType: 'select',
       filterOptions: [
         { label: 'Manual', value: 'manual' },
         { label: 'Cohorte', value: 'cohort' },
         { label: 'Auto-matriculación', value: 'self' },
         { label: 'Invitado', value: 'guest' }
+      ],
+      sortOptions: [
+        { key: 'enrolMethod', label: 'Método', icon: Layers },
+        { key: 'status', label: 'Estado', icon: ShieldCheck },
       ],
       extraFilters: [
         {
@@ -172,30 +201,16 @@ export const CourseUsersTab = ({
         }
       ],
       cell: (row) => (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex flex-col gap-1">
+          <div className="inline-flex items-center gap-2 whitespace-nowrap">
             <Badge variant={row.status === 0 ? 'success' : 'destructive'}>
               {row.status === 0 ? 'Activo' : 'Suspendido'}
             </Badge>
-            {row.enrolments?.length === 1 && (
-              <div className="flex items-center gap-1.5">
-                {getEnrolmentIcon(row.enrolments[0].method, 0)}
-                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDateOnly(row.enrolments[0].timestart)} - {row.enrolments[0].timeend ? formatDateOnly(row.enrolments[0].timeend) : 'Sin límite'}
-                </span>
-              </div>
-            )}
+            {row.enrolments?.length === 1 && renderEnrolmentBadge(row.enrolments[0], 0)}
           </div>
           {row.enrolments?.length > 1 && (
             <div className="flex flex-col gap-1">
-              {row.enrolments.map((enr, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  {getEnrolmentIcon(enr.method, i)}
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDateOnly(enr.timestart)} - {enr.timeend ? formatDateOnly(enr.timeend) : 'Sin límite'}
-                  </span>
-                </div>
-              ))}
+              {row.enrolments.map((enr, i) => renderEnrolmentBadge(enr, i))}
             </div>
           )}
           {(!row.enrolments || row.enrolments.length === 0) && (
@@ -203,6 +218,22 @@ export const CourseUsersTab = ({
           )}
         </div>
       )
+    },
+    {
+      header: 'Último Acceso',
+      sortKey: 'lastaccess',
+      cell: (r) => {
+        const dateOnly = formatDateOnly(r.lastaccess);
+        const isNever = dateOnly === 'Nunca';
+        return (
+          <span
+            title={isNever ? 'Sin accesos registrados' : formatDate(r.lastaccess)}
+            className={isNever ? 'text-xs text-muted-foreground/60 italic whitespace-nowrap' : 'text-xs text-muted-foreground whitespace-nowrap'}
+          >
+            {dateOnly}
+          </span>
+        );
+      }
     },
     {
       header: 'Acciones',

@@ -13,7 +13,7 @@ export const DataTablePagination = ({
 }) => {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border/70 bg-muted/20 text-xs text-muted-foreground">
-      <div>
+      <div aria-live="polite" aria-atomic="true">
         Mostrando <span className="font-semibold text-foreground">{currentDataLength > 0 ? page * perPage + 1 : 0}</span> a{' '}
         <span className="font-semibold text-foreground">{Math.min((page + 1) * perPage, displayTotalCount)}</span> de{' '}
         <span className="font-semibold text-foreground">{displayTotalCount}</span> resultados

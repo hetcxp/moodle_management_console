@@ -179,6 +179,9 @@ export const DataTable = memo(({
                   const isSortable = !hasSortOptions && !!col.sortKey;
                   const isCurrentSort = sort === col.sortKey;
                   const activeSortOpt = hasSortOptions ? col.sortOptions.find((opt) => opt.key === sort) : null;
+                  const ariaSortValue = isSortable
+                    ? (isCurrentSort ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none')
+                    : (hasSortOptions ? (activeSortOpt ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none') : undefined);
                   const isFilterable = !!col.filterType && typeof filterKey === 'string';
                   const hasActiveFilter = isFilterable && localFilters[filterKey] !== undefined && localFilters[filterKey] !== '';
 
@@ -186,11 +189,7 @@ export const DataTable = memo(({
                     <th
                       key={idx}
                       scope="col"
-                      aria-sort={
-                        isSortable
-                          ? (isCurrentSort ? (dir === 'ASC' ? 'ascending' : 'descending') : 'none')
-                          : (activeSortOpt ? (dir === 'ASC' ? 'ascending' : 'descending') : undefined)
-                      }
+                      aria-sort={ariaSortValue}
                       className={cn(
                         'px-4 py-3.5 select-none relative',
                         isSortable && 'hover:bg-muted/70 hover:text-foreground cursor-pointer',

@@ -8,7 +8,7 @@ import { UserCohortsTab } from '../views/users/UserCohortsTab';
 import { UserEvidencesTab } from '../views/users/UserEvidencesTab';
 import { ToastProvider } from '../components/ui/Toast';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { formatDateOnly } from '../lib/utils';
+import { formatDate, formatDateOnly } from '../lib/utils';
 
 // Mock AdminerApi
 vi.mock('../services/adminer-api', () => ({
@@ -645,9 +645,11 @@ describe('Refactor Vista Detalle de Usuario', () => {
     expect(screen.getByText('Curso Paginado 20')).toBeDefined();
     expect(screen.queryByText('Curso Paginado 21')).toBeNull();
 
-    // Formato de fechas con formatDateOnly (sin incluir hora HH:MM)
+    // Formato de fechas con formatDateOnly (sin incluir hora HH:MM) y title completo con formatDate
     const expectedFormattedDate = formatDateOnly(1700000000);
-    expect(screen.getAllByText(new RegExp(expectedFormattedDate)).length).toBeGreaterThan(0);
+    const dateRanges = screen.getAllByText(new RegExp(expectedFormattedDate));
+    expect(dateRanges.length).toBeGreaterThan(0);
+    expect(dateRanges[0].getAttribute('title')).toBe(`${formatDate(1700000000)} - ${formatDate(1700086400)}`);
     expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull();
 
     // Clic en Siguiente cambia a página 2 con 9 cursos restantes

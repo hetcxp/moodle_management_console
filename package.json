@@ -18,7 +18,7 @@
     "dev:byg": "vite --mode byg",
     "dev:goacademy": "vite --mode goacademy",
     "dev:muller": "vite --mode muller",
-    "build": "vite build",
+    "build": "vite build && vite build --mode moodle",
     "build:moodle": "vite build --mode moodle",
     "preview": "vite preview",
     "predeploy": "npm run build",

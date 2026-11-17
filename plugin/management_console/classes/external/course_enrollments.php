@@ -268,6 +268,8 @@ class course_enrollments extends external_api {
         $modinfo = get_fast_modinfo($course);
         $cms = $modinfo->get_cms();
 
+        [$gradeitemsmap, $gradegradesmap] = self::preload_course_user_grades((int)$course->id, (int)$user->id);
+
         $activities = [];
         $completedcount = 0;
         $totaltracked = 0;
@@ -283,7 +285,8 @@ class course_enrollments extends external_api {
                 $cm,
                 $completion,
                 (int)$user->id,
-                (int)$course->id,
+                $gradeitemsmap,
+                $gradegradesmap,
                 $completedcount,
                 $totaltracked
             );
@@ -345,12 +348,56 @@ class course_enrollments extends external_api {
     }
 
     /**
+     * Batch-preload module grade items for a course and grades for a user to avoid N+1 queries.
+     *
+     * @param int $courseid Course ID.
+     * @param int $userid User ID.
+     * @return array [gradeitemsmap, gradegradesmap]
+     */
+    private static function preload_course_user_grades(int $courseid, int $userid): array {
+        global $DB;
+
+        $gradeitemsmap = [];
+        $gradegradesmap = [];
+
+        $allgradeitems = \grade_item::fetch_all(['courseid' => $courseid, 'itemtype' => 'mod']);
+        if (!$allgradeitems) {
+            return [$gradeitemsmap, $gradegradesmap];
+        }
+
+        $giids = [];
+        foreach ($allgradeitems as $gi) {
+            $key = $gi->itemmodule . ':' . $gi->iteminstance . ':' . (int)$gi->itemnumber;
+            $gradeitemsmap[$key] = $gi;
+            $giids[] = (int)$gi->id;
+        }
+
+        if (!empty($giids)) {
+            [$insql, $inparams] = $DB->get_in_or_equal($giids, SQL_PARAMS_NAMED);
+            $inparams['userid'] = $userid;
+            $records = $DB->get_records_select(
+                'grade_grades',
+                "itemid $insql AND userid = :userid",
+                $inparams,
+                '',
+                'id, itemid, finalgrade'
+            );
+            foreach ($records as $rec) {
+                $gradegradesmap[(int)$rec->itemid] = $rec;
+            }
+        }
+
+        return [$gradeitemsmap, $gradegradesmap];
+    }
+
+    /**
      * Build activity item data structure including completion and grade.
      *
      * @param \cm_info $cm Course module.
      * @param \completion_info $completion Completion info instance.
      * @param int $userid User ID.
-     * @param int $courseid Course ID.
+     * @param array $gradeitemsmap Preloaded grade_item instances keyed by module:instance:itemnumber.
+     * @param array $gradegradesmap Preloaded grade records keyed by itemid.
      * @param int $completedcount Completed activities counter (by reference).
      * @param int $totaltracked Tracked activities counter (by reference).
      * @return array Activity item.
@@ -359,7 +406,8 @@ class course_enrollments extends external_api {
         \cm_info $cm,
         \completion_info $completion,
         int $userid,
-        int $courseid,
+        array $gradeitemsmap,
+        array $gradegradesmap,
         int &$completedcount,
         int &$totaltracked
     ): array {
@@ -384,37 +432,47 @@ class course_enrollments extends external_api {
             }
         }
 
-        $act['grade'] = self::get_activity_grade($cm, $courseid, $userid);
+        $act['grade'] = self::get_activity_grade($cm, $gradeitemsmap, $gradegradesmap);
 
         return $act;
     }
 
     /**
-     * Fetch formatted grade for activity if supported.
+     * Resolve formatted grade for activity from preloaded grade maps if supported.
      *
      * @param \cm_info $cm Course module.
-     * @param int $courseid Course ID.
-     * @param int $userid User ID.
+     * @param array $gradeitemsmap Preloaded grade_item instances keyed by module:instance:itemnumber.
+     * @param array $gradegradesmap Preloaded grade records keyed by itemid.
      * @return string Formatted grade or empty string.
      */
-    private static function get_activity_grade(\cm_info $cm, int $courseid, int $userid): string {
+    private static function get_activity_grade(\cm_info $cm, array $gradeitemsmap, array $gradegradesmap): string {
         if (!plugin_supports('mod', $cm->modname, FEATURE_GRADE_HAS_GRADE, false)) {
             return '';
         }
-        $gradeitem = \grade_item::fetch([
-            'itemtype' => 'mod',
-            'itemmodule' => $cm->modname,
-            'iteminstance' => $cm->instance,
-            'courseid' => $courseid,
-        ]);
-        if (!$gradeitem) {
+        $key = "{$cm->modname}:{$cm->instance}:0";
+        if (!isset($gradeitemsmap[$key])) {
             return '';
         }
-        $gradegrade = \grade_grade::fetch(['itemid' => $gradeitem->id, 'userid' => $userid]);
-        if ($gradegrade && !is_null($gradegrade->finalgrade)) {
-            return (string)format_float($gradegrade->finalgrade, $gradeitem->get_decimals());
+        $gradeitem = $gradeitemsmap[$key];
+        $itemid = (int)$gradeitem->id;
+        if (!isset($gradegradesmap[$itemid])) {
+            return '';
         }
-        return '';
+        return self::format_grade_value($gradegradesmap[$itemid], $gradeitem->get_decimals());
+    }
+
+    /**
+     * Format a raw grade record finalgrade value.
+     *
+     * @param object $gradegrade Grade record containing finalgrade.
+     * @param int $decimals Number of decimal places from grade_item.
+     * @return string Formatted grade or empty string.
+     */
+    private static function format_grade_value(object $gradegrade, int $decimals): string {
+        if ($gradegrade->finalgrade === null) {
+            return '';
+        }
+        return (string)format_float($gradegrade->finalgrade, $decimals);
     }
 
     /**

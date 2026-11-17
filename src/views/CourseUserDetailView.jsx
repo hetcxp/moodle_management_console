@@ -4,14 +4,18 @@ import { useCourseUserDetail, useCourseUserAction, useCourseDetail } from '../ho
 import { useToast } from '../components/ui/Toast';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
-import { DataTable } from '../components/DataTable';
 import { Dialog } from '../components/ui/Dialog';
 import { Input } from '../components/ui/Input';
-import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, CheckCircle2, XCircle, FileText, ExternalLink, BookOpen, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, User, Ban, Check, CalendarClock, Trash2, Mail, ExternalLink, BookOpen } from 'lucide-react';
 import { PermissionGate, LicensedActionButton } from '../components/PermissionGate';
 import { navigateToDetail } from '../lib/navigation';
 import { formatDate as formatAppDate } from '../lib/utils';
-import { exportToCsv } from '../components/CsvExporter';
+import { exportToCsv, sanitizeCsvFilename } from '../components/CsvExporter';
+import {
+  CourseUserActivitiesSection,
+  formatActivityName,
+  getCompletionStatusText,
+} from './courses/CourseUserActivitiesSection';
 
 export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDetail, parentLabel }) => {
   const [, setLocation] = useLocation();
@@ -95,32 +99,6 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
     return formatAppDate(timestamp);
   };
 
-  const formatActivityName = (modname) => {
-    const names = {
-      assign: 'Tarea',
-      quiz: 'Cuestionario',
-      forum: 'Foro',
-      scorm: 'Paquete SCORM',
-      page: 'Página',
-      resource: 'Archivo',
-      url: 'URL',
-      folder: 'Carpeta',
-      label: 'Etiqueta',
-      book: 'Libro',
-      lesson: 'Lección',
-      feedback: 'Retroalimentación',
-      choice: 'Consulta',
-      glossary: 'Glosario'
-    };
-    return names[modname] || modname;
-  };
-
-  const getCompletionStatusText = (status) => {
-    if (status === 1 || status === 2) return 'Completado';
-    if (status === 3) return 'Fallado';
-    return 'Incompleto';
-  };
-
   const sortedActivities = useMemo(() => {
     const rawActivities = data?.activities || [];
     if (!sortKey) return rawActivities;
@@ -163,7 +141,7 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
       { label: 'Calificación', accessor: (row) => (row.grade !== '' && row.grade != null ? row.grade : '-') }
     ];
     const courseSlug = (course?.shortname || `curso_${courseId}`).replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    exportToCsv(`${courseSlug}_usuario_${userId}_actividades`, sortedActivities, cols);
+    exportToCsv(sanitizeCsvFilename(`${courseSlug}_usuario_${userId}_actividades`), sortedActivities, cols);
   };
 
   if (loading && !data) {
@@ -177,65 +155,6 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
   if (!data) return null;
 
   const user = data.user;
-
-  const activitiesCols = [
-    {
-      header: 'Actividad',
-      sortKey: 'name',
-      cell: (row) => (
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <FileText className="h-4 w-4" />
-          </div>
-          <div>
-            <div className="font-medium text-foreground">{row.name}</div>
-            <div className="text-xs text-muted-foreground">{formatActivityName(row.modname)}</div>
-          </div>
-        </div>
-      )
-    },
-    {
-      header: 'Estado de Finalización',
-      sortKey: 'completionstatus',
-      cell: (row) => {
-        let icon = <XCircle className="h-4 w-4 text-muted-foreground" />;
-        let color = 'text-muted-foreground';
-        const text = getCompletionStatusText(row.completionstatus);
-
-        if (row.completionstatus === 1 || row.completionstatus === 2) {
-          icon = <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-          color = 'text-emerald-600';
-        } else if (row.completionstatus === 3) {
-          icon = <XCircle className="h-4 w-4 text-rose-500" />;
-          color = 'text-rose-600';
-        }
-
-        return (
-          <div className={`flex items-center gap-2 ${color} text-sm font-medium`}>
-            {icon} {text}
-          </div>
-        );
-      }
-    },
-    {
-      header: 'Fecha de Finalización',
-      sortKey: 'timecompleted',
-      cell: (row) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDate(row.timecompleted)}
-        </span>
-      )
-    },
-    {
-      header: 'Calificación',
-      sortKey: 'grade',
-      cell: (row) => (
-        <span className="font-medium text-foreground">
-          {row.grade !== '' ? row.grade : '-'}
-        </span>
-      )
-    }
-  ];
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -410,32 +329,15 @@ export const CourseUserDetailView = ({ courseId, userId, onBack, onNavigateToDet
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-base font-semibold text-foreground">Actividades del Curso</h3>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportActivities}
-              disabled={sortedActivities.length === 0}
-              className="gap-1.5"
-              title="Exportar a CSV"
-            >
-              <Download className="h-4 w-4" />
-              <span>Exportar CSV</span>
-            </Button>
-          </div>
-
-          <DataTable
-            columns={activitiesCols}
-            data={sortedActivities}
-            totalCount={sortedActivities.length}
-            sort={sortKey}
-            dir={sortDir}
+          <CourseUserActivitiesSection
+            activities={sortedActivities}
+            sortKey={sortKey}
+            sortDir={sortDir}
             onSortChange={(key, dir) => {
               setSortKey(key);
               setSortDir(dir);
             }}
-            selectable={false}
+            onExportActivities={handleExportActivities}
           />
         </div>
       )}

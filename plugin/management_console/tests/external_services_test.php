@@ -766,4 +766,50 @@ class external_services_test extends advanced_testcase {
         $this->assertArrayHasKey('activities', $cleaned);
         $this->assertCount(2, $cleaned['activities']);
     }
+
+    /**
+     * Test get_course_user_detail resolves batch-preloaded activity grades accurately.
+     */
+    public function test_get_course_user_detail_batch_grades(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/gradelib.php');
+
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $user = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
+
+        $assign1 = $this->getDataGenerator()->create_module('assign', [
+            'course' => $course->id,
+            'name' => 'Graded Assign',
+            'grade' => 100,
+        ]);
+        $assign2 = $this->getDataGenerator()->create_module('assign', [
+            'course' => $course->id,
+            'name' => 'Ungraded Assign',
+            'grade' => 100,
+        ]);
+
+        $gi = \grade_item::fetch([
+            'courseid' => $course->id,
+            'itemtype' => 'mod',
+            'itemmodule' => 'assign',
+            'iteminstance' => $assign1->id,
+        ]);
+        $this->assertNotFalse($gi);
+        $gi->update_final_grade($user->id, 87.5, 'test');
+
+        $result = \tool_management_console\external\course_enrollments::get_course_user_detail($course->id, $user->id);
+        $byname = [];
+        foreach ($result['activities'] as $act) {
+            $byname[$act['name']] = $act;
+        }
+
+        $this->assertArrayHasKey('Graded Assign', $byname);
+        $this->assertArrayHasKey('Ungraded Assign', $byname);
+        $this->assertSame(format_float(87.5, $gi->get_decimals()), $byname['Graded Assign']['grade']);
+        $this->assertSame('', $byname['Ungraded Assign']['grade']);
+    }
 }
