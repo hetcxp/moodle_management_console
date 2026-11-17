@@ -259,27 +259,7 @@ class course_enrollments extends external_api {
 
         // Enrolment Data.
         $enrolmentsrs = course_repository::get_course_user_enrolments($course->id, $user->id);
-        $enrolments = [];
-        $status = 1; // Default suspended.
-        $timestart = 0;
-        $timeend = 0;
-        foreach ($enrolmentsrs as $ue) {
-            $enrolments[] = [
-                'method' => (string)$ue->method,
-                'status' => (int)$ue->status,
-                'timestart' => (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated,
-                'timeend' => (int)$ue->timeend,
-            ];
-            if ($ue->status == 0) {
-                $status = 0;
-            }
-            if ($timestart == 0 || ($ue->timestart > 0 && $ue->timestart < $timestart)) {
-                $timestart = (int)$ue->timestart > 0 ? (int)$ue->timestart : (int)$ue->timecreated;
-            }
-            if ($timeend == 0 || ($ue->timeend > 0 && $ue->timeend > $timeend)) {
-                $timeend = (int)$ue->timeend;
-            }
-        }
+        [$enrolments, $status, $timestart, $timeend] = self::parse_enrolments($enrolmentsrs);
 
         // Access Logs.
         [$firstaccess, $lastaccess] = course_repository::get_course_user_first_and_last_access($course->id, $user->id);
@@ -299,41 +279,14 @@ class course_enrollments extends external_api {
                 continue;
             }
 
-            $act = [
-                'id' => (int)$cm->id,
-                'name' => (string)$cm->name,
-                'modname' => (string)$cm->modname,
-                'completionstatus' => 0,
-                'grade' => '',
-            ];
-
-            if ($completion->is_enabled($cm) != COMPLETION_TRACKING_NONE) {
-                $totaltracked++;
-                $cdata = $completion->get_data($cm, false, $user->id);
-                $act['completionstatus'] = (int)$cdata->completionstate;
-                $iscomplete = ($cdata->completionstate == COMPLETION_COMPLETE
-                    || $cdata->completionstate == COMPLETION_COMPLETE_PASS);
-                if ($iscomplete) {
-                    $completedcount++;
-                }
-            }
-
-            if (plugin_supports('mod', $cm->modname, FEATURE_GRADE_HAS_GRADE, false)) {
-                $gradeitem = \grade_item::fetch([
-                    'itemtype' => 'mod',
-                    'itemmodule' => $cm->modname,
-                    'iteminstance' => $cm->instance,
-                    'courseid' => $course->id,
-                ]);
-                if ($gradeitem) {
-                    $gradegrade = \grade_grade::fetch(['itemid' => $gradeitem->id, 'userid' => $user->id]);
-                    if ($gradegrade && !is_null($gradegrade->finalgrade)) {
-                        $act['grade'] = (string)format_float($gradegrade->finalgrade, $gradeitem->get_decimals());
-                    }
-                }
-            }
-
-            $activities[] = $act;
+            $activities[] = self::build_activity_item(
+                $cm,
+                $completion,
+                (int)$user->id,
+                (int)$course->id,
+                $completedcount,
+                $totaltracked
+            );
         }
 
         $progress = $totaltracked > 0 ? round(($completedcount / $totaltracked) * 100) : 0;
@@ -349,6 +302,119 @@ class course_enrollments extends external_api {
             'enrolments' => $enrolments,
             'activities' => $activities,
         ];
+    }
+
+    /**
+     * Parse enrolment records to calculate status, timestart and timeend.
+     *
+     * @param array $enrolmentsrs Enrolment records.
+     * @return array [enrolments, status, timestart, timeend]
+     */
+    private static function parse_enrolments(array $enrolmentsrs): array {
+        $enrolments = [];
+        $status = 1;
+        $starts = [];
+        $ends = [];
+
+        foreach ($enrolmentsrs as $ue) {
+            $start = (int)($ue->timestart > 0 ? $ue->timestart : $ue->timecreated);
+            $end = (int)$ue->timeend;
+
+            $enrolments[] = [
+                'method' => (string)$ue->method,
+                'status' => (int)$ue->status,
+                'timestart' => $start,
+                'timeend' => $end,
+            ];
+
+            if ($ue->status == 0) {
+                $status = 0;
+            }
+            if ($start > 0) {
+                $starts[] = $start;
+            }
+            if ($end > 0) {
+                $ends[] = $end;
+            }
+        }
+
+        $timestart = !empty($starts) ? min($starts) : 0;
+        $timeend = !empty($ends) ? max($ends) : 0;
+
+        return [$enrolments, $status, $timestart, $timeend];
+    }
+
+    /**
+     * Build activity item data structure including completion and grade.
+     *
+     * @param \cm_info $cm Course module.
+     * @param \completion_info $completion Completion info instance.
+     * @param int $userid User ID.
+     * @param int $courseid Course ID.
+     * @param int $completedcount Completed activities counter (by reference).
+     * @param int $totaltracked Tracked activities counter (by reference).
+     * @return array Activity item.
+     */
+    private static function build_activity_item(
+        \cm_info $cm,
+        \completion_info $completion,
+        int $userid,
+        int $courseid,
+        int &$completedcount,
+        int &$totaltracked
+    ): array {
+        $act = [
+            'id' => (int)$cm->id,
+            'name' => (string)$cm->name,
+            'modname' => (string)$cm->modname,
+            'completionstatus' => 0,
+            'timecompleted' => 0,
+            'grade' => '',
+        ];
+
+        if ($completion->is_enabled($cm) != COMPLETION_TRACKING_NONE) {
+            $totaltracked++;
+            $cdata = $completion->get_data($cm, false, $userid);
+            $act['completionstatus'] = (int)$cdata->completionstate;
+            $iscomplete = ($cdata->completionstate == COMPLETION_COMPLETE
+                || $cdata->completionstate == COMPLETION_COMPLETE_PASS);
+            if ($iscomplete) {
+                $completedcount++;
+                $act['timecompleted'] = (int)($cdata->timemodified ?? 0);
+            }
+        }
+
+        $act['grade'] = self::get_activity_grade($cm, $courseid, $userid);
+
+        return $act;
+    }
+
+    /**
+     * Fetch formatted grade for activity if supported.
+     *
+     * @param \cm_info $cm Course module.
+     * @param int $courseid Course ID.
+     * @param int $userid User ID.
+     * @return string Formatted grade or empty string.
+     */
+    private static function get_activity_grade(\cm_info $cm, int $courseid, int $userid): string {
+        if (!plugin_supports('mod', $cm->modname, FEATURE_GRADE_HAS_GRADE, false)) {
+            return '';
+        }
+        $gradeitem = \grade_item::fetch([
+            'itemtype' => 'mod',
+            'itemmodule' => $cm->modname,
+            'iteminstance' => $cm->instance,
+            'courseid' => $courseid,
+        ]);
+        if (!$gradeitem) {
+            return '';
+        }
+        $gradegrade = \grade_grade::fetch(['itemid' => $gradeitem->id, 'userid' => $userid]);
+        if ($gradegrade && !is_null($gradegrade->finalgrade)) {
+            return (string)format_float($gradegrade->finalgrade, $gradeitem->get_decimals());
+        }
+        return '';
     }
 
     /**
@@ -383,6 +449,7 @@ class course_enrollments extends external_api {
                     'name' => new external_value(PARAM_TEXT, 'Activity name'),
                     'modname' => new external_value(PARAM_PLUGIN, 'Module name'),
                     'completionstatus' => new external_value(PARAM_INT, 'Completion status'),
+                    'timecompleted' => new external_value(PARAM_INT, 'Completion timestamp', VALUE_DEFAULT, 0),
                     'grade' => new external_value(PARAM_TEXT, 'Grade string'),
                 ])
             ),

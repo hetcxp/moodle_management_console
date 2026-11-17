@@ -704,4 +704,66 @@ class external_services_test extends advanced_testcase {
         $this->assertStringNotContainsString('renderer', $content);
         $this->assertStringNotContainsString('curl', $content);
     }
+
+    /**
+     * Test get_course_user_detail activities include timecompleted timestamp when completed and 0 when incomplete.
+     */
+    public function test_get_course_user_detail_activities_timecompleted(): void {
+        global $CFG;
+        require_once($CFG->libdir . '/completionlib.php');
+
+        $this->resetAfterTest(true);
+        $this->setAdminUser();
+
+        $CFG->enablecompletion = 1;
+        $course = $this->getDataGenerator()->create_course(['enablecompletion' => 1]);
+        $user = $this->getDataGenerator()->create_user();
+        $this->getDataGenerator()->enrol_user($user->id, $course->id, 'student');
+
+        $page1 = $this->getDataGenerator()->create_module('page', [
+            'course' => $course->id,
+            'name' => 'Completed Page',
+            'completion' => COMPLETION_TRACKING_MANUAL,
+        ]);
+        $page2 = $this->getDataGenerator()->create_module('page', [
+            'course' => $course->id,
+            'name' => 'Incomplete Page',
+            'completion' => COMPLETION_TRACKING_MANUAL,
+        ]);
+
+        $cm1 = get_coursemodule_from_instance('page', $page1->id);
+        $completion = new \completion_info($course);
+        $completion->update_state($cm1, COMPLETION_COMPLETE, $user->id);
+
+        $result = \tool_management_console\external\course_enrollments::get_course_user_detail($course->id, $user->id);
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('activities', $result);
+        $this->assertCount(2, $result['activities']);
+
+        $activitiesbyname = [];
+        foreach ($result['activities'] as $act) {
+            $activitiesbyname[$act['name']] = $act;
+        }
+
+        $this->assertArrayHasKey('Completed Page', $activitiesbyname);
+        $this->assertArrayHasKey('Incomplete Page', $activitiesbyname);
+
+        $completedact = $activitiesbyname['Completed Page'];
+        $incompleteact = $activitiesbyname['Incomplete Page'];
+
+        $this->assertArrayHasKey('timecompleted', $completedact);
+        $this->assertIsInt($completedact['timecompleted']);
+        $this->assertGreaterThan(0, $completedact['timecompleted']);
+
+        $this->assertArrayHasKey('timecompleted', $incompleteact);
+        $this->assertIsInt($incompleteact['timecompleted']);
+        $this->assertSame(0, $incompleteact['timecompleted']);
+
+        // Validate clean_returnvalue stability.
+        $returns = \tool_management_console\external\course_enrollments::get_course_user_detail_returns();
+        $cleaned = \core_external\external_api::clean_returnvalue($returns, $result);
+        $this->assertIsArray($cleaned);
+        $this->assertArrayHasKey('activities', $cleaned);
+        $this->assertCount(2, $cleaned['activities']);
+    }
 }
